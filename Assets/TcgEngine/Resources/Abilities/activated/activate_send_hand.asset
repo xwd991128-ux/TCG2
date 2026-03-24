@@ -32,8 +32,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 1
-  title: Charge
-  desc: Return a character to its owner's hand. Uses this creature's action.
+  title: "\u6536\u79DF"
+  desc: "(\u884C\u52A8)\u5C061\u5F20\u968F\u4ECE\u56DE\u5230\u5176\u62E5\u6709\u8005\u624B\u4E2D\u3002"

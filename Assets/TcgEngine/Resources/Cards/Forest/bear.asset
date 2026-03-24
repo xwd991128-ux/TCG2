@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: bear
   m_EditorClassIdentifier: 
   id: bear
-  title: Bear
+  title: "\u718A"
   art_full: {fileID: 21300000, guid: 4bb7ef8da368739459111618f0a429d6, type: 3}
   art_board: {fileID: 21300000, guid: 54b4e7c19097a8341a5b441a704f9176, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: d512ef5a37e7a1c4ebb5c337e37b96bd, type: 2}
-  text: <b>Play:</b> Gain Taunt or Fury
+  text: "<b>\u6253\u51FA:</b> \u83B7\u5F97\u5632\u8BBD\u6216\u72C2\u6012"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

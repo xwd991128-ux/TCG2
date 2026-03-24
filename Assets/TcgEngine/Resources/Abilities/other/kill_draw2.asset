@@ -30,8 +30,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Draw
-  desc: When you kill another character with this creature, draw 2 cards.
+  title: 
+  desc: "\u5F53\u8FD9\u4E2A\u751F\u7269\u6D88\u706D\u5176\u4ED6\u89D2\u8272\u65F6\uFF0C\u62BD2\u5F20\u724C\u3002"

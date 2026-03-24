@@ -34,5 +34,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Treasure
-  desc: Look at the next 7 cards in your deck, and take 2 into your hand.
+  title: "\u5B9D\u85CF"
+  desc: "\u67E5\u770B\u724C\u5E93\u9876\u90E87\u5F20\u724C\uFF0C\u5E76\u9009\u62E9\u5176\u4E2D2\u5F20\u52A0\u5165\u624B\u724C\u3002"

@@ -37,5 +37,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Bless
-  desc: On play, give +2/2 to another creature until your next turn.
+  title: "\u795D\u798F"
+  desc: "\u6253\u51FA\u65F6\uFF0C\u4F7F\u53E6\u4E00\u4E2A\u751F\u7269\u83B7\u5F97+2/2\uFF0C\u6301\u7EED\u5230\u4E0B\u4E2A\u56DE\u5408\u3002"

@@ -32,8 +32,9 @@ MonoBehaviour:
   caster_fx: {fileID: 0}
   target_fx: {fileID: 9125387663047351618, guid: b66600b51774daa49964ead5c6a00c49,
     type: 3}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Hot
-  desc: Deal 1 damage.
+  title: "\u706B\u7130"
+  desc: "\u9020\u62101\u70B9\u4F24\u5BB3\u3002"

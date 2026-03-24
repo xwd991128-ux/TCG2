@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: lava_beast
   m_EditorClassIdentifier: 
   id: lava_beast
-  title: Lava Beast
+  title: "\u7194\u5CA9\u517D"
   art_full: {fileID: 21300000, guid: 51d961cdbcb2f564ea854511cab2d4f9, type: 3}
   art_board: {fileID: 21300000, guid: bc7b86463ccd8fe469fb6033f021450d, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: e3d40ecfce3c72347933eff9a42b95a0, type: 2}
-  text: After playing a spell, gain +2 attack.
+  text: "\u6253\u51FA\u6CD5\u672F\u540E\uFF0C\u83B7\u5F97+2\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

@@ -32,8 +32,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Green Aura
-  desc: All Green characters gain +2 hp.
+  title: "\u7EFF\u8272\u5149\u73AF"
+  desc: "\u53CB\u65B9\u7EFF\u8272\u968F\u4ECE+2\u751F\u547D\u503C\u3002"

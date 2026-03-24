@@ -5,8 +5,6 @@ using UnityEngine;
 
 namespace TcgEngine.Client
 {
-    //Grants rewards for adventure solo mode
-
     public class RewardManager : MonoBehaviour
     {
         private bool reward_gained = false;
@@ -21,11 +19,41 @@ namespace TcgEngine.Client
         private void Start()
         {
             GameClient.Get().onGameEnd += OnGameEnd;
+            Debug.Log("RewardManager: Subscribed to onGameEnd");
         }
 
         void OnGameEnd(int winner)
         {
             int player_id = GameClient.Get().GetPlayerID();
+            Debug.Log("RewardManager: OnGameEnd called, winner=" + winner + ", player_id=" + player_id + ", game_mode=" + GameClient.game_settings.game_mode);
+            
+            if (GameClient.game_settings.game_mode == GameMode.GoldBattle)
+            {
+                Debug.Log("RewardManager: GoldBattle mode detected!");
+                if (winner < 0)
+                {
+                    Debug.Log("RewardManager: Draw game, no coins exchanged");
+                    return;
+                }
+                if (winner == player_id)
+                {
+                    Debug.Log("RewardManager: You are the winner!");
+                    if (Authenticator.Get().IsTest())
+                        GainGoldBattleRewardTest(true);
+                    if (Authenticator.Get().IsApi())
+                        GainGoldBattleRewardAPI(true);
+                }
+                else
+                {
+                    Debug.Log("RewardManager: You lost!");
+                    if (Authenticator.Get().IsTest())
+                        GainGoldBattleRewardTest(false);
+                    if (Authenticator.Get().IsApi())
+                        GainGoldBattleRewardAPI(false);
+                }
+                return;
+            }
+            
             if (GameClient.game_settings.game_type == GameType.Adventure && winner == player_id)
             {
                 UserData udata = Authenticator.Get().UserData;
@@ -38,6 +66,41 @@ namespace TcgEngine.Client
                         GainRewardAPI(level);
                 }
             }
+        }
+
+        private async void GainGoldBattleRewardTest(bool is_winner)
+        {
+            UserData udata = Authenticator.Get().UserData;
+            if (is_winner)
+            {
+                udata.coins += 100;
+                Debug.Log("Gold Battle: You won 100 coins! New total: " + udata.coins);
+            }
+            else
+            {
+                udata.coins -= 100;
+                if (udata.coins < 0) udata.coins = 0;
+                Debug.Log("Gold Battle: You lost 100 coins! New total: " + udata.coins);
+            }
+            await Authenticator.Get().SaveUserData();
+        }
+
+        private async void GainGoldBattleRewardAPI(bool is_winner)
+        {
+            bool success = await GainGoldBattleRewardAPI(is_winner ? 100 : -100);
+            reward_gained = success;
+        }
+
+        public async Task<bool> GainGoldBattleRewardAPI(int coins)
+        {
+            GoldBattleRewardRequest req = new GoldBattleRewardRequest();
+            req.coins = coins;
+
+            string url = ApiClient.ServerURL + "/users/goldbattle/reward/" + ApiClient.Get().UserID;
+            string json = ApiTool.ToJson(req);
+            WebResponse res = await ApiClient.Get().SendPostRequest(url, json);
+            Debug.Log("Gold Battle Reward API: coins=" + coins + ", success=" + res.success);
+            return res.success;
         }
 
         private async void GainRewardTest(LevelData level)

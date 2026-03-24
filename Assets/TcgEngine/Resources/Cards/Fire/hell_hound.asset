@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: hell_hound
   m_EditorClassIdentifier: 
   id: hell_hound
-  title: Hell Hound
+  title: "\u5730\u72F1\u730E\u72AC"
   art_full: {fileID: 21300000, guid: 43d12d7fe69d8b24f9ab25c9e19f97e9, type: 3}
   art_board: {fileID: 21300000, guid: ff9ceda86a1d1b34995e224a302cd5d9, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: ffaba7fb6f55c1f43bf7dd4a3aaab3b8, type: 2}
-  text: Fury
+  text: "<b>\u72C2\u6012</b>"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

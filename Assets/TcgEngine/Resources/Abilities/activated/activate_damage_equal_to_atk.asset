@@ -37,5 +37,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Fire
-  desc: Deal 2 damage. Cost 3 mana.
+  title: "\u706B\u7130"
+  desc: "\u9020\u62102\u70B9\u4F24\u5BB3\u3002\u6D88\u80173\u70B9\u6CD5\u529B\u3002"

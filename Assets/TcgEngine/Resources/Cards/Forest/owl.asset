@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: owl
   m_EditorClassIdentifier: 
   id: owl
-  title: Owl
+  title: "\u732B\u5934\u9E70"
   art_full: {fileID: 21300000, guid: 212af19a6da6d724ca7f5c132e5e0ab0, type: 3}
   art_board: {fileID: 21300000, guid: ae0882114f0ef6042ad3f7e7b57c15ba, type: 3}
   type: 10
@@ -26,8 +26,9 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 6578032be95e85d4b967393b25252f91, type: 2}
-  text: Silence target card.
-  desc: 
+  - {fileID: 11400000, guid: bd8a20981b906a34897ee485cfc1db6b, type: 2}
+  text: "<b>\u98DE\u884C</b>\n\u6C89\u9ED8\u76EE\u6807\u5361\u724C\u3002"
+  desc: "\u732B\u5934\u9E70\u662F\u68EE\u6797\u4E2D\u7684\u667A\u6167\u4E4B\u9E1F\uFF0C\u62E5\u6709\u98DE\u884C\u80FD\u529B\uFF0C\u5E76\u80FD\u6C89\u9ED8\u654C\u65B9\u5361\u724C\u7684\u6240\u6709\u6548\u679C\u3002" 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}
   death_fx: {fileID: 0}

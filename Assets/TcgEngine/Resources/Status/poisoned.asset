@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: poisoned
   m_EditorClassIdentifier: 
   effect: 34
-  title: Poisoned
+  title: "\u4E2D\u6BD2"
   icon: {fileID: 0}
-  desc: Each turn, will lose hp.
+  desc: "\u6BCF\u4E2A\u56DE\u5408\u5931\u53BB1\u70B9\u751F\u547D\u3002"
   status_fx: {fileID: 2865177547529958675, guid: 08ad2f4aab8ffdb40ace3902fe348812,
     type: 3}
   hvalue: -1

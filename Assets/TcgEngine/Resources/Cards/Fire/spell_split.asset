@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_split
   m_EditorClassIdentifier: 
   id: spell_split
-  title: Ground Split
+  title: "\u5730\u88C2\u672F"
   art_full: {fileID: 21300000, guid: 4d80d3e3e844f274e9048fa2cc51bd2b, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -22,11 +22,12 @@ MonoBehaviour:
   mana: 2
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: d5e4c95d43e02dc4a9ecf640464e1df2, type: 2}
   stats: []
   abilities:
   - {fileID: 11400000, guid: 3506f6fee22f5a84ca1727f915421aef, type: 2}
-  text: Target creature gains "Suffer 3 damage before attacking".
+  text: "\u76EE\u6807\u751F\u7269\u83B7\u5F97\"\u653B\u51FB\u524D\u53D7\u52303\u70B9\u4F24\u5BB3\"\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

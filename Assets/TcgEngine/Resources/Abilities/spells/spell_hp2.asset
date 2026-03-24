@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Hp +2
-  desc: Target gains 2 hp.
+  title: "\u751F\u547D\u503C+2"
+  desc: "\u76EE\u6807\u83B7\u5F972\u70B9\u751F\u547D\u503C\u3002"

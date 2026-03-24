@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Sword
-  desc: Loses 1 durability after each attack.
+  title: "\u5251"
+  desc: "\u6BCF\u6B21\u653B\u51FB\u540E\u5931\u53BB1\u70B9\u8010\u4E45\u5EA6\u3002"

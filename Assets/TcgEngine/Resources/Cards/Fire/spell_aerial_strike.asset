@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_aerial_strike
   m_EditorClassIdentifier: 
   id: spell_aerial_strike
-  title: Aerial Strike
+  title: "\u7A7A\u88AD"
   art_full: {fileID: 21300000, guid: 7f85ee0ad8b42e242b2d12985449c0e3, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 8bb6ba4408c1ae643af479c17729a4b4, type: 2}
-  text: Summon 3 eagles into your hand.
+  text: "\u5C063\u53EA\u8001\u9E70\u52A0\u5165\u624B\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

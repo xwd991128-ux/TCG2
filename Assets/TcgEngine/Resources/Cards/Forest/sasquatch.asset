@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: sasquatch
   m_EditorClassIdentifier: 
   id: sasquatch
-  title: Sasquatch
+  title: "\u5927\u811A\u602A"
   art_full: {fileID: 21300000, guid: 5ead950ee3cbc5d4c8979120330038de, type: 3}
   art_board: {fileID: 21300000, guid: ebd136e861f797e4ab0a606a7ef4ab7b, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: a5a8e3bb261f9344a9b7318a2e68783f, type: 2}
-  text: <b>End Turn:</b> Go in stealth if you have other characters.
+  text: "<b>\u56DE\u5408\u7ED3\u675F:</b> \u5982\u679C\u6709\u5176\u4ED6\u751F\u7269\uFF0C\u83B7\u5F97\u9690\u5F62\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

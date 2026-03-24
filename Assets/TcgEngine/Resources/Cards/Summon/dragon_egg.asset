@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: dragon_egg
   m_EditorClassIdentifier: 
   id: dragon_egg
-  title: Dragon Egg
+  title: "\u9F99\u86CB"
   art_full: {fileID: 21300000, guid: 32029b7b11d4ca24ca88fcb66b122deb, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 5b2e0fb55ed6c6f49bb56bb604178576, type: 2}
-  text: Discover a Dragon.
+  text: "\u53D1\u73B0\u4E00\u6761\u9F99\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}
@@ -37,6 +37,6 @@ MonoBehaviour:
   death_audio: {fileID: 0}
   attack_audio: {fileID: 0}
   damage_audio: {fileID: 0}
-  deckbuilding: 1
+  deckbuilding: 0
   cost: 100
   packs: []

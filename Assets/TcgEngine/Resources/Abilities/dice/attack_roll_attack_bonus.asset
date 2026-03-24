@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Tentacles
-  desc: Before attacking, roll a D6, on 4+ gain +6 attack until the end of the turn.
+  title: "\u89E6\u624B"
+  desc: "\u653B\u51FB\u524D\u6295\u63B51D6\uFF0C4+\u83B7\u5F97+6\u653B\u51FB\u529B\u6301\u7EED\u5230\u56DE\u5408\u7ED3\u675F\u3002"

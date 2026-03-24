@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: stealth
   m_EditorClassIdentifier: 
   effect: 10
-  title: Stealth
+  title: "\u9690\u5F62"
   icon: {fileID: 0}
-  desc: Cannot be targeted.
+  desc: "\u4E0D\u80FD\u6210\u4E3A\u76EE\u6807\u3002"
   status_fx: {fileID: 8207343968682951967, guid: e72747cc0e9c38d44bd336fd52003b7c,
     type: 3}
   hvalue: 1

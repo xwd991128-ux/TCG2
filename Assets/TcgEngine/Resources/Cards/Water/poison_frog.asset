@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: poison_frog
   m_EditorClassIdentifier: 
   id: poison_frog
-  title: Poison Frog
+  title: "\u6BD2\u9752\u86D9"
   art_full: {fileID: 21300000, guid: 1fd910ecdc1a61144b346d8eb03024df, type: 3}
   art_board: {fileID: 21300000, guid: d5061174448f5ae44a0044ca206cea88, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 1cf38265d50073740ac297c481077fb6, type: 2}
-  text: Deathtouch
+  text: "<b>\u81F4\u547D</b>"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

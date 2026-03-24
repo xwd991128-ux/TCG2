@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_stomp
   m_EditorClassIdentifier: 
   id: spell_stomp
-  title: Stomp
+  title: "\u8E42\u8E7F"
   art_full: {fileID: 21300000, guid: 58bd7ee75c4b5784f83b94d750e24c1a, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 4f0f5ca6a6481b84f9d5dc7a929952b2, type: 2}
-  text: Destroy the character with the lowest HP.
+  text: "\u6467\u6BC1\u751F\u547D\u503C\u6700\u4F4E\u7684\u751F\u7269\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

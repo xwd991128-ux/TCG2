@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 843a21f7f6f205741a0a7341aec8e84d, type: 3}
+  m_Name: forest_Axe
+  m_EditorClassIdentifier: 
+  id: forest_Axe
+  title: "\u68EE\u6797\u4E4B\u65A7"
+  art_full: {fileID: 21300000, guid: fb4326f72a2c59a45bd9428a30257726, type: 3}
+  art_board: {fileID: 21300000, guid: 91c7658b4da535e48803f2b40fbf0ff9, type: 3}
+  type: 50
+  team: {fileID: 11400000, guid: b80d8061c5bdb2e408e62a08e0e743ca, type: 2}
+  rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
+  mana: 2
+  attack: 1
+  hp: 2
+  traits: []
+  stats: []
+  abilities:
+  - {fileID: 11400000, guid: 9b8b1632c1e492346aebb62f91805a99, type: 2}
+  - {fileID: 11400000, guid: 14f603f8f999b6e4a8f583f001fdcfe9, type: 2}
+  - {fileID: 11400000, guid: 02876b5be961bb84c82594703a14a911, type: 2}
+  text: "\u88C5\u5907\u8005\u83B7\u5F97<b>\u5438\u8840</b>\u3002"
+  desc: 
+  spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
+    type: 3}
+  death_fx: {fileID: 0}
+  attack_fx: {fileID: 0}
+  damage_fx: {fileID: 0}
+  idle_fx: {fileID: 0}
+  spawn_audio: {fileID: 0}
+  death_audio: {fileID: 0}
+  attack_audio: {fileID: 0}
+  damage_audio: {fileID: 0}
+  deckbuilding: 1
+  cost: 100
+  packs:
+  - {fileID: 11400000, guid: bf46d25b07aadff4dbed234a7e7417ef, type: 2}

@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: disorder
-  desc: "\u5728\u8FDB\u5165\u6218\u573A\u7684\u56DE\u5408\u4E0D\u80FD\u653B\u51FB"
+  title: 
+  desc: 

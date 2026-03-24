@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: sea_monster
   m_EditorClassIdentifier: 
   id: sea_monster
-  title: Sea Monster
+  title: "\u6D77\u602A"
   art_full: {fileID: 21300000, guid: be765d1eb1d2a614b9dea6be103de5bd, type: 3}
   art_board: {fileID: 21300000, guid: 96402080ce8ff8e4689baa91e28fe07b, type: 3}
   type: 10
@@ -27,9 +27,8 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: 2ca645d57a4feee409d9793246812051, type: 2}
   - {fileID: 11400000, guid: 59161a18c189c7b4f8ebc48de1523c20, type: 2}
-  text: 'Enemy characters have -1 attack.
-
-    <b>Action:</b> +1 attack to allies.'
+  text: "\u654C\u65B9\u751F\u7269-1\u653B\u51FB\u529B\u3002\n<b>\u6FC0\u6D3B:</b>
+    \u53CB\u65B9+1\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

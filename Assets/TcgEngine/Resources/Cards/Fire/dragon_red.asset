@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: dragon_red
   m_EditorClassIdentifier: 
   id: dragon_red
-  title: Red Dragon
+  title: "\u7EA2\u9F99"
   art_full: {fileID: 21300000, guid: 217ff30ab88fe704d9da8efdebdec2a7, type: 3}
   art_board: {fileID: 21300000, guid: 756c6d28a6a2dd149aeeeeee06ac4010, type: 3}
   type: 10
@@ -27,7 +27,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 643b2aa17cd6c8847884a5771a5656b3, type: 2}
-  text: Spell Immunity
+  text: "\u6CD5\u672F\u514D\u75AB"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Regeneration
-  desc: At the start of your turn, heal 3 hp.
+  title: "\u518D\u751F"
+  desc: "\u56DE\u5408\u5F00\u59CB\u65F6\uFF0C\u6062\u590D3\u70B9\u751F\u547D\u3002"

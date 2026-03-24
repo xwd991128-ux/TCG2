@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: shark
   m_EditorClassIdentifier: 
   id: shark
-  title: Shark
+  title: "\u9CA8\u9C7C"
   art_full: {fileID: 21300000, guid: 4f1f88df43e430f4392bff2dffbb8c33, type: 3}
   art_board: {fileID: 21300000, guid: 522831f44b4e3d643a2470d12529c1c1, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: a68118dba80398744b9a5bbc65d9ef1b, type: 2}
-  text: Whenever another character dies, draw 1 card.
+  text: "\u5F53\u5176\u4ED6\u751F\u7269\u6B7B\u4EA1\u65F6\uFF0C\u62BD\u4E00\u5F20\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

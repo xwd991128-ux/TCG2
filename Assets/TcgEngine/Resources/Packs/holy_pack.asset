@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 137187ae111118548b8cdc17eed44c86, type: 3}
+  m_Name: holy_pack
+  m_EditorClassIdentifier: 
+  id: holy_pack
+  type: 0
+  cards: 5
+  rarities_1st:
+  - rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
+    probability: 60
+  - rarity: {fileID: 11400000, guid: 15eaa2a0fbd97f149b3aa87387c160d1, type: 2}
+    probability: 30
+  - rarity: {fileID: 11400000, guid: 13b592f40b7cd424c966f5d7eef425aa, type: 2}
+    probability: 10
+  rarities:
+  - rarity: {fileID: 11400000, guid: fab1a52f5a36cc942985dea95be18ac9, type: 2}
+    probability: 80
+  - rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
+    probability: 12
+  - rarity: {fileID: 11400000, guid: 15eaa2a0fbd97f149b3aa87387c160d1, type: 2}
+    probability: 6
+  - rarity: {fileID: 11400000, guid: 13b592f40b7cd424c966f5d7eef425aa, type: 2}
+    probability: 2
+  variants:
+  - variant: {fileID: 11400000, guid: a1b2c3d4e5f6789012345678abcdefaa, type: 2}
+    probability: 100
+  title: Holy Pack
+  pack_img: {fileID: 21300000, guid: b2c2a8efa1f7d7b4593a512e2c8cd61a, type: 3}
+  cardback_img: {fileID: 21300000, guid: 0e839bd6251bf9a4697b9cb18c1565a4, type: 3}
+  desc: Holy pack with 5 cards.
+  sort_order: 0
+  available: 1
+  cost: 100

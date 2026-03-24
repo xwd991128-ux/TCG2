@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
@@ -15,12 +15,12 @@ namespace TcgEngine.AI
     {
         //-------- AI Logic Params ------------------
 
-        public int ai_depth = 3;                //How many turns in advance does it check, higher number takes exponentially longer
+        public int ai_depth = 2;                //How many turns in advance does it check, higher number takes exponentially longer
         public int ai_depth_wide = 1;           //For these first few turns, will consider more options, slow!
         public int actions_per_turn = 2;          //AI wont predict more than this number of sequential actions per turn, if more than that will EndTurn (Do A, then do B, then do C, then end turn)
-        public int actions_per_turn_wide = 3;     //Same but in wide depth
-        public int nodes_per_action = 4;         //For a turn action (1st, 2nd, or 3rd...), cannot evaluate more than this number of child nodes, if more, will only process the AIActions with with best score
-        public int nodes_per_action_wide = 7;    //Same but in wide depth
+        public int actions_per_turn_wide = 2;     //Same but in wide depth
+        public int nodes_per_action = 3;         //For a turn action (1st, 2nd, or 3rd...), cannot evaluate more than this number of child nodes, if more, will only process the AIActions with with best score
+        public int nodes_per_action_wide = 4;    //Same but in wide depth
 
         //Example: for the first turn, AI will predict 3 sequential actions (I play a card, then attack with this one, then play a spell),
         //for each of those actions, it will look at 7 possibilities, if more will cut based on score, keeping the actions with highest score

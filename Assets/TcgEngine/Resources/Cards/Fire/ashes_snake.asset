@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ashes_snake
   m_EditorClassIdentifier: 
   id: ashes_snake
-  title: Ashes Snake
+  title: "\u7070\u70EC\u86C7"
   art_full: {fileID: 21300000, guid: b22500bd3cdea4b40bdb8da52c031c62, type: 3}
   art_board: {fileID: 21300000, guid: 322637c9c966cd24dab8b9e27ef6e16f, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 71b7fc6ed6ccb084486c85d48cc255f6, type: 2}
-  text: Stealth
+  text: "\u9690\u5F62"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

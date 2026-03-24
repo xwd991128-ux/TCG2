@@ -36,5 +36,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Dig
-  desc: On play, return a character from your graveyard to your hand.
+  title: "\u6316\u6398"
+  desc: "\u6253\u51FA\u65F6\uFF0C\u4ECE\u5893\u573A\u5C06\u4E00\u4E2A\u89D2\u8272\u8FD4\u56DE\u624B\u724C\u3002"

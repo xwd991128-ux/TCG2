@@ -58,6 +58,7 @@ namespace TcgEngine.UI
 
         void OnClick()
         {
+            Debug.Log("onclik");
             bool was_active = active;
 
             DeactivateAll(group);

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: eel
   m_EditorClassIdentifier: 
   id: eel
-  title: Electric Eel
+  title: "\u7535\u9C7C"
   art_full: {fileID: 21300000, guid: b72bc24b5d6aecb489310af562b78913, type: 3}
   art_board: {fileID: 21300000, guid: e7b6b8d655a48f44d88797c5e0687e6f, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 6d42d2cab11ca0d4ea5bd65f049aee22, type: 2}
-  text: <b>Play:</b> Target character's attack is reduced to 1.
+  text: "<b>\u6253\u51FA:</b> \u76EE\u6807\u751F\u7269\u7684\u653B\u51FB\u529B\u964D\u4E3A1\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

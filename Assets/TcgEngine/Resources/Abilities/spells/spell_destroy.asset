@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Destroy
-  desc: Destroy target character or location.
+  title: "\u6467\u6BC1"
+  desc: "\u6467\u6BC1\u76EE\u6807\u89D2\u8272\u6216\u573A\u5730\u3002"

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: fire_chicken
   m_EditorClassIdentifier: 
   id: fire_chicken
-  title: Roasted Chicken
+  title: "\u706B\u9E1F"
   art_full: {fileID: 21300000, guid: fbac205dc606347499e187567b38dc8a, type: 3}
   art_board: {fileID: 21300000, guid: 78af8169df8e58045bcb52fe3b0739c1, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: bbd458257afc3b143902562079df3124, type: 2}
-  text: <b>Death:</b> Summon an egg.
+  text: "<b>\u6B7B\u4EA1:</b> \u53EC\u5524\u4E00\u4E2A\u51E4\u51F0\u86CB\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

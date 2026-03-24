@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -49,7 +49,7 @@ namespace TcgEngine
             cardbacks = new string[0];
             friends = new string[0];
             permission_level = 1;
-            coins = 10000;
+            coins = 100000;
             elo = 1000;
         }
 

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: octopus
   m_EditorClassIdentifier: 
   id: octopus
-  title: Octopus
+  title: "\u7AE0\u9C7C"
   art_full: {fileID: 21300000, guid: d56559e20ee05084796b679b85627fb6, type: 3}
   art_board: {fileID: 21300000, guid: c1f252f09e61cb2498c48be274be348f, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 82579e30cd586544c999e6cb08a69c91, type: 2}
-  text: When attacking, roll a D6. On 4+ gain +6 attack.
+  text: "\u653B\u51FB\u65F6\uFF0C\u6295\u6458D6\u30024+\u83B7\u5F97+6\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

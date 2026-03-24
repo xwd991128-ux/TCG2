@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: imp
   m_EditorClassIdentifier: 
   id: imp
-  title: Imp
+  title: "\u5C0F\u6076\u9B54"
   art_full: {fileID: 21300000, guid: e74d128a608ae4c449e33aaf6449ee5e, type: 3}
   art_board: {fileID: 21300000, guid: e4ceb28c84c0b8846a348abfad791085, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 4f4dd01a7c411ab408c5ca18edbef253, type: 2}
-  text: <b>Play:</b> Deal 1 damage.
+  text: "<b>\u6253\u51FA:</b> \u9020\u62101\u70B9\u4F24\u5BB3\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

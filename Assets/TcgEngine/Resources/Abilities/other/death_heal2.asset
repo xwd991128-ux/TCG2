@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Heal
-  desc: When this creatures dies, you restore 2 HP.
+  title: "\u6CBB\u7597"
+  desc: "\u5F53\u8FD9\u4E2A\u751F\u7269\u6B7B\u4EA1\u65F6\uFF0C\u6062\u590D2\u70B9\u751F\u547D\u3002"

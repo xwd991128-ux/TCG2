@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_treasure
   m_EditorClassIdentifier: 
   id: spell_treasure
-  title: Lost Treasure
+  title: "\u9057\u5931\u5B9D\u85CF"
   art_full: {fileID: 21300000, guid: ddde5e5a5e9bb0e4c91bd98f3433870d, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 1e02cc84fd15fca4aa3a7ff26fbc7afe, type: 2}
-  text: Look at the next 7 cards in your deck, and choose two.
+  text: "\u67E5\u770B\u724C\u5E93\u98767\u5F20\u724C\uFF0C\u9009\u62E9\u5176\u4E2D2\u5F20\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

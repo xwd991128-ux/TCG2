@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: disorder
   m_EditorClassIdentifier: 
   effect: 2
-  title: disorder
+  title: "\u53EC\u5524\u5931\u8C03"
   icon: {fileID: 0}
   desc: "\u8FDB\u573A\u56DE\u5408\u65E0\u6CD5\u884C\u52A8"
   status_fx: {fileID: 0}

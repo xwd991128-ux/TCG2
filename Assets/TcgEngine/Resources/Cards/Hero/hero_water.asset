@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: hero_water
   m_EditorClassIdentifier: 
   id: hero_water
-  title: Water Spirit
+  title: "\u6C34\u7CBE\u7075"
   art_full: {fileID: 21300000, guid: ec6a5b8f080a26f4aa952f761b64ff29, type: 3}
   art_board: {fileID: 21300000, guid: 902c955805daa664683fc8908452e390, type: 3}
   type: 5
@@ -26,8 +26,8 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 243a6844300d2be45b60e67667afd6fe, type: 2}
-  text: fuck you1
-  desc: fuck you
+  text: 
+  desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}
   attack_fx: {fileID: 0}

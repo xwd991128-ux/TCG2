@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Stomp
-  desc: Kill the character in play with the lowest hp (including yours).
+  title: "\u8E0F\u788E"
+  desc: "\u6467\u6BC1\u573A\u4E0A\u751F\u547D\u503C\u6700\u4F4E\u7684\u89D2\u8272\uFF08\u5305\u62EC\u4F60\u7684\uFF09\u3002"

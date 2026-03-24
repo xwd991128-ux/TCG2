@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: kraken
   m_EditorClassIdentifier: 
   id: kraken
-  title: Kraken
+  title: "\u514B\u62C9\u80AF"
   art_full: {fileID: 21300000, guid: 7f5caa30992161948b7c40c6b67f7638, type: 3}
   art_board: {fileID: 21300000, guid: a7ef87091fb6a3247920caaebc079de4, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 3e633064b8ed24c4294c69cb519efd9f, type: 2}
-  text: Haste
+  text: "<b>\u51B2\u950B</b>"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

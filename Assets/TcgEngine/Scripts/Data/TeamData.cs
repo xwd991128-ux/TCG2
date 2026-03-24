@@ -36,7 +36,9 @@ namespace TcgEngine
 
         public static List<TeamData> GetAll()
         {
+            Debug.Log(team_list.ToString());
             return team_list;
+
         }
     }
 }

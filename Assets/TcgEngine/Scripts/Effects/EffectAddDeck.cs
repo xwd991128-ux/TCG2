@@ -12,29 +12,14 @@ namespace TcgEngine
     [CreateAssetMenu(fileName = "effect", menuName = "TcgEngine/Effect/AddDeck", order = 10)]
     public class EffectAddDeck : EffectData
     {
-        public CardData summon;
+        public CardData card;
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Player target)
         {
-            logic.SummonCardHand(target, summon, caster.VariantData); //Summon in hand instead of board when target a player
+            logic.AddCardDeck(target, card, caster.VariantData); //Add a card to deck
+
         }
 
-        public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)
-        {
-            Player player = logic.GameData.GetPlayer(caster.player_id);
-            logic.SummonCard(player, summon, caster.VariantData, target.slot); //Assumes the target has just been killed, so the slot is empty
-        }
 
-        public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Slot target)
-        {
-            Player player = logic.GameData.GetPlayer(caster.player_id);
-            logic.SummonCard(player, summon, caster.VariantData, target);
-        }
-
-        public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, CardData target)
-        {
-            Player player = logic.GameData.GetPlayer(caster.player_id);
-            logic.SummonCardHand(player, target, caster.VariantData);   //Summon in hand instead of board when target a carddata
-        }
     }
 }

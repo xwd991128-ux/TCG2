@@ -66,13 +66,21 @@ namespace TcgEngine.Client
                 return;
 
             List<UserCardData> cards = new List<UserCardData>();
-            List <CardData> all_cards = CardData.GetAll(pack);
+            // Use all cards for special_legendary pack (filtered by rarity later)
+            List <CardData> all_cards = CardData.GetAll();
 
             if (pack.type == PackType.Random)
             {
                 for (int i = 0; i < pack.cards; i++)
                 {
                     RarityData rarity = GetRandomRarity(pack, i == 0);
+                    
+                    // Special logic for special_legendary pack: last card must be mythic
+                    if (pack.id == "special_legendary" && i == pack.cards - 1)
+                    {
+                        rarity = RarityData.Get("mythic"); // Force mythic rarity for last card
+                    }
+                    
                     VariantData variant = GetRandomVariant(pack);
                     List<CardData> vcards = GetCardArray(all_cards, rarity);
                     if (vcards.Count > 0)

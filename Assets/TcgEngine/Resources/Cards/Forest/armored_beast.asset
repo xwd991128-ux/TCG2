@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: armored_beast
   m_EditorClassIdentifier: 
   id: armored_beast
-  title: Armored Beast
+  title: "\u88C5\u7532\u517D"
   art_full: {fileID: 21300000, guid: 99b2df2a79520804883a1959ed58d2d7, type: 3}
   art_board: {fileID: 21300000, guid: 189c8c57920274f4c84895dde3e00a75, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 2a11cb097ae04474693f6d6e1dd957ee, type: 2}
-  text: Taunt
+  text: "\u5632\u8BBD"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

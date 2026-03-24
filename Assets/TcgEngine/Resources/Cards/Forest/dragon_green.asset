@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: dragon_green
   m_EditorClassIdentifier: 
   id: dragon_green
-  title: Green Dragon
+  title: "\u7EFF\u9F99"
   art_full: {fileID: 21300000, guid: 57f0c14a54bae484e9d621feb3d56249, type: 3}
   art_board: {fileID: 21300000, guid: ccaee4164e13479428e1ac9cc2a6126a, type: 3}
   type: 10
@@ -24,10 +24,11 @@ MonoBehaviour:
   hp: 9
   traits:
   - {fileID: 11400000, guid: 9124c4a8561cfd14d812a55b3e885662, type: 2}
+  - {fileID: 11400000, guid: 737dd0e706b04754e8089f840701f097, type: 2}
   stats: []
   abilities:
   - {fileID: 11400000, guid: 643b2aa17cd6c8847884a5771a5656b3, type: 2}
-  text: Spell Immunity
+  text: "\u6CD5\u672F\u514D\u75AB"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

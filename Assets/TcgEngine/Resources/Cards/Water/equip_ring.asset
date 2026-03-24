@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: equip_ring
   m_EditorClassIdentifier: 
   id: equip_ring
-  title: Mana Ring
+  title: "\u6CD5\u529B\u6212\u6307"
   art_full: {fileID: 21300000, guid: d2daf6c62360a9f48bfffed30762e9c9, type: 3}
   art_board: {fileID: 21300000, guid: 4b1ee82a1a5b95e41ba3bb3d8322b771, type: 3}
   type: 50
@@ -21,12 +21,12 @@ MonoBehaviour:
   rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
   mana: 1
   attack: 0
-  hp: 3
+  hp: 0
   traits: []
   stats: []
   abilities:
   - {fileID: 11400000, guid: 837a1e2ca988b7b4095b4a3b0af73c57, type: 2}
-  text: Gain 2 extra mana per turn for 3 turns.
+  text: "\u56DE\u5408\u5F00\u59CB\u65F6\u83B7\u5F972\u989D\u5916\u6CD5\u529B\uFF0C\u6301\u7EED3\u56DE\u5408\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

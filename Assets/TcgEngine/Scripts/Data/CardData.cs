@@ -1,8 +1,13 @@
 ﻿using System.Collections.Generic;
+using TcgEngine;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace TcgEngine
 {
+
     public enum CardType
     {
         None = 0,
@@ -21,6 +26,9 @@ namespace TcgEngine
     [CreateAssetMenu(fileName = "card", menuName = "TcgEngine/CardData", order = 5)]
     public class CardData : ScriptableObject
     {
+
+        private Game game_data;
+
         public string id;
 
         [Header("Display")]
@@ -46,6 +54,7 @@ namespace TcgEngine
         [Header("Card Text")]
         [TextArea(3, 5)]
         public string text;
+
 
         [Header("Description")]
         [TextArea(5, 10)]
@@ -98,7 +107,13 @@ namespace TcgEngine
 
         public string GetText()
         {
-            return text;
+            string textTemp = text;
+            if(attack.ToString()!=null)
+                textTemp = textTemp.Replace("{atk}",attack.ToString());
+            //if (game_data.GetActivePlayer() != null)
+            //    textTemp = textTemp.Replace("{mana}",game_data.GetActivePlayer().ToString());
+            else textTemp = textTemp.Replace("{mana}", "1");
+            return textTemp;
         }
 
         public string GetDesc()
@@ -167,6 +182,11 @@ namespace TcgEngine
         public bool IsDynamicManaCost()
         {
             return mana > 99;
+        }
+
+        public bool RemovedIfKilled()
+        {
+            return !deckbuilding;
         }
 
         public bool HasTrait(string trait)

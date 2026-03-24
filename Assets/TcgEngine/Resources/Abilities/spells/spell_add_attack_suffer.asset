@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Ground Split
-  desc: Target creature gains "Suffer 3 damage before attacking".
+  title: "\u5730\u88C2"
+  desc: "\u76EE\u6807\u751F\u7269\u83B7\u5F97\"\u653B\u51FB\u524D\u53D7\u52303\u70B9\u4F24\u5BB3\"\u3002"

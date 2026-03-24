@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Random Attack.
-  desc: Roll a D6, increase this card's attack by the result.
+  title: "\u968F\u673A\u653B\u51FB"
+  desc: "\u6295\u63B51D6\uFF0C\u6309\u7ED3\u679C\u589E\u52A0\u6B64\u5361\u7684\u653B\u51FB\u529B\u3002"

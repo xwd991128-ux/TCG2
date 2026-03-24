@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: pufferfish
   m_EditorClassIdentifier: 
   id: pufferfish
-  title: Pufferfish
+  title: "\u6CB3\u8C5A"
   art_full: {fileID: 21300000, guid: e2171587cdf01f345aafec22ae5ca887, type: 3}
   art_board: {fileID: 21300000, guid: 6e6bb7509ba520a48be2b3298e2cfb85, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: b2a7fee1995653144b929fb5251bc098, type: 2}
-  text: Has +3 attack during the opponent's turn.
+  text: "\u5728\u5BF9\u624B\u56DE\u5408\u65F6\u83B7\u5F97+3\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: fury
   m_EditorClassIdentifier: 
   effect: 22
-  title: Fury
+  title: "\u72C2\u6012"
   icon: {fileID: 0}
-  desc: Can attack twice per turn
+  desc: "\u6BCF\u56DE\u5408\u53EF\u4EE5\u653B\u51FB2\u6B21\u3002"
   status_fx: {fileID: 0}
   hvalue: 1

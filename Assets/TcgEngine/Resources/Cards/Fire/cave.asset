@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: cave
   m_EditorClassIdentifier: 
   id: cave
-  title: Cave
+  title: "\u6D1E\u7A74"
   art_full: {fileID: 21300000, guid: c0329b5e4485df6409690de7fb5a8513, type: 3}
   art_board: {fileID: 21300000, guid: fe8ea4703d16a9b4793fb214a7f6bc42, type: 3}
   type: 30
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: c53d5c0775fc87d4080b05c05dc62b23, type: 2}
-  text: 'All red creatures gain: "Take 1 damage to gain +1 attack".'
+  text: "\u6240\u6709\u706B\u7CFB\u751F\u7269\u83B7\u5F97\uFF1A\"\u53D7\u52301\u70B9\u4F24\u5BB3\u4EE5\u83B7\u5F97+1\u653B\u51FB\u529B\"\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

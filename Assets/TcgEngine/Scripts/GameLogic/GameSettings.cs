@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -21,6 +21,7 @@ namespace TcgEngine
     {
         Casual = 0,
         Ranked = 10,
+        GoldBattle = 20,
     }
 
     /// <summary>
@@ -85,6 +86,8 @@ namespace TcgEngine
                 return "ranked";
             if (game_mode == GameMode.Casual)
                 return "casual";
+            if (game_mode == GameMode.GoldBattle)
+                return "gold_battle";
             return "";
         }
 
@@ -114,6 +117,8 @@ namespace TcgEngine
                 return "ranked";
             if (rank_mode == GameMode.Casual)
                 return "casual";
+            if (rank_mode == GameMode.GoldBattle)
+                return "gold_battle";
             return "";
         }
 
@@ -123,6 +128,8 @@ namespace TcgEngine
                 return GameMode.Ranked;
             if (rank_id == "casual")
                 return GameMode.Casual;
+            if (rank_id == "gold_battle")
+                return GameMode.GoldBattle;
             return GameMode.Casual;
         }
 

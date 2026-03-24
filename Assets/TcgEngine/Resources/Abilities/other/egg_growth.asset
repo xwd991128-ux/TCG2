@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Egg
-  desc: After 3 turns, transforms into a Phoenix.
+  title: "\u86CB"
+  desc: "3\u4E2A\u56DE\u5408\u540E\uFF0C\u53D8\u4E3A\u51E4\u51F0\u3002"

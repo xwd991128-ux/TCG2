@@ -13,24 +13,21 @@ MonoBehaviour:
   m_Name: equip_sword
   m_EditorClassIdentifier: 
   id: equip_sword
-  title: Fire Sword
+  title: "\u706B\u7130\u5251"
   art_full: {fileID: 21300000, guid: fd345aae6d79700469853b8e5381bbb2, type: 3}
   art_board: {fileID: 21300000, guid: 2df1830440a502b429d62d06aba24704, type: 3}
   type: 50
   team: {fileID: 11400000, guid: 6bbb96863ece0314fb318c0fce569afc, type: 2}
   rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
   mana: 2
-  attack: 0
-  hp: 2
+  attack: 1
+  hp: 0
   traits: []
   stats: []
   abilities:
   - {fileID: 11400000, guid: 14f603f8f999b6e4a8f583f001fdcfe9, type: 2}
   - {fileID: 11400000, guid: 608d12400d5c82e4fa03fad1361cb2aa, type: 2}
-  - {fileID: 11400000, guid: c9732b44c07f0874190d011ca5e37574, type: 2}
-  text: 'Attack +1.
-
-    Bearer receives no damage when attacking.'
+  text: "\u88C5\u5907\u8005\u653B\u51FB\u65F6\u4E0D\u53D7\u4F24\u5BB3\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

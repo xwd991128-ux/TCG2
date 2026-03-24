@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: town_volcano
   m_EditorClassIdentifier: 
   id: town_volcano
-  title: Volcano Town
+  title: "\u706B\u5C71\u57CE"
   art_full: {fileID: 21300000, guid: 5c8db759a5257ad498b2769e94d8acb1, type: 3}
   art_board: {fileID: 21300000, guid: 25fabafc035372f4da561d5b9d0f49f7, type: 3}
   type: 30
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: c0cea65074408f8498948aeae58fac68, type: 2}
-  text: All red creatures have +2 attack.
+  text: "\u6240\u6709\u706B\u7CFB\u751F\u7269\u83B7\u5F97+2\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: equip_shield
   m_EditorClassIdentifier: 
   id: equip_shield
-  title: Wooden Shield
+  title: "\u6728\u76FE"
   art_full: {fileID: 21300000, guid: 26e4b66f2a4cc4a40a5000cdba227f21, type: 3}
   art_board: {fileID: 21300000, guid: efcc4c8de5003a5479b49e778ff5c83e, type: 3}
   type: 50
@@ -21,14 +21,14 @@ MonoBehaviour:
   rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
   mana: 2
   attack: 0
-  hp: 2
+  hp: 0
   traits: []
   stats: []
   abilities:
   - {fileID: 11400000, guid: 97e3da8448736644bb1bd777d85d7ff7, type: 2}
   - {fileID: 11400000, guid: 0b5d342785ac7f64a9526b5861d178a9, type: 2}
   - {fileID: 11400000, guid: e662fd7cb36df154d9dd5ce309c4a822, type: 2}
-  text: Bearer gains 2 armor and taunt.
+  text: "\u88C5\u5907\u8005\u83B7\u5F972\u70B9\u62A4\u7532\u548C\u5632\u8BBD\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

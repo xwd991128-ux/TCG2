@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: reaper
   m_EditorClassIdentifier: 
   id: reaper
-  title: Hell Reaper
+  title: "\u5730\u72F1\u6536\u5272\u8005"
   art_full: {fileID: 21300000, guid: 110e9843702372043955225eab755c90, type: 3}
   art_board: {fileID: 21300000, guid: 2ea526c03100af04caf4ce7ca391c938, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 1332985f0711d0344a5b2eacb7f65947, type: 2}
-  text: <b>Each turn:</b> Kill characters with the lowest attack.
+  text: "<b>\u6BCF\u56DE\u5408:</b> \u6D88\u706D\u653B\u51FB\u6700\u4F4E\u7684\u751F\u7269\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

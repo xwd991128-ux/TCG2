@@ -34,5 +34,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Aerial Strike
-  desc: Summon three 1/1 eagles with flying and haste into your hand.
+  title: "\u7A7A\u88AD"
+  desc: "\u5C063\u53EA1/1\u7684\u98DE\u9E70\uFF08\u5177\u6709\u98DE\u884C\u548C\u7A81\u88AD\uFF09\u52A0\u5165\u624B\u724C\u3002"

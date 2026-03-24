@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Sea Storm
-  desc: All cards on the board return to their owner's hand.
+  title: "\u6D77\u4E0A\u98CE\u66B4"
+  desc: "\u6240\u6709\u5361\u724C\u8FD4\u56DE\u5176\u6240\u6709\u8005\u624B\u724C\u3002"

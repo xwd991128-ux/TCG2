@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: taunt
   m_EditorClassIdentifier: 
   effect: 14
-  title: Taunt
+  title: "\u5632\u8BBD"
   icon: {fileID: 0}
-  desc: Protects other cards.
+  desc: "\u4FDD\u62A4\u5176\u4ED6\u5355\u4F4D\u3002"
   status_fx: {fileID: 0}
   hvalue: 1

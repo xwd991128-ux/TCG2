@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Armor
-  desc: Bearer has +2 armor.
+  title: "\u62A4\u7532"
+  desc: "\u88C5\u5907\u8005+2\u62A4\u7532\u3002"

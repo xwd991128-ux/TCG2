@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_flood
   m_EditorClassIdentifier: 
   id: spell_flood
-  title: Flood
+  title: "\u6D2A\u6C34"
   art_full: {fileID: 21300000, guid: d07e338da4c4b3f4098954a1ce85b429, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 9b80ba55bcbc66949b3a3de28ca43e54, type: 2}
-  text: Reduce the hp of all characters to 1.
+  text: "\u6240\u6709\u751F\u7269\u7684\u751F\u547D\u503C\u964D\u4E3A1\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

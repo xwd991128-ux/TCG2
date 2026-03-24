@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,8 +11,7 @@ namespace TcgEngine
         Disorder = 2,       //Can't do action at the first turn 
         AddAttack = 4,      //Attack status can be used for attack boost limited for X turns 
         AddHP = 5,          //HP status can be used for hp boost limited for X turns 
-        AddManaCost = 6,    //Mana Cost status can be used for mana cost increase/reduction limited for X turns 
-
+        AddManaCost = 6,    //Mana Cost status can be used for mana cost increase/reduction limited for X turns
         Stealth = 10,       //Cant be attacked until do action
         Invincibility = 12, //Cant be attacked for X turns
         Shell = 13,         //Receives no damage the first time
@@ -36,8 +35,19 @@ namespace TcgEngine
         Haste = 40,       //Can do action at the first turn 
         Immunity =42,     //damage change to 0
         SummonDisorder =44,//Can't do action at the first turn 
+        Disappear =46,     //进入弃牌堆后移除游戏
+        Regenerate =48,    //回合结束的时候，回复所有生命。
+        Disabled = 50,       //Cant be used
+        Vitality = 52,       //英雄的攻击力等同于生命值
+        Overload = 54,       //过载，每点过载使英雄失去1点法力值
+        Doomed = 56,         //回合结束时死亡
 
 
+        HeroNewTurn =102 //have new turn
+
+        
+
+           
 
     }
 

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: phoenix
   m_EditorClassIdentifier: 
   id: phoenix
-  title: Phoenix
+  title: "\u51E4\u51F0"
   art_full: {fileID: 21300000, guid: 083800ad47cf58a428fa510833a47af4, type: 3}
   art_board: {fileID: 21300000, guid: 839a8c3d27c865143b7435f418dc5fe1, type: 3}
   type: 10
@@ -27,9 +27,8 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: fb089d9330eb2ac4893616bd179c3a56, type: 2}
   - {fileID: 11400000, guid: bbd458257afc3b143902562079df3124, type: 2}
-  text: '<b>Cast (3):</b> Deal 2 damage.
-
-    <b>Death:</b> Summon an egg.'
+  text: "<b>\u6FC0\u6D3B(3):</b> \u9020\u62102\u70B9\u4F24\u5BB3\u3002\n<b>\u6B7B\u4EA1:</b>
+    \u53EC\u5524\u4E00\u4E2A\u51E4\u51F0\u86CB\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

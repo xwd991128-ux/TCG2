@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: silenced
   m_EditorClassIdentifier: 
   effect: 30
-  title: Silenced
+  title: "\u6C89\u9ED8"
   icon: {fileID: 0}
-  desc: Cannot use abilities.
+  desc: "\u7981\u7528\u6240\u6709\u6548\u679C\u3002"
   status_fx: {fileID: 8207343968682951967, guid: 0a2325e55f302f84aa511ce672526fad,
     type: 3}
   hvalue: -1

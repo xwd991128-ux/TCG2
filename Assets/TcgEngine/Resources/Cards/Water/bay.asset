@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: bay
   m_EditorClassIdentifier: 
   id: bay
-  title: Bay
+  title: "\u6D77\u6E7E"
   art_full: {fileID: 21300000, guid: f4c7de00800580c44af4007866c2c655, type: 3}
   art_board: {fileID: 21300000, guid: 3ce01e4ec27c41843928015a24fec838, type: 3}
   type: 30
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 3d135ff62bef5924e898d38ff78b4b4e, type: 2}
-  text: When a blue creature you own dies, draw a card.
+  text: "\u5F53\u4F60\u7684\u6C34\u7CFB\u751F\u7269\u6B7B\u4EA1\u65F6\uFF0C\u62BD\u4E00\u5F20\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

@@ -33,8 +33,9 @@ MonoBehaviour:
   caster_fx: {fileID: 0}
   target_fx: {fileID: 8327183289831986084, guid: 8d68eb12f4dda644184359acd4008081,
     type: 3}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Hibernate
-  desc: Target character gains +4/4 and goes to sleep for the next 2 turns.
+  title: "\u51AC\u7720"
+  desc: "\u76EE\u6807\u89D2\u8272\u83B7\u5F97+4/+4\u5E76\u4F11\u7720\u63A5\u4E0B\u67652\u56DE\u5408\u3002"

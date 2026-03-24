@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Shield
-  desc: Loses 1 durability when attacked.
+  title: "\u76FE\u724C"
+  desc: "\u88AB\u653B\u51FB\u65F6\u5931\u53BB1\u70B9\u8010\u4E45\u5EA6\u3002"

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: add_hp
   m_EditorClassIdentifier: 
   effect: 5
-  title: HP Bonus
+  title: "\u589E\u52A0\u751F\u547D\u503C"
   icon: {fileID: 0}
   desc: Bonus HP.
   status_fx: {fileID: 0}

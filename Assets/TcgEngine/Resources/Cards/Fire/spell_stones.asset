@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_stones
   m_EditorClassIdentifier: 
   id: spell_stones
-  title: Hot Stones
+  title: "\u707C\u70ED\u77F3\u5757"
   art_full: {fileID: 21300000, guid: e96abe5fc2239f0498afba2234497bd8, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -22,14 +22,14 @@ MonoBehaviour:
   mana: 2
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: ec5b761e717121644ba70b9d44b8cb02, type: 2}
+  - {fileID: 11400000, guid: d5e4c95d43e02dc4a9ecf640464e1df2, type: 2}
   stats: []
   abilities:
   - {fileID: 11400000, guid: d753d81200fc2704b87c7c428459dfc6, type: 2}
   - {fileID: 11400000, guid: 2841093c6dacc2c419c03663c168fb72, type: 2}
-  text: 'Deal 1 damage.
-
-    Draw a card.'
+  text: "\u9020\u62101\u70B9\u4F24\u5BB3\u3002\u62BD\u4E00\u5F20\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Transform to Fish
-  desc: When the next enemy creature is played, transform it into a 1/1 fish.
+  title: "\u53D8\u6210\u9C7C"
+  desc: "\u5F53\u4E0B\u4E00\u4E2A\u654C\u65B9\u751F\u7269\u6253\u51FA\u65F6\uFF0C\u5C06\u5176\u53D8\u62101/1\u7684\u9C7C\u3002"

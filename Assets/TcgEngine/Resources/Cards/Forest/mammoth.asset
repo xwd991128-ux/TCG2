@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: mammoth
   m_EditorClassIdentifier: 
   id: mammoth
-  title: Mammoth
+  title: "\u731B\u735C"
   art_full: {fileID: 21300000, guid: 81313c76fc0ffa1448298d6baa3d02a5, type: 3}
   art_board: {fileID: 21300000, guid: 1133f890fc2040a4aaeeb80d88520b18, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 12701b92080445044bf934c1dd5915ca, type: 2}
-  text: Trample
+  text: "\u8E42\u8E7F"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

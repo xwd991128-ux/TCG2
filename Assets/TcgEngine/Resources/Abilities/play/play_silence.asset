@@ -38,5 +38,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Silence
-  desc: Target abilities are canceled.
+  title: "\u6C89\u9ED8"
+  desc: "\u76EE\u6807\u7684\u6280\u80FD\u88AB\u53D6\u6D88\u3002"

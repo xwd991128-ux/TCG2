@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TcgEngine.AI;
@@ -13,13 +13,13 @@ namespace TcgEngine
     public class GameplayData : ScriptableObject
     {
         [Header("Gameplay")]
-        public int hp_start = 20;
-        public int mana_start = 1;
+        public int hp_start = 30;
+        public int mana_start = 2;
         public int mana_per_turn = 1;
-        public int mana_max = 10;
+        public int mana_max = 12;
         public int cards_start = 5;
         public int cards_per_turn = 1;
-        public int cards_max = 10;
+        public int cards_max = 15;
         public float turn_duration = 30f;
         public CardData second_bonus;
         public bool mulligan;

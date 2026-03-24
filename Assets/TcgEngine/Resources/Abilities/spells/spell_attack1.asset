@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Attack +1
-  desc: Target gains 1 attack.
+  title: "\u653B\u51FB\u529B+1"
+  desc: "\u76EE\u6807\u83B7\u5F971\u70B9\u653B\u51FB\u529B\u3002"

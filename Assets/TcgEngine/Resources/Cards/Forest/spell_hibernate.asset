@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_hibernate
   m_EditorClassIdentifier: 
   id: spell_hibernate
-  title: Hibernate
+  title: "\u51AC\u7720"
   art_full: {fileID: 21300000, guid: 3339b73563834724b892ec5aa394be35, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: c33b9c4b9a4ad6540a84480f2cb45841, type: 2}
-  text: Target gains +4/4 and goes to sleep for the next 2 turns.
+  text: "\u76EE\u6807\u83B7\u5F97+4/4\u5E76\u7761\u77202\u56DE\u5408\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

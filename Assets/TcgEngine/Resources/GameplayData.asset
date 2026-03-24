@@ -12,17 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 080ba8f3b7a08e34ba0648e5340f9bf4, type: 3}
   m_Name: GameplayData
   m_EditorClassIdentifier: 
-  hp_start: 20
+  hp_start: 30
   mana_start: 2
   mana_per_turn: 1
-  mana_max: 10
+  mana_max: 12
   cards_start: 5
   cards_per_turn: 1
-  cards_max: 10
+  cards_max: 999
   turn_duration: 60
   second_bonus: {fileID: 11400000, guid: 9503f60659f1df04eb3dd7fa925885fb, type: 2}
   mulligan: 1
-  deck_size: 20
+  deck_size: 30
   deck_duplicate_max: 2
   sell_ratio: 0.8
   ai_type: 10
@@ -38,6 +38,7 @@ MonoBehaviour:
   ai_decks:
   - {fileID: 11400000, guid: 8aea02f8dfcc2834d8eeca8e259140ce, type: 2}
   - {fileID: 11400000, guid: 8539b1ce42aef234786631b3c4bfb067, type: 2}
+  - {fileID: 11400000, guid: e371ae9abcc31014992b685a145a087c, type: 2}
   - {fileID: 11400000, guid: e371ae9abcc31014992b685a145a087c, type: 2}
   arena_list:
   - Game

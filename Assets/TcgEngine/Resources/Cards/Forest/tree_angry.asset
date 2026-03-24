@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: tree_angry
   m_EditorClassIdentifier: 
   id: tree_angry
-  title: Angry Tree
+  title: "\u6124\u6012\u7684\u6811"
   art_full: {fileID: 21300000, guid: df4f7d3c3ffc18c42bdecfa498fa53da, type: 3}
   art_board: {fileID: 21300000, guid: b4baa2ca665d5aa42be490f5a09ea949, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 1bc895e873a2be145898a86a2fb9ca03, type: 2}
-  text: Regeneration
+  text: "<b>\u518D\u751F</b>"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

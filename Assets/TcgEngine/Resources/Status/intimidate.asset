@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: intimidate
   m_EditorClassIdentifier: 
   effect: 23
-  title: Intimidate
+  title: "\u5148\u653B"
   icon: {fileID: 0}
-  desc: When attacking, target does not counter-attack.
+  desc: "\u653B\u51FB\u65F6\u4E0D\u4F1A\u53D7\u5230\u53CD\u51FB\u4F24\u5BB3\u3002"
   status_fx: {fileID: 0}
   hvalue: 1

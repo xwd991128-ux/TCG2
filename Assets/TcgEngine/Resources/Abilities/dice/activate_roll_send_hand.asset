@@ -36,6 +36,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Charge
-  desc: Select a character and roll a D6, on 4+ return it to its owner's hand. Cost
-    2 mana.
+  title: "\u51B2\u950B"
+  desc: "\u9009\u62E9\u4E00\u4E2A\u89D2\u8272\u5E76\u6295\u63B71D6\uFF0C4+\u5C06\u5176\u8FD4\u56DE\u624B\u724C\u3002\u6D88\u80172\u70B9\u6CD5\u529B\u3002"

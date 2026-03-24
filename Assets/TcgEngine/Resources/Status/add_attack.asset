@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: add_attack
   m_EditorClassIdentifier: 
   effect: 4
-  title: 
+  title: "\u589E\u52A0\u653B\u51FB\u529B"
   icon: {fileID: 0}
   desc: 
   status_fx: {fileID: 0}

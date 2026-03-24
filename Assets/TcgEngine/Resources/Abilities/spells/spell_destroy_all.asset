@@ -34,5 +34,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Armageddon
-  desc: Destroy all creatures on the board
+  title: "\u672B\u65E5\u5BA1\u5224"
+  desc: "\u6467\u6BC1\u6240\u6709\u751F\u7269\u3002"

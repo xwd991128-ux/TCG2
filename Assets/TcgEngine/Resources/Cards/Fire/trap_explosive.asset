@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: trap_explosive
   m_EditorClassIdentifier: 
   id: trap_explosive
-  title: Bomb Trap
+  title: "\u70B8\u5F39\u9677\u9631"
   art_full: {fileID: 21300000, guid: 805152cb21d6b254093062fe068f1272, type: 3}
   art_board: {fileID: 0}
   type: 40
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: f86a63b7816f61043aee385921bd6b99, type: 2}
-  text: <b>Trap:</b> Damage all by 2.
+  text: "<b>\u9677\u9631:</b> \u5BF9\u6240\u6709\u9020\u62102\u70B9\u4F24\u5BB3\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

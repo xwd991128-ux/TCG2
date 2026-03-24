@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ce5f81e5cc37f547af6923758602c8c, type: 3}
+  m_Name: spell_annihilate
+  m_EditorClassIdentifier: 
+  id: spell_annihilate
+  trigger: 10
+  conditions_trigger: []
+  target: 20
+  conditions_target:
+  - {fileID: 11400000, guid: 47221d412dc0a014b8a33abb0cbfc773, type: 2}
+  - {fileID: 11400000, guid: 065da32cbd133734493695579723a718, type: 2}
+  filters_target: []
+  effects:
+  - {fileID: 11400000, guid: c14a48b31a743494f983c03ec81a7f2d, type: 2}
+  - {fileID: 11400000, guid: 55165dd4996d59642a883f20c7b3e07f, type: 2}
+  status:
+  - {fileID: 11400000, guid: 8580d5669cd3e624c825c09fbba0b4f0, type: 2}
+  - {fileID: 11400000, guid: aa8215bec22b28149aa474176e72d3b2, type: 2}
+  value: 0
+  duration: 0
+  chain_abilities:
+  - {fileID: 11400000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d7, type: 2}
+  mana_cost: 0
+  exhaust: 0
+  board_fx: {fileID: 0}
+  caster_fx: {fileID: 0}
+  target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
+  cast_audio: {fileID: 0}
+  target_audio: {fileID: 0}
+  charge_target: 0
+  title: "\u6E6D\u706D"
+  desc: "\u6C89\u9ED8\u4E00\u4E2A\u751F\u7269\uFF0C\u4F7F\u5176\u83B7\u5F97\u4F75\u4EA1\uFF0C\u7136\u540E\u5C06\u5176\u6D88\u706D\u3002"

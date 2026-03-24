@@ -33,8 +33,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Wolf Aura
-  desc: All other allied wolves gain +1 attack.
+  title: "\u72FC\u4E4B\u56FE\u817E"
+  desc: "\u5176\u4ED6\u53CB\u65B9\u7684\u72FC+1\u653B\u51FB\u529B\u3002"

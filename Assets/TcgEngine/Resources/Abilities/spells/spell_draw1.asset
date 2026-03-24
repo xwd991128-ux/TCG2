@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Draw
-  desc: Draw 1 card.
+  title: "\u62BD\u724C"
+  desc: "\u62BD1\u5F20\u724C\u3002"

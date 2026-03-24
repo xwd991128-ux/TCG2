@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ce5f81e5cc37f547af6923758602c8c, type: 3}
+  m_Name: start_turn_draw2_or_heal5
+  m_EditorClassIdentifier: 
+  id: start_turn_draw2_or_heal5
+  trigger: 10
+  conditions_trigger: []
+  target: 50
+  conditions_target: []
+  filters_target: []
+  effects: []
+  status: []
+  value: 0
+  duration: 0
+  chain_abilities:
+  - {fileID: 11400000, guid: 669f7a7dc2cd19940a92b730567956eb, type: 2}
+  - {fileID: 11400000, guid: bebe5560d5eb2ba469d3389939714e24, type: 2}
+  mana_cost: 0
+  exhaust: 0
+  board_fx: {fileID: 0}
+  caster_fx: {fileID: 0}
+  target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
+  cast_audio: {fileID: 0}
+  target_audio: {fileID: 0}
+  charge_target: 0
+  title: "\u9009\u62E91\u9879"
+  desc: 

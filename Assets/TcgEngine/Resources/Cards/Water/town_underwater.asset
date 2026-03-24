@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: town_underwater
   m_EditorClassIdentifier: 
   id: town_underwater
-  title: Underwater Town
+  title: "\u6C34\u5E95\u57CE"
   art_full: {fileID: 21300000, guid: 7fc0bfcbe3cb6f140814840245dda73b, type: 3}
   art_board: {fileID: 21300000, guid: 24c14e88b5498bb4e8bc24429ee85c27, type: 3}
   type: 30
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: f405476e6b47d6d498fe3d3211c16430, type: 2}
-  text: All blue cards cost 1 less.
+  text: "\u6240\u6709\u6C34\u7CFB\u5361\u724C\u8D39\u7528-1\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

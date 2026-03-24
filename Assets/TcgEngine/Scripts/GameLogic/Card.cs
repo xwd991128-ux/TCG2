@@ -218,7 +218,6 @@ namespace TcgEngine
         {
             if (status != null)
                 AddStatus(status.effect, value, duration);
-            Debug.Log(GetAllStatus());
         }
 
         public void AddOngoingStatus(StatusData status, int value)

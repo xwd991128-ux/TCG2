@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: firefox
   m_EditorClassIdentifier: 
   id: firefox
-  title: Firefox
+  title: "\u706B\u72D0\u72F8"
   art_full: {fileID: 21300000, guid: d2ec197d4022ca94d8dc1ee2d7eda955, type: 3}
   art_board: {fileID: 21300000, guid: c3ac28cd1113c594ebe11a5f70251135, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 9eb611ce7c359b54abeb4d00b6cff5e0, type: 2}
-  text: <b>Cast (2):</b> Return a spell to your hand.
+  text: "<b>\u6FC0\u6D3B(2):</b> \u5C06\u4E00\u5F20\u6CD5\u672F\u724C\u8FD4\u56DE\u624B\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

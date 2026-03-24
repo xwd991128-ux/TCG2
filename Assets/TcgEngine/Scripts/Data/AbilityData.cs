@@ -657,6 +657,8 @@ namespace TcgEngine
 
         OnDeath = 40, //When dying
         OnDeathOther = 42, //When another dying
+
+        OnDraw =50, //when draw card
     }
 
     public enum AbilityTarget
@@ -681,6 +683,7 @@ namespace TcgEngine
         SelectTarget = 30,        //Select a card, player or slot on board
         CardSelector = 40,          //Card selector menu
         ChoiceSelector = 50,        //Choice selector menu
+        ValueSelector = 60,         //Value selector menu
 
         LastPlayed = 70,            //Last card that was played 
         LastTargeted = 72,          //Last card that was targeted with an ability

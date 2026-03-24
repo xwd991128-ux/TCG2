@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Pillage
-  desc: After attacking the opponent's life, gain 2 mana.
+  title: "\u63A0\u593A"
+  desc: "\u653B\u51FB\u73A9\u5BB6\u540E\uFF0C\u83B7\u5F972\u70B9\u6CD5\u529B\u3002"

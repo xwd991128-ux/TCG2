@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,6 +6,7 @@ using TcgEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using TcgEngine.Client;
+using System.Linq;
 
 namespace TcgEngine.UI
 {
@@ -18,17 +19,21 @@ namespace TcgEngine.UI
     {
         public Image card_image;
         public Image frame_image;
+        public Image card_description_image;
+        public Image card_traits_image;
         public Image team_icon;
         public Image rarity_icon;
         public Image attack_icon;
         public Image hp_icon;
         public Image cost_icon;
+        public Image Character_trait_icon; //角色图标
         public Text attack;
         public Text hp;
         public Text cost;
 
         public Text card_title;
         public Text card_text;
+        public Text trait_text;
 
         public TraitUI[] stats;
 
@@ -81,9 +86,9 @@ namespace TcgEngine.UI
                 card_text.text = card.GetText();
 
             if (attack_icon != null)
-                attack_icon.enabled = card.IsCharacter();
+                attack_icon.enabled = card.IsCharacter()|| card.IsEquipment();
             if (attack != null)
-                attack.enabled = card.IsCharacter();
+                attack.enabled = card.IsCharacter()|| card.IsEquipment();
             if (hp_icon != null)
                 hp_icon.enabled = card.IsBoardCard() || card.IsEquipment();
             if (hp != null)
@@ -98,9 +103,9 @@ namespace TcgEngine.UI
             if (cost != null && card.IsDynamicManaCost())
                 cost.text = "X";
             if (attack != null)
-                attack.text = card.attack.ToString();
+                attack.text = card.IsEquipment()?"+"+card.attack.ToString(): card.attack.ToString();
             if (hp != null)
-                hp.text = card.hp.ToString();
+                hp.text = card.IsEquipment() ? "+" + card.hp.ToString() : card.hp.ToString();
 
             if (team_icon != null)
             {
@@ -112,6 +117,27 @@ namespace TcgEngine.UI
             {
                 rarity_icon.sprite = card.rarity.icon;
                 rarity_icon.enabled = rarity_icon.sprite != null && card.type != CardType.Hero;
+            }
+            
+
+            //if (Character_trait_icon != null)
+            //{
+            //    Character_trait_icon.sprite = card.character_trait != null ? card.character_trait.icon : null;
+            //    Character_trait_icon.enabled = Character_trait_icon.sprite != null && card.type != CardType.Hero;
+            //}
+
+            if (trait_text != null)
+            {
+                if (card.traits != null && card.traits.Length > 0 && card.type != CardType.Hero)
+                {
+                    trait_text.text = string.Join(",", card.traits.Select(t => t.title));
+                    trait_text.enabled = true;
+                }
+                else
+                {
+                    trait_text.text = "";
+                    trait_text.enabled = false;
+                }
             }
 
             foreach (TraitUI stat in stats)
@@ -137,6 +163,8 @@ namespace TcgEngine.UI
                 team_icon.material = mat;
             if (rarity_icon != null)
                 rarity_icon.material = mat;
+            if (Character_trait_icon != null)
+                Character_trait_icon.material = mat;
             if (attack_icon != null)
                 attack_icon.material = mat;
             if (hp_icon != null)
@@ -155,6 +183,8 @@ namespace TcgEngine.UI
                 team_icon.color = new Color(team_icon.color.r, team_icon.color.g, team_icon.color.b, opacity);
             if (rarity_icon != null)
                 rarity_icon.color = new Color(rarity_icon.color.r, rarity_icon.color.g, rarity_icon.color.b, opacity);
+            if (Character_trait_icon != null)
+                Character_trait_icon.color = new Color(Character_trait_icon.color.r, Character_trait_icon.color.g, Character_trait_icon.color.b, opacity);
             if (attack_icon != null)
                 attack_icon.color = new Color(attack_icon.color.r, attack_icon.color.g, attack_icon.color.b, opacity);
             if (hp_icon != null)

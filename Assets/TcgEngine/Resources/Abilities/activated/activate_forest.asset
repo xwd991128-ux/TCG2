@@ -33,8 +33,9 @@ MonoBehaviour:
   caster_fx: {fileID: 0}
   target_fx: {fileID: 5988812109917292199, guid: be19380a491c8c245afe0dd96e02ba78,
     type: 3}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Forest
-  desc: Heal 2 HP.
+  title: "\u6CBB\u6108"
+  desc: "\u56DE\u590D2\u70B9\u751F\u547D\u3002"

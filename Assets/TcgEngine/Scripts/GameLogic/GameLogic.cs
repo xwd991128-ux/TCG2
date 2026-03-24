@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -173,6 +173,13 @@ namespace TcgEngine.Gameplay
             player.mana_max = Mathf.Min(player.mana_max, GameplayData.Get().mana_max);
             player.mana = player.mana_max;
 
+            //Overload - 每点过载使英雄失去1点法力值
+            if (player.hero != null && player.hero.HasStatus(StatusType.Overload))
+            {
+                int overload_value = player.hero.GetStatusValue(StatusType.Overload);
+                player.mana = Mathf.Max(0, player.mana - overload_value);
+            }
+
             //Turn timer and history
             game_data.turn_timer = GameplayData.Get().turn_duration;
             player.history_list.Clear();
@@ -213,7 +220,9 @@ namespace TcgEngine.Gameplay
             if (game_data.state == GameState.GameEnded)
                 return;
 
-            game_data.current_player = (game_data.current_player + 1) % game_data.settings.nb_players;
+            Player player =game_data.GetPlayer(game_data.current_player) ;
+            if (!player.HasStatus(StatusType.HeroNewTurn))
+                game_data.current_player = (game_data.current_player + 1) % game_data.settings.nb_players;
 
             if (game_data.current_player == game_data.first_player)
                 game_data.turn_count++;
@@ -242,6 +251,8 @@ namespace TcgEngine.Gameplay
             game_data.selector = SelectorType.None;
             game_data.phase = GamePhase.EndTurn;
 
+            Player active_player = game_data.GetActivePlayer();
+
             //Reduce status effects with duration
             foreach (Player aplayer in game_data.players)
             {
@@ -250,11 +261,31 @@ namespace TcgEngine.Gameplay
                     card.ReduceStatusDurations();
                 foreach (Card card in aplayer.cards_equip)
                     card.ReduceStatusDurations();
+
+                //Regenerate
+                foreach (Card card in aplayer.cards_board)
+                {
+                    if (card.HasStatus(StatusType.Regenerate))
+                        HealCard(card, card.hp);
+                }
+            }
+
+            //Doomed - kill at end of turn (only for active player's cards)
+            List<Card> doomed_cards = new List<Card>();
+            foreach (Card card in active_player.cards_board)
+            {
+                if (card.HasStatus(StatusType.Doomed))
+                    doomed_cards.Add(card);
+            }
+            foreach (Card card in doomed_cards)
+            {
+                KillCard(null, card);
             }
 
             //End of turn abilities
-            Player player = game_data.GetActivePlayer();
-            TriggerPlayerCardsAbilityType(player, AbilityTrigger.EndOfTurn);
+            TriggerPlayerCardsAbilityType(active_player, AbilityTrigger.EndOfTurn);
+
+
 
             onTurnEnd?.Invoke();
             RefreshData();
@@ -445,7 +476,6 @@ namespace TcgEngine.Gameplay
                     //Debug.Log(card.GetOngoingStatus(StatusType.Haste));
                     //Debug.Log(card.GetOngoingStatus(StatusType.Fury));
                     //Debug.Log(card.GetOngoingStatus(StatusType.disorder));
-                    Debug.Log(card.GetAllStatus());
 
 
                 }
@@ -453,7 +483,7 @@ namespace TcgEngine.Gameplay
                 {
                     Card bearer = game_data.GetSlotCard(slot);
                     EquipCard(bearer, card);
-                    card.exhausted = true;
+                    //card.exhausted = true;
                 }
                 else if (icard.IsSecret())
                 {
@@ -484,6 +514,9 @@ namespace TcgEngine.Gameplay
                     TriggerCardAbilityType(AbilityTrigger.OnPlay, card);
                     TriggerOtherCardsAbilityType(AbilityTrigger.OnPlayOther, card);
                 }
+
+                //Re-check ongoing effects after all abilities are triggered
+                UpdateOngoing();
 
                 RefreshData();
 
@@ -554,7 +587,7 @@ namespace TcgEngine.Gameplay
 
 
                 //Debug.Log(attacker.GetStatus(StatusType.Haste));
-                Debug.Log(attacker.GetStatus(StatusType.Fury));
+                //Debug.Log(attacker.GetStatus(StatusType.Fury));
             }
         }
 
@@ -727,12 +760,13 @@ namespace TcgEngine.Gameplay
                     Card card = player.cards_deck[0];
                     player.cards_deck.RemoveAt(0);
                     player.cards_hand.Add(card);
+                    TriggerPlayerCardsAbilityType(player, AbilityTrigger.OnDraw);
+                    UpdateOngoingCards(); 
                 }
             }
 
             onCardDrawn?.Invoke(nb);
         }
-
         //Put a card from deck into discard
         public virtual void DrawDiscardCard(Player player, int nb = 1)
         {
@@ -968,13 +1002,15 @@ namespace TcgEngine.Gameplay
                 KillCard(attacker, target);
 
             //Kill card if no hp
-            if (target.GetHP() <= 0)
+            if (target.CardData.type  != CardType.Character  && target.GetHP() <= 0)
                 KillCard(attacker, target);
         }
 
         //A card that kills another card
         public virtual void KillCard(Card attacker, Card target)
         {
+
+
             if (attacker == null || target == null)
                 return;
 
@@ -987,8 +1023,7 @@ namespace TcgEngine.Gameplay
             Player pattacker = game_data.GetPlayer(attacker.player_id);
             if (attacker.player_id != target.player_id)
                 pattacker.kill_count++;
-
-            DiscardCard(target);
+                DiscardCard(target);
 
             TriggerCardAbilityType(AbilityTrigger.OnKill, attacker, target);
         }
@@ -1011,7 +1046,9 @@ namespace TcgEngine.Gameplay
 
             //Remove card from board and add to discard
             player.RemoveCardFromAllGroups(card);
-            player.cards_discard.Add(card);
+
+            if(!card.HasStatus(StatusType.Disappear))
+                player.cards_discard.Add(card);
             game_data.last_destroyed = card.uid;
 
             //Remove from bearer
@@ -1172,6 +1209,11 @@ namespace TcgEngine.Gameplay
             else if (iability.target == AbilityTarget.ChoiceSelector)
             {
                 GoToSelectorChoice(iability, caster);
+                return true;
+            }
+            else if (iability.target == AbilityTarget.ChoiceSelector)
+            {
+                GoToSelectorChoice2(iability, caster);
                 return true;
             }
             return false;
@@ -1345,21 +1387,63 @@ namespace TcgEngine.Gameplay
                     player.cards_hand[c].ClearOngoing();
             }
 
+            //Iterate multiple times to resolve dependencies between ongoing effects
+            //For example: Card A gives flying if another flying card exists, Card B has flying
+            //Need multiple passes so that Card B gets flying first, then Card A can detect it
+            for (int iteration = 0; iteration < 5; iteration++)
+            {
+                bool changed = false;
+
+                //Step 1: First pass - add self-targeting ongoing effects (like Flying)
+                for (int p = 0; p < game_data.players.Length; p++)
+                {
+                    Player player = game_data.players[p];
+                    
+                    int heroCount = player.hero != null ? player.hero.ongoing_status.Count : 0;
+                    UpdateOngoingSelfEffects(player, player.hero);
+                    if (player.hero != null && player.hero.ongoing_status.Count != heroCount)
+                        changed = true;
+
+                    for (int c = 0; c < player.cards_board.Count; c++)
+                    {
+                        Card card = player.cards_board[c];
+                        int count = card.ongoing_status.Count;
+                        UpdateOngoingSelfEffects(player, card);
+                        if (card.ongoing_status.Count != count)
+                            changed = true;
+                    }
+
+                    for (int c = 0; c < player.cards_equip.Count; c++)
+                    {
+                        Card card = player.cards_equip[c];
+                        int count = card.ongoing_status.Count;
+                        UpdateOngoingSelfEffects(player, card);
+                        if (card.ongoing_status.Count != count)
+                            changed = true;
+                    }
+                }
+
+                //If no changes, we can stop early
+                if (!changed)
+                    break;
+            }
+
+            //Step 2: Second pass - add aura effects (like Flying Aura)
             for (int p = 0; p < game_data.players.Length; p++)
             {
                 Player player = game_data.players[p];
-                UpdateOngoingAbilities(player, player.hero);  //Remove this line if hero is on the board
+                UpdateOngoingAuraEffects(player, player.hero);
 
                 for (int c = 0; c < player.cards_board.Count; c++)
                 {
                     Card card = player.cards_board[c];
-                    UpdateOngoingAbilities(player, card);
+                    UpdateOngoingAuraEffects(player, card);
                 }
 
                 for (int c = 0; c < player.cards_equip.Count; c++)
                 {
                     Card card = player.cards_equip[c];
-                    UpdateOngoingAbilities(player, card);
+                    UpdateOngoingAuraEffects(player, card);
                 }
             }
 
@@ -1409,6 +1493,48 @@ namespace TcgEngine.Gameplay
                         AddOngoingStatusBonus(card, status);
                 }
             }
+
+            //Update attack equal to HP effects (after status bonus)
+            for (int p = 0; p < game_data.players.Length; p++)
+            {
+                Player player = game_data.players[p];
+                for (int c = 0; c < player.cards_board.Count; c++)
+                {
+                    Card card = player.cards_board[c];
+                    UpdateAtkEqualHpEffects(player, card);
+                }
+            }
+        }
+
+        protected virtual void UpdateAtkEqualHpEffects(Player player, Card card)
+        {
+            if (card == null || !card.CanDoAbilities())
+                return;
+
+            //Handle Vitality status
+            if (card.HasStatus(StatusType.Vitality))
+            {
+                card.attack = card.GetHP();
+                card.attack_ongoing = 0;
+            }
+
+            //Handle EffectSetAtkEqualHpReal abilities
+            List<AbilityData> cabilities = card.GetAbilities();
+            for (int a = 0; a < cabilities.Count; a++)
+            {
+                AbilityData ability = cabilities[a];
+                if (ability != null && ability.trigger == AbilityTrigger.Ongoing && ability.AreTriggerConditionsMet(game_data, card))
+                {
+                    if (ability.target == AbilityTarget.Self && ability.AreTargetConditionsMet(game_data, card, card))
+                    {
+                        foreach (EffectData effect in ability.effects)
+                        {
+                            if (effect is EffectSetAtkEqualHpReal)
+                                effect.DoOngoingEffect(this, ability, card, card);
+                        }
+                    }
+                }
+            }
         }
 
         protected virtual void UpdateOngoingKills()
@@ -1426,24 +1552,156 @@ namespace TcgEngine.Gameplay
                             DiscardCard(card);
                     }
                 }
-                for (int i = player.cards_equip.Count - 1; i >= 0; i--)
-                {
-                    if (i < player.cards_equip.Count)
-                    {
-                        Card card = player.cards_equip[i];
-                        if (card.GetHP() <= 0)
-                            DiscardCard(card);
-                        Card bearer = player.GetBearerCard(card);
-                        if (bearer == null)
-                            DiscardCard(card);
-                    }
-                }
+                //修改 可以防御力为0
+
+                //for (int i = player.cards_equip.Count - 1; i >= 0; i--)
+                //{
+                //    if (i < player.cards_equip.Count)
+                //    {
+                //        Card card = player.cards_equip[i];
+                //        if (card.GetHP() <= 0)
+                //            DiscardCard(card);
+                //        Card bearer = player.GetBearerCard(card);
+                //        if (bearer == null)
+                //            DiscardCard(card);
+                //    }
+                //}
             }
 
             //Clear cards
             for (int c = 0; c < cards_to_clear.Count; c++)
                 cards_to_clear[c].Clear();
             cards_to_clear.Clear();
+        }
+
+        //Step 1: Add self-targeting ongoing effects (like Flying status to self)
+        protected virtual void UpdateOngoingSelfEffects(Player player, Card card)
+        {
+            if (card == null || !card.CanDoAbilities())
+                return;
+
+            List<AbilityData> cabilities = card.GetAbilities();
+            for (int a = 0; a < cabilities.Count; a++)
+            {
+                AbilityData ability = cabilities[a];
+                if (ability != null && ability.trigger == AbilityTrigger.Ongoing && ability.AreTriggerConditionsMet(game_data, card))
+                {
+                    //Only process self-targeting effects
+                    if (ability.target == AbilityTarget.Self)
+                    {
+                        if (ability.AreTargetConditionsMet(game_data, card, card))
+                        {
+                            ability.DoOngoingEffects(this, card, card);
+                        }
+                    }
+                }
+            }
+        }
+
+        //Step 2: Add aura effects that target other cards (like Flying Aura)
+        protected virtual void UpdateOngoingAuraEffects(Player player, Card card)
+        {
+            if (card == null || !card.CanDoAbilities())
+                return;
+
+            List<AbilityData> cabilities = card.GetAbilities();
+            for (int a = 0; a < cabilities.Count; a++)
+            {
+                AbilityData ability = cabilities[a];
+                if (ability != null && ability.trigger == AbilityTrigger.Ongoing && ability.AreTriggerConditionsMet(game_data, card))
+                {
+                    //Skip self-targeting effects (already processed in Step 1)
+                    if (ability.target == AbilityTarget.Self)
+                        continue;
+
+                    if (ability.target == AbilityTarget.PlayerSelf)
+                    {
+                        if (ability.AreTargetConditionsMet(game_data, card, player))
+                        {
+                            ability.DoOngoingEffects(this, card, player);
+                        }
+                    }
+
+                    if (ability.target == AbilityTarget.AllPlayers || ability.target == AbilityTarget.PlayerOpponent)
+                    {
+                        for (int tp = 0; tp < game_data.players.Length; tp++)
+                        {
+                            if (ability.target == AbilityTarget.AllPlayers || tp != player.player_id)
+                            {
+                                Player oplayer = game_data.players[tp];
+                                if (ability.AreTargetConditionsMet(game_data, card, oplayer))
+                                {
+                                    ability.DoOngoingEffects(this, card, oplayer);
+                                }
+                            }
+                        }
+                    }
+
+                    if (ability.target == AbilityTarget.EquippedCard)
+                    {
+                        if (card.CardData.IsEquipment())
+                        {
+                            Card target = player.GetBearerCard(card);
+                            if (target != null && ability.AreTargetConditionsMet(game_data, card, target))
+                            {
+                                ability.DoOngoingEffects(this, card, target);
+                            }
+                        }
+                        else if (card.equipped_uid != null)
+                        {
+                            Card target = game_data.GetCard(card.equipped_uid);
+                            if (target != null && ability.AreTargetConditionsMet(game_data, card, target))
+                            {
+                                ability.DoOngoingEffects(this, card, target);
+                            }
+                        }
+                    }
+
+                    if (ability.target == AbilityTarget.AllCardsAllPiles || ability.target == AbilityTarget.AllCardsHand || ability.target == AbilityTarget.AllCardsBoard)
+                    {
+                        for (int tp = 0; tp < game_data.players.Length; tp++)
+                        {
+                            Player tplayer = game_data.players[tp];
+
+                            if (ability.target == AbilityTarget.AllCardsAllPiles || ability.target == AbilityTarget.AllCardsHand)
+                            {
+                                for (int tc = 0; tc < tplayer.cards_hand.Count; tc++)
+                                {
+                                    Card tcard = tplayer.cards_hand[tc];
+                                    if (ability.AreTargetConditionsMet(game_data, card, tcard))
+                                    {
+                                        ability.DoOngoingEffects(this, card, tcard);
+                                    }
+                                }
+                            }
+
+                            if (ability.target == AbilityTarget.AllCardsAllPiles || ability.target == AbilityTarget.AllCardsBoard)
+                            {
+                                for (int tc = 0; tc < tplayer.cards_board.Count; tc++)
+                                {
+                                    Card tcard = tplayer.cards_board[tc];
+                                    if (ability.AreTargetConditionsMet(game_data, card, tcard))
+                                    {
+                                        ability.DoOngoingEffects(this, card, tcard);
+                                    }
+                                }
+                            }
+
+                            if (ability.target == AbilityTarget.AllCardsAllPiles)
+                            {
+                                for (int tc = 0; tc < tplayer.cards_equip.Count; tc++)
+                                {
+                                    Card tcard = tplayer.cards_equip[tc];
+                                    if (ability.AreTargetConditionsMet(game_data, card, tcard))
+                                    {
+                                        ability.DoOngoingEffects(this, card, tcard);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         protected virtual void UpdateOngoingAbilities(Player player, Card card)
@@ -1850,8 +2108,10 @@ namespace TcgEngine.Gameplay
                 foreach (Card card in remove_list)
                 {
                     player.RemoveCardFromAllGroups(card);
-                    player.cards_discard.Add(card);
+                    player.cards_deck.Add(card);
                 }
+
+                ShuffleDeck(player.cards_deck);
 
                 player.ready = true;
                 DrawCard(player, count);
@@ -1887,6 +2147,16 @@ namespace TcgEngine.Gameplay
         protected virtual void GoToSelectorChoice(AbilityData iability, Card caster)
         {
             game_data.selector = SelectorType.SelectorChoice;
+            game_data.selector_player_id = caster.player_id;
+            game_data.selector_ability_id = iability.id;
+            game_data.selector_caster_uid = caster.uid;
+            RefreshData();
+        }
+
+
+        protected virtual void GoToSelectorChoice2(AbilityData iability, Card caster)
+        {
+            game_data.selector = SelectorType.SelectorChoice2;
             game_data.selector_player_id = caster.player_id;
             game_data.selector_ability_id = iability.id;
             game_data.selector_caster_uid = caster.uid;

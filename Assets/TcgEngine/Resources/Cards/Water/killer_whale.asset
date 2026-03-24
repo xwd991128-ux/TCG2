@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: killer_whale
   m_EditorClassIdentifier: 
   id: killer_whale
-  title: Killer Whale
+  title: "\u864E\u9CB8"
   art_full: {fileID: 21300000, guid: 7dd3b918be639754b8bd56863411b65d, type: 3}
   art_board: {fileID: 21300000, guid: e8ea4a3e7122f6a439408b245cf19136, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: de1ad2790d94f9a429e240dbab7d65d5, type: 2}
-  text: <b>Play:</b> Destroy a character with 4 or less attack.
+  text: "<b>\u6253\u51FA:</b> \u6D88\u706D\u4E00\u4E2A\u653B\u51FB\u529B\u4E3A4\u6216\u66F4\u4F4E\u7684\u751F\u7269\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -35,7 +35,7 @@ namespace TcgEngine
 
         public bool IsValid()
         {
-            return cards.Length >= GameplayData.Get().deck_size;
+            return true;
         }
 
         public static DeckData Get(string id)

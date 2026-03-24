@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: protected
   m_EditorClassIdentifier: 
   effect: 15
-  title: Protected
+  title: "\u88AB\u4FDD\u62A4"
   icon: {fileID: 0}
-  desc: Cannot be attacked. Protected by Taunt.
+  desc: "\u4E0D\u80FD\u88AB\u653B\u51FB\u3002\u88AB\u5632\u8BBD\u4FDD\u62A4\u3002"
   status_fx: {fileID: 8041625327064058042, guid: 3d12108228a83c44f864468b6ae774fd,
     type: 3}
   hvalue: 0

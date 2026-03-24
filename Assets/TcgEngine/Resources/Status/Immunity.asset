@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Immunity
   m_EditorClassIdentifier: 
   effect: 42
-  title: Immunity
+  title: "\u514D\u75AB"
   icon: {fileID: 0}
   desc: "\u53D7\u5230\u7684\u4F24\u5BB3\u53D8\u4E3A0\u3002"
   status_fx: {fileID: 0}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: potion_blue
   m_EditorClassIdentifier: 
   id: potion_blue
-  title: Blue Potion
+  title: "\u84DD\u836F\u6C34"
   art_full: {fileID: 21300000, guid: 61ea4cc78589cad4e9f44b123557240d, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -27,7 +27,7 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: a9a46126ee749384d9dab3f62df9c121, type: 2}
   - {fileID: 11400000, guid: 2a806d0cbef18e344a7c1eb317673b21, type: 2}
-  text: Target gains shell and fully heals.
+  text: "\u76EE\u6807\u83B7\u5F97\u62A4\u76FE\u5E76\u5B8C\u5168\u6CBB\u7597\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

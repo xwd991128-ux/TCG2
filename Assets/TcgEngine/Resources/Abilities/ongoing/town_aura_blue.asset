@@ -31,8 +31,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Blue Aura
-  desc: All Blue cards cost 1 less.
+  title: "\u84DD\u4E4B\u795E\u5668"
+  desc: "\u53CB\u65B9\u84DD\u8272\u5361\u724C-1\u8D39\u7528\u6D88\u8017\u3002"

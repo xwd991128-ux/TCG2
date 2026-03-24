@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Choice
-  desc: Gain Taunt or Fury
+  title: "\u9009\u62E9"
+  desc: "\u83B7\u5F97\u5632\u8BBD\u6216\u72C2\u6012"

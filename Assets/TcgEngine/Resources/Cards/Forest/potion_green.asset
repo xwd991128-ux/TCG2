@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: potion_green
   m_EditorClassIdentifier: 
   id: potion_green
-  title: Green Potion
+  title: "\u7EFF\u836F\u6C34"
   art_full: {fileID: 21300000, guid: dc0a5320167a5d84299c9600c8f3d259, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -27,7 +27,7 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: 16cdfeb08ea94fb4b8b65cd1bdbb6186, type: 2}
   - {fileID: 11400000, guid: 17a4c57c4a3b61c46aef2d187356bb7b, type: 2}
-  text: Target gains 2 HP and Taunt.
+  text: "\u76EE\u6807\u83B7\u5F972\u70B9\u751F\u547D\u503C\u548C\u5632\u8BBD\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

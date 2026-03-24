@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,6 +20,7 @@ namespace TcgEngine.UI
         public IconBar mana_bar;
         public Text hp_txt;
         public Text hp_max_txt;
+        public PlayedCardsPanel played_cards_panel_prefab;
 
         public Animator[] secrets;
 
@@ -29,6 +30,7 @@ namespace TcgEngine.UI
 
         private bool killed = false;
         private float timer = 0f;
+        private PlayedCardsPanel played_cards_panel_instance;
 
         private int prev_hp = 0;
         private float delayed_damage_timer = 0f;
@@ -140,6 +142,29 @@ namespace TcgEngine.UI
             if (gdata.selector == SelectorType.SelectTarget && player_id == gdata.selector_player_id)
             {
                 GameClient.Get().SelectPlayer(GetPlayer());
+            }
+            else
+            {
+                Player player = GetPlayer();
+                if (player != null)
+                {
+                    if (played_cards_panel_instance != null && played_cards_panel_instance.IsVisible())
+                    {
+                        played_cards_panel_instance.Hide();
+                    }
+                    else
+                    {
+                        if (played_cards_panel_prefab != null)
+                        {
+                            if (played_cards_panel_instance == null)
+                            {
+                                played_cards_panel_instance = Instantiate(played_cards_panel_prefab, transform);
+                                played_cards_panel_instance.transform.SetParent(transform, false);
+                            }
+                            played_cards_panel_instance.Show(player);
+                        }
+                    }
+                }
             }
         }
 

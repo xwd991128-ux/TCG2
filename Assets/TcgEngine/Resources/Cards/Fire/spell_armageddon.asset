@@ -13,20 +13,21 @@ MonoBehaviour:
   m_Name: spell_armageddon
   m_EditorClassIdentifier: 
   id: spell_armageddon
-  title: Armageddon
+  title: "\u672B\u65E5\u5BA1\u5224"
   art_full: {fileID: 21300000, guid: a2c9cd7048d0e2940abbeb619f8fc491, type: 3}
   art_board: {fileID: 0}
   type: 20
   team: {fileID: 11400000, guid: 6bbb96863ece0314fb318c0fce569afc, type: 2}
   rarity: {fileID: 11400000, guid: 15eaa2a0fbd97f149b3aa87387c160d1, type: 2}
-  mana: 5
+  mana: 8
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: d5e4c95d43e02dc4a9ecf640464e1df2, type: 2}
   stats: []
   abilities:
   - {fileID: 11400000, guid: dcc0676dad374d249a3827d7c27a89dc, type: 2}
-  text: Destroy all creatures on the board
+  text: "\u6BC1\u706D\u6240\u6709\u751F\u7269\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

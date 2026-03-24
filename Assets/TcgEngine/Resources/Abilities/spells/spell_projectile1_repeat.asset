@@ -34,7 +34,7 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Projectiles
+  title: "\u5F39\u5E55"
   desc: 'Deal 1 damage to a random enemy card.
 
     Repeat X times.'

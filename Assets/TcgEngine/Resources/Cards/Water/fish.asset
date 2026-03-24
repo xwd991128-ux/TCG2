@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: fish
   m_EditorClassIdentifier: 
   id: fish
-  title: Fish
+  title: "\u9C7C"
   art_full: {fileID: 21300000, guid: b2db8c6ecb5b1b64cbf5abac9d783ddc, type: 3}
   art_board: {fileID: 21300000, guid: 68c5a00c7e31297439b6342a300a89d9, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: d006aa7902864824d907d4aa6b62de09, type: 2}
-  text: <b>Death:</b> Draw a card.
+  text: "<b>\u6B7B\u4EA1:</b> \u62BD\u4E00\u5F20\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

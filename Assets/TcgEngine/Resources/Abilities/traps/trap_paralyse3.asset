@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Paralysis
-  desc: After an enemy creature attacks, paralyse it for 3 turns.
+  title: "\u7591\u7591"
+  desc: "\u654C\u65B9\u751F\u7269\u653B\u51FB\u540E\uFF0C\u4F7F\u5176\u7591\u75913\u56DE\u5408\u3002"

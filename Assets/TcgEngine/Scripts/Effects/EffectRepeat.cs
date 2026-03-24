@@ -14,6 +14,7 @@ namespace TcgEngine
     {
         public AbilityData ability;
         public EffectRepeatType type;
+        public int bonus =0;
 
         public override void DoEffect(GameLogic logic, AbilityData iability, Card caster)
         {

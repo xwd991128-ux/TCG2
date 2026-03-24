@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Mana Ring
-  desc: Gain 2 extra mana per turn for the next 3 turns.
+  title: "\u6CD5\u529B\u6212\u6307"
+  desc: "\u63A5\u4E0B\u67653\u4E2A\u56DE\u5408\uFF0C\u6BCF\u56DE\u5408\u83B7\u5F972\u70B9\u989D\u5916\u6CD5\u529B\u3002"

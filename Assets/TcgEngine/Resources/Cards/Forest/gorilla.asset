@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: gorilla
   m_EditorClassIdentifier: 
   id: gorilla
-  title: Gorilla
+  title: "\u5927\u7329\u7329"
   art_full: {fileID: 21300000, guid: 9f1c2bf32a1d8984687a6beebd13fe7a, type: 3}
   art_board: {fileID: 21300000, guid: e4382bfb1ee3f034a9ff74ddc6d3719e, type: 3}
   type: 10
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 26c48eded39b6444fb64b3fa43f10654, type: 2}
-  text: <b>Play:</b> Roll a D6 to know your attack.
+  text: "<b>\u6253\u51FA:</b> \u6295\u6458D6\u51B3\u5B9A\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

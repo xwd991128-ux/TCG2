@@ -33,5 +33,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Summon Egg
-  desc: When this creatures dies, summon a phoenix egg.
+  title: "\u53EC\u5524\u86CB"
+  desc: "\u5F53\u8FD9\u4E2A\u751F\u7269\u6B7B\u4EA1\u65F6\uFF0C\u53EC\u5524\u4E00\u4E2A\u51E4\u51F0\u86CB\u3002"

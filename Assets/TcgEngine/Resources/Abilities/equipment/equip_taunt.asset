@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Taunt
-  desc: Bearer has taunt.
+  title: "\u5632\u8BBD"
+  desc: "\u88C5\u5907\u8005\u5177\u6709\u5632\u8BBD\u3002"

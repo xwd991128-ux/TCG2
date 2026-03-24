@@ -32,5 +32,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Coin
-  desc: Gain 1 mana this turn.
+  title: "\u91D1\u5E01"
+  desc: "\u672C\u56DE\u5408\u83B7\u5F971\u70B9\u6CD5\u529B\u3002"

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TcgEngine.Gameplay;
@@ -45,14 +45,14 @@ namespace TcgEngine.AI
 
         private IEnumerator AiTurn()
         {
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.3f);
 
             Game game_data = gameplay.GetGameData();
             ai_logic.RunAI(game_data);
 
             while (ai_logic.IsRunning())
             {
-                yield return new WaitForSeconds(0.1f);
+                yield return new WaitForSeconds(0.05f);
             }
 
             AIAction best = ai_logic.GetBestAction();
@@ -60,15 +60,13 @@ namespace TcgEngine.AI
             if (best != null)
             {
                 Debug.Log("Execute AI Action: " + best.GetText(game_data) + "\n" + ai_logic.GetNodePath());
-                //foreach (NodeState node in ai_logic.GetFirst().childs)
-                //   Debug.Log(ai_logic.GetNodePath(node));
 
                 ExecuteAction(best);
             }
 
             ai_logic.ClearMemory();
 
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(0.2f);
             is_playing = false;
         }
 
@@ -257,7 +255,7 @@ namespace TcgEngine.AI
 
         private void SkipMulligan()
         {
-            string[] cards = new string[0]; //Don't mulligan
+            string[] cards = new string[0];
             SelectMulligan(cards);
         }
 

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: seagull
   m_EditorClassIdentifier: 
   id: seagull
-  title: Seagull
+  title: "\u6D77\u9E25"
   art_full: {fileID: 21300000, guid: 4a08a6f218392f14dabeaa3970e88636, type: 3}
   art_board: {fileID: 21300000, guid: 767a944c3bb1eac4ca9a9a2d936c0549, type: 3}
   type: 10
@@ -26,8 +26,8 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: bd8a20981b906a34897ee485cfc1db6b, type: 2}
-  text: Flying
-  desc: 
+  text: "<b>\u98DE\u884C</b>"
+  desc: "\u4E00\u53EA\u666E\u901A\u7684\u6D77\u9E25\uFF0C\u62E5\u6709\u98DE\u884C\u80FD\u529B\uFF0C\u53EF\u4EE5\u98DE\u8D8A\u654C\u65B9\u7684\u9632\u5FA1\u8005\u8FDB\u884C\u653B\u51FB\u3002" 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}
   death_fx: {fileID: 0}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_roots
   m_EditorClassIdentifier: 
   id: spell_roots
-  title: Roots
+  title: "\u6811\u6839"
   art_full: {fileID: 21300000, guid: 1207432cb24bdf342a55ec604ad053db, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: eda66780e29f46b4b93879861cb594ba, type: 2}
-  text: Paralyse target for 3 turns.
+  text: "\u9EBB\u75F9\u76EE\u68073\u56DE\u5408\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

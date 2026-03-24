@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: haste
   m_EditorClassIdentifier: 
   effect: 40
-  title: "\u654F\u6377"
+  title: "\u51B2\u950B"
   icon: {fileID: 0}
   desc: "\u8FDB\u573A\u56DE\u5408\u53EF\u4EE5\u884C\u52A8"
   status_fx: {fileID: 8207343968682951967, guid: 73965d73de1b01a4c8c2f1820472d53f,

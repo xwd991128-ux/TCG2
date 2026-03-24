@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: wolf_baby
   m_EditorClassIdentifier: 
   id: wolf_baby
-  title: Baby Wolf
+  title: "\u5E7C\u72FC"
   art_full: {fileID: 21300000, guid: fd6b6c880b7f1bd46adba6b391db0113, type: 3}
   art_board: {fileID: 21300000, guid: 5b4bd18d1fa270248a02655f91808433, type: 3}
   type: 10

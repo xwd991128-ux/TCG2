@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: unicorn
   m_EditorClassIdentifier: 
   id: unicorn
-  title: Unicorn
+  title: "\u72EC\u89D2\u517D"
   art_full: {fileID: 21300000, guid: 3292abc2a706cc64fbd62d560d817588, type: 3}
   art_board: {fileID: 21300000, guid: 028bf9dce47277945b4c7d7a3fead0da, type: 3}
   type: 10
@@ -27,9 +27,8 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: c361771bc0f771e48bb0a97fd2325564, type: 2}
   - {fileID: 11400000, guid: dbdc04150338c3c4e8a6552b66924448, type: 2}
-  text: '<b>Play:</b> Give +2/2.
-
-    <b>Action:</b> Charge.'
+  text: "<b>\u6253\u51FA:</b> \u7ED9\u4E88+2/2\u3002\n<b>\u6FC0\u6D3B:\u51B2\u950B</b>
+    \u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

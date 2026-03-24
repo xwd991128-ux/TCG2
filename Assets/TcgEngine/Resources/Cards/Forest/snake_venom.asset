@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: snake_venom
   m_EditorClassIdentifier: 
   id: snake_venom
-  title: Viper
+  title: "\u6BD2\u86C7"
   art_full: {fileID: 21300000, guid: 26fdf69f03d65644b8cd961f59f33a40, type: 3}
   art_board: {fileID: 21300000, guid: b636d860c011d0a4aba40414f67dac28, type: 3}
   type: 10
@@ -27,7 +27,7 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: e60f3724f57913949bb49eef22c7759e, type: 2}
   - {fileID: 11400000, guid: e8de10b59328c0b4ab07db3040214ee9, type: 2}
-  text: <b>Attack:</b> Poison.
+  text: "\u548C\u5355\u4F4D\u4EA4\u6218\u540E\u4F7F\u5176<b>\u4E2D\u6BD2</b>\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

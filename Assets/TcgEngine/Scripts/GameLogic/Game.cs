@@ -1,5 +1,6 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
+using TcgEngine.Client;
 using UnityEngine;
 
 namespace TcgEngine
@@ -100,6 +101,23 @@ namespace TcgEngine
             return phase == GamePhase.Mulligan && !player.ready;
         }
         
+
+
+        ////CharactorTrait
+        //public virtual bool HasCharactorTraitOnBoard(Player player,Card card)
+        //{
+        //    foreach (Card boardCard in player.cards_board )
+        //    {
+        //        if (boardCard != null && boardCard.CardData.character_trait == card.CardData.character_trait)
+        //        {
+        //            return true;
+        //        }
+
+        //    }
+        //    return false;
+        //}
+
+
         //Check if a card is allowed to be played on slot
         public virtual bool CanPlayCard(Card card, Slot slot, bool skip_cost = false)
         {
@@ -111,6 +129,11 @@ namespace TcgEngine
                 return false; //Cant pay mana
             if (!player.HasCard(player.cards_hand, card))
                 return false; // Card not in hand
+            //if (card.CardData.character_trait != null && card.CardData.character_trait.id != "not_character_trait" && card.CardData.type == CardType.Spell)
+            //{
+            //    return HasCharactorTraitOnBoard(player,card);
+            //} //Character Spell Card
+
             if (player.is_ai && card.CardData.IsDynamicManaCost() && player.mana == 0)
                 return false; // AI cant play X-cost card at 0 cost
 
@@ -219,7 +242,7 @@ namespace TcgEngine
 
         public virtual bool CanCastAbility(Card card, AbilityData ability)
         {
-            if (ability == null || card == null || !card.CanDoActivatedAbilities())
+            if (ability == null || card == null || (!card.CanDoActivatedAbilities() && ability.exhaust))
                 return false; //This card cant cast
 
             if (ability.trigger != AbilityTrigger.Activate)
@@ -365,6 +388,8 @@ namespace TcgEngine
             }
             return null;
         }
+
+
 
         public Card GetEquipCard(string card_uid)
         {
@@ -607,5 +632,6 @@ namespace TcgEngine
         SelectorCard = 20,
         SelectorChoice = 30,
         SelectorCost = 40,
+        SelectorChoice2 =50,
     }
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: armor
   m_EditorClassIdentifier: 
   effect: 16
-  title: 
+  title: "\u62A4\u7532"
   icon: {fileID: 0}
   desc: "\u6BCF\u67091\u70B9\u62A4\u7532\uFF0C\u53D7\u5230\u7684\u4F24\u5BB3-1\u3002"
   status_fx: {fileID: 0}

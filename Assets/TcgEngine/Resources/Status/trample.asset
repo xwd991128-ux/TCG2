@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: trample
   m_EditorClassIdentifier: 
   effect: 26
-  title: Trample
+  title: "\u8DF5\u8E0F"
   icon: {fileID: 0}
-  desc: Extra damage is dealt to player.
+  desc: "\u5BF9\u65B9\u82F1\u96C4\u53D7\u5230\u6EA2\u51FA\u4F24\u5BB3\u3002"
   status_fx: {fileID: 0}
   hvalue: 1

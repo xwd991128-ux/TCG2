@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -590,6 +590,7 @@ namespace TcgEngine.UI
                 {
                     if (button.value == team.id)
                         filter_team = team;
+                    //Debug.Log(filter_team);
                 }
             }
             RefreshCards();
@@ -631,7 +632,12 @@ namespace TcgEngine.UI
                 UserData udata = Authenticator.Get().UserData;
 
                 bool owner = IsCardOwned(udata, card.GetCard(), card.GetVariant(), in_deck + 1);
-                bool deck_limit = in_deck_same < GameplayData.Get().deck_duplicate_max;
+                int max_duplicate = GameplayData.Get().deck_duplicate_max;
+                if (icard.rarity != null && icard.rarity.id == "mythic")
+                {
+                    max_duplicate = 1;
+                }
+                bool deck_limit = in_deck_same < max_duplicate;
 
                 if (owner && deck_limit)
                 {

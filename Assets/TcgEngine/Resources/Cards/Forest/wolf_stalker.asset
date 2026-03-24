@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: wolf_stalker
   m_EditorClassIdentifier: 
   id: wolf_stalker
-  title: Wolf Stalker
+  title: "\u6F5C\u884C\u72FC"
   art_full: {fileID: 21300000, guid: 8be9cdeea7b57aa4dbff68d71ffa97f1, type: 3}
   art_board: {fileID: 21300000, guid: d01e947eea657984692e70b772475fd3, type: 3}
   type: 10
@@ -27,7 +27,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: 71b7fc6ed6ccb084486c85d48cc255f6, type: 2}
-  text: Stealth
+  text: "<b>\u9690\u5F62</b>"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

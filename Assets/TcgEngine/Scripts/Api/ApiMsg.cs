@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace TcgEngine
@@ -78,6 +78,12 @@ namespace TcgEngine
     public struct RewardGainRequest
     {
         public string reward;
+    }
+
+    [Serializable]
+    public struct GoldBattleRewardRequest
+    {
+        public int coins;
     }
 
     [Serializable]

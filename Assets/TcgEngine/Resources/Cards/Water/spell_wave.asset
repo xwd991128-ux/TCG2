@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_wave
   m_EditorClassIdentifier: 
   id: spell_wave
-  title: Wave
+  title: "\u6D6A\u6F6E"
   art_full: {fileID: 21300000, guid: cc3bd4bae8a25fb4693234894df54925, type: 3}
   art_board: {fileID: 0}
   type: 20
@@ -26,7 +26,7 @@ MonoBehaviour:
   stats: []
   abilities:
   - {fileID: 11400000, guid: bde51bf0875c1f14c93191f4150c6d26, type: 2}
-  text: Return target to owner's hand.
+  text: "\u5C06\u76EE\u6807\u8FD4\u56DE\u624B\u724C\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

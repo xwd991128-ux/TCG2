@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: invicibility
   m_EditorClassIdentifier: 
   effect: 12
-  title: Invincible
+  title: "\u65E0\u654C"
   icon: {fileID: 0}
-  desc: Cannot be destroyed.
+  desc: "\u4E0D\u4F1A\u88AB\u6D88\u706D\u3002"
   status_fx: {fileID: 0}
   hvalue: 2

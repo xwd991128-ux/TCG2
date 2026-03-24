@@ -34,5 +34,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Armor +2
-  desc: Target gains armor 2. Reducing all damage by 2.
+  title: "\u62A4\u7532+2"
+  desc: "\u76EE\u6807\u83B7\u5F972\u70B9\u62A4\u7532\uFF0C\u51CF\u5C11\u6240\u53D7\u4F24\u5BB32\u70B9\u3002"

@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: shell
   m_EditorClassIdentifier: 
   effect: 13
-  title: Shell
+  title: "\u62A4\u76FE"
   icon: {fileID: 0}
-  desc: On the first hit, takes no damage.
+  desc: "\u62B5\u6321\u4E0B\u4E00\u6B21\u4F24\u5BB3\u3002"
   status_fx: {fileID: 8041625327064058042, guid: 364d6092a8e082740990d503ddee9024,
     type: 3}
   hvalue: 1

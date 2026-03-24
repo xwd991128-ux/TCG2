@@ -37,5 +37,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Fire
-  desc: Deal 1 damage.
+  title: "\u706B\u7130"
+  desc: "\u9020\u62101\u70B9\u4F24\u5BB3\u3002"

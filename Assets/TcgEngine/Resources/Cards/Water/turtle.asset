@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: turtle
   m_EditorClassIdentifier: 
   id: turtle
-  title: Turtle
+  title: "\u6D77\u9F9F"
   art_full: {fileID: 21300000, guid: 31c9c961569f6c04ca67edb890d1cfcf, type: 3}
   art_board: {fileID: 21300000, guid: cb36b13a00e8cf14c9d2fd86eb8b3027, type: 3}
   type: 10
@@ -27,9 +27,7 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: 2a11cb097ae04474693f6d6e1dd957ee, type: 2}
   - {fileID: 11400000, guid: 794f3e6c72a98224abe6dfcdafabe4a0, type: 2}
-  text: 'Taunt
-
-    Shell'
+  text: "<b>\u5632\u8BBD</b>\n<b>\u62A4\u76FE</b>"
   desc: 
   spawn_fx: {fileID: 2106287953758554471, guid: a1e1ec86d02e969408bf2a6c17010f46,
     type: 3}

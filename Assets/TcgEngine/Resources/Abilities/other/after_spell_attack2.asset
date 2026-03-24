@@ -35,5 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Heat
-  desc: After playing a spell, gain +2 attack.
+  title: "\u70ED\u8840"
+  desc: "\u4F7F\u7528\u6CD5\u672F\u540E\uFF0C\u83B7\u5F97+2\u653B\u51FB\u529B\u3002"

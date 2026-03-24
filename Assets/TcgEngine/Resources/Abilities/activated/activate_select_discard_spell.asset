@@ -34,8 +34,9 @@ MonoBehaviour:
   caster_fx: {fileID: 1978218510890451076, guid: a12deeffd1eefbb4f878c6692e5363fd,
     type: 3}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Magic Focus
-  desc: Return a spell from your graveyard to your hand. Cost 2 mana.
+  title: "\u9B54\u529B\u4E13\u6CE8"
+  desc: "<b>(2)</b> \u4ECE\u5F03\u724C\u5806\u5C061\u5F20\u6CD5\u672F\u724C\u52A0\u5165\u624B\u724C\u3002"

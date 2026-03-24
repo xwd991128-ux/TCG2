@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: wolf_alpha
   m_EditorClassIdentifier: 
   id: wolf_alpha
-  title: Alpha Wolf
+  title: "\u72FC\u738B"
   art_full: {fileID: 21300000, guid: e51daa54a539c9a4ba7c82f9c832bbc9, type: 3}
   art_board: {fileID: 21300000, guid: 5cd105acce20b0f40810123f6fe80756, type: 3}
   type: 10
@@ -28,9 +28,7 @@ MonoBehaviour:
   abilities:
   - {fileID: 11400000, guid: 952d8d808aec0464a8135270b1ed4049, type: 2}
   - {fileID: 11400000, guid: c04ebd6a2109d0e4891c3e1dc9786993, type: 2}
-  text: '<b>Play</b>: Summon a baby wolf.
-
-    All Wolves +1 attack.'
+  text: "<b>\u6253\u51FA:</b> \u53EC\u5524\u4E00\u53EA\u5E7C\u72FC\u3002\n\u6240\u6709\u72FC+1\u653B\u51FB\u529B\u3002"
   desc: 
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}

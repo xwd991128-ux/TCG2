@@ -35,6 +35,5 @@ MonoBehaviour:
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Reaper
-  desc: At the start of your turn, kill characters in play with the lowest attack
-    (including yours).
+  title: "\u6536\u5272\u8005"
+  desc: "\u56DE\u5408\u5F00\u59CB\u65F6\uFF0C\u6D88\u706D\u573A\u4E0A\u653B\u51FB\u529B\u6700\u4F4E\u7684\u4EC6\u4ECE\uFF08\u5305\u62EC\u4F60\u7684\uFF09\u3002"

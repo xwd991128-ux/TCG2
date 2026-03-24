@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -134,7 +134,15 @@ namespace TcgEngine.Client
             //Update card image
             Sprite sprite = card.CardData.GetBoardArt(card.VariantData);
             if (sprite != card_sprite.sprite)
+            {
                 card_sprite.sprite = sprite;
+                
+                //自适应大小 - 根据sprite实际尺寸调整显示大小
+                float targetHeight = 2f;
+                float spriteHeight = sprite.bounds.size.y;
+                float scale = targetHeight / spriteHeight;
+                card_sprite.transform.localScale = new Vector3(scale, scale, 1f);
+            }
 
             //Update frame image
             Sprite frame = card.VariantData.frame_board;
@@ -224,7 +232,18 @@ namespace TcgEngine.Client
             if (icard)
             {
                 card_ui.SetCard(card);
-                card_sprite.sprite = icard.GetBoardArt(card.VariantData);
+                Sprite sprite = icard.GetBoardArt(card.VariantData);
+                card_sprite.sprite = sprite;
+                
+                //自适应大小 - 根据sprite实际尺寸调整显示大小
+                if (sprite != null)
+                {
+                    float targetHeight = 2f;
+                    float spriteHeight = sprite.bounds.size.y;
+                    float scale = targetHeight / spriteHeight;
+                    card_sprite.transform.localScale = new Vector3(scale, scale, 1f);
+                }
+                
                 armor.enabled = false;
                 armor_icon.enabled = false;
                 status_alpha_target = 0f;

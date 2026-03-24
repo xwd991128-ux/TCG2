@@ -30,8 +30,9 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0
-  title: Defense
-  desc: Has +3 attack during the opponent's turn.
+  title: "\u9632\u5FA1"
+  desc: "\u5728\u5BF9\u65B9\u56DE\u5408+3\u653B\u51FB\u529B\u3002"
