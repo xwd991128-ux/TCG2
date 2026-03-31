@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 843a21f7f6f205741a0a7341aec8e84d, type: 3}
   m_Name: resurrection
   m_EditorClassIdentifier: 
-  id: resurrection
+  id: resurrection_swamp
   title: "\u590D\u6D3B\u672F"
   art_full: {fileID: 0}
   art_board: {fileID: 0}

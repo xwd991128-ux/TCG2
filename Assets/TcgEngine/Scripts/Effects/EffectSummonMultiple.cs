@@ -24,7 +24,7 @@ namespace TcgEngine
             Player player = logic.GameData.GetPlayer(caster.player_id);
             for (int i = 0; i < count; i++)
             {
-                logic.SummonCard(player, summon, caster.VariantData);
+                logic.SummonCardHand(player, summon, caster.VariantData);
             }
         }
 
@@ -33,7 +33,7 @@ namespace TcgEngine
             Player player = logic.GameData.GetPlayer(caster.player_id);
             for (int i = 0; i < count; i++)
             {
-                logic.SummonCard(player, summon, caster.VariantData);
+                logic.SummonCard(player, summon, caster.VariantData, target);
             }
         }
 

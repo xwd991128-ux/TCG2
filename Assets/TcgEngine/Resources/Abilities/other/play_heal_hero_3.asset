@@ -19,7 +19,7 @@ MonoBehaviour:
   conditions_target: []
   filters_target: []
   effects:
-  - {fileID: 11400000, guid: 6c3456789012345678901234567890123, type: 2}
+  - {fileID: 11400000, guid: cc57d101cadb40448b9748f08066a2f5, type: 2}
   status: []
   value: 0
   duration: 0
