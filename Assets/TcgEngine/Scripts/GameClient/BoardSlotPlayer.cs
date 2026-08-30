@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TcgEngine.UI;
@@ -53,16 +53,43 @@ namespace TcgEngine.Client
             if (!GameClient.Get().IsReady())
                 return;
 
+            // 提前声明共享变量
+            HandCard drag_card = HandCard.GetDrag();
+            bool your_turn = GameClient.Get().IsYourTurn();
+            Game gdata = GameClient.Get().GetGameData();
+            Player player = GameClient.Get().GetPlayer();
+
+            // 如果是自己的区域，只处理法术目标选择，不处理攻击目标
             if (!opponent)
+            {
+                target_alpha = 0f;
+
+                Debug.Log($"BoardSlotPlayer (self): your_turn={your_turn}, drag_card={(drag_card != null ? drag_card.CardData.id : "null")}");
+                
+                if (your_turn && drag_card != null)
+                {
+                    bool is_valid = gdata.IsPlayTargetValid(drag_card.GetCard(), GetPlayer());
+                    Debug.Log($"BoardSlotPlayer (self): card={drag_card.CardData.id}, type={drag_card.CardData.type}, IsPlayTargetValid={is_valid}");
+                    
+                    if (is_valid)
+                    {
+                        Debug.Log($"BoardSlotPlayer (self): Setting target_alpha to 1f");
+                        target_alpha = 1f; // 高亮当卡牌可以以玩家为目标时
+                    }
+                }
+
+                if (gdata.selector == SelectorType.SelectTarget)
+                {
+                    Card caster = gdata.GetCard(gdata.selector_caster_uid);
+                    AbilityData ability = AbilityData.Get(gdata.selector_ability_id);
+                    if (ability != null && ability.AreTargetConditionsMet(gdata, caster, GetPlayer()))
+                        target_alpha = 1f; // 高亮当选择目标且玩家是有效目标时
+                }
                 return;
+            }
 
             //int player_id = opponent ? GameClient.Get().GetOpponentPlayerID() : GameClient.Get().GetPlayerID();
             BoardCard bcard_selected = PlayerControls.Get().GetSelected();
-            HandCard drag_card = HandCard.GetDrag();
-            bool your_turn = GameClient.Get().IsYourTurn();
-
-            Game gdata = GameClient.Get().GetGameData();
-            Player player = GameClient.Get().GetPlayer();
             Player oplayer = GameClient.Get().GetOpponentPlayer();
 
             target_alpha = 0f;
@@ -83,7 +110,7 @@ namespace TcgEngine.Client
                 target_alpha = 1f; //Highlight when dragin a spell with target
             }
 
-            if (gdata.selector == SelectorType.SelectTarget && player.player_id == gdata.selector_player_id)
+            if (gdata.selector == SelectorType.SelectTarget)
             {
                 Card caster = gdata.GetCard(gdata.selector_caster_uid);
                 AbilityData ability = AbilityData.Get(gdata.selector_ability_id);
@@ -161,9 +188,14 @@ namespace TcgEngine.Client
 
             Game gdata = GameClient.Get().GetGameData();
             int player_id = GameClient.Get().GetPlayerID();
-            if (gdata.selector == SelectorType.SelectTarget && player_id == gdata.selector_player_id)
+            if (gdata.selector == SelectorType.SelectTarget && gdata.selector_player_id == player_id)
             {
-                GameClient.Get().SelectPlayer(GetPlayer());
+                Card caster = gdata.GetCard(gdata.selector_caster_uid);
+                AbilityData ability = AbilityData.Get(gdata.selector_ability_id);
+                if (ability != null && ability.AreTargetConditionsMet(gdata, caster, GetPlayer()))
+                {
+                    GameClient.Get().SelectPlayer(GetPlayer());
+                }
             }
         }
 

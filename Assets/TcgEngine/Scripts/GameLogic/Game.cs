@@ -129,10 +129,6 @@ namespace TcgEngine
                 return false; //Cant pay mana
             if (!player.HasCard(player.cards_hand, card))
                 return false; // Card not in hand
-            //if (card.CardData.character_trait != null && card.CardData.character_trait.id != "not_character_trait" && card.CardData.type == CardType.Spell)
-            //{
-            //    return HasCharactorTraitOnBoard(player,card);
-            //} //Character Spell Card
 
             if (player.is_ai && card.CardData.IsDynamicManaCost() && player.mana == 0)
                 return false; // AI cant play X-cost card at 0 cost

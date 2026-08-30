@@ -202,6 +202,38 @@ namespace TcgEngine.Gameplay
 
                 if (card.HasStatus(StatusType.Poisoned))
                     DamageCard(card, card.GetStatusValue(StatusType.Poisoned));
+
+                //Burning - lose 1 hp, decrease value by 1
+                if (card.HasStatus(StatusType.Burning))
+                {
+                    //Deal 1 damage
+                    DamageCard(card, 1);
+                    
+                    //Decrease burning value by 1
+                    CardStatus burningStatus = card.GetStatus(StatusType.Burning);
+                    if (burningStatus != null)
+                    {
+                        burningStatus.value -= 1;
+                        if (burningStatus.value <= 0)
+                            card.RemoveStatus(StatusType.Burning);
+                    }
+                    
+                    //Also check ongoing status
+                    CardStatus burningOngoing = card.GetOngoingStatus(StatusType.Burning);
+                    if (burningOngoing != null)
+                    {
+                        burningOngoing.value -= 1;
+                        if (burningOngoing.value <= 0)
+                        {
+                            //Remove from ongoing_status list
+                            for (int j = card.ongoing_status.Count - 1; j >= 0; j--)
+                            {
+                                if (card.ongoing_status[j].type == StatusType.Burning)
+                                    card.ongoing_status.RemoveAt(j);
+                            }
+                        }
+                    }
+                }
             }
 
             //Ongoing Abilities
@@ -278,6 +310,28 @@ namespace TcgEngine.Gameplay
                     doomed_cards.Add(card);
             }
             foreach (Card card in doomed_cards)
+            {
+                KillCard(null, card);
+            }
+
+            //Freezing - kill if freezing value >= hp at end of turn
+            List<Card> frozen_cards = new List<Card>();
+            foreach (Player aplayer in game_data.players)
+            {
+                foreach (Card card in aplayer.cards_board)
+                {
+                    if (card.HasStatus(StatusType.Freezing))
+                    {
+                        int freezing_value = card.GetStatusValue(StatusType.Freezing);
+                        int current_hp = card.GetHP();
+                        if (freezing_value >= current_hp)
+                        {
+                            frozen_cards.Add(card);
+                        }
+                    }
+                }
+            }
+            foreach (Card card in frozen_cards)
             {
                 KillCard(null, card);
             }
@@ -615,7 +669,7 @@ namespace TcgEngine.Gameplay
             DamageCard(attacker, target, datt1);
 
             //Counter Damage
-            if (!attacker.HasStatus(StatusType.Intimidate))
+            if (!attacker.HasStatus(StatusType.FirstStrike))
                 DamageCard(target, attacker, datt2);
 
             //Save attack and exhaust
@@ -1221,15 +1275,27 @@ namespace TcgEngine.Gameplay
 
         protected virtual void ResolveCardAbilityPlayTarget(AbilityData iability, Card caster)
         {
+            Debug.Log($"ResolveCardAbilityPlayTarget called: iability={iability?.id}, caster={caster?.CardData.id}");
+            
             if (iability.target == AbilityTarget.PlayTarget)
             {
                 Slot slot = caster.slot;
+                Debug.Log($"ResolveCardAbilityPlayTarget: slot={slot}, IsPlayerSlot={slot.IsPlayerSlot()}");
+                
                 Card slot_card = game_data.GetSlotCard(slot);
                 if (slot.IsPlayerSlot())
                 {
                     Player tplayer = game_data.GetPlayer(slot.p);
+                    Debug.Log($"ResolveCardAbilityPlayTarget: tplayer={tplayer?.player_id}");
                     if (iability.CanTarget(game_data, caster, tplayer))
+                    {
+                        Debug.Log($"ResolveCardAbilityPlayTarget: calling ResolveEffectTarget for player {tplayer.player_id}");
                         ResolveEffectTarget(iability, caster, tplayer);
+                    }
+                    else
+                    {
+                        Debug.Log($"ResolveCardAbilityPlayTarget: CanTarget returned false for player {tplayer?.player_id}");
+                    }
                 }
                 else if (slot_card != null)
                 {
@@ -1303,7 +1369,9 @@ namespace TcgEngine.Gameplay
 
         protected virtual void ResolveEffectTarget(AbilityData iability, Card caster, Player target)
         {
+            Debug.Log($"ResolveEffectTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target_player={target?.player_id}");
             iability.DoEffects(this, caster, target);
+            Debug.Log($"ResolveEffectTarget: DoEffects completed");
 
             onAbilityTargetPlayer?.Invoke(iability, caster, target);
         }
@@ -1491,6 +1559,26 @@ namespace TcgEngine.Gameplay
                         AddOngoingStatusBonus(card, status);
                     foreach (CardStatus status in card.ongoing_status)
                         AddOngoingStatusBonus(card, status);
+                }
+            }
+
+            //Equipment bonus
+            for (int p = 0; p < game_data.players.Length; p++)
+            {
+                Player player = game_data.players[p];
+                for (int c = 0; c < player.cards_board.Count; c++)
+                {
+                    Card card = player.cards_board[c];
+                    if (card.equipped_uid != null)
+                    {
+                        Card equip = game_data.GetCard(card.equipped_uid);
+                        if (equip != null && equip.CardData.IsEquipment())
+                        {
+                            // Add equipment attack and hp to the bearer's ongoing stats
+                            card.attack_ongoing += equip.attack;
+                            card.hp_ongoing += equip.hp;
+                        }
+                    }
                 }
             }
 

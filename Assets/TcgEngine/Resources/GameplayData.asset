@@ -43,5 +43,5 @@ MonoBehaviour:
   arena_list:
   - Game
   test_deck: {fileID: 11400000, guid: 0e6326c43c0688e40bbf592cf3ea6dec, type: 2}
-  test_deck_ai: {fileID: 11400000, guid: 0e6326c43c0688e40bbf592cf3ea6dec, type: 2}
+  test_deck_ai: {fileID: 11400000, guid: b3b121c26dd2793469d5c9af59df1b1f, type: 2}
   ai_vs_ai: 0

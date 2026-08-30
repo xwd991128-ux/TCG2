@@ -13,18 +13,19 @@ MonoBehaviour:
   m_Name: angel_kiss
   m_EditorClassIdentifier: 
   id: angel_kiss
-  title: "\u5929\u4F9Cu4E4B\u543B"
+  title: "\u5929\u4F7F\u4E4B\u543B"
   art_full: {fileID: 0}
   art_board: {fileID: 0}
-  type: 0
+  type: 20
   team: {fileID: 11400000, guid: 236de3fb3dc4c7943a0e18888180a6e1, type: 2}
   rarity: {fileID: 11400000, guid: fab1a52f5a36cc942985dea95be18ac9, type: 2}
-  mana: 0
+  mana: 3
   attack: 0
   hp: 0
   traits: []
   stats: []
-  abilities: []
+  abilities:
+  - {fileID: 11400000, guid: 9de71e2a7b555ad4b9367b681059f1a5, type: 2}
   text: 
   desc: 
   spawn_fx: {fileID: 0}
@@ -36,6 +37,7 @@ MonoBehaviour:
   death_audio: {fileID: 0}
   attack_audio: {fileID: 0}
   damage_audio: {fileID: 0}
-  deckbuilding: 0
+  deckbuilding: 1
   cost: 100
-  packs: []
+  packs:
+  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}

@@ -24,8 +24,10 @@ MonoBehaviour:
   hp: 7
   traits: []
   stats: []
-  abilities: []
-  text: "\u6CD5\u672F\u514D\u75AB\u3002\u4EA1\u8BED\uFF1A\u6062\u590D\u53CB\u65B9\u82F1\u96C45\u70B9\u751F\u547D\u3002"
+  abilities:
+  - {fileID: 11400000, guid: 643b2aa17cd6c8847884a5771a5656b3, type: 2}
+  - {fileID: 11400000, guid: 1ec52f90b07dbbd4f886a21fb61c90a9, type: 2}
+  text: "\u6CD5\u672F\u514D\u75AB\u3002\n<b>\u4EA1\u8BED\uFF1A</b>\u6062\u590D\u53CB\u65B9\u82F1\u96C45\u70B9\u751F\u547D\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

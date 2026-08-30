@@ -103,9 +103,9 @@ namespace TcgEngine.UI
             if (cost != null && card.IsDynamicManaCost())
                 cost.text = "X";
             if (attack != null)
-                attack.text = card.IsEquipment()?"+"+card.attack.ToString(): card.attack.ToString();
+                attack.text = card.IsEquipment()? (card.attack>=0? "+" + card.attack.ToString(): card.attack.ToString()) : card.attack.ToString();
             if (hp != null)
-                hp.text = card.IsEquipment() ? "+" + card.hp.ToString() : card.hp.ToString();
+                hp.text = card.IsEquipment() ? (card.hp >= 0 ? "+" + card.hp.ToString() : card.hp.ToString()) : card.hp.ToString();
 
             if (team_icon != null)
             {

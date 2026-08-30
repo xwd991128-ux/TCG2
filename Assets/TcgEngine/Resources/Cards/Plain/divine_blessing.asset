@@ -16,16 +16,19 @@ MonoBehaviour:
   title: "\u795E\u5723\u795D\u798F"
   art_full: {fileID: 0}
   art_board: {fileID: 0}
-  type: 50
+  type: 20
   team: {fileID: 11400000, guid: 236de3fb3dc4c7943a0e18888180a6e1, type: 2}
   rarity: {fileID: 11400000, guid: fab1a52f5a36cc942985dea95be18ac9, type: 2}
   mana: 3
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: 514ae2d4501d5014fbf8d884a47719ca, type: 2}
   stats: []
-  abilities: []
-  text: "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u751F\u7269\u83B7\u5F97+2/+2\u548C\u62A4\u76FE\u3002"
+  abilities:
+  - {fileID: 11400000, guid: d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4, type: 2}
+  - {fileID: 11400000, guid: 575eb9a255c5a674a9b484ec56e8d7de, type: 2}
+  text: "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u751F\u7269\u83B7\u5F97+2/+2\u548C<b>\u62A4\u76FE</b>\u3002"
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}
@@ -38,4 +41,5 @@ MonoBehaviour:
   damage_audio: {fileID: 0}
   deckbuilding: 1
   cost: 100
-  packs: []
+  packs:
+  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}

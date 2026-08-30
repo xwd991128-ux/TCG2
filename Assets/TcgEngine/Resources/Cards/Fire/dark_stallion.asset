@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: dark_stallion
   m_EditorClassIdentifier: 
   id: dark_stallion
-  title: "\u9ED1\u6697\u9A79\u9A6C"
+  title: "\u71C3\u70E7\u9A79\u9A6C"
   art_full: {fileID: 21300000, guid: 3f996c8e57a34b046b26c0e702f6ec10, type: 3}
   art_board: {fileID: 21300000, guid: a3c16225ff191a941959e49d08dae6fe, type: 3}
   type: 10
   team: {fileID: 11400000, guid: 6bbb96863ece0314fb318c0fce569afc, type: 2}
   rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
-  mana: 4
-  attack: 4
-  hp: 5
+  mana: 3
+  attack: 3
+  hp: 3
   traits: []
   stats: []
   abilities:
-  - {fileID: 11400000, guid: ab108100caefcc241b7e2ec3336acd06, type: 2}
-  text: "<b>\u6FC0\u6D3B(2):</b> \u6295\u63B7D6\uFF0C4+\u5C06\u76EE\u6807\u8FD4\u56DE\u624B\u724C\u3002"
+  - {fileID: 11400000, guid: 95b9a207c5fce854892fb10ab1baf845, type: 2}
+  text: "<b>(2):</b> \u9020\u62101\u70B9\u4F24\u5BB3\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

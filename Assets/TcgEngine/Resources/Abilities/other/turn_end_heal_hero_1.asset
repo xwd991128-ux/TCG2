@@ -15,7 +15,7 @@ MonoBehaviour:
   id: turn_end_heal_hero_1
   trigger: 22
   conditions_trigger: []
-  target: 1
+  target: 4
   conditions_target: []
   filters_target: []
   effects:

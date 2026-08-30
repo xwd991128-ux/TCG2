@@ -43,7 +43,7 @@ namespace TcgEngine.Client
                 focus = false;
             }
 
-            if (equip_glow != null)
+            if (equip_glow != null && equip != null)
             {
                 int player_id = GameClient.Get().GetPlayerID();
                 Color ccolor = player_id == equip.player_id ? glow_ally : glow_enemy;

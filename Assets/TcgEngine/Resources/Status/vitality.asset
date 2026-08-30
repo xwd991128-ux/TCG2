@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: vitality
   m_EditorClassIdentifier: 
   effect: 52
-  title: "\u751F\u547D\u529B"
+  title: "\u6D3B\u529B"
   icon: {fileID: 0}
   desc: "\u8BE5\u751F\u7269\u7684\u653B\u51FB\u529B\u7B49\u540C\u4E8E\u5F53\u524D\u751F\u547D\u503C\u3002"
   status_fx: {fileID: 0}

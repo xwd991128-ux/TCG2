@@ -1,4 +1,4 @@
-﻿using TcgEngine.Client;
+using TcgEngine.Client;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -194,7 +194,7 @@ namespace TcgEngine.Client
         {
             Vector2 mpos = GameCamera.Get().MouseToPercent(Input.mousePosition);
             Vector3 board_pos = GameBoard.Get().RaycastMouseBoard();
-            if (drag && mpos.y > 0.25f)
+            if (drag && mpos.y > 0.05f)
                 TryPlayCard(board_pos);
             else if (!GameTool.IsMobile())
                 HandCardArea.Get().SortCards();
@@ -224,11 +224,29 @@ namespace TcgEngine.Client
             if (!Tutorial.Get().CanDo(TutoEndTrigger.PlayCard, card))
                 return;
 
-            Card slot_card = bslot?.GetSlotCard(board_pos);
-            if (bslot != null && card.CardData.IsRequireTargetSpell() && slot_card != null && slot_card.HasStatus(StatusType.SpellImmunity))
+            // 检查玩家区域的法术免疫
+            if (bslot != null && card.CardData.IsRequireTargetSpell())
             {
-                WarningText.ShowSpellImmune();
-                return;
+                if (bslot.IsPlayer())
+                {
+                    // 对于玩家区域，检查玩家是否有法术免疫
+                    Player target_player = bslot.GetPlayer();
+                    if (target_player != null && target_player.hero != null && target_player.hero.HasStatus(StatusType.SpellImmunity))
+                    {
+                        WarningText.ShowSpellImmune();
+                        return;
+                    }
+                }
+                else
+                {
+                    // 对于生物区域，检查生物是否有法术免疫
+                    Card slot_card = bslot?.GetSlotCard(board_pos);
+                    if (slot_card != null && slot_card.HasStatus(StatusType.SpellImmunity))
+                    {
+                        WarningText.ShowSpellImmune();
+                        return;
+                    }
+                }
             }
 
             if (!player.CanPayMana(card))
@@ -237,7 +255,9 @@ namespace TcgEngine.Client
                 return;
             }
 
-            if (gdata.CanPlayCard(card, slot, true))
+            bool can_play = gdata.CanPlayCard(card, slot, true);
+            
+            if (can_play)
             {
                 PlayCard(slot);
             }

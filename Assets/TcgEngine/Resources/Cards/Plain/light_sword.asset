@@ -24,7 +24,8 @@ MonoBehaviour:
   hp: 0
   traits: []
   stats: []
-  abilities: []
+  abilities:
+  - {fileID: 11400000, guid: 575eb9a255c5a674a9b484ec56e8d7de, type: 2}
   text: "\u88C5\u5907\u8005\u83B7\u5F97<b>\u5438\u8840</b>\u3002"
   desc: 
   spawn_fx: {fileID: 0}
@@ -38,4 +39,5 @@ MonoBehaviour:
   damage_audio: {fileID: 0}
   deckbuilding: 1
   cost: 100
-  packs: []
+  packs:
+  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}

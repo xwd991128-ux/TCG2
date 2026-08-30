@@ -16,7 +16,7 @@ MonoBehaviour:
   title: "\u6CBB\u7597\u672F"
   art_full: {fileID: 0}
   art_board: {fileID: 0}
-  type: 50
+  type: 20
   team: {fileID: 11400000, guid: 236de3fb3dc4c7943a0e18888180a6e1, type: 2}
   rarity: {fileID: 11400000, guid: fab1a52f5a36cc942985dea95be18ac9, type: 2}
   mana: 2

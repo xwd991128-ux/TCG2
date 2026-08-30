@@ -16,15 +16,18 @@ MonoBehaviour:
   title: "\u5149\u660E\u795D\u798F"
   art_full: {fileID: 0}
   art_board: {fileID: 0}
-  type: 50
+  type: 20
   team: {fileID: 11400000, guid: 236de3fb3dc4c7943a0e18888180a6e1, type: 2}
   rarity: {fileID: 11400000, guid: fab1a52f5a36cc942985dea95be18ac9, type: 2}
   mana: 1
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: 514ae2d4501d5014fbf8d884a47719ca, type: 2}
   stats: []
-  abilities: []
+  abilities:
+  - {fileID: 11400000, guid: 767009d1d3d49764fa3eda2b0f6243f3, type: 2}
+  - {fileID: 11400000, guid: 12701b92080445044bf934c1dd5915ca, type: 2}
   text: "\u4F7F\u4E00\u4E2A\u751F\u7269\u83B7\u5F97\u62A4\u76FE\u3002"
   desc: 
   spawn_fx: {fileID: 0}

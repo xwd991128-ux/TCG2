@@ -17,12 +17,12 @@ MonoBehaviour:
   conditions_trigger: []
   target: 20
   conditions_target:
-  - {fileID: 11400000, guid: 902733d12f434e94b904de5ebf4112de, type: 2}
+  - {fileID: 11400000, guid: ef09540f94d8428408b69fea46ec3334, type: 2}
   filters_target: []
   effects:
-  - {fileID: 11400000, guid: 78901234567890123456789012345678, type: 2}
+  - {fileID: 11400000, guid: 5e489970bbb948c409125b3ab22f2aac, type: 2}
   status: []
-  value: 0
+  value: 3
   duration: 0
   chain_abilities: []
   mana_cost: 0

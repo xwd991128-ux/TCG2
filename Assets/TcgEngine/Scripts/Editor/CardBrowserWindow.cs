@@ -20,11 +20,14 @@ namespace TcgEngine.EditorTool
         private string newCardTitle = "";
         private Object selectedAsset = null;
         private Editor selectedEditor = null;
+        private Object lastDrawnAsset = null;
 
         private CardType filterCardType = CardType.None;
         private int filterRarityIndex = 0;
         private int filterTeamIndex = 0;
         private int filterPackIndex = 0;
+        private int filterDeckBuildingIndex = 0;
+        private string[] deckBuildingOptions = new string[] { "All", "Deck Building", "Not Deck Building" };
 
         private AbilityTrigger filterAbilityTrigger = AbilityTrigger.None;
         private AbilityTarget filterAbilityTarget = AbilityTarget.None;
@@ -201,6 +204,12 @@ namespace TcgEngine.EditorTool
                         matches = false;
 
                     if (filterPackIndex > 0 && !CardHasPack(card, packs[filterPackIndex - 1]))
+                        matches = false;
+
+                    if (filterDeckBuildingIndex == 1 && !card.deckbuilding)
+                        matches = false;
+
+                    if (filterDeckBuildingIndex == 2 && card.deckbuilding)
                         matches = false;
                 }
 
@@ -418,6 +427,8 @@ namespace TcgEngine.EditorTool
                 if (packNames != null && packNames.Length > 1)
                     filterPackIndex = EditorGUILayout.Popup("Pack", filterPackIndex, packNames);
 
+                filterDeckBuildingIndex = EditorGUILayout.Popup("Deck Building", filterDeckBuildingIndex, deckBuildingOptions);
+
                 EditorGUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear Filters", GUILayout.Height(20)))
                 {
@@ -425,6 +436,7 @@ namespace TcgEngine.EditorTool
                     filterRarityIndex = 0;
                     filterTeamIndex = 0;
                     filterPackIndex = 0;
+                    filterDeckBuildingIndex = 0;
                     searchQuery = "";
                 }
                 EditorGUILayout.EndHorizontal();
@@ -444,7 +456,7 @@ namespace TcgEngine.EditorTool
                 EditorGUILayout.Space(10);
                 if (GUILayout.Button("Export to CSV", GUILayout.Height(30)))
                 {
-                    ExportCardsToCSV();
+                    EditorApplication.delayCall += () => ExportCardsToCSV();
                 }
             }
 
@@ -493,6 +505,7 @@ namespace TcgEngine.EditorTool
                     {
                         selectedAsset = asset;
                         selectedEditor = null;
+                        lastDrawnAsset = null;
                         Selection.activeObject = asset;
                     }
                 }
@@ -523,18 +536,36 @@ namespace TcgEngine.EditorTool
                 rightScrollPosition = EditorGUILayout.BeginScrollView(rightScrollPosition);
 
                 CardData card = selectedAsset as CardData;
+                bool needsNewEditor = selectedAsset != lastDrawnAsset;
+
                 if (card != null)
                 {
+                    if (needsNewEditor)
+                    {
+                        if (selectedEditor != null)
+                        {
+                            DestroyImmediate(selectedEditor);
+                        }
+                        selectedEditor = Editor.CreateEditor(card);
+                    }
                     DrawCardDataTwoColumns(card);
                 }
                 else
                 {
-                    if (selectedEditor == null)
+                    if (needsNewEditor)
+                    {
+                        if (selectedEditor != null)
+                        {
+                            DestroyImmediate(selectedEditor);
+                        }
                         selectedEditor = Editor.CreateEditor(selectedAsset);
+                    }
 
                     if (selectedEditor != null)
                         selectedEditor.OnInspectorGUI();
                 }
+
+                lastDrawnAsset = selectedAsset;
 
                 EditorGUILayout.Space(20);
 
@@ -569,12 +600,10 @@ namespace TcgEngine.EditorTool
 
         private void DrawCardDataTwoColumns(CardData card)
         {
-            if (selectedEditor == null)
-                selectedEditor = Editor.CreateEditor(card);
-
+            SerializedObject so = null;
             if (selectedEditor != null)
             {
-                SerializedObject so = selectedEditor.serializedObject;
+                so = selectedEditor.serializedObject;
                 so.Update();
 
                 EditorGUILayout.BeginHorizontal();
@@ -713,7 +742,7 @@ namespace TcgEngine.EditorTool
                 return;
 
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.AppendLine("ID,Title,Type,Team,Rarity,Mana,Attack,HP,Text,Desc");
+            sb.AppendLine("ID,Title,Type,Team,Rarity,Mana,Attack,HP,Text,Desc,Packs");
 
             foreach (Object asset in filteredAssets)
             {
@@ -730,13 +759,28 @@ namespace TcgEngine.EditorTool
                     string hp = card.hp.ToString();
                     string text = EscapeCSV(card.text);
                     string desc = EscapeCSV(card.desc);
+                    string packs = GetCardPacksCSV(card);
 
-                    sb.AppendLine($"{id},{title},{type},{team},{rarity},{mana},{attack},{hp},{text},{desc}");
+                    sb.AppendLine($"{id},{title},{type},{team},{rarity},{mana},{attack},{hp},{text},{desc},{packs}");
                 }
             }
 
             System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
             EditorUtility.DisplayDialog("Export Complete", $"Exported {filteredAssets.Count} cards to:\n{path}", "OK");
+        }
+
+        private string GetCardPacksCSV(CardData card)
+        {
+            if (card == null || card.packs == null || card.packs.Length == 0)
+                return "";
+
+            List<string> packNames = new List<string>();
+            foreach (PackData pack in card.packs)
+            {
+                if (pack != null)
+                    packNames.Add(EscapeCSV(pack.title));
+            }
+            return string.Join(";", packNames);
         }
 
         private string EscapeCSV(string value)

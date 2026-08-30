@@ -15,8 +15,9 @@ MonoBehaviour:
   id: chain_clear_temp
   trigger: 0
   conditions_trigger: []
-  target: 0
-  conditions_target: []
+  target: 72
+  conditions_target:
+  - {fileID: 11400000, guid: a14840ea04428b04abeb188079f26b8d, type: 2}
   filters_target: []
   effects:
   - {fileID: 11400000, guid: c4fc50b876eb5b343a60e33323a80278, type: 2}
@@ -29,6 +30,7 @@ MonoBehaviour:
   board_fx: {fileID: 0}
   caster_fx: {fileID: 0}
   target_fx: {fileID: 0}
+  projectile_fx: {fileID: 0}
   cast_audio: {fileID: 0}
   target_audio: {fileID: 0}
   charge_target: 0

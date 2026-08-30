@@ -16,13 +16,14 @@ MonoBehaviour:
   title: "\u795E\u5723\u6069\u5178"
   art_full: {fileID: 0}
   art_board: {fileID: 0}
-  type: 50
+  type: 20
   team: {fileID: 11400000, guid: 236de3fb3dc4c7943a0e18888180a6e1, type: 2}
   rarity: {fileID: 11400000, guid: 72248f07232412e4db2f6864dbb4e271, type: 2}
   mana: 5
   attack: 0
   hp: 0
-  traits: []
+  traits:
+  - {fileID: 11400000, guid: 514ae2d4501d5014fbf8d884a47719ca, type: 2}
   stats: []
   abilities: []
   text: "\u6062\u590D\u53CB\u65B9\u82F1\u96C45\u70B9\u751F\u547D\uFF0C\u5E76\u4F7F\u6240\u6709\u53CB\u65B9\u751F\u7269\u83B7\u5F97+1/+1\u3002"
@@ -38,4 +39,5 @@ MonoBehaviour:
   damage_audio: {fileID: 0}
   deckbuilding: 1
   cost: 100
-  packs: []
+  packs:
+  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}

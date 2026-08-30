@@ -3535,7 +3535,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Foil
+  m_Text: "\u91D1\u5361"
 --- !u!222 &247053266
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -14064,7 +14064,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Equipment
+  m_Text: "\u88C5\u5907"
 --- !u!222 &1006999096
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -29332,7 +29332,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Mythic
+  m_Text: "\u4F20\u8BF4"
 --- !u!222 &396921782153578562
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -30970,7 +30970,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Rare
+  m_Text: "\u53F2\u8BD7"
 --- !u!222 &396921782539149254
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -32413,7 +32413,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Common
+  m_Text: "\u666E\u901A"
 --- !u!222 &396921782820785214
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -33853,7 +33853,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Owned
+  m_Text: "\u5DF2\u62E5\u6709"
 --- !u!222 &396921783251827178
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -34087,7 +34087,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Not Owned
+  m_Text: "\u672A\u62E5\u6709"
 --- !u!222 &396921783315923973
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -34243,7 +34243,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Locations
+  m_Text: "\u795E\u5668"
 --- !u!222 &396921783374516598
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -34285,7 +34285,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Creatures
+  m_Text: "\u89D2\u8272"
 --- !u!222 &396921783379648306
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -34551,7 +34551,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Uncommon
+  m_Text: "\u7A00\u6709"
 --- !u!222 &396921783434446694
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -36150,7 +36150,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Spells
+  m_Text: "\u6CD5\u672F"
 --- !u!222 &396921783987010465
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -36493,7 +36493,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Traps
+  m_Text: "\u5965\u79D8"
 --- !u!222 &396921784111828143
 CanvasRenderer:
   m_ObjectHideFlags: 0

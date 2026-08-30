@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_stomp
   m_EditorClassIdentifier: 
   id: spell_stomp
-  title: "\u8E42\u8E7F"
+  title: "\u8E29\u8E0F"
   art_full: {fileID: 21300000, guid: 58bd7ee75c4b5784f83b94d750e24c1a, type: 3}
   art_board: {fileID: 0}
   type: 20

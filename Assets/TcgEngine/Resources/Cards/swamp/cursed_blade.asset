@@ -19,14 +19,13 @@ MonoBehaviour:
   type: 50
   team: {fileID: 11400000, guid: c4345bf8c7792774f8e442208f640fb0, type: 2}
   rarity: {fileID: 11400000, guid: 15eaa2a0fbd97f149b3aa87387c160d1, type: 2}
-  mana: 3
-  attack: 2
-  hp: 2
+  mana: 2
+  attack: 4
+  hp: -1
   traits: []
   stats: []
-  abilities:
-  - {fileID: 11400000, guid: 418623229665f454e9c2491c1a2e7e13, type: 2}
-  text: "\u88C5\u5907\u8005\u83B7\u5F97<b>\u5438\u8840</b>\u3002"
+  abilities: []
+  text: 
   desc: 
   spawn_fx: {fileID: 0}
   death_fx: {fileID: 0}

@@ -28,7 +28,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 66b2540d832ef234398b1be61bba7b54, type: 2}
   - {fileID: 11400000, guid: bd8a20981b906a34897ee485cfc1db6b, type: 2}
   text: "<b>\u98DE\u884C</b>\n\u4F60\u7684\u98DE\u884C\u89D2\u8272+1\u653B\u51FB\u529B\u3002"
-  desc: "\u81EA\u7531\u98DE\u9E70\u662F\u4E00\u79CD\u5F3A\u5927\u7684\u7A7A\u4E2D\u730E\u624B\uFF0C\u62E5\u6709\u98DE\u884C\u80FD\u529B\uFF0C\u5E76\u4E14\u80FD\u4E3A\u6240\u6709\u98DE\u884C\u89D2\u8272\u63D0\u4F9B\u653B\u51FB\u529B\u52A0\u6210\u3002" 
+  desc: "\u81EA\u7531\u98DE\u9E70\u662F\u4E00\u79CD\u5F3A\u5927\u7684\u7A7A\u4E2D\u730E\u624B\uFF0C\u62E5\u6709\u98DE\u884C\u80FD\u529B\uFF0C\u5E76\u4E14\u80FD\u4E3A\u6240\u6709\u98DE\u884C\u89D2\u8272\u63D0\u4F9B\u653B\u51FB\u529B\u52A0\u6210\u3002"
   spawn_fx: {fileID: 5791330189299518109, guid: 1fa8fa11b2c6b9b4d976743e5bbb3956,
     type: 3}
   death_fx: {fileID: 0}
@@ -42,5 +42,4 @@ MonoBehaviour:
   deckbuilding: 1
   cost: 100
   packs:
-  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}
-  - {fileID: 11400000, guid: 2db0d9f08bdfa57419101c08b8598c1a, type: 2}
+  - {fileID: 11400000, guid: bf46d25b07aadff4dbed234a7e7417ef, type: 2}

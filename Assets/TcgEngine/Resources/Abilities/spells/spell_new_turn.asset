@@ -34,4 +34,4 @@ MonoBehaviour:
   target_audio: {fileID: 0}
   charge_target: 0
   title: "\u989D\u5916\u56DE\u5408"
-  desc: "\u53EF\u4EE5\u83B7\u5F971\u4E2A\u989D\u5916\u56DE\u5408\u3002"
+  desc: "\u83B7\u5F971\u4E2A\u989D\u5916\u56DE\u5408\u3002"

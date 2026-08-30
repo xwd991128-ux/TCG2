@@ -86,7 +86,12 @@ namespace TcgEngine.Client
 
         public virtual bool IsInside(Vector3 wpos)
         {
-            return bounds.Contains(wpos);
+            bool is_inside = bounds.Contains(wpos);
+            if (!is_inside && this is BoardSlotPlayer)
+            {
+                Debug.Log($"BoardSlotPlayer.IsInside: pos={wpos}, bounds.center={bounds.center}, bounds.size={bounds.size}, is_inside={is_inside}");
+            }
+            return is_inside;
         }
 
         public static BSlot GetNearest(Vector3 pos)

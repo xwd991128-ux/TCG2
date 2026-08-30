@@ -64,7 +64,8 @@ namespace TcgEngine.UI
                 credits_txt.text = GameUI.FormatNumber(udata.coins);
             }
 
-            bool matchmaking = GameClientMatchmaker.Get().IsMatchmaking();
+            GameClientMatchmaker matchmaker = GameClientMatchmaker.Get();
+            bool matchmaking = matchmaker != null && matchmaker.IsMatchmaking();
             if (loader.activeSelf != matchmaking)
                 loader.SetActive(matchmaking);
             if (MatchmakingPanel.Get().IsVisible() != matchmaking)

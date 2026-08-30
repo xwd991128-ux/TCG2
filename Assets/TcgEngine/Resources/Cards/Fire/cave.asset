@@ -19,14 +19,14 @@ MonoBehaviour:
   type: 30
   team: {fileID: 11400000, guid: 6bbb96863ece0314fb318c0fce569afc, type: 2}
   rarity: {fileID: 11400000, guid: 15eaa2a0fbd97f149b3aa87387c160d1, type: 2}
-  mana: 2
+  mana: 3
   attack: 0
   hp: 5
   traits: []
   stats: []
   abilities:
-  - {fileID: 11400000, guid: c53d5c0775fc87d4080b05c05dc62b23, type: 2}
-  text: "\u6240\u6709\u706B\u7CFB\u751F\u7269\u83B7\u5F97\uFF1A\"\u53D7\u52301\u70B9\u4F24\u5BB3\u4EE5\u83B7\u5F97+1\u653B\u51FB\u529B\"\u3002"
+  - {fileID: 11400000, guid: f1a1914beff67aa4fae69c1a3a3b7a73, type: 2}
+  text: "\u56DE\u5408\u7ED3\u675F\u65F6\uFF0C\u5BF9\u654C\u65B9\u82F1\u96C4\u9020\u62102\u70B9\u4F24\u5BB3\u3002"
   desc: 
   spawn_fx: {fileID: 9125387663047351618, guid: bac685160af4aff46ae561a51da6f5f4,
     type: 3}

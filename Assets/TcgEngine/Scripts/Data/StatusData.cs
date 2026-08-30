@@ -22,7 +22,7 @@ namespace TcgEngine
 
         Deathtouch = 20,    //Kills when attacking a character
         Fury = 22,          //Can attack twice per turn
-        Intimidate = 23,    //Target doesnt counter when attacking
+        FirstStrike = 23,    //Doesnt take counter damage when attacking
         Flying = 24,         //Can ignore taunt
         Trample = 26,         //Extra damage is assigned to player
         LifeSteal = 28,      //Heal player when fighting
@@ -31,6 +31,8 @@ namespace TcgEngine
         Paralysed = 32,     //Cant do any actions for X turn
         Poisoned = 34,     //Lose hp each start of turn
         Sleep = 36,         //Doesnt untap at the start of turn
+        Burning = 38,       //Lose 1 hp each start of turn, value decreases by 1
+        Freezing = 58,      //If freezing value >= hp at end of turn, kill the creature
 
         Haste = 40,       //Can do action at the first turn 
         Immunity =42,     //damage change to 0

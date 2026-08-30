@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 843a21f7f6f205741a0a7341aec8e84d, type: 3}
+  m_Name: card_merchant
+  m_EditorClassIdentifier: 
+  id: card_merchant
+  title: "\u5361\u724C\u5546\u4EBA"
+  art_full: {fileID: 21300000, guid: 46e7a7b504b360441a821a1e50859302, type: 3}
+  art_board: {fileID: 21300000, guid: 859b8ffdbe3fb2248a3f20327ff53355, type: 3}
+  type: 10
+  team: {fileID: 11400000, guid: c4345bf8c7792774f8e442208f640fb0, type: 2}
+  rarity: {fileID: 11400000, guid: 13b592f40b7cd424c966f5d7eef425aa, type: 2}
+  mana: 6
+  attack: 3
+  hp: 3
+  traits: []
+  stats: []
+  abilities:
+  - {fileID: 11400000, guid: d225002211e25f24784a6e0f8eed0bb9, type: 2}
+  text: "<b>\u6253\u51FA\uFF1A</b> \u62BD3\u5F20\u724C\u3002"
+  desc: "\u8FD9\u4F4D\u5361\u724C\u5546\u4EBA\u603B\u662F\u80FD\u4E3A\u4F60\u5E26\u6765\u60CA\u559C\uFF0C\u6BCF\u6B21\u4EA4\u6613\u90FD\u4F1A\u8BA9\u4F60\u83B7\u5F97\u66F4\u591A\u7684\u9009\u62E9\u3002"
+  spawn_fx: {fileID: 0}
+  death_fx: {fileID: 0}
+  attack_fx: {fileID: 0}
+  damage_fx: {fileID: 0}
+  idle_fx: {fileID: 0}
+  spawn_audio: {fileID: 0}
+  death_audio: {fileID: 0}
+  attack_audio: {fileID: 0}
+  damage_audio: {fileID: 0}
+  deckbuilding: 1
+  cost: 100
+  packs:
+  - {fileID: 11400000, guid: bafca3757bf537c43b1d2ba696456e2c, type: 2}
+  - {fileID: 11400000, guid: 2db0d9f08bdfa57419101c08b8598c1a, type: 2}

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using System.Collections.Generic;
 using TcgEngine;
 using TMPro;
 using UnityEngine;
@@ -171,7 +171,18 @@ namespace TcgEngine
 
         public bool IsRequireTargetSpell()
         {
-            return type == CardType.Spell && HasAbility(AbilityTrigger.OnPlay, AbilityTarget.PlayTarget);
+            if (type != CardType.Spell)
+                return false;
+            
+            foreach (AbilityData ability in abilities)
+            {
+                if (ability && ability.trigger == AbilityTrigger.OnPlay)
+                {
+                    if (ability.target == AbilityTarget.PlayTarget)
+                        return true;
+                }
+            }
+            return false;
         }
 
         public bool IsEquipment()
@@ -270,9 +281,14 @@ namespace TcgEngine
         {
             foreach (AbilityData ability in abilities)
             {
-                if (ability && ability.trigger == trigger && ability.target == target)
-                    return true;
+                if (ability)
+                {
+                    Debug.Log($"HasAbility: checking ability {ability.id}, trigger={ability.trigger}, target={ability.target}");
+                    if (ability.trigger == trigger && ability.target == target)
+                        return true;
+                }
             }
+            Debug.Log($"HasAbility: no matching ability found for trigger={trigger}, target={target}");
             return false;
         }
 
