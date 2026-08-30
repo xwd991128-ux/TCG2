@@ -30,6 +30,7 @@ namespace TcgEngine
             Sub,   // 求差：o1 - o2 - o3 - ...
             Mul,   // 求积：1 * o1 * o2 * ...
             Div,   // 求商：o1 / o2 / o3 / ...
+            Mod,   // 取余：o1 % o2 % o3 ...（依次取余）
         }
 
         [Header("运算规则")]
@@ -67,10 +68,18 @@ namespace TcgEngine
             else // Div
             {
                 int r = Eval(operands[0], data, ability, caster, target, target_player);
-                for (int i = 1; i < operands.Length; i++)
+                for (int i = 0; i < operands.Length; i++)
                 {
-                    int d = Eval(operands[i], data, ability, caster, target, target_player);
-                    if (d != 0) r /= d;   // 除 0 保护
+                    if (oper == ValueMathOper.Div && i == 0) continue;   // 起点跳过除法
+                    int v = Eval(operands[i], data, ability, caster, target, target_player);
+                    if (oper == ValueMathOper.Div)
+                    {
+                        if (v != 0) r /= v;   // 除 0 保护
+                    }
+                    else // Mod
+                    {
+                        if (v != 0) r %= v;   // 取余、除 0 保护
+                    }
                 }
                 return r;
             }
