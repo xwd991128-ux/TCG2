@@ -1,0 +1,1148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TcgEngine 节点定义字典（Node Definition Dictionary）
+  ==================================================
+  对齐《醉梦传说》NodeDoc.xml 的 ArrayOfActionComment 结构生成。
+  用途：作为本项目 DIY 卡牌节点系统的基础层——把现有
+  Effect(效果) / Condition(条件) / Filter(筛选) 全部暴露成可连线节点。
+
+  编号规则：
+    Effect    -> 100001~100099  （动作节点：真正执行一件事）
+    Condition -> 200001~200099  （判定节点：返回 true/false）
+    Filter    -> 300001~300099  （集合节点：筛选/排序/随机取）
+
+  类型约定（type）：
+    Integer / Boolean / StatType / Pile / CardType / CardDefine
+    AbilityDefine / StatusDefine / TraitDefine / TeamDefine
+    CompareOp / BoolOp / NumericOp / RepeatType / AttackerType / TargetCategory / Player
+-->
+<ArrayOfActionComment xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- ============================ 效果 Effect（动作节点） ============================ -->
+
+  <!-- 造成伤害（伤害值可接 ValueSource，value=0 时动态取 selected_value 兼容） -->
+  <ActionComment>
+    <defineId>100001</defineId>
+    <editorName>造成伤害</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>ability</name><displayName>所属能力</displayName><summary><![CDATA[提供基础 value 作为伤害值]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>bonus_damage</name><displayName>特质加成</displayName><summary><![CDATA[选一个特质，施法者若带该特质则伤害+X]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[对目标造成伤害。伤害值 = 所属能力.value（或读取动态值 selected_value）。可选特质加成。]]></summary>
+  </ActionComment>
+
+  <!-- 治疗 -->
+  <ActionComment>
+    <defineId>100002</defineId>
+    <editorName>治疗</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>ability</name><displayName>所属能力</displayName><summary><![CDATA[提供基础 value 作为治疗量]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[为目标恢复 value 点生命值。]]></summary>
+  </ActionComment>
+
+  <!-- 抽牌 -->
+  <ActionComment>
+    <defineId>100003</defineId>
+    <editorName>抽牌</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>ability</name><displayName>所属能力</displayName><summary><![CDATA[value=抽牌数；value=0 时读 selected_value（动态）]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标（玩家）抽 value 张牌。批发动态抽牌：每1攻抽1张等。]]></summary>
+  </ActionComment>
+
+  <!-- 召唤卡牌 -->
+  <ActionComment>
+    <defineId>100004</defineId>
+    <editorName>召唤</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardDefine</type><name>summon</name><displayName>要召唤的卡</displayName><summary><![CDATA[选择一张卡牌定义]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[在施法者场上召唤指定卡牌。]]></summary>
+  </ActionComment>
+
+  <!-- 召唤多个 -->
+  <ActionComment>
+    <defineId>100005</defineId>
+    <editorName>召唤多个</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardDefine</type><name>summon</name><displayName>要召唤的卡</displayName><summary><![CDATA[选择一张卡牌定义]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>count</name><displayName>数量</displayName><summary><![CDATA[召唤数量；可扩展 value=0 读动态值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[重复召唤同一张卡 count 次。]]></summary>
+  </ActionComment>
+
+  <!-- 创建卡牌 -->
+  <ActionComment>
+    <defineId>100006</defineId>
+    <editorName>创建卡牌</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Pile</type><name>create_pile</name><displayName>创建到的牌堆</displayName><summary><![CDATA[手牌/牌库/弃牌堆/秘术区等]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Boolean</type><name>create_opponent</name><displayName>创建给对手</displayName><summary><![CDATA[true=加入对手牌堆，false=自己]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[新建一张牌的临时实例（不由卡列表生成）并放入指定牌堆。]]></summary>
+  </ActionComment>
+
+  <!-- 变形 -->
+  <ActionComment>
+    <defineId>100007</defineId>
+    <editorName>变形</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardDefine</type><name>transform_to</name><displayName>变形成的卡</displayName><summary><![CDATA[选择目标卡牌定义]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把目标卡替换成 transform_to。]]></summary>
+  </ActionComment>
+
+  <!-- 施法者发起攻击 -->
+  <ActionComment>
+    <defineId>100008</defineId>
+    <editorName>发起攻击</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AttackerType</type><name>attacker_type</name><displayName>攻击者来源</displayName><summary><![CDATA[施法者自己或特定卡]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[让施法者对目标主动发起一次攻击。]]></summary>
+  </ActionComment>
+
+  <!-- 强制攻击改目标 -->
+  <ActionComment>
+    <defineId>100009</defineId>
+    <editorName>强制改攻击目标</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AttackerType</type><name>attacker_type</name><displayName>攻击者来源</displayName><summary><![CDATA[施法者自己或特定卡]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[强制攻击者改为攻击/指向指定目标。]]></summary>
+  </ActionComment>
+
+  <!-- 加攻击 -->
+  <ActionComment>
+    <defineId>100010</defineId>
+    <editorName>增加攻击</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[固定为 攻击力]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[让目标攻击力 + value（可长驻地 AddAttack/Ongoing）。]]></summary>
+  </ActionComment>
+
+  <!-- 加生命 -->
+  <ActionComment>
+    <defineId>100011</defineId>
+    <editorName>增加生命</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[固定为 血量]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[让目标血量上限 + value。]]></summary>
+  </ActionComment>
+
+  <!-- 设定攻/血/费 -->
+  <ActionComment>
+    <defineId>100012</defineId>
+    <editorName>设定属性</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把目标的某项属性设为 value（覆盖当前值）。]]></summary>
+  </ActionComment>
+
+  <!-- 重置属性 -->
+  <ActionComment>
+    <defineId>100013</defineId>
+    <editorName>重置属性</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[将目标攻击/血量恢复到卡牌定义的原始数值（清空 buff）。]]></summary>
+  </ActionComment>
+
+  <!-- 攻=血 -->
+  <ActionComment>
+    <defineId>100014</defineId>
+    <editorName>攻等于血</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>来源属性</displayName><summary><![CDATA[攻击力/血量]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把某一项属性设成另一项属性的当前值（如攻=血）。]]></summary>
+  </ActionComment>
+
+  <!-- 附加状态 -->
+  <ActionComment>
+    <defineId>100015</defineId>
+    <editorName>附加状态</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatusDefine</type><name>status</name><displayName>状态</displayName><summary><![CDATA[选一个状态（嘲讽/潜行/吸血…）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>层数</displayName><summary><![CDATA[叠加层数]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>duration</name><displayName>持续(回合)</displayName><summary><![CDATA[0=永久]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[为目标添加指定状态（可设层数与持续回合）。]]></summary>
+  </ActionComment>
+
+  <!-- 移除状态 -->
+  <ActionComment>
+    <defineId>100016</defineId>
+    <editorName>移除状态</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatusDefine</type><name>status</name><displayName>状态</displayName><summary><![CDATA[选要移除的状态]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[从目标移除指定状态。]]></summary>
+  </ActionComment>
+
+  <!-- 清空所有状态 -->
+  <ActionComment>
+    <defineId>100017</defineId>
+    <editorName>清空所有状态</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[移除目标上的全部状态。]]></summary>
+  </ActionComment>
+
+  <!-- 附加特质 -->
+  <ActionComment>
+    <defineId>100018</defineId>
+    <editorName>附加特质</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>trait</name><displayName>特质</displayName><summary><![CDATA[选一个特质/流派]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[给目标添加一个特质（如"人类"）。]]></summary>
+  </ActionComment>
+
+  <!-- 移除特质 -->
+  <ActionComment>
+    <defineId>100019</defineId>
+    <editorName>移除特质</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>trait</name><displayName>特质</displayName><summary><![CDATA[选要移除的特质]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[从目标移除指定特质。]]></summary>
+  </ActionComment>
+
+  <!-- 设置特质 -->
+  <ActionComment>
+    <defineId>100020</defineId>
+    <editorName>设置特质</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>trait</name><displayName>特质</displayName><summary><![CDATA[选一个特质]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把目标的特质设为该特质（覆盖其他）。]]></summary>
+  </ActionComment>
+
+  <!-- 附加/移除能力 -->
+  <ActionComment>
+    <defineId>100021</defineId>
+    <editorName>附加能力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>gain_ability</name><displayName>能力</displayName><summary><![CDATA[选一个能力定义]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[给目标卡附加一个新能力。]]></summary>
+  </ActionComment>
+
+  <!-- 移除能力 -->
+  <ActionComment>
+    <defineId>100022</defineId>
+    <editorName>移除能力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>remove_ability</name><displayName>能力</displayName><summary><![CDATA[选要移除的能力]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[从目标卡移除指定能力。]]></summary>
+  </ActionComment>
+
+  <!-- 设置英雄能力 -->
+  <ActionComment>
+    <defineId>100023</defineId>
+    <editorName>设置英雄能力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>new_ability</name><displayName>新能力</displayName><summary><![CDATA[选新的英雄技能]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[替换目标英雄的主动技能。]]></summary>
+  </ActionComment>
+
+  <!-- 附加英雄能力 -->
+  <ActionComment>
+    <defineId>100024</defineId>
+    <editorName>附加英雄能力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>gain_ability</name><displayName>能力</displayName><summary><![CDATA[选一个能力定义]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[给目标英雄额外附加一个能力。]]></summary>
+  </ActionComment>
+
+  <!-- 加入牌库 -->
+  <ActionComment>
+    <defineId>100025</defineId>
+    <editorName>加入牌库</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardDefine</type><name>card</name><displayName>卡</displayName><summary><![CDATA[选择要加入的卡]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把指定的卡牌定义加入玩家牌库。]]></summary>
+  </ActionComment>
+
+  <!-- 送入牌堆（弃/洗回等） -->
+  <ActionComment>
+    <defineId>100026</defineId>
+    <editorName>送入牌堆</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Pile</type><name>pile</name><displayName>目标牌堆</displayName><summary><![CDATA[手牌/牌库/弃牌堆/秘术区/装备区]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把目标卡移动/复制到指定牌堆。]]></summary>
+  </ActionComment>
+
+  <!-- 弃牌 -->
+  <ActionComment>
+    <defineId>100027</defineId>
+    <editorName>弃牌</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[随机或指定弃掉目标手牌。]]></summary>
+  </ActionComment>
+
+  <!-- 放逐(移除游戏) -->
+  <ActionComment>
+    <defineId>100028</defineId>
+    <editorName>放逐</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[把目标卡移出本局游戏（不进坟场）。]]></summary>
+  </ActionComment>
+
+  <!-- 抽特定类型 -->
+  <ActionComment>
+    <defineId>100029</defineId>
+    <editorName>抽特定属性卡</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardType</type><name>card_type</name><displayName>卡牌类型</displayName><summary><![CDATA[英雄/随从/法术/装备…]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[抽取一张符合指定类型的卡。]]></summary>
+  </ActionComment>
+
+  <!-- 法力/水晶 -->
+  <ActionComment>
+    <defineId>100030</defineId>
+    <editorName>修改法力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Boolean</type><name>increase_value</name><displayName>改可用法力</displayName><summary><![CDATA[true=增减可用法力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Boolean</type><name>increase_max</name><displayName>改法力上限</displayName><summary><![CDATA[true=增减法力上限]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[为玩家增加/扣除法力值或法力上限。]]></summary>
+  </ActionComment>
+
+  <!-- 抽计数(按场上卡数) -->
+  <ActionComment>
+    <defineId>100031</defineId>
+    <editorName>按计数加成</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Pile</type><name>pile</name><displayName>统计牌堆</displayName><summary><![CDATA[在哪统计卡数]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CardType</type><name>has_type</name><displayName>限定类型</displayName><summary><![CDATA[只数该类型（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TeamDefine</type><name>has_team</name><displayName>限定阵营</displayName><summary><![CDATA[只数该阵营（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>has_trait</name><displayName>限定特质</displayName><summary><![CDATA[只数该特质（可空）]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[按某个牌堆里符合条件的卡数量，给目标加属性（类似"每有一个X，+1攻"）。]]></summary>
+  </ActionComment>
+
+  <!-- 骰子随机 -->
+  <ActionComment>
+    <defineId>100032</defineId>
+    <editorName>掷骰子</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>dice</name><displayName>骰子面数</displayName><summary><![CDATA[默认 6（1d6）]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[掷一颗有 value 面数的骰子，结果写入 selected_value。]]></summary>
+  </ActionComment>
+
+  <!-- 按骰子加成 -->
+  <ActionComment>
+    <defineId>100033</defineId>
+    <editorName>按骰子加成</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把骰点值加到目标某项属性。]]></summary>
+  </ActionComment>
+
+  <!-- 疲惫/解除动作 -->
+  <ActionComment>
+    <defineId>100034</defineId>
+    <editorName>设置疲劳</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Boolean</type><name>exhausted</name><displayName>是否疲劳</displayName><summary><![CDATA[true=无法行动，false=解除]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[设置目标随从是否已疲劳（不可再动）。]]></summary>
+  </ActionComment>
+
+  <!-- 改变所有者 -->
+  <ActionComment>
+    <defineId>100035</defineId>
+    <editorName>改变归属</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Boolean</type><name>owner_opponent</name><displayName>给对手</displayName><summary><![CDATA[true=归对手，false=归自己]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把目标卡的所有权转给对方或自己（"抢过来"）。]]></summary>
+  </ActionComment>
+
+  <!-- 强制打出一张牌 -->
+  <ActionComment>
+    <defineId>100036</defineId>
+    <editorName>强制打牌</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[强制目标玩家打出一张手牌。]]></summary>
+  </ActionComment>
+
+  <!-- 重复另一个能力 -->
+  <ActionComment>
+    <defineId>100037</defineId>
+    <editorName>重复执行能力</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>AbilityDefine</type><name>ability</name><displayName>要重复的能力</displayName><summary><![CDATA[选择一个子能力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>RepeatType</type><name>type</name><displayName>次数来源</displayName><summary><![CDATA[固定次数 / 读 selected_value]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>bonus</name><displayName>额外次数</displayName><summary><![CDATA[在基础次数上加 N]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[把同一个子能力(抽1张/打1伤)重复执行 N 次。type=SelectedValue 时次数=selected_value。这是实现"每1攻抽1张"等动态次数的关键。]]></summary>
+  </ActionComment>
+
+  <!-- 依据随机值抽牌 -->
+  <ActionComment>
+    <defineId>100038</defineId>
+    <editorName>选用/设值</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>NumericOp</type><name>oper</name><displayName>运算</displayName><summary><![CDATA[Add 累加 / Set 覆盖]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>值</displayName><summary><![CDATA[写入 selected_value]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[对全局临时变量 selected_value 做 加/设 运算。]]></summary>
+  </ActionComment>
+
+  <!-- 写入目标属性（我新增的通用采集节点） -->
+  <ActionComment>
+    <defineId>100039</defineId>
+    <editorName>采集属性</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[读目标的 攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>multiplier</name><displayName>系数</displayName><summary><![CDATA[值 × 系数 写入 selected_value]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>NumericOp</type><name>oper</name><displayName>运算</displayName><summary><![CDATA[Add 累加 / Set 覆盖]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[读取目标某项属性×(系数)，写入全局临时变量 selected_value。做"属性联动"效果时放在读取方之前。]]></summary>
+  </ActionComment>
+
+  <!-- 抽牌=目标攻击（我新增） -->
+  <ActionComment>
+    <defineId>100040</defineId>
+    <editorName>按攻击抽牌</editorName>
+    <category>效果</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[抽牌数=目标该属性 × 系数]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>multiplier</name><displayName>系数</displayName><summary><![CDATA[默认 1（1攻=1张）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Boolean</type><name>draw_for_target_owner</name><displayName>给目标主人</displayName><summary><![CDATA[默认 false=给施法者抽]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[每有目标 X 点属性抽 1 张牌。例："选择一个单位，每有1点攻击力抽1张"。]]></summary>
+  </ActionComment>
+
+  <!-- 清空临时 -->
+  <ActionComment>
+    <defineId>100041</defineId>
+    <editorName>清空临时牌</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[清空由于 Create 生成的临时卡牌（回合结算时用）。]]></summary>
+  </ActionComment>
+
+  <!-- 洗牌 -->
+  <ActionComment>
+    <defineId>100042</defineId>
+    <editorName>洗牌</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[把目标玩家的牌库重新洗牌。]]></summary>
+  </ActionComment>
+
+  <!-- 销毁 -->
+  <ActionComment>
+    <defineId>100043</defineId>
+    <editorName>直接移除</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[直接销毁目标卡（不触发死亡）。]]></summary>
+  </ActionComment>
+
+  <!-- 摧毁装备 -->
+  <ActionComment>
+    <defineId>100044</defineId>
+    <editorName>摧毁装备</editorName>
+    <category>效果</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[摧毁目标英雄的当前装备。]]></summary>
+  </ActionComment>
+
+  <!-- ============================ 条件 Condition（判定节点） ============================ -->
+
+  <ActionComment>
+    <defineId>200001</defineId>
+    <editorName>属性比较(卡)</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[= ≠ ≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>目标值</displayName><summary><![CDATA[与被比较的数值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[卡目标：某属性与 value 比较，返回 boolean。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200002</defineId>
+    <editorName>属性比较(玩家)</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>type</name><displayName>属性</displayName><summary><![CDATA[攻击/血量/法力]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[= ≠ ≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>目标值</displayName><summary><![CDATA[与被比较的数值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[玩家目标：血量/法力/英雄攻 与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200003</defineId>
+    <editorName>卡牌类型匹配</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardType</type><name>has_type</name><displayName>类型</displayName><summary><![CDATA[英雄/随从/法术…（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TeamDefine</type><name>has_team</name><displayName>阵营</displayName><summary><![CDATA[阵营（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>has_trait</name><displayName>特质</displayName><summary><![CDATA[特质（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标卡是否属于指定 类型/阵营/特质。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200004</defineId>
+    <editorName>卡所在牌堆</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Pile</type><name>type</name><displayName>牌堆</displayName><summary><![CDATA[手牌/场上/牌库/弃牌堆…]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[在 / 不在]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标卡是否处于指定牌堆。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200005</defineId>
+    <editorName>卡牌数量</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Player</type><name>target</name><displayName>玩家</displayName><summary><![CDATA[自己 / 对手]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Pile</type><name>pile</name><displayName>牌堆</displayName><summary><![CDATA[统计哪个牌堆]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[= ≠ ≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>目标数量</displayName><summary><![CDATA[与被比较的数量]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CardType</type><name>has_type</name><displayName>限定类型</displayName><summary><![CDATA[只数该类型（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TeamDefine</type><name>has_team</name><displayName>限定阵营</displayName><summary><![CDATA[只数该阵营（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>has_trait</name><displayName>限定特质</displayName><summary><![CDATA[只数该特质（可空）]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[某牌堆中满足条件的卡数量与 value 比较，如"场上士兵≥3"。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200006</defineId>
+    <editorName>携带特定状态</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatusDefine</type><name>has_status</name><displayName>状态</displayName><summary><![CDATA[选一个状态]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>层数</displayName><summary><![CDATA[达几层（可空）]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[有 / 无]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否有指定状态（可选层数阈值）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200007</defineId>
+    <editorName>带特质(计数)</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>TraitDefine</type><name>trait</name><displayName>特质</displayName><summary><![CDATA[选一个特质]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>数量</displayName><summary><![CDATA[特质数量阈值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标携带的某特质数量与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200008</defineId>
+    <editorName>是否为指定卡</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CardDefine</type><name>card_type</name><displayName>卡牌</displayName><summary><![CDATA[选一张卡]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否就是指定的这张卡。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200009</defineId>
+    <editorName>是否有伤</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[有 / 无]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否已受伤（血量低于上限）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200010</defineId>
+    <editorName>是否疲劳</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否已疲劳行动过。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200011</defineId>
+    <editorName>是否可构筑</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否为"仅限牌组中"的特殊卡。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200012</defineId>
+    <editorName>归属判断</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是我方 / 不是我方]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否属于我方（施法者）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200013</defineId>
+    <editorName>AI归属判断</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标的拥有者是否为 AI 操控。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200014</defineId>
+    <editorName>是否本人</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否就是施法者本人。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200015</defineId>
+    <editorName>目标类别匹配</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>TargetCategory</type><name>type</name><displayName>类别</displayName><summary><![CDATA[卡/玩家/格子]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否为 卡/玩家/格子。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200016</defineId>
+    <editorName>回合判断</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[是 / 否]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[当前是否为主人的回合。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200017</defineId>
+    <editorName>每局一次</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[已用 / 未用]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[本局是否只触发过一次（防反复）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200018</defineId>
+    <editorName>骰点比较</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[= ≠ ≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>目标骰值</displayName><summary><![CDATA[与被比较的骰点]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[上次掷骰结果与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200019</defineId>
+    <editorName>selected_value比较</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[= ≠ ≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>目标值</displayName><summary><![CDATA[与被比较的数值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[全局临时变量 selected_value 与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200020</defineId>
+    <editorName>格子坐标(X)</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper_x</name><displayName>比较X</displayName><summary><![CDATA[列坐标比较]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value_x</name><displayName>目标X</displayName><summary><![CDATA[列坐标值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标格子的列坐标(X)与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200021</defineId>
+    <editorName>格子坐标(Y)</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper_y</name><displayName>比较Y</displayName><summary><![CDATA[行坐标比较]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value_y</name><displayName>目标Y</displayName><summary><![CDATA[行坐标值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标格子的行坐标(Y)与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200022</defineId>
+    <editorName>格子在范围内</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>range_x</name><displayName>列范围</displayName><summary><![CDATA[X±范围]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>range_y</name><displayName>行范围</displayName><summary><![CDATA[Y±范围]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>range_p</name><displayName>玩家范围</displayName><summary><![CDATA[扩展给谁（0自己）]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标格子是否落在指定范围（类似步数/射程）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200023</defineId>
+    <editorName>格子距离</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>distance</name><displayName>距离</displayName><summary><![CDATA[曼哈顿距离阈值]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Boolean</type><name>diagonals</name><displayName>含对角线</displayName><summary><![CDATA[是否把斜向算距离]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标格子与施法者格子的距离是否≤distance。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200024</defineId>
+    <editorName>格子为空</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[空 / 非空]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标格子是否为空（无随从）。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200025</defineId>
+    <editorName>他人带状态</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatusDefine</type><name>has_status</name><displayName>状态</displayName><summary><![CDATA[选一个状态]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>CompareOp</type><name>oper</name><displayName>比较</displayName><summary><![CDATA[≥ ≤ > <]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Integer</type><name>value</name><displayName>数量</displayName><summary><![CDATA[多少张携带阈值]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[场上有多少张其他卡携带该状态，与 value 比较。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>200026</defineId>
+    <editorName>是否装备</editorName>
+    <category>条件</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>BoolOp</type><name>oper</name><displayName>真/假</displayName><summary><![CDATA[有 / 无]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标是否正装备着（装备卡被携带）。]]></summary>
+  </ActionComment>
+
+  <!-- ============================ 筛选 Filter（集合节点） ============================ -->
+
+  <ActionComment>
+    <defineId>300001</defineId>
+    <editorName>取最高属性</editorName>
+    <category>筛选</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>stat</name><displayName>属性</displayName><summary><![CDATA[按 攻击/血量/法力 排序]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[在候选集合中取该属性最高的目标。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>300002</defineId>
+    <editorName>取最低属性</editorName>
+    <category>筛选</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>StatType</type><name>stat</name><displayName>属性</displayName><summary><![CDATA[按 攻击/血量/法力 排序]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[在候选集合中取该属性最低的目标。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>300003</defineId>
+    <editorName>取前N个</editorName>
+    <category>筛选</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>amount</name><displayName>数量</displayName><summary><![CDATA[取前几个]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[按顺序取前 amount 个目标。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>300004</defineId>
+    <editorName>取最后N个</editorName>
+    <category>筛选</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>amount</name><displayName>数量</displayName><summary><![CDATA[取最后几个]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[按顺序取最后 amount 个目标。]]></summary>
+  </ActionComment>
+
+  <ActionComment>
+    <defineId>300005</defineId>
+    <editorName>随机取N个</editorName>
+    <category>筛选</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Integer</type><name>amount</name><displayName>数量</displayName><summary><![CDATA[随机取几个]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[从候选集合中随机取 amount 个目标。]]></summary>
+  </ActionComment>
+
+</ArrayOfActionComment>
