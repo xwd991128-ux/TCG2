@@ -261,6 +261,12 @@ namespace TcgEngine.UI
             AdventurePanel.Get().Show();
         }
 
+        public void OnClickCardPool()
+        {
+            if (CardPoolPanel.Get() != null)
+                CardPoolPanel.Get().Show();
+        }
+
         public void OnClickPlayCode()
         {
             JoinCodePanel.Get().ShowGoldBattle(false);

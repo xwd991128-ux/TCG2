@@ -1,0 +1,621 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using UnityEngine;
+
+namespace TcgEngine.Workshop
+{
+    /// <summary>
+    /// 卡池导入/导出核心
+    /// 导出：CardData → CardCustomData(DTO) → JSON 文件
+    /// 导入：JSON 文件 → DTO → 运行时生成 CardData/AbilityData 实例 → 注入静态字典
+    /// 自定义卡池存放目录：Application.persistentDataPath/Workshop/*.json（启动时由 DataLoader 自动加载）
+    /// </summary>
+    public static class CardPoolIO
+    {
+        /// <summary>自定义卡池存放目录</summary>
+        public static string SaveFolder
+        {
+            get { return Path.Combine(Application.persistentDataPath, "Workshop"); }
+        }
+
+        //记录运行时导入/创建的自定义卡牌 id，用于"仅导出自定义卡"
+        private static readonly HashSet<string> custom_ids = new HashSet<string>();
+
+        //记录每个本地卡池文件注册的卡牌 id，删除卡池时按文件从内存卸载对应卡
+        private static readonly Dictionary<string, List<string>> pool_file_cards = new Dictionary<string, List<string>>();
+
+        /// <summary>运行时导入的自定义卡牌列表</summary>
+        public static List<CardData> GetCustomCards()
+        {
+            List<CardData> list = new List<CardData>();
+            foreach (CardData card in CardData.GetAll())
+            {
+                if (card != null && custom_ids.Contains(card.id))
+                    list.Add(card);
+            }
+            return list;
+        }
+
+        /// <summary>本地已有的卡池 JSON 文件名列表</summary>
+        public static List<string> GetPoolFiles()
+        {
+            List<string> files = new List<string>();
+            if (!Directory.Exists(SaveFolder))
+                return files;
+            files.AddRange(Directory.GetFiles(SaveFolder, "*.json"));
+            return files;
+        }
+
+        /// <summary>删除本地卡池文件（同时从内存卸载该文件注册的卡牌）</summary>
+        public static bool DeletePoolFile(string path)
+        {
+            if (!File.Exists(path))
+                return false;
+            //先从内存卸载该文件注册的自定义卡，使卡牌构筑等界面即时减少
+            UnloadPoolCards(path);
+            File.Delete(path);
+            return true;
+        }
+
+        /// <summary>按文件从内存卸载自定义卡牌</summary>
+        private static void UnloadPoolCards(string fileKey)
+        {
+            if (pool_file_cards.TryGetValue(fileKey, out List<string> ids))
+            {
+                foreach (string id in ids)
+                    RemoveCard(id);
+                pool_file_cards.Remove(fileKey);
+            }
+        }
+
+        /// <summary>从静态字典移除一张运行时自定义卡</summary>
+        private static void RemoveCard(string id)
+        {
+            if (CardData.card_dict.TryGetValue(id, out CardData card))
+            {
+                CardData.card_list.Remove(card);
+                CardData.card_dict.Remove(id);
+            }
+            custom_ids.Remove(id);
+        }
+
+        /// <summary>把卡牌列表导出为 JSON 文件到指定目录（玩家自选路径）</summary>
+        public static void ExportToPath(List<CardData> cards, string poolName, string directory)
+        {
+            if (cards == null || cards.Count == 0)
+                return;
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, poolName + ".json");
+            string json = ExportToJson(cards, poolName);
+            File.WriteAllText(path, json);
+            Debug.Log("已导出卡池到: " + path + "（共 " + cards.Count + " 张卡）");
+        }
+
+        // ---------------- 卡池列表模型 ----------------
+
+        /// <summary>
+        /// 一个卡池条目：内置卡池（按卡包）或本地卡池（JSON 文件）
+        /// </summary>
+        public class PoolInfo
+        {
+            public string name;              // 显示名称
+            public string source;            // "builtin" 内置 / "local" 本地
+            public string file;              // 本地文件完整路径（local 时有效）
+            public PackData pack;            // 对应卡包（builtin 时有效）
+            public int card_count;           // 卡牌数量
+            public List<CardData> cards;     // 卡牌列表（builtin 时直接可用）
+
+            public bool IsReadonly { get { return source == "builtin"; } }
+        }
+
+        /// <summary>内置卡池：按卡包划分（每个卡包一个池，池内卡属于该包）</summary>
+        public static List<PoolInfo> GetBuiltinPools()
+        {
+            List<PoolInfo> list = new List<PoolInfo>();
+            foreach (PackData pack in PackData.GetAll())
+            {
+                List<CardData> cards = CardData.GetAll(pack);
+                if (cards.Count == 0)
+                    continue;
+                PoolInfo info = new PoolInfo();
+                info.name = string.IsNullOrEmpty(pack.title) ? pack.id : pack.title;
+                info.source = "builtin";
+                info.pack = pack;
+                info.card_count = cards.Count;
+                info.cards = cards;
+                list.Add(info);
+            }
+            return list;
+        }
+
+        /// <summary>本地卡池：Workshop 目录下的 JSON 文件</summary>
+        public static List<PoolInfo> GetLocalPools()
+        {
+            List<PoolInfo> list = new List<PoolInfo>();
+            foreach (string file in GetPoolFiles())
+            {
+                PoolInfo info = new PoolInfo();
+                info.name = Path.GetFileNameWithoutExtension(file);
+                info.source = "local";
+                info.file = file;
+                info.card_count = CountCardsInFile(file);
+                info.cards = null;
+                list.Add(info);
+            }
+            return list;
+        }
+
+        /// <summary>统计本地 JSON 卡池的卡牌数量（只解析不实例化）</summary>
+        public static int CountCardsInFile(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return 0;
+                string json = File.ReadAllText(path);
+                CardPoolData pool = JsonUtility.FromJson<CardPoolData>(json);
+                if (pool != null && pool.cards != null)
+                    return pool.cards.Count;
+            }
+            catch (Exception) { }
+            return 0;
+        }
+
+        // ---------------- 卡池筛选（供卡牌构筑界面） ----------------
+
+        /// <summary>一个可选卡池：key 为 ""（全部）/ "pack:xxx"（内置卡包）/ "file:xxx"（本地文件）</summary>
+        public class PoolOption
+        {
+            public string key;
+            public string label;
+        }
+
+        /// <summary>构筑界面的卡池下拉选项：全部 + 内置各卡包 + 本地各卡池</summary>
+        public static List<PoolOption> GetPoolOptions()
+        {
+            List<PoolOption> list = new List<PoolOption>();
+            list.Add(new PoolOption { key = "", label = "全部卡池" });
+
+            foreach (PackData pack in PackData.GetAll())
+            {
+                if (CardData.GetAll(pack).Count == 0)
+                    continue;
+                string label = string.IsNullOrEmpty(pack.title) ? pack.id : pack.title;
+                list.Add(new PoolOption { key = "pack:" + pack.id, label = label });
+            }
+
+            foreach (string file in GetPoolFiles())
+                list.Add(new PoolOption { key = "file:" + file, label = Path.GetFileNameWithoutExtension(file) });
+
+            return list;
+        }
+
+        /// <summary>判断一张卡是否属于所选卡池（key 为空表示全部，返回 true）</summary>
+        public static bool IsCardInPool(CardData card, string key)
+        {
+            if (card == null || string.IsNullOrEmpty(key))
+                return true;
+
+            if (key.StartsWith("pack:"))
+            {
+                PackData pack = PackData.Get(key.Substring(5));
+                return pack != null && card.HasPack(pack);
+            }
+
+            if (key.StartsWith("file:"))
+            {
+                string file = key.Substring(5);
+                return pool_file_cards.TryGetValue(file, out List<string> ids) && ids.Contains(card.id);
+            }
+
+            return true;
+        }
+
+        // ---------------- 导出 ----------------
+
+        /// <summary>把卡牌列表导出为 CardPoolData</summary>
+        public static CardPoolData BuildPool(List<CardData> cards, string poolName, string author = "")
+        {
+            CardPoolData pool = new CardPoolData();
+            pool.name = poolName;
+            pool.author = author;
+            pool.timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            foreach (CardData card in cards)
+            {
+                if (card != null)
+                    pool.cards.Add(CardToData(card));
+            }
+            return pool;
+        }
+
+        /// <summary>把卡牌列表导出为 JSON 字符串</summary>
+        public static string ExportToJson(List<CardData> cards, string poolName, string author = "")
+        {
+            CardPoolData pool = BuildPool(cards, poolName, author);
+            return JsonUtility.ToJson(pool, true);
+        }
+
+        /// <summary>把卡牌列表导出为 JSON 文件（保存到 SaveFolder）</summary>
+        public static void ExportToFile(List<CardData> cards, string poolName, string author = "")
+        {
+            string json = ExportToJson(cards, poolName, author);
+            string path = Path.Combine(SaveFolder, poolName + ".json");
+            Directory.CreateDirectory(SaveFolder);
+            File.WriteAllText(path, json);
+            Debug.Log("已导出卡池到: " + path + "（共 " + cards.Count + " 张卡）");
+        }
+
+        /// <summary>CardData → CardCustomData</summary>
+        public static CardCustomData CardToData(CardData card)
+        {
+            CardCustomData data = new CardCustomData();
+            data.id = card.id;
+            data.title = card.title;
+            data.type = card.type.ToString();
+            data.team = card.team != null ? card.team.id : "";
+            data.rarity = card.rarity != null ? card.rarity.id : "";
+            data.mana = card.mana;
+            data.attack = card.attack;
+            data.hp = card.hp;
+            data.text = card.text;
+            data.desc = card.desc;
+            data.deckbuilding = card.deckbuilding;
+            data.cost = card.cost;
+
+            if (card.abilities != null)
+            {
+                foreach (AbilityData ability in card.abilities)
+                {
+                    if (ability != null)
+                        data.abilities.Add(AbilityToData(ability));
+                }
+            }
+            return data;
+        }
+
+        /// <summary>AbilityData → AbilityCustomData</summary>
+        public static AbilityCustomData AbilityToData(AbilityData ability)
+        {
+            AbilityCustomData data = new AbilityCustomData();
+            data.id = ability.id;
+            data.trigger = ability.trigger.ToString();
+            data.target = ability.target.ToString();
+            data.value = ability.value;
+            data.duration = ability.duration;
+            data.mana_cost = ability.mana_cost;
+            data.exhaust = ability.exhaust;
+            data.title = ability.title;
+            data.desc = ability.desc;
+
+            if (ability.status != null)
+            {
+                foreach (StatusData status in ability.status)
+                {
+                    if (status != null)
+                        data.status_ids.Add(status.effect.ToString());
+                }
+            }
+
+            if (ability.chain_abilities != null)
+            {
+                foreach (AbilityData chain in ability.chain_abilities)
+                {
+                    if (chain != null)
+                        data.chain_ability_ids.Add(chain.id);
+                }
+            }
+
+            data.effects = SerializeComponents(ability.effects);
+            data.conditions_trigger = SerializeComponents(ability.conditions_trigger);
+            data.conditions_target = SerializeComponents(ability.conditions_target);
+            data.filters_target = SerializeComponents(ability.filters_target);
+            return data;
+        }
+
+        // ---------------- 导入 ----------------
+
+        /// <summary>启动时加载本地自定义卡池目录下所有 JSON</summary>
+        public static void LoadCustomPools()
+        {
+            if (!Directory.Exists(SaveFolder))
+                return;
+
+            string[] files = Directory.GetFiles(SaveFolder, "*.json");
+            foreach (string file in files)
+            {
+                try
+                {
+                    ImportFromFile(file);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError("加载自定义卡池失败: " + file + "\n" + e.Message);
+                }
+            }
+        }
+
+        /// <summary>从 JSON 文件导入卡池并注册到游戏</summary>
+        /// <param name="grantOwnership">是否授予玩家拥有数量（玩家主动导入时 true；启动自动加载时 false，避免重复累加）</param>
+        public static void ImportFromFile(string path, bool grantOwnership = false)
+        {
+            if (!File.Exists(path))
+                return;
+
+            string json = File.ReadAllText(path);
+            CardPoolData pool = JsonUtility.FromJson<CardPoolData>(json);
+            if (pool == null)
+            {
+                Debug.LogError("卡池 JSON 解析失败: " + path);
+                return;
+            }
+
+            int count = ImportToGame(pool, path, grantOwnership);
+            Debug.Log("已导入卡池「" + pool.name + "」，新增 " + count + " 张卡: " + path);
+        }
+
+        /// <summary>将 CardPoolData 注册到游戏（返回实际新增卡牌数）</summary>
+        /// <param name="fileKey">卡池文件路径（用于删除时按文件卸载），为空则不做归属记录</param>
+        public static int ImportToGame(CardPoolData pool, string fileKey = "", bool grantOwnership = false)
+        {
+            if (pool == null || pool.cards == null)
+                return 0;
+
+            int added = 0;
+            foreach (CardCustomData cdata in pool.cards)
+            {
+                CardData card = BuildCardData(cdata);
+                if (card != null && RegisterCard(card))
+                {
+                    added++;
+                    if (!string.IsNullOrEmpty(fileKey))
+                    {
+                        if (!pool_file_cards.TryGetValue(fileKey, out List<string> list))
+                        {
+                            list = new List<string>();
+                            pool_file_cards[fileKey] = list;
+                        }
+                        list.Add(card.id);
+                    }
+                    if (grantOwnership)
+                        GrantOwnership(card);
+                }
+            }
+            return added;
+        }
+
+        /// <summary>授予玩家拥有该自定义卡（默认变体 2 张），使其可正常构筑</summary>
+        private static void GrantOwnership(CardData card)
+        {
+            VariantData variant = VariantData.GetDefault();
+            Authenticator auth = Authenticator.Get();
+            if (auth == null || variant == null)
+                return;
+            UserData udata = auth.UserData;
+            if (udata != null)
+                udata.AddCard(card.id, variant.id, 2);
+        }
+
+        /// <summary>CardCustomData → CardData（运行时实例）</summary>
+        public static CardData BuildCardData(CardCustomData data)
+        {
+            if (data == null || string.IsNullOrEmpty(data.id))
+                return null;
+
+            CardData card = ScriptableObject.CreateInstance<CardData>();
+            card.id = data.id;
+            card.title = data.title;
+            card.type = ParseEnum(data.type, CardType.None);
+            card.team = string.IsNullOrEmpty(data.team) ? GetFirstTeam() : TeamData.Get(data.team);
+            card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
+            card.mana = data.mana;
+            card.attack = data.attack;
+            card.hp = data.hp;
+            card.text = data.text;
+            card.desc = data.desc;
+            card.deckbuilding = data.deckbuilding;
+            card.cost = data.cost;
+
+            List<AbilityData> abilities = new List<AbilityData>();
+            foreach (AbilityCustomData adata in data.abilities)
+            {
+                AbilityData ability = BuildAbilityData(adata);
+                if (ability != null)
+                {
+                    RegisterAbility(ability);
+                    abilities.Add(ability);
+                }
+            }
+            card.abilities = abilities.ToArray();
+            //数组字段置空数组而非 null，避免 Card.SetCard/SetTraits 等遍历时报空引用
+            card.traits = new TraitData[0];
+            card.stats = new TraitStat[0];
+            card.packs = new PackData[0];
+            return card;
+        }
+
+        /// <summary>AbilityCustomData → AbilityData（运行时实例）</summary>
+        public static AbilityData BuildAbilityData(AbilityCustomData data)
+        {
+            if (data == null)
+                return null;
+
+            AbilityData ability = ScriptableObject.CreateInstance<AbilityData>();
+            ability.id = string.IsNullOrEmpty(data.id) ? "custom_ability_" + Guid.NewGuid().ToString("N").Substring(0, 8) : data.id;
+            ability.trigger = ParseEnum(data.trigger, AbilityTrigger.None);
+            ability.target = ParseEnum(data.target, AbilityTarget.None);
+            ability.value = data.value;
+            ability.duration = data.duration;
+            ability.mana_cost = data.mana_cost;
+            ability.exhaust = data.exhaust;
+            ability.title = data.title;
+            ability.desc = data.desc;
+
+            List<StatusData> status = new List<StatusData>();
+            foreach (string sid in data.status_ids)
+            {
+                StatusData sdata = StatusData.Get(ParseEnum(sid, StatusType.None));
+                if (sdata != null)
+                    status.Add(sdata);
+            }
+            ability.status = status.ToArray();
+
+            List<AbilityData> chains = new List<AbilityData>();
+            foreach (string cid in data.chain_ability_ids)
+            {
+                AbilityData chain = AbilityData.Get(cid);
+                if (chain != null)
+                    chains.Add(chain);
+            }
+            ability.chain_abilities = chains.ToArray();
+
+            ability.effects = DeserializeComponents<EffectData>(data.effects);
+            ability.conditions_trigger = DeserializeComponents<ConditionData>(data.conditions_trigger);
+            ability.conditions_target = DeserializeComponents<ConditionData>(data.conditions_target);
+            ability.filters_target = DeserializeComponents<FilterData>(data.filters_target);
+            return ability;
+        }
+
+        // ---------------- 组件（效果/条件/过滤器）序列化 ----------------
+
+        /// <summary>把 ScriptableObject 数组序列化为 ComponentCustomData 列表</summary>
+        public static List<ComponentCustomData> SerializeComponents<T>(T[] array) where T : ScriptableObject
+        {
+            List<ComponentCustomData> list = new List<ComponentCustomData>();
+            if (array == null)
+                return list;
+
+            foreach (T comp in array)
+            {
+                if (comp == null)
+                    continue;
+
+                ComponentCustomData cd = new ComponentCustomData();
+                cd.type = comp.GetType().Name;
+                ReflectionUtil.SerializeFields(comp, cd.fields);
+                list.Add(cd);
+            }
+            return list;
+        }
+
+        /// <summary>把 ComponentCustomData 列表还原为 ScriptableObject 数组</summary>
+        public static T[] DeserializeComponents<T>(List<ComponentCustomData> list) where T : ScriptableObject
+        {
+            List<T> result = new List<T>();
+            if (list == null)
+                return result.ToArray();
+
+            foreach (ComponentCustomData cd in list)
+            {
+                Type type = GetComponentType(cd.type);
+                if (type == null || !typeof(T).IsAssignableFrom(type))
+                    continue;
+
+                ScriptableObject comp = ScriptableObject.CreateInstance(type);
+                if (comp == null)
+                    continue;
+
+                ReflectionUtil.DeserializeFields(comp, cd.fields);
+                result.Add((T)comp);
+            }
+            return result.ToArray();
+        }
+
+        /// <summary>按类名查找类型（支持全名与 TcgEngine 命名空间内短名）</summary>
+        public static Type GetComponentType(string typeName)
+        {
+            if (string.IsNullOrEmpty(typeName))
+                return null;
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type type = assembly.GetType(typeName);
+                if (type != null)
+                    return type;
+                type = assembly.GetType("TcgEngine." + typeName);
+                if (type != null)
+                    return type;
+            }
+            return null;
+        }
+
+        // ---------------- 注册到静态字典 ----------------
+
+        /// <summary>注册生成的 CardData 到静态字典（id 冲突时跳过）</summary>
+        public static bool RegisterCard(CardData card)
+        {
+            if (card == null || string.IsNullOrEmpty(card.id))
+                return false;
+
+            if (CardData.Get(card.id) != null)
+            {
+                Debug.LogWarning("卡牌 id 已存在，跳过: " + card.id);
+                return false;
+            }
+
+            CardData.card_list.Add(card);
+            CardData.card_dict.Add(card.id, card);
+            custom_ids.Add(card.id);
+            return true;
+        }
+
+        /// <summary>注册生成的 AbilityData 到静态字典（id 冲突时跳过）</summary>
+        public static bool RegisterAbility(AbilityData ability)
+        {
+            if (ability == null || string.IsNullOrEmpty(ability.id))
+                return false;
+
+            if (AbilityData.Get(ability.id) != null)
+                return false;
+
+            AbilityData.ability_list.Add(ability);
+            AbilityData.ability_dict.Add(ability.id, ability);
+            return true;
+        }
+
+        // ---------------- 工具 ----------------
+
+        //取第一个阵营作为默认（避免导入卡 team 为 null 导致 UI 报错）
+        private static TeamData GetFirstTeam()
+        {
+            List<TeamData> teams = TeamData.GetAll();
+            if (teams != null && teams.Count > 0)
+                return teams[0];
+            return null;
+        }
+
+        private static T ParseEnum<T>(string value, T defaultValue) where T : struct
+        {
+            if (string.IsNullOrEmpty(value))
+                return defaultValue;
+            if (Enum.TryParse(value, true, out T result))
+                return result;
+            return defaultValue;
+        }
+    }
+
+#if UNITY_EDITOR
+    /// <summary>编辑器测试入口：一键导出/导入卡池 JSON</summary>
+    public static class CardPoolEditor
+    {
+        [UnityEditor.MenuItem("TcgEngine/导出全部卡牌为JSON")]
+        public static void ExportAllCards()
+        {
+            List<CardData> cards = CardData.GetAll();
+            CardPoolIO.ExportToFile(cards, "export_all", UnityEditor.EditorUserBuildSettings.development ? "editor" : "player");
+            UnityEditor.EditorUtility.DisplayDialog("卡池导出", "已导出 " + cards.Count + " 张卡到:\n" + CardPoolIO.SaveFolder, "确定");
+        }
+
+        [UnityEditor.MenuItem("TcgEngine/导入自定义卡池(JSON)")]
+        public static void ImportPool()
+        {
+            string path = UnityEditor.EditorUtility.OpenFilePanel("选择卡池 JSON", CardPoolIO.SaveFolder, "json");
+            if (string.IsNullOrEmpty(path))
+                return;
+            CardPoolIO.ImportFromFile(path);
+            UnityEditor.EditorUtility.DisplayDialog("卡池导入", "当前卡牌总数: " + CardData.GetAll().Count, "确定");
+        }
+    }
+#endif
+}

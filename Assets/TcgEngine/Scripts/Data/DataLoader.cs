@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TcgEngine.Client;
+using TcgEngine.Workshop;
 
 namespace TcgEngine
 {
@@ -49,6 +50,9 @@ namespace TcgEngine
             CheckAbilityData();
             CheckDeckData();
             CheckVariantData();
+
+            //加载本地自定义卡池（创意工坊下载/玩家导入的 JSON 卡包）
+            CardPoolIO.LoadCustomPools();
         }
 
         //Make sure the data is valid

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
 {
@@ -18,26 +19,9 @@ namespace TcgEngine.UI
         public CardGrid grid_content;
         public GameObject card_prefab;
 
-        [Header("Left Side")]
-        public IconButton[] team_filters;
-        public Toggle toggle_owned;
-        public Toggle toggle_not_owned;
-
-        public Toggle toggle_character;
-        public Toggle toggle_spell;
-        public Toggle toggle_artifact;
-        public Toggle toggle_equipment;
-        public Toggle toggle_secret;
-
-        public Toggle toggle_common;
-        public Toggle toggle_uncommon;
-        public Toggle toggle_rare;
-        public Toggle toggle_mythic;
-
-        public Toggle toggle_foil;
-
-        public Dropdown sort_dropdown;
-        public InputField search;
+        [Header("筛选")]
+        public Button filter_button;       // 打开右侧筛选弹层
+        public UIPanel filter_panel;       // 右侧筛选弹层根
 
         [Header("Right Side")]
         public UIPanel deck_list_panel;
@@ -52,9 +36,21 @@ namespace TcgEngine.UI
         public GridLayoutGroup deck_grid;
         public IconButton[] hero_powers;
 
-        private TeamData filter_team = null;
-        private int filter_dropdown = 0;
-        private string filter_search = "";
+        private CardFilterState filter_state = new CardFilterState();
+        private List<string> pool_keys = new List<string>(); // 与卡池下拉选项一一对应
+
+        //筛选弹层控件引用（运行时 Find 绑定）
+        private Dropdown filter_pool_dd;
+        private Toggle[] filter_type_toggles = new Toggle[0];
+        private Toggle[] filter_team_toggles = new Toggle[0];
+        private Toggle[] filter_cost_toggles = new Toggle[0];
+        private InputField filter_search_input;
+        private Toggle filter_foil_toggle;
+        private Toggle[] filter_rarity_toggles = new Toggle[0];
+        private Dropdown filter_sort_by_dd;
+        private Dropdown filter_sort_dir_dd;
+        private Button filter_apply_btn;
+        private Button filter_clear_btn;
 
         private List<CollectionCard> card_list = new List<CollectionCard>();
         private List<CollectionCard> all_list = new List<CollectionCard>();
@@ -87,8 +83,10 @@ namespace TcgEngine.UI
             foreach (DeckLine line in deck_lines)
                 line.onClickDelete += OnClickDeckDelete;
 
-            foreach (IconButton button in team_filters)
-                button.onClick += OnClickTeam;
+            if (filter_button != null)
+                filter_button.onClick.AddListener(OnClickFilterButton);
+
+            BindFilterPanel();
         }
 
         protected override void Start()
@@ -194,14 +192,8 @@ namespace TcgEngine.UI
 
         private void RefreshFilters()
         {
-            search.text = "";
-            sort_dropdown.value = 0;
-            foreach (IconButton button in team_filters)
-                button.Deactivate();
-
-            filter_team = null;
-            filter_dropdown = 0;
-            filter_search = "";
+            filter_state = new CardFilterState();
+            SetFilterToUI(); //同步到弹层控件（若已绑定）
         }
 
         private void ShowDeckList()
@@ -230,7 +222,7 @@ namespace TcgEngine.UI
 
             VariantData variant = VariantData.GetDefault();
             VariantData special = VariantData.GetSpecial();
-            if (toggle_foil.isOn && special != null)
+            if (filter_state.foil && special != null)
                 variant = special;
 
             List<CardDataQ> all_cards = new List<CardDataQ>();
@@ -245,55 +237,40 @@ namespace TcgEngine.UI
                 all_cards.Add(card);
             }
 
-            if (filter_dropdown == 0) //Name
-                all_cards.Sort((CardDataQ a, CardDataQ b) => { return a.card.title.CompareTo(b.card.title); });
-            if (filter_dropdown == 1) //Attack
-                all_cards.Sort((CardDataQ a, CardDataQ b) => { return b.card.attack == a.card.attack ? b.card.hp.CompareTo(a.card.hp) : b.card.attack.CompareTo(a.card.attack); });
-            if (filter_dropdown == 2) //hp
-                all_cards.Sort((CardDataQ a, CardDataQ b) => { return b.card.hp == a.card.hp ? b.card.attack.CompareTo(a.card.attack) : b.card.hp.CompareTo(a.card.hp); });
-            if (filter_dropdown == 3) //Cost
-                all_cards.Sort((CardDataQ a, CardDataQ b) => { return b.card.mana == a.card.mana ? a.card.title.CompareTo(b.card.title) : a.card.mana.CompareTo(b.card.mana); });
+            SortCards(all_cards);
 
             foreach (CardDataQ card in all_cards)
             {
-                if (card.card.deckbuilding)
+                if (!card.card.deckbuilding)
+                    continue;
+                CardData icard = card.card;
+
+                if (!CardPoolIO.IsCardInPool(icard, filter_state.pool))
+                    continue;
+                if (filter_state.types.Count > 0 && !filter_state.types.Contains(icard.type))
+                    continue;
+                if (filter_state.teams.Count > 0 && (icard.team == null || !filter_state.teams.Contains(icard.team)))
+                    continue;
+                if (filter_state.costs.Count > 0)
                 {
-                    CardData icard = card.card;
-                    if (filter_team == null || filter_team == icard.team)
-                    {
-                        bool owned = card.quantity > 0;
-                        RarityData rarity = icard.rarity;
-                        CardType type = icard.type;
-
-                        bool owned_check = (owned && toggle_owned.isOn)
-                            || (!owned && toggle_not_owned.isOn)
-                            || toggle_owned.isOn == toggle_not_owned.isOn;
-
-                        bool type_check = (type == CardType.Character && toggle_character.isOn)
-                            || (type == CardType.Spell && toggle_spell.isOn)
-                            || (type == CardType.Artifact && toggle_artifact.isOn)
-                            || (type == CardType.Equipment && toggle_equipment.isOn)
-                            || (type == CardType.Secret && toggle_secret.isOn)
-                            || (!toggle_character.isOn && !toggle_spell.isOn && !toggle_artifact.isOn && !toggle_equipment.isOn && !toggle_secret.isOn);
-
-                        bool rarity_check = (rarity.rank == 1 && toggle_common.isOn)
-                            || (rarity.rank == 2 && toggle_uncommon.isOn)
-                            || (rarity.rank == 3 && toggle_rare.isOn)
-                            || (rarity.rank == 4 && toggle_mythic.isOn)
-                            || (!toggle_common.isOn && !toggle_uncommon.isOn && !toggle_rare.isOn && !toggle_mythic.isOn);
-
-                        string search = filter_search.ToLower();
-                        bool search_check = string.IsNullOrWhiteSpace(search)
-                            || icard.id.Contains(search)
-                            || icard.title.ToLower().Contains(search)
-                            || icard.GetText().ToLower().Contains(search);
-
-                        if (owned_check && type_check && rarity_check && search_check)
-                        {
-                            shown_cards.Add(card);
-                        }
-                    }
+                    //费用 7 表示「7+」：匹配 7 费及以上
+                    bool cost_match = filter_state.costs.Contains(icard.mana);
+                    if (!cost_match && filter_state.costs.Contains(7) && icard.mana >= 7)
+                        cost_match = true;
+                    if (!cost_match)
+                        continue;
                 }
+                if (filter_state.rarities.Count > 0 && (icard.rarity == null || !filter_state.rarities.Contains(icard.rarity)))
+                    continue;
+
+                string search = filter_state.search != null ? filter_state.search.ToLower() : "";
+                if (!string.IsNullOrWhiteSpace(search)
+                    && !icard.id.Contains(search)
+                    && !icard.title.ToLower().Contains(search)
+                    && !icard.GetText().ToLower().Contains(search))
+                    continue;
+
+                shown_cards.Add(card);
             }
 
             int index = 0;
@@ -579,38 +556,269 @@ namespace TcgEngine.UI
             ReloadUserDecks();
         }
 
-        //---- Left Panel Filters Clicks -----------
+        //---- 筛选弹层 -----------
 
-        public void OnClickTeam(IconButton button)
+        public void OnClickFilterButton()
         {
-            filter_team = null;
-            if (button.IsActive())
+            RefreshPoolOptions();
+            SetFilterToUI();
+            if (filter_panel != null)
+                filter_panel.Show();
+        }
+
+        /// <summary>运行时查找并绑定筛选弹层内控件</summary>
+        private void BindFilterPanel()
+        {
+            if (filter_panel == null)
+                return;
+
+            Transform root = filter_panel.transform;
+            filter_pool_dd = FindChild<Dropdown>(root, "FilterPoolDd");
+            filter_search_input = FindChild<InputField>(root, "FilterSearchInput");
+            filter_foil_toggle = FindChild<Toggle>(root, "FilterFoilToggle");
+            filter_sort_by_dd = FindChild<Dropdown>(root, "FilterSortByDd");
+            filter_sort_dir_dd = FindChild<Dropdown>(root, "FilterSortDirDd");
+            filter_apply_btn = FindChild<Button>(root, "FilterApplyBtn");
+            filter_clear_btn = FindChild<Button>(root, "FilterClearBtn");
+
+            filter_type_toggles = FindToggles(root, "FilterTypeToggle_");
+            filter_team_toggles = FindToggles(root, "FilterTeamToggle_");
+            filter_cost_toggles = FindToggles(root, "FilterCostToggle_");
+            filter_rarity_toggles = FindToggles(root, "FilterRarityToggle_");
+
+            if (filter_pool_dd != null)
+                filter_pool_dd.onValueChanged.AddListener((v) => OnChangeFilterPool());
+            if (filter_apply_btn != null)
+                filter_apply_btn.onClick.AddListener(ApplyFilter);
+            if (filter_clear_btn != null)
+                filter_clear_btn.onClick.AddListener(ClearAllFilter);
+        }
+
+        /// <summary>递归查找指定名称的子对象组件（弹层控件在多层嵌套内，root.Find 只查直接子级）</summary>
+        private T FindChild<T>(Transform root, string name) where T : Component
+        {
+            foreach (Transform child in root)
             {
-                foreach (TeamData team in TeamData.GetAll())
+                if (child.name == name)
                 {
-                    if (button.value == team.id)
-                        filter_team = team;
-                    //Debug.Log(filter_team);
+                    T comp = child.GetComponent<T>();
+                    if (comp != null)
+                        return comp;
+                }
+                T found = FindChild<T>(child, name);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
+
+        /// <summary>按名字前缀查找一组 Toggle（如 FilterTeamToggle_xxx）</summary>
+        private Toggle[] FindToggles(Transform root, string prefix)
+        {
+            List<Toggle> list = new List<Toggle>();
+            foreach (Toggle tg in root.GetComponentsInChildren<Toggle>(true))
+            {
+                if (tg.name.StartsWith(prefix))
+                    list.Add(tg);
+            }
+            return list.ToArray();
+        }
+
+        private void OnChangeFilterPool()
+        {
+            if (filter_pool_dd != null && filter_pool_dd.value < pool_keys.Count)
+                filter_state.pool = pool_keys[filter_pool_dd.value];
+        }
+
+        /// <summary>重建卡池下拉选项（全部 + 内置卡包 + 本地卡池），并恢复当前选择</summary>
+        private void RefreshPoolOptions()
+        {
+            if (filter_pool_dd == null)
+                return;
+
+            List<CardPoolIO.PoolOption> options = CardPoolIO.GetPoolOptions();
+            filter_pool_dd.ClearOptions();
+            pool_keys.Clear();
+
+            List<string> labels = new List<string>();
+            foreach (CardPoolIO.PoolOption opt in options)
+            {
+                pool_keys.Add(opt.key);
+                labels.Add(opt.label);
+            }
+            filter_pool_dd.AddOptions(labels);
+
+            int idx = pool_keys.IndexOf(filter_state.pool);
+            filter_pool_dd.SetValueWithoutNotify(idx < 0 ? 0 : idx);
+        }
+
+        private void ApplyFilter()
+        {
+            ReadFilterFromUI();
+            if (filter_panel != null)
+                filter_panel.Hide();
+            RefreshCards();
+        }
+
+        private void ClearAllFilter()
+        {
+            filter_state = new CardFilterState();
+            SetFilterToUI();
+            RefreshCards();
+        }
+
+        /// <summary>把弹层控件当前值写入筛选状态</summary>
+        private void ReadFilterFromUI()
+        {
+            filter_state.pool = "";
+            if (filter_pool_dd != null && filter_pool_dd.value < pool_keys.Count)
+                filter_state.pool = pool_keys[filter_pool_dd.value];
+
+            filter_state.types.Clear();
+            foreach (Toggle tg in filter_type_toggles)
+            {
+                if (tg != null && tg.isOn)
+                {
+                    CardType t = GetTypeById(tg.name.Replace("FilterTypeToggle_", ""));
+                    if (t != CardType.None && !filter_state.types.Contains(t))
+                        filter_state.types.Add(t);
                 }
             }
-            RefreshCards();
+
+            filter_state.teams.Clear();
+            foreach (Toggle tg in filter_team_toggles)
+            {
+                if (tg != null && tg.isOn)
+                {
+                    TeamData team = TeamData.Get(tg.name.Replace("FilterTeamToggle_", ""));
+                    if (team != null && !filter_state.teams.Contains(team))
+                        filter_state.teams.Add(team);
+                }
+            }
+
+            filter_state.costs.Clear();
+            foreach (Toggle tg in filter_cost_toggles)
+            {
+                if (tg != null && tg.isOn)
+                {
+                    int.TryParse(tg.name.Replace("FilterCostToggle_", ""), out int cost);
+                    if (!filter_state.costs.Contains(cost))
+                        filter_state.costs.Add(cost);
+                }
+            }
+
+            filter_state.rarities.Clear();
+            foreach (Toggle tg in filter_rarity_toggles)
+            {
+                if (tg != null && tg.isOn)
+                {
+                    RarityData rarity = RarityData.Get(tg.name.Replace("FilterRarityToggle_", ""));
+                    if (rarity != null && !filter_state.rarities.Contains(rarity))
+                        filter_state.rarities.Add(rarity);
+                }
+            }
+
+            filter_state.search = filter_search_input != null ? filter_search_input.text : "";
+            filter_state.foil = filter_foil_toggle != null && filter_foil_toggle.isOn;
+            filter_state.sort_by = filter_sort_by_dd != null ? filter_sort_by_dd.value : 0;
+            filter_state.sort_desc = filter_sort_dir_dd != null && filter_sort_dir_dd.value == 1;
         }
 
-        public void OnChangeToggle()
+        /// <summary>把筛选状态同步到弹层控件</summary>
+        private void SetFilterToUI()
         {
-            RefreshCards();
+            if (filter_pool_dd != null)
+            {
+                int idx = pool_keys.IndexOf(filter_state.pool);
+                filter_pool_dd.SetValueWithoutNotify(idx < 0 ? 0 : idx);
+            }
+
+            foreach (Toggle tg in filter_type_toggles)
+            {
+                if (tg != null)
+                {
+                    CardType t = GetTypeById(tg.name.Replace("FilterTypeToggle_", ""));
+                    tg.SetIsOnWithoutNotify(t != CardType.None && filter_state.types.Contains(t));
+                }
+            }
+
+            foreach (Toggle tg in filter_team_toggles)
+            {
+                if (tg != null)
+                {
+                    TeamData team = TeamData.Get(tg.name.Replace("FilterTeamToggle_", ""));
+                    tg.SetIsOnWithoutNotify(team != null && filter_state.teams.Contains(team));
+                }
+            }
+
+            foreach (Toggle tg in filter_cost_toggles)
+            {
+                if (tg != null)
+                {
+                    int.TryParse(tg.name.Replace("FilterCostToggle_", ""), out int cost);
+                    tg.SetIsOnWithoutNotify(filter_state.costs.Contains(cost));
+                }
+            }
+
+            foreach (Toggle tg in filter_rarity_toggles)
+            {
+                if (tg != null)
+                {
+                    RarityData rarity = RarityData.Get(tg.name.Replace("FilterRarityToggle_", ""));
+                    tg.SetIsOnWithoutNotify(rarity != null && filter_state.rarities.Contains(rarity));
+                }
+            }
+
+            if (filter_search_input != null)
+                filter_search_input.text = filter_state.search;
+            if (filter_foil_toggle != null)
+                filter_foil_toggle.SetIsOnWithoutNotify(filter_state.foil);
+            if (filter_sort_by_dd != null)
+                filter_sort_by_dd.SetValueWithoutNotify(filter_state.sort_by);
+            if (filter_sort_dir_dd != null)
+                filter_sort_dir_dd.SetValueWithoutNotify(filter_state.sort_desc ? 1 : 0);
         }
 
-        public void OnChangeDropdown()
+        private CardType GetTypeById(string id)
         {
-            filter_dropdown = sort_dropdown.value;
-            RefreshCards();
+            if (id == "hero") return CardType.Hero;
+            if (id == "character") return CardType.Character;
+            if (id == "spell") return CardType.Spell;
+            if (id == "artifact") return CardType.Artifact;
+            if (id == "secret") return CardType.Secret;
+            if (id == "equipment") return CardType.Equipment;
+            return CardType.None;
         }
 
-        public void OnChangeSearch()
+        /// <summary>按筛选状态排序（sort_by: 0名称 1法力 2颜色 3稀有度）</summary>
+        private void SortCards(List<CardDataQ> list)
         {
-            filter_search = search.text;
-            RefreshCards();
+            int sign = filter_state.sort_desc ? -1 : 1;
+            switch (filter_state.sort_by)
+            {
+                case 1: //法力值
+                    list.Sort((a, b) => sign * (a.card.mana == b.card.mana ? a.card.title.CompareTo(b.card.title) : a.card.mana.CompareTo(b.card.mana)));
+                    break;
+                case 2: //颜色
+                    list.Sort((a, b) =>
+                    {
+                        string ta = a.card.team != null ? a.card.team.id : "";
+                        string tb = b.card.team != null ? b.card.team.id : "";
+                        return sign * (ta == tb ? a.card.title.CompareTo(b.card.title) : ta.CompareTo(tb));
+                    });
+                    break;
+                case 3: //稀有度
+                    list.Sort((a, b) =>
+                    {
+                        int ra = a.card.rarity != null ? a.card.rarity.rank : 0;
+                        int rb = b.card.rarity != null ? b.card.rarity.rank : 0;
+                        return sign * (ra == rb ? a.card.title.CompareTo(b.card.title) : ra.CompareTo(rb));
+                    });
+                    break;
+                default: //名称
+                    list.Sort((a, b) => sign * a.card.title.CompareTo(b.card.title));
+                    break;
+            }
         }
 
         //---- Card grid clicks ----------
@@ -775,5 +983,20 @@ namespace TcgEngine.UI
         public CardData card;
         public VariantData variant;
         public int quantity;
+    }
+
+    /// <summary>卡牌构筑界面的筛选状态</summary>
+    [System.Serializable]
+    public class CardFilterState
+    {
+        public string pool = "";                                    //卡池 key（""全部 / pack:xxx / file:xxx）
+        public List<CardType> types = new List<CardType>();         //勾选种类（空=全部）
+        public List<TeamData> teams = new List<TeamData>();         //勾选颜色（空=全部）
+        public List<int> costs = new List<int>();                   //勾选费用（空=全部）
+        public string search = "";                                  //搜索词（模糊）
+        public bool foil = false;                                   //仅金卡
+        public List<RarityData> rarities = new List<RarityData>();  //勾选稀有度（空=全部）
+        public int sort_by = 0;                                     //0名称 1法力 2颜色 3稀有度
+        public bool sort_desc = false;                              //倒序
     }
 }
