@@ -45,10 +45,11 @@ namespace TcgEngine.UI
             AudioTool.Get().PlayMusic("music", music);
             AudioTool.Get().PlaySFX("ambience", ambience, 0.5f, true, true);
 
-            username_txt.text = "";
-            credits_txt.text = "";
-            version_text.text = "Version " + Application.version;
-            deck_selector.onChange += OnChangeDeck;
+            //防御：重构后这些引用可能未被绑定（指向已隐藏/被删除的 TopBar 元素），判空避免 NRE
+            if (username_txt != null) username_txt.text = "";
+            if (credits_txt != null) credits_txt.text = "";
+            if (version_text != null) version_text.text = "Version " + Application.version;
+            if (deck_selector != null) deck_selector.onChange += OnChangeDeck;
 
             if (Authenticator.Get().IsConnected())
                 AfterLogin();
@@ -59,7 +60,7 @@ namespace TcgEngine.UI
         void Update()
         {
             UserData udata = Authenticator.Get().UserData;
-            if (udata != null)
+            if (udata != null && credits_txt != null)
             {
                 credits_txt.text = GameUI.FormatNumber(udata.coins);
             }
@@ -105,11 +106,14 @@ namespace TcgEngine.UI
             UserData user = await Authenticator.Get().LoadUserData();
             if (user != null)
             {
-                username_txt.text = user.username;
-                credits_txt.text = GameUI.FormatNumber(user.coins);
-                
-                AvatarData avatar = AvatarData.Get(user.avatar);
-                this.avatar.SetAvatar(avatar);
+                if (username_txt != null) username_txt.text = user.username;
+                if (credits_txt != null) credits_txt.text = GameUI.FormatNumber(user.coins);
+
+                if (avatar != null)
+                {
+                    AvatarData avatar_data = AvatarData.Get(user.avatar);
+                    this.avatar.SetAvatar(avatar_data);
+                }
 
                 //Decks
                 RefreshDeckList();

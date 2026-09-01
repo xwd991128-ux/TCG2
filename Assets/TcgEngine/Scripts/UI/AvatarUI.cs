@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
@@ -34,6 +34,9 @@ namespace TcgEngine.UI
         public void SetAvatar(AvatarData avatar)
         {
             this.avatar = avatar;
+            //防御：对象若从未激活过（如被隐藏的 TopBar 内头像），Awake 未执行，avatar_img 为空，这里自愈避免 NRE
+            if (avatar_img == null)
+                avatar_img = GetComponent<Image>();
             avatar_img.enabled = true;
             avatar_img.sprite = default_icon;
 

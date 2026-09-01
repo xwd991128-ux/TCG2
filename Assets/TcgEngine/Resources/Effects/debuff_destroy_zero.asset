@@ -11,4 +11,5 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 31aa9b0b846e37e47bb7896cc026a560, type: 3}
   m_Name: debuff_destroy_zero
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
+  bonus_damage: {fileID: 0}

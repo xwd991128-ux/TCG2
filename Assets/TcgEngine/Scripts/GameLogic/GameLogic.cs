@@ -122,6 +122,8 @@ namespace TcgEngine.Gameplay
                 player.hp_max = pdeck != null ? pdeck.start_hp : GameplayData.Get().hp_start;
                 player.hp = player.hp_max;
                 player.mana_max = pdeck != null ? pdeck.start_mana : GameplayData.Get().mana_start;
+                if (game_data.settings != null && game_data.settings.test_full_mana)
+                    player.mana_max = GameplayData.Get().mana_max;   //模拟测试：开局双方法力直接为上限
                 player.mana = player.mana_max;
 
                 //Draw starting cards

@@ -116,6 +116,15 @@ namespace TcgEngine.UI
             if (export_btn != null)
                 export_btn.onClick.AddListener(() => OnExportOne(info));
 
+            Button edit_btn = line.transform.Find("EditBtn")?.GetComponent<Button>();
+            if (edit_btn != null)
+            {
+                if (info.IsReadonly)
+                    edit_btn.gameObject.SetActive(false);
+                else
+                    edit_btn.onClick.AddListener(() => OnEdit(info));
+            }
+
             Button del_btn = line.transform.Find("DeleteBtn")?.GetComponent<Button>();
             if (del_btn != null)
             {
@@ -256,6 +265,29 @@ namespace TcgEngine.UI
                 SetStatus("已删除卡池: " + info.name);
                 RefreshList();
             }
+        }
+
+        /// <summary>打开卡牌编辑器编辑该本地卡池</summary>
+        private void OnEdit(CardPoolIO.PoolInfo info)
+        {
+            if (string.IsNullOrEmpty(info.file) || !File.Exists(info.file))
+            {
+                SetStatus("卡池文件不存在，无法编辑");
+                return;
+            }
+
+            CardEditorPanel editor = CardEditorPanel.Get();
+            if (editor == null)
+                editor = FindObjectOfType<CardEditorPanel>(true); //含失活对象（默认为失活，Awake 未执行）
+            if (editor == null)
+            {
+                SetStatus("未找到卡牌编辑器面板，请先运行「生成卡牌编辑器页面」工具");
+                return;
+            }
+
+            editor.Open(info.file);
+            editor.Show();
+            Hide();
         }
 
         private void SetStatus(string msg)

@@ -97,7 +97,9 @@ namespace TcgEngine
 
         public Sprite GetFullArt(VariantData variant)
         {
-            return art_full;
+            if (art_full != null)
+                return art_full;
+            return art_board;   //本地自定义卡常只设置卡面图（art_board），卡面（GetFullArt）回退显示它，避免选图后卡面空白
         }
 
         public string GetTitle()
@@ -107,7 +109,7 @@ namespace TcgEngine
 
         public string GetText()
         {
-            string textTemp = text;
+            string textTemp = text ?? "";   // 防御：本地卡 text 可能为 null
             if(attack.ToString()!=null)
                 textTemp = textTemp.Replace("{atk}",attack.ToString());
             //if (game_data.GetActivePlayer() != null)

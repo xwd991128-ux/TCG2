@@ -191,7 +191,7 @@ namespace TcgEngine.UI
             name.rectTransform.anchorMin = new Vector2(0, 0);
             name.rectTransform.anchorMax = new Vector2(1, 1);
             name.rectTransform.offsetMin = new Vector2(64, 0);
-            name.rectTransform.offsetMax = new Vector2(-440, 0);
+            name.rectTransform.offsetMax = new Vector2(-530, 0);
 
             //数量（右缘 -340 ~ -230，宽 110）
             Text count = CreateText("CountText", line, "0 张", _font, 22, new Color(1, 1, 1, 0.75f), TextAnchor.MiddleRight);

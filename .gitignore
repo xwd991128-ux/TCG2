@@ -97,3 +97,9 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Trae IDE 配置（含 skills 工具，不纳入版本控制）
+/.trae/
+
+# Unity 升级日志
+UpgradeLog.htm

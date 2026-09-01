@@ -20,6 +20,41 @@ namespace TcgEngine.Workshop
             get { return Path.Combine(Application.persistentDataPath, "Workshop"); }
         }
 
+        /// <summary>自定义卡牌图片存放目录</summary>
+        public static string ArtFolder
+        {
+            get { return Path.Combine(SaveFolder, "Art"); }
+        }
+
+        /// <summary>自定义卡牌音频存放目录</summary>
+        public static string AudioFolder
+        {
+            get { return Path.Combine(SaveFolder, "Audio"); }
+        }
+
+        /// <summary>从 ArtFolder 加载卡牌图片（不存在返回 null）</summary>
+        public static Sprite LoadArt(string art_path)
+        {
+            if (string.IsNullOrEmpty(art_path))
+                return null;
+            try
+            {
+                string path = Path.Combine(ArtFolder, art_path);
+                if (!File.Exists(path))
+                    return null;
+                byte[] bytes = File.ReadAllBytes(path);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!tex.LoadImage(bytes))
+                    return null;
+                return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("加载卡牌图片失败: " + art_path + " " + e.Message);
+                return null;
+            }
+        }
+
         //记录运行时导入/创建的自定义卡牌 id，用于"仅导出自定义卡"
         private static readonly HashSet<string> custom_ids = new HashSet<string>();
 
@@ -256,6 +291,7 @@ namespace TcgEngine.Workshop
             data.type = card.type.ToString();
             data.team = card.team != null ? card.team.id : "";
             data.rarity = card.rarity != null ? card.rarity.id : "";
+            data.trait = card.traits != null && card.traits.Length > 0 && card.traits[0] != null ? card.traits[0].id : "";
             data.mana = card.mana;
             data.attack = card.attack;
             data.hp = card.hp;
@@ -405,17 +441,26 @@ namespace TcgEngine.Workshop
 
             CardData card = ScriptableObject.CreateInstance<CardData>();
             card.id = data.id;
-            card.title = data.title;
+            card.title = data.title ?? "";
             card.type = ParseEnum(data.type, CardType.None);
             card.team = string.IsNullOrEmpty(data.team) ? GetFirstTeam() : TeamData.Get(data.team);
             card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
+            if (string.IsNullOrEmpty(data.trait))
+                card.traits = new TraitData[0];
+            else
+            {
+                TraitData trait = TraitData.Get(data.trait);
+                card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
+            }
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;
-            card.text = data.text;
-            card.desc = data.desc;
+            card.text = data.text ?? "";
+            card.desc = data.desc ?? "";
             card.deckbuilding = data.deckbuilding;
             card.cost = data.cost;
+            card.art_board = LoadArt(data.art_path);
+            card.art_full = LoadArt(data.art_full_path);
 
             List<AbilityData> abilities = new List<AbilityData>();
             foreach (AbilityCustomData adata in data.abilities)
@@ -427,12 +472,201 @@ namespace TcgEngine.Workshop
                     abilities.Add(ability);
                 }
             }
+            //规则图编译为能力（图 → AbilityData），使规则编辑器画的图在真实对战中生效
+            abilities.AddRange(CompileGraphAbilities(data));
             card.abilities = abilities.ToArray();
             //数组字段置空数组而非 null，避免 Card.SetCard/SetTraits 等遍历时报空引用
-            card.traits = new TraitData[0];
             card.stats = new TraitStat[0];
             card.packs = new PackData[0];
             return card;
+        }
+
+        /// <summary>更新运行时已注册的自定义卡数据（实例引用不变，仅更新字段）。
+        /// 规则编辑器保存后调用，使卡牌构筑/编辑器卡面立即反映最新属性；未注册则构建并注册。</summary>
+        public static void UpdateCardData(CardCustomData data)
+        {
+            if (data == null || string.IsNullOrEmpty(data.id))
+                return;
+
+            CardData card = CardData.Get(data.id);
+            if (card == null)
+            {
+                card = BuildCardData(data);
+                if (card != null)
+                    RegisterCard(card);
+                return;
+            }
+
+            //仅更新基础属性（abilities 由其他流程维护，此处不重建）
+            card.title = data.title ?? "";
+            card.type = ParseEnum(data.type, CardType.None);
+            card.team = string.IsNullOrEmpty(data.team) ? GetFirstTeam() : TeamData.Get(data.team);
+            card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
+            if (string.IsNullOrEmpty(data.trait))
+                card.traits = new TraitData[0];
+            else
+            {
+                TraitData trait = TraitData.Get(data.trait);
+                card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
+            }
+            card.mana = data.mana;
+            card.attack = data.attack;
+            card.hp = data.hp;
+            card.text = data.text ?? "";
+            card.desc = data.desc ?? "";
+            card.deckbuilding = data.deckbuilding;
+            card.cost = data.cost;
+            card.art_board = LoadArt(data.art_path);
+            card.art_full = LoadArt(data.art_full_path);
+
+            //重建能力（data.abilities + 规则图编译），使规则编辑器保存的图/能力在真实对战中立即生效
+            List<AbilityData> abilities = new List<AbilityData>();
+            foreach (AbilityCustomData adata in data.abilities)
+            {
+                AbilityData ability = BuildAbilityData(adata);
+                if (ability != null)
+                {
+                    RegisterAbility(ability);
+                    abilities.Add(ability);
+                }
+            }
+            abilities.AddRange(CompileGraphAbilities(data));
+            card.abilities = abilities.ToArray();
+        }
+
+        // ---------------- 规则图 → 能力编译 ----------------
+
+        /// <summary>把卡的规则图（GraphData）编译为 AbilityData 数组，复用现有对账结算体系。
+        /// 目前支持：Event(OnPlay/StartOfTurn/EndOfTurn/OnDeath/OnAttack) → Action(Draw/Heal/Damage)。
+        /// 其余节点（条件/值）与未支持动作暂时跳过并警告。</summary>
+        private static List<AbilityData> CompileGraphAbilities(CardCustomData data)
+        {
+            List<AbilityData> result = new List<AbilityData>();
+            if (data == null || data.graph == null)
+                return result;
+
+            GraphData graph = data.graph;
+            foreach (GraphNode ev in graph.nodes)
+            {
+                if (ev == null || ev.type != GraphNodeType.Event)
+                    continue;
+
+                AbilityTrigger trigger = MapGraphTrigger(ev.action);
+                if (trigger == AbilityTrigger.None)
+                {
+                    Debug.LogWarning("[规则图] 触发器未支持，跳过: " + ev.action);
+                    continue;
+                }
+
+                foreach (GraphNode act in FindReachableActions(graph, ev.id))
+                {
+                    EffectData effect = BuildGraphEffect(act);
+                    if (effect == null)
+                    {
+                        Debug.LogWarning("[规则图] 动作未支持，跳过: " + act.action);
+                        continue;
+                    }
+
+                    AbilityData ability = ScriptableObject.CreateInstance<AbilityData>();
+                    ability.id = "graph_" + data.id + "_" + ev.action + "_" + act.action + "_" +
+                                 Guid.NewGuid().ToString("N").Substring(0, 6);
+                    ability.trigger = trigger;
+                    ability.target = GetGraphTarget(act);
+                    ability.value = GraphRuntime.GetFieldInt(act, "value", 1);
+                    ability.effects = new EffectData[] { effect };
+                    //数组字段必须置空数组而非 null，否则 AbilityData 遍历（条件/状态/链）会 NRE
+                    ability.conditions_trigger = new ConditionData[0];
+                    ability.conditions_target = new ConditionData[0];
+                    ability.filters_target = new FilterData[0];
+                    ability.status = new StatusData[0];
+                    ability.chain_abilities = new AbilityData[0];
+                    ability.title = (ev.title ?? ev.action) + "：" + (act.title ?? act.action);
+                    ability.desc = ability.title;
+                    RegisterAbility(ability);
+                    result.Add(ability);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>事件节点 action → AbilityTrigger 映射（未支持返回 None）</summary>
+        private static AbilityTrigger MapGraphTrigger(string action)
+        {
+            switch (action)
+            {
+                case "OnPlay": return AbilityTrigger.OnPlay;
+                case "StartOfTurn": return AbilityTrigger.StartOfTurn;
+                case "EndOfTurn": return AbilityTrigger.EndOfTurn;
+                case "OnDeath": return AbilityTrigger.OnDeath;
+                case "OnAttack": return AbilityTrigger.OnBeforeAttack;
+                case "OnDraw": return AbilityTrigger.OnDraw;
+                default: return AbilityTrigger.None;
+            }
+        }
+
+        /// <summary>从事件节点出发，沿输出连线查找可达的动作节点（跳过条件/值节点）</summary>
+        private static List<GraphNode> FindReachableActions(GraphData graph, string from_id)
+        {
+            List<GraphNode> result = new List<GraphNode>();
+            if (graph == null)
+                return result;
+
+            Stack<GraphNode> stack = new Stack<GraphNode>();
+            HashSet<string> visited = new HashSet<string>();
+            GraphNode start = graph.GetNode(from_id);
+            if (start != null)
+                stack.Push(start);
+
+            while (stack.Count > 0)
+            {
+                GraphNode node = stack.Pop();
+                if (node == null || visited.Contains(node.id))
+                    continue;
+                visited.Add(node.id);
+
+                if (node.type == GraphNodeType.Action)
+                {
+                    result.Add(node);
+                    continue; //动作节点不再继续向下
+                }
+                if (node.type == GraphNodeType.Condition || node.type == GraphNodeType.Value)
+                    continue; //条件/值节点暂不展开（P3 完善后支持分支）
+
+                foreach (GraphLink link in graph.GetOutgoing(node.id))
+                {
+                    GraphNode next = graph.GetNode(link.to_node);
+                    if (next != null)
+                        stack.Push(next);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>动作节点 → 效果组件实例（未支持返回 null）</summary>
+        private static EffectData BuildGraphEffect(GraphNode node)
+        {
+            if (node == null || string.IsNullOrEmpty(node.action))
+                return null;
+
+            if (node.action == "Draw")
+                return ScriptableObject.CreateInstance<EffectDraw>();
+            if (node.action == "Heal")
+                return ScriptableObject.CreateInstance<EffectHeal>();
+            if (node.action == "Damage")
+                return ScriptableObject.CreateInstance<EffectDamage>();
+            return null;
+        }
+
+        /// <summary>动作节点 → 目标类型：Draw/Heal 作用于己方玩家，Damage 需拖拽目标</summary>
+        private static AbilityTarget GetGraphTarget(GraphNode node)
+        {
+            if (node == null)
+                return AbilityTarget.None;
+            if (node.action == "Damage")
+                return AbilityTarget.PlayTarget;
+            if (node.action == "Draw" || node.action == "Heal")
+                return AbilityTarget.PlayerSelf;
+            return AbilityTarget.None;
         }
 
         /// <summary>AbilityCustomData → AbilityData（运行时实例）</summary>

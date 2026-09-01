@@ -21,6 +21,7 @@ namespace TcgEngine.UI
         private const string MENU = "TcgEngine/卡池管理/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
         private const string FONT_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
+        private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
 
         private static Font _font;
 
@@ -105,9 +106,9 @@ namespace TcgEngine.UI
             if (deck_container != null && deck_container is RectTransform)
                 deck_width = ((RectTransform)deck_container).rect.width;
 
-            //顶部留出约 20% 高度（TopBar 下方）给筛选按钮，网格本身从 6% 到 80%
-            grid.anchorMin = new Vector2(0f, 0.06f);
-            grid.anchorMax = new Vector2(1f, 0.80f);
+            //顶部留出约 6% 高度（TopBar 下方）给筛选按钮，网格从 4% 到 94% 占满屏幕
+            grid.anchorMin = new Vector2(0f, 0.04f);
+            grid.anchorMax = new Vector2(1f, 0.94f);
             grid.offsetMin = new Vector2(20f, 0f);
             grid.offsetMax = new Vector2(-(deck_width + 30f), 0f);
         }
@@ -367,7 +368,11 @@ namespace TcgEngine.UI
             RectTransform rt = CreateRect(name, parent); //行对象名 = FilterXxx_yyy，Toggle 挂在其上供运行时按名绑定
             rt.sizeDelta = new Vector2(0, 40);
 
-            //勾选框（子对象，作为 Toggle 的点击区域）
+            //行对象背景：作为 Toggle 的点击区（Toggle 必须挂载在有 Graphic 的对象上才能接收点击）
+            Image row_img = rt.gameObject.AddComponent<Image>();
+            row_img.color = new Color(1, 1, 1, 0.02f);
+
+            //勾选框（子对象，仅视觉展示，不拦截射线，保证点击命中行对象上的 Toggle）
             RectTransform box = CreateRect("Checkbox", rt);
             box.anchorMin = new Vector2(0, 0.5f);
             box.anchorMax = new Vector2(0, 0.5f);
@@ -376,10 +381,11 @@ namespace TcgEngine.UI
             box.sizeDelta = new Vector2(28, 28);
             Image box_img = box.gameObject.AddComponent<Image>();
             box_img.color = new Color(1, 1, 1, 0.3f);
+            box_img.raycastTarget = false;
 
             //Toggle 挂在行对象上（名字=name），否则运行时按前缀/名字找不到
             Toggle toggle = rt.gameObject.AddComponent<Toggle>();
-            toggle.targetGraphic = box_img;
+            toggle.targetGraphic = row_img;
             toggle.isOn = false;
 
             Text check = CreateText("Checkmark", box, "\u2714", _font, 20, Color.white, TextAnchor.MiddleCenter);
@@ -470,10 +476,15 @@ namespace TcgEngine.UI
             item.anchoredPosition = new Vector2(0, -14);
             item.sizeDelta = new Vector2(0, 28);
 
+            //Item 根加 Image 作为点击区（Toggle 必须挂载在有 Graphic 的对象上才能接收点击）
+            Image item_img = item.gameObject.AddComponent<Image>();
+            item_img.color = new Color(1, 1, 1, 0f);
+
             RectTransform item_bg = CreateRect("Item Background", item);
             SetStretch(item_bg);
             Image item_bg_img = item_bg.gameObject.AddComponent<Image>();
             item_bg_img.color = new Color(1, 1, 1, 0.1f);
+            item_bg_img.raycastTarget = false; //视觉层，不拦截射线
 
             Toggle item_toggle = item.gameObject.AddComponent<Toggle>();
             item_toggle.targetGraphic = item_bg_img;
@@ -563,8 +574,23 @@ namespace TcgEngine.UI
             colors.fadeDuration = 0.1f;
             btn.colors = colors;
 
-            Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-            SetStretch(txt.rectTransform);
+            // 取消/关闭/返回按钮：用 exit.png 图标替换文字
+            if (name.Contains("CloseBtn") || name.Contains("ReturnBtn") || name.Contains("ExitBtn"))
+            {
+                Sprite exit_sprite = AssetDatabase.LoadAssetAtPath<Sprite>(EXIT_ICON_PATH);
+                if (exit_sprite != null)
+                {
+                    img.sprite = exit_sprite;
+                    img.type = Image.Type.Simple;
+                    img.color = Color.white;
+                    img.raycastTarget = true;
+                }
+            }
+            else
+            {
+                Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
+                SetStretch(txt.rectTransform);
+            }
             return btn;
         }
     }

@@ -17,4 +17,4 @@ MonoBehaviour:
   api_url: 58.214.13.206:8778
   api_https: 0
   solo_type: 10
-  auth_type: 10
+  auth_type: 0

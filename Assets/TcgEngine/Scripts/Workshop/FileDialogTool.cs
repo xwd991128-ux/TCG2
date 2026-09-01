@@ -52,6 +52,13 @@ namespace TcgEngine.Workshop
         /// <summary>打开多选文件对话框，返回文件路径数组（取消/不可用返回 null）</summary>
         public static string[] OpenFiles(string title, string filter, bool multiselect = true)
         {
+            //优先系统新版资源管理器对话框（IFileOpenDialog）
+            string[] modern = ModernFileDialog.OpenFiles(title, filter, multiselect, null);
+            if (modern != null)
+                return modern;
+            if (ModernFileDialog.LastShowCancelled)
+                return null;   //用户取消：不再弹老式对话框
+
             Init();
             if (!available)
                 return null;
@@ -78,6 +85,12 @@ namespace TcgEngine.Workshop
         /// <summary>打开保存文件对话框，返回选择的文件路径（取消/不可用返回 null）</summary>
         public static string SaveFile(string title, string filter, string defaultName)
         {
+            string modern = ModernFileDialog.SaveFile(title, filter, defaultName, null);
+            if (modern != null)
+                return modern;
+            if (ModernFileDialog.LastShowCancelled)
+                return null;   //用户取消：不再弹老式对话框
+
             Init();
             if (!available)
                 return null;
@@ -104,6 +117,12 @@ namespace TcgEngine.Workshop
         /// <summary>打开文件夹选择对话框，返回目录路径（取消/不可用返回 null）</summary>
         public static string SelectFolder(string title)
         {
+            string modern = ModernFileDialog.SelectFolder(title, null);
+            if (modern != null)
+                return modern;
+            if (ModernFileDialog.LastShowCancelled)
+                return null;   //用户取消：不再弹老式对话框
+
             Init();
             if (!available)
                 return null;

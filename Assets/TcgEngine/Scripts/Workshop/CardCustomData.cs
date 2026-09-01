@@ -17,6 +17,7 @@ namespace TcgEngine.Workshop
         public string version = "1.0";
         public string timestamp = "";
         public List<CardCustomData> cards = new List<CardCustomData>();
+        public GraphData graph;   // 卡池规则图（节点编辑器数据，可为空）
     }
 
     /// <summary>
@@ -30,6 +31,7 @@ namespace TcgEngine.Workshop
         public string type;          // CardType 枚举名
         public string team;          // TeamData.id
         public string rarity;        // RarityData.id
+        public string trait;         // TraitData.id（种族/特质，仅随从类有意义）
         public int mana;
         public int attack;
         public int hp;
@@ -38,6 +40,15 @@ namespace TcgEngine.Workshop
         public bool deckbuilding;
         public int cost;
         public List<AbilityCustomData> abilities = new List<AbilityCustomData>();
+
+        // ---- 卡牌节点编辑器（P2+）附加配置 ----
+        public GraphData graph;              // 该卡自己的规则图（可为 null，首次进入编辑器时创建）
+        public string art_path;              // 卡牌图片文件名（Workshop/Art/ 目录下）
+        public string art_full_path;         // 面板（全图）图片文件名（Workshop/Art/，法术/奥秘无）
+        public string spawn_audio_id;        // 音效/音乐配置（字符串 id，运行时加载）
+        public string attack_audio_id;
+        public string death_audio_id;
+        public string damage_audio_id;
     }
 
     /// <summary>

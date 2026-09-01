@@ -40,6 +40,7 @@ namespace TcgEngine
         public GameType game_type = GameType.Solo;      //Multiplayer? Solo? Observer?
         public GameMode game_mode = GameMode.Casual;    //Ranked or not? Other special game mode?
         public string level;                            //Adventure level ID
+        public bool test_full_mana = false;             //模拟测试：开局双方法力直接为上限
 
         public virtual bool IsHost()
         {
@@ -109,6 +110,7 @@ namespace TcgEngine
             serializer.SerializeValue(ref game_mode);
             serializer.SerializeValue(ref nb_players);
             serializer.SerializeValue(ref level);
+            serializer.SerializeValue(ref test_full_mana);
         }
 
         public static string GetRankModeString(GameMode rank_mode)
