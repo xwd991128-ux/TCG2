@@ -7,14 +7,29 @@ namespace TcgEngine.UI
     /// 连线画布控制器：挂在画布背景（canvas_bg）上。
     /// 滚轮缩放节点容器 content，左键拖拽空白平移 content，供 +/- 按钮调用 ZoomIn/ZoomOut。
     /// </summary>
-    public class GraphCanvas : MonoBehaviour, IScrollHandler, IDragHandler, IBeginDragHandler, IEndDragHandler
+    public class GraphCanvas : MonoBehaviour, IScrollHandler, IDragHandler, IBeginDragHandler, IEndDragHandler, IPointerClickHandler
     {
         public RectTransform content;    // 节点容器（大画布）
         public float zoom_min = 0.3f;
         public float zoom_max = 2.5f;
         public float zoom_step = 0.12f;
 
+        /// <summary>点击画布空白处回调（编辑器绑定：取消节点选中）</summary>
+        public System.Action onCanvasClick;
+
         private bool dragging = false;
+
+        /// <summary>点击空白（content 之外）→ 通知编辑器取消节点选中；点在节点/引脚/连线上不处理</summary>
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (content == null || eventData == null)
+                return;
+            GameObject hit = eventData.pointerCurrentRaycast.gameObject;
+            if (hit != null && hit.transform.IsChildOf(content))
+                return;
+            if (onCanvasClick != null)
+                onCanvasClick();
+        }
 
         public void OnScroll(PointerEventData eventData)
         {

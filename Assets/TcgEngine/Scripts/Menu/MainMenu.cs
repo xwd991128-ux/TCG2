@@ -99,6 +99,32 @@ namespace TcgEngine.UI
 
             //Friend list
             //FriendPanel.Get().Show();
+
+            //强制隐藏可能残留的全屏页面（组件被禁用无法自动隐藏时会一直拦截主界面点击）
+            ForceHideModalPanels();
+        }
+
+        /// <summary>
+        /// 强制隐藏 CardEditorPanel / CardPoolPanel / GraphEditorPanel / BlackPanel 等全屏页面。
+        /// 这些页面若脚本组件被禁用（enabled=false），UIPanel 的自动隐藏（AfterHide）不会执行，
+        /// 会一直 activeSelf=true + blocksRaycasts=true 全屏拦截主界面点击。
+        /// </summary>
+        private void ForceHideModalPanels()
+        {
+            UIPanel[] panels = FindObjectsOfType<UIPanel>(true);
+            foreach (UIPanel p in panels)
+            {
+                if (p == null) continue;
+                if (p.name == "HomePanel") continue;                       //主界面保留
+                if (p.name == "BlackPanel" || p.name == "CardEditorPanel" ||
+                    p.name == "CardPoolPanel" || p.name == "GraphEditorPanel")
+                {
+                    if (p.name == "GraphEditorPanel" && !p.enabled)
+                        p.enabled = true; //修复：组件被禁用会导致永不自动隐藏且 Show() 失效
+                    if (p.gameObject.activeSelf)
+                        p.gameObject.SetActive(false);
+                }
+            }
         }
 
         public async void RefreshUserData()

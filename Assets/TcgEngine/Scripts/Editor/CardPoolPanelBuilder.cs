@@ -17,7 +17,9 @@ namespace TcgEngine.UI
     {
         private const string MENU = "TcgEngine/卡池管理/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
+        //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
+        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
+        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
 
         private static Font _font;
 
@@ -42,6 +44,7 @@ namespace TcgEngine.UI
             }
 
             _font = AssetDatabase.LoadAssetAtPath<Font>(FONT_PATH);
+            if (_font == null) _font = AssetDatabase.LoadAssetAtPath<Font>(FONT_FALLBACK_PATH);
             if (_font == null) _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             CardPoolPanel panel = BuildPanel(canvas.transform);

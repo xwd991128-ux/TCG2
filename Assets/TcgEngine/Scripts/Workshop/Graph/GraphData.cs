@@ -38,6 +38,33 @@ namespace TcgEngine.Workshop
         BuffDefine = 11, // 增益定义
         EventArg = 12,   // 事件参数（动作产生的效果事件）
         ActionNode = 13, // 控制流：下一步动作
+        // ---- zmcs(NodeDoc) 扩展类型（追加于尾部，不影响旧图已存值） ----
+        CardSnapshot = 14,     // 卡牌快照
+        EventRecord = 15,      // 事件记录
+        Effect = 16,           // 效果实例
+        EffectTag = 17,        // 效果标签
+        GraphMap = 18,         // 映射
+        EventReference = 19,   // 事件引用
+        DefineReference = 20,  // 定义引用
+        CardPoolID = 21,       // 卡池 ID
+        CardTagName = 22,      // 卡牌标签名
+        KeywordName = 23,      // 关键词名
+        CardType = 24,         // 卡牌类型
+        CompareOperator = 25,  // 比较运算符（枚举）
+        LogicOperator = 26,    // 逻辑运算符（枚举）
+        IntegerOperator = 27,  // 整数运算符（枚举）
+        CardPropertyGetterName = 28, // 卡牌属性取值器名
+        CardPropertySetterName = 29, // 卡牌属性设置器名
+        CardDefinePropertyGetterName = 30, // 卡牌定义属性取值器名
+        PileName = 31,         // 牌堆名
+        EventVarName = 32,     // 事件变量名
+        EventTriggerTime = 33, // 事件触发时机
+        TypeName = 34,         // 类型名
+        EffectType = 35,       // 效果类型
+        Pair = 36,             // 键值对
+        NodeValueRef = 37,     // 值引用（泛型擦除）
+        CardDefineSelect = 38, // 卡牌定义选择器
+        Array = 39,            // 泛型数组（元素类型未知）
     }
 
     /// <summary>
@@ -76,9 +103,11 @@ namespace TcgEngine.Workshop
     {
         public string id;                          // 节点唯一标识
         public GraphNodeType type;                 // 节点类型
-        public string action;                      // 具体行为（如 "Damage"/"Draw"/"OnPlay"）
+        public string action;                      // 具体行为（内置用 "Damage"；zmcs 节点用 defineId，如 "202001"）
         public string title;                       // 节点显示名
+        public string category;                    // zmcs(NodeDoc) 主题分类名（如"卡牌"/"玩家"）；内置节点为空
         public Vector2Data pos;                    // 画布坐标
+        public bool collapsed;                     // 收起节点：只显示头部，端口/描述隐藏，连线不断
         public List<GraphPin> pins = new List<GraphPin>();
         public List<FieldCustomData> fields = new List<FieldCustomData>();
     }
@@ -144,6 +173,46 @@ namespace TcgEngine.Workshop
                 list.Add(link);
             }
             return list;
+        }
+
+        /// <summary>取连到某节点指定输入端口（完整引脚 id）的唯一入线，无则返回 null。
+        /// 两线制取值：数据输入口有上游取值线时用上游值，否则用该口固定默认值。</summary>
+        public GraphLink GetIncomingLink(string node_id, string pin_id)
+        {
+            foreach (GraphLink link in links)
+            {
+                if (link.to_node == node_id && link.to_pin == pin_id)
+                    return link;
+            }
+            return null;
+        }
+
+        /// <summary>取某节点的指定引脚（按完整引脚 id），找不到返回 null</summary>
+        public GraphPin GetPin(string node_id, string pin_id)
+        {
+            GraphNode node = GetNode(node_id);
+            if (node == null || node.pins == null)
+                return null;
+            foreach (GraphPin p in node.pins)
+            {
+                if (p.id == pin_id)
+                    return p;
+            }
+            return null;
+        }
+
+        /// <summary>取某节点的指定引脚（按短名），找不到返回 null</summary>
+        public GraphPin GetPinByName(string node_id, string name)
+        {
+            GraphNode node = GetNode(node_id);
+            if (node == null || node.pins == null)
+                return null;
+            foreach (GraphPin p in node.pins)
+            {
+                if (p.name == name)
+                    return p;
+            }
+            return null;
         }
     }
 }

@@ -19,7 +19,9 @@ namespace TcgEngine.UI
     {
         private const string MENU = "TcgEngine/卡牌编辑器/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
+        //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
+        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
+        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
         private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
 
         private static Font _font;
@@ -55,6 +57,7 @@ namespace TcgEngine.UI
             }
 
             _font = AssetDatabase.LoadAssetAtPath<Font>(FONT_PATH);
+            if (_font == null) _font = AssetDatabase.LoadAssetAtPath<Font>(FONT_FALLBACK_PATH);
             if (_font == null) _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             BuildPanel(canvas.transform);
@@ -108,8 +111,8 @@ namespace TcgEngine.UI
             Text status = CreateText("StatusText", root, "", _font, 20, new Color(1, 0.85f, 0.6f, 1f), TextAnchor.MiddleRight);
             status.rectTransform.anchorMin = new Vector2(1, 0);
             status.rectTransform.anchorMax = new Vector2(1, 0);
-            status.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            status.rectTransform.anchoredPosition = new Vector2(-220, 24);
+            status.rectTransform.pivot = new Vector2(1, 0.5f);   //右对齐，确保提示条完整在屏幕内
+            status.rectTransform.anchoredPosition = new Vector2(-24, 24);
             status.rectTransform.sizeDelta = new Vector2(520, 36);
             panel.status_text = status;
 
@@ -135,13 +138,31 @@ namespace TcgEngine.UI
             title.rectTransform.sizeDelta = new Vector2(640, 50);
             panel.title_text = title;
 
+            panel.btn_undo = CreateButton("UndoBtn", bar, "撤销", _font, 22,
+                new Color(1f, 0.85f, 0.5f, 0.4f));
+            RectTransform urt = panel.btn_undo.GetComponent<RectTransform>();
+            urt.anchorMin = new Vector2(1, 0.5f);
+            urt.anchorMax = new Vector2(1, 0.5f);
+            urt.pivot = new Vector2(0.5f, 0.5f);
+            urt.anchoredPosition = new Vector2(-720, 0);
+            urt.sizeDelta = new Vector2(100, 44);
+
+            panel.btn_redo = CreateButton("RedoBtn", bar, "重做", _font, 22,
+                new Color(1f, 0.85f, 0.5f, 0.4f));
+            RectTransform rrt = panel.btn_redo.GetComponent<RectTransform>();
+            rrt.anchorMin = new Vector2(1, 0.5f);
+            rrt.anchorMax = new Vector2(1, 0.5f);
+            rrt.pivot = new Vector2(0.5f, 0.5f);
+            rrt.anchoredPosition = new Vector2(-610, 0);
+            rrt.sizeDelta = new Vector2(100, 44);
+
             panel.btn_delete_node = CreateButton("DeleteNodeBtn", bar, "删除节点", _font, 22,
                 new Color(1f, 0.6f, 0.6f, 0.4f));
             RectTransform dnt = panel.btn_delete_node.GetComponent<RectTransform>();
             dnt.anchorMin = new Vector2(1, 0.5f);
             dnt.anchorMax = new Vector2(1, 0.5f);
             dnt.pivot = new Vector2(0.5f, 0.5f);
-            dnt.anchoredPosition = new Vector2(-620, 0);
+            dnt.anchoredPosition = new Vector2(-480, 0);
             dnt.sizeDelta = new Vector2(130, 46);
 
             panel.btn_test = CreateButton("TestBtn", bar, "模拟测试", _font, 22,
@@ -150,7 +171,7 @@ namespace TcgEngine.UI
             tst.anchorMin = new Vector2(1, 0.5f);
             tst.anchorMax = new Vector2(1, 0.5f);
             tst.pivot = new Vector2(0.5f, 0.5f);
-            tst.anchoredPosition = new Vector2(-470, 0);
+            tst.anchoredPosition = new Vector2(-340, 0);
             tst.sizeDelta = new Vector2(130, 46);
 
             panel.btn_save = CreateButton("SaveBtn", bar, "保存", _font, 22,
@@ -159,7 +180,7 @@ namespace TcgEngine.UI
             srt.anchorMin = new Vector2(1, 0.5f);
             srt.anchorMax = new Vector2(1, 0.5f);
             srt.pivot = new Vector2(0.5f, 0.5f);
-            srt.anchoredPosition = new Vector2(-320, 0);
+            srt.anchoredPosition = new Vector2(-200, 0);
             srt.sizeDelta = new Vector2(130, 46);
 
             panel.btn_close = CreateButton("CloseBtn", bar, "返回", _font, 24, new Color(1, 1, 1, 0.25f));
@@ -288,30 +309,74 @@ namespace TcgEngine.UI
             SetStretch(bg.rectTransform);
             bg.raycastTarget = true;   //接收拖拽/点击
 
-            Text type = CreateText("TypeText", node, "动作", _font, 18, new Color(0.6f, 0.9f, 1f, 1f), TextAnchor.MiddleLeft);
-            type.rectTransform.anchorMin = new Vector2(0, 1);
-            type.rectTransform.anchorMax = new Vector2(1, 1);
-            type.rectTransform.pivot = new Vector2(0.5f, 1);
-            type.rectTransform.anchoredPosition = new Vector2(0, -4);
-            type.rectTransform.offsetMin = new Vector2(12, type.rectTransform.offsetMin.y);
-            type.rectTransform.sizeDelta = new Vector2(0, 26);
+            //Header（规格第3节）：顶部 32px。左=分类色条(6px)，中=类型+标题，右=收起/删除按钮
+            RectTransform header = CreateRect("Header", node);
+            header.anchorMin = new Vector2(0, 1);
+            header.anchorMax = new Vector2(1, 1);
+            header.pivot = new Vector2(0.5f, 1);
+            header.anchoredPosition = Vector2.zero;
+            header.offsetMin = new Vector2(0, header.offsetMin.y);
+            header.sizeDelta = new Vector2(0, 32);
 
-            Text title = CreateText("TitleText", node, "标题", _font, 22, Color.white, TextAnchor.MiddleCenter);
-            title.rectTransform.anchorMin = Vector2.zero;
-            title.rectTransform.anchorMax = Vector2.one;
-            title.rectTransform.offsetMin = new Vector2(12, 32);
-            title.rectTransform.offsetMax = new Vector2(-12, -30);
+            //Header 下方 1px 分割线
+            Image div = CreateImage("Divider", node, new Color(1f, 1f, 1f, 0.15f));
+            RectTransform drt = div.rectTransform;
+            drt.anchorMin = new Vector2(0, 1);
+            drt.anchorMax = new Vector2(1, 1);
+            drt.pivot = new Vector2(0.5f, 1);
+            drt.anchoredPosition = new Vector2(0, -33);
+            drt.sizeDelta = new Vector2(0, 1);
 
-            Text desc = CreateText("DescText", node, "描述", _font, 16, new Color(1, 1, 1, 0.7f), TextAnchor.MiddleLeft);
+            //分类色条：左侧 6px 竖条，运行时按节点分类上色
+            Image cat = CreateImage("CatBar", header, new Color(0.6f, 0.9f, 1f, 1f));
+            RectTransform crt = cat.rectTransform;
+            crt.anchorMin = new Vector2(0, 0);
+            crt.anchorMax = new Vector2(0, 1);
+            crt.pivot = new Vector2(0, 0.5f);
+            crt.anchoredPosition = new Vector2(3, 0);
+            crt.sizeDelta = new Vector2(6, 0);
+
+            //标题：Header 垂直居中（规格第3节：字号 14，左 padding 12；右侧让出右上角按钮区，避免文字与按钮重叠）
+            Text title = CreateText("TitleText", header, "标题", _font, 14, Color.white, TextAnchor.MiddleLeft);
+            title.rectTransform.anchorMin = new Vector2(0, 0);
+            title.rectTransform.anchorMax = new Vector2(1, 1);
+            title.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            title.rectTransform.offsetMin = new Vector2(12, 0);
+            title.rectTransform.offsetMax = new Vector2(-90, 0);
+
+            //删除按钮：Header 右上角（规格第4节：16×16）
+            Button btn_del = CreateButton("BtnDel", header, "✕", _font, 14, new Color(0.8f, 0.2f, 0.2f, 0.8f));
+            RectTransform del_rt = btn_del.GetComponent<RectTransform>();
+            del_rt.anchorMin = new Vector2(1, 1);
+            del_rt.anchorMax = new Vector2(1, 1);
+            del_rt.pivot = new Vector2(1, 1);
+            del_rt.anchoredPosition = new Vector2(-4, -4);
+            del_rt.sizeDelta = new Vector2(16, 16);
+
+            //收起按钮：Header 右上角（删除按钮左侧，间距 4，规格第4节：16×16）
+            Button btn_min = CreateButton("BtnMin", header, "–", _font, 14, new Color(1f, 1f, 1f, 0.2f));
+            RectTransform min_rt = btn_min.GetComponent<RectTransform>();
+            min_rt.anchorMin = new Vector2(1, 1);
+            min_rt.anchorMax = new Vector2(1, 1);
+            min_rt.pivot = new Vector2(1, 1);
+            min_rt.anchoredPosition = new Vector2(-44, -4);
+            min_rt.sizeDelta = new Vector2(16, 16);
+
+            //端口区：Header(32px)+分割线(1px) 下方到底部说明上方
+            RectTransform pins = CreateRect("Pins", node);
+            pins.anchorMin = Vector2.zero;
+            pins.anchorMax = Vector2.one;
+            pins.offsetMin = new Vector2(0, 24);
+            pins.offsetMax = new Vector2(0, -33);
+
+            //底部说明区（规格第3节）
+            Text desc = CreateText("DescText", node, "描述", _font, 13, new Color(1, 1, 1, 0.6f), TextAnchor.MiddleLeft);
             desc.rectTransform.anchorMin = new Vector2(0, 0);
             desc.rectTransform.anchorMax = new Vector2(1, 0);
             desc.rectTransform.pivot = new Vector2(0.5f, 0);
-            desc.rectTransform.anchoredPosition = new Vector2(0, 6);
-            desc.rectTransform.offsetMin = new Vector2(12, desc.rectTransform.offsetMin.y);
-            desc.rectTransform.sizeDelta = new Vector2(0, 24);
-
-            RectTransform pins = CreateRect("Pins", node);
-            SetStretch(pins);
+            desc.rectTransform.anchoredPosition = new Vector2(0, 3);
+            desc.rectTransform.offsetMin = new Vector2(10, desc.rectTransform.offsetMin.y);
+            desc.rectTransform.sizeDelta = new Vector2(0, 18);
 
             node.gameObject.SetActive(false);
         }
@@ -348,7 +413,7 @@ namespace TcgEngine.UI
             hit.color = new Color(1, 1, 1, 0f);
             hit.raycastTarget = true;
 
-            //内层：视觉圆点（18x18 居中，不接收射线）
+            //内层：视觉圆点（10x10 居中，不接收射线；规格第3节彩点直径 10）
             GameObject dot_go = new GameObject("Dot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             dot_go.transform.SetParent(go.transform, false);
             RectTransform dot_rt = dot_go.GetComponent<RectTransform>();
@@ -356,8 +421,9 @@ namespace TcgEngine.UI
             dot_rt.anchorMax = new Vector2(0.5f, 0.5f);
             dot_rt.pivot = new Vector2(0.5f, 0.5f);
             dot_rt.anchoredPosition = Vector2.zero;
-            dot_rt.sizeDelta = new Vector2(18, 18);
+            dot_rt.sizeDelta = new Vector2(10, 10);
             Image dot = dot_go.GetComponent<Image>();
+            dot.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");   //圆形精灵：端口渲染为圆点而非方块
             dot.color = Color.white;
             dot.raycastTarget = false;
 
@@ -908,7 +974,7 @@ namespace TcgEngine.UI
             Image bg = area.gameObject.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.35f);
 
-            //标题 + 数量
+            //标题 + 数量（规格第1节：节点列表 = 搜索 + 分类 + 最近 + 收藏）
             Text label = CreateText("AreaTitle", area, "节点库", _font, 24,
                 new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
             label.rectTransform.anchorMin = new Vector2(0, 1);
@@ -916,39 +982,54 @@ namespace TcgEngine.UI
             label.rectTransform.pivot = new Vector2(0.5f, 1);
             label.rectTransform.anchoredPosition = new Vector2(0, -6);
             label.rectTransform.offsetMin = new Vector2(14, label.rectTransform.offsetMin.y);
-            label.rectTransform.sizeDelta = new Vector2(0, 40);
+            label.rectTransform.sizeDelta = new Vector2(0, 36);
             panel.node_lib_count = label;
+
+            //搜索框（按节点名过滤）
+            RectTransform search_row = CreateRect("SearchRow", area);
+            search_row.anchorMin = new Vector2(0.02f, 1);
+            search_row.anchorMax = new Vector2(0.98f, 1);
+            search_row.pivot = new Vector2(0.5f, 1);
+            search_row.anchoredPosition = new Vector2(0, -44);
+            search_row.sizeDelta = new Vector2(0, 36);
+            panel.node_search_input = CreateInputIn(search_row, "搜索节点…");
 
             //筛选按钮行（全部/触发/条件/动作/数值）
             RectTransform filter_bar = CreateRect("FilterBar", area);
             filter_bar.anchorMin = new Vector2(0.02f, 1);
             filter_bar.anchorMax = new Vector2(0.98f, 1);
             filter_bar.pivot = new Vector2(0.5f, 1);
-            filter_bar.anchoredPosition = new Vector2(0, -46);
-            filter_bar.sizeDelta = new Vector2(0, 40);
+            filter_bar.anchoredPosition = new Vector2(0, -84);
+            filter_bar.sizeDelta = new Vector2(0, 36);
 
-            string[] filters = { "全部", "触发", "条件", "动作", "数值" };
-            panel.filter_buttons = new Button[filters.Length];
-            for (int i = 0; i < filters.Length; i++)
-            {
-                Button btn = CreateButton("FilterBtn" + i, filter_bar, filters[i], _font, 18,
-                    new Color(0.3f, 0.45f, 0.6f, 0.5f));
-                RectTransform brt = btn.GetComponent<RectTransform>();
-                brt.anchorMin = new Vector2(0, 0.5f);
-                brt.anchorMax = new Vector2(0, 0.5f);
-                brt.pivot = new Vector2(0, 0.5f);
-                brt.anchoredPosition = new Vector2(10 + i * 96, 0);
-                brt.sizeDelta = new Vector2(88, 36);
-                panel.filter_buttons[i] = btn;
-            }
+            //分类下拉（全部/内置/收藏 + NodeDoc zmcs 15 分类；完整选项在运行时按 Resources/NodeDoc.xml 动态填充）
+            Dropdown dd = CreateDropdown("FilterDropdown", filter_bar, new List<string> { "全部" });
+            RectTransform drt = dd.GetComponent<RectTransform>();
+            drt.anchorMin = new Vector2(0, 0.5f);
+            drt.anchorMax = new Vector2(1, 0.5f);
+            drt.pivot = new Vector2(0.5f, 0.5f);
+            drt.anchoredPosition = Vector2.zero;
+            drt.offsetMin = new Vector2(0, -17);
+            drt.offsetMax = new Vector2(0, 17);
+            panel.node_filter_dropdown = dd;
+            panel.filter_buttons = null;   //旧按钮数组不再生成（运行时存在下拉即自动隐藏旧按钮）
+
+            //最近使用栏（横向小按钮，运行时动态生成，无最近时隐藏）
+            RectTransform recent_bar = CreateRect("RecentBar", area);
+            recent_bar.anchorMin = new Vector2(0.02f, 1);
+            recent_bar.anchorMax = new Vector2(0.98f, 1);
+            recent_bar.pivot = new Vector2(0.5f, 1);
+            recent_bar.anchoredPosition = new Vector2(0, -124);
+            recent_bar.sizeDelta = new Vector2(0, 32);
+            panel.node_recent_root = recent_bar;
 
             //节点列表滚动区
             ScrollRect scroll = CreateRect("LibScroll", area).gameObject.AddComponent<ScrollRect>();
             RectTransform scroll_rt = scroll.GetComponent<RectTransform>();
             scroll_rt.anchorMin = new Vector2(0.02f, 0.02f);
-            scroll_rt.anchorMax = new Vector2(0.98f, 0.88f);
+            scroll_rt.anchorMax = new Vector2(0.98f, 1);
             scroll_rt.offsetMin = Vector2.zero;
-            scroll_rt.offsetMax = Vector2.zero;
+            scroll_rt.offsetMax = new Vector2(0, -160);   //顶部让出 标题+搜索+筛选+最近 四行
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
@@ -996,14 +1077,45 @@ namespace TcgEngine.UI
             Image bg = item.gameObject.AddComponent<Image>();
             bg.color = new Color(0.3f, 0.45f, 0.6f, 0.3f);
             bg.raycastTarget = true;
-            item.gameObject.AddComponent<Button>();
+            //运行时 CreateNodeLibItem 会给整行加 Button（点击添加节点）；FavBtn 子按钮覆盖在其上，
+            //uGUI 射线只命中顶层对象，点星标不会触发添加节点，天然避免双重触发。
 
-            //只显示一个节点名（去掉类型标签与描述，行内上下居中，压缩成单行）
+            //左侧 6px 分类色条（与画布节点 Header 的 CatBar 一致，运行时按分类上色）
+            RectTransform cat_bar = CreateRect("CatBar", item);
+            cat_bar.anchorMin = Vector2.zero;
+            cat_bar.anchorMax = new Vector2(0, 1);
+            cat_bar.pivot = new Vector2(0, 0.5f);
+            cat_bar.anchoredPosition = Vector2.zero;
+            cat_bar.sizeDelta = new Vector2(6, 0);
+            Image cat_img = cat_bar.gameObject.AddComponent<Image>();
+            cat_img.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+            cat_img.raycastTarget = false;
+
+            //分类图标字符（色条右侧，运行时按分类显示 ⚡/?/▶/# 并上色）
+            Text icon = CreateText("IconText", item, "?", _font, 13, Color.white, TextAnchor.MiddleCenter);
+            RectTransform irt = icon.rectTransform;
+            irt.anchorMin = Vector2.zero;
+            irt.anchorMax = new Vector2(0, 1);
+            irt.pivot = new Vector2(0, 0.5f);
+            irt.anchoredPosition = new Vector2(18, 0);
+            irt.sizeDelta = new Vector2(22, 0);
+
+            //只显示一个节点名（行内上下居中，压缩成单行，左侧让出色条+图标，右侧让出收藏星标）
             Text title = CreateText("TitleText", item, "标题", _font, 16, Color.white, TextAnchor.MiddleLeft);
             title.rectTransform.anchorMin = Vector2.zero;
             title.rectTransform.anchorMax = Vector2.one;
-            title.rectTransform.offsetMin = new Vector2(12, 0);
-            title.rectTransform.offsetMax = new Vector2(-12, 0);
+            title.rectTransform.offsetMin = new Vector2(40, 0);
+            title.rectTransform.offsetMax = new Vector2(-34, 0);
+
+            //收藏星标（右上角小按钮，运行时切换收藏状态并持久化）
+            Button fav = CreateButton("FavBtn", item, "☆", _font, 16,
+                new Color(1f, 0.85f, 0.4f, 0.25f));
+            RectTransform frt = fav.GetComponent<RectTransform>();
+            frt.anchorMin = new Vector2(1, 0.5f);
+            frt.anchorMax = new Vector2(1, 0.5f);
+            frt.pivot = new Vector2(0.5f, 0.5f);
+            frt.anchoredPosition = new Vector2(-18, 0);
+            frt.sizeDelta = new Vector2(28, 30);
 
             item.gameObject.SetActive(false);
             return item.gameObject;

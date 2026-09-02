@@ -478,6 +478,8 @@ namespace TcgEngine.Workshop
             //数组字段置空数组而非 null，避免 Card.SetCard/SetTraits 等遍历时报空引用
             card.stats = new TraitStat[0];
             card.packs = new PackData[0];
+            //异步补载 4 个音频槽（spawn/attack/death/damage）写回 CardData，使自定义音效真实可播
+            CardAudioLoader.LoadCardAudio(data, card);
             return card;
         }
 
@@ -532,6 +534,8 @@ namespace TcgEngine.Workshop
             }
             abilities.AddRange(CompileGraphAbilities(data));
             card.abilities = abilities.ToArray();
+            //异步补载音频，使规则编辑器保存的音效立即生效（编辑器保存后调用本方法）
+            CardAudioLoader.LoadCardAudio(data, card);
         }
 
         // ---------------- 规则图 → 能力编译 ----------------
@@ -558,8 +562,60 @@ namespace TcgEngine.Workshop
                     continue;
                 }
 
-                foreach (GraphNode act in FindReachableActions(graph, ev.id))
+                List<GraphNode> acts = FindReachableActions(graph, ev.id);
+                bool is_spell = string.Equals(data.type, "Spell", StringComparison.OrdinalIgnoreCase);
+
+                //NodeDoc(zmcs) 动作：挂 EffectRunGraph 由解释器在真实对局执行（按事件单独挂载）
+                bool has_node_doc = false;
+                foreach (GraphNode act in acts)
                 {
+                    if (act != null && !string.IsNullOrEmpty(act.category))
+                    {
+                        has_node_doc = true;
+                        break;
+                    }
+                }
+                if (has_node_doc)
+                {
+                    AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
+                    ab.id = "graph_" + data.id + "_" + ev.action + "_node" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                    ab.trigger = trigger;
+                    //v1 目标模式：法术且图中含"需选择目标"类动作(伤害/消灭/治疗目标卡) → PlayTarget 弹出选择
+                    bool wants_target = false;
+                    foreach (GraphNode act in acts)
+                    {
+                        if (act != null && !string.IsNullOrEmpty(act.category)
+                            && (act.action == "202001" || act.action == "202016"
+                                || act.action == "202013" || act.action == "202039" || act.action == "202047"))
+                        {
+                            wants_target = true;
+                            break;
+                        }
+                    }
+                    ab.target = (is_spell && wants_target) ? AbilityTarget.PlayTarget : AbilityTarget.None;
+                    if (wants_target && !is_spell)
+                        Debug.LogWarning("[规则图] " + (ev.title ?? ev.action)
+                            + " 下游动作需要选择目标，但该卡类型不是法术 → 效果不会执行（请把卡类型改为法术，或改用无需目标的动作）");
+                    EffectRunGraph run = ScriptableObject.CreateInstance<EffectRunGraph>();
+                    run.graph = graph;
+                    run.trigger_action = ev.action;
+                    ab.effects = new EffectData[] { run };
+                    ab.conditions_trigger = new ConditionData[0];
+                    ab.conditions_target = new ConditionData[0];
+                    ab.filters_target = new FilterData[0];
+                    ab.status = new StatusData[0];
+                    ab.chain_abilities = new AbilityData[0];
+                    ab.title = (ev.title ?? ev.action) + "：规则图执行";
+                    ab.desc = ab.title;
+                    RegisterAbility(ab);
+                    result.Add(ab);
+                }
+
+                //内置直通动作：按动作逐个编译为效果（真实对局用 TCG2 原生结算）
+                foreach (GraphNode act in acts)
+                {
+                    if (act == null || !string.IsNullOrEmpty(act.category))
+                        continue;   //NodeDoc 动作已由上面 EffectRunGraph 统一执行
                     EffectData effect = BuildGraphEffect(act);
                     if (effect == null)
                     {
@@ -571,12 +627,13 @@ namespace TcgEngine.Workshop
                     ability.id = "graph_" + data.id + "_" + ev.action + "_" + act.action + "_" +
                                  Guid.NewGuid().ToString("N").Substring(0, 6);
                     ability.trigger = trigger;
-                    ability.target = GetGraphTarget(act);
+                    GraphTargetInfo gt = GetGraphTarget(act, is_spell);
+                    ability.target = gt.target;
                     ability.value = GraphRuntime.GetFieldInt(act, "value", 1);
                     ability.effects = new EffectData[] { effect };
                     //数组字段必须置空数组而非 null，否则 AbilityData 遍历（条件/状态/链）会 NRE
                     ability.conditions_trigger = new ConditionData[0];
-                    ability.conditions_target = new ConditionData[0];
+                    ability.conditions_target = BuildOwnerCondition(gt);   //"全部友方/敌方随从"→归属过滤条件
                     ability.filters_target = new FilterData[0];
                     ability.status = new StatusData[0];
                     ability.chain_abilities = new AbilityData[0];
@@ -629,11 +686,14 @@ namespace TcgEngine.Workshop
                     result.Add(node);
                     continue; //动作节点不再继续向下
                 }
-                if (node.type == GraphNodeType.Condition || node.type == GraphNodeType.Value)
-                    continue; //条件/值节点暂不展开（P3 完善后支持分支）
 
+                //条件/值节点继续展开：沿动作线（Flow 输出）找后续动作；
+                //两线制：取值线（数据输出）不驱动执行，跳过。条件真假分支的后续动作都会编译。
                 foreach (GraphLink link in graph.GetOutgoing(node.id))
                 {
+                    GraphPin out_pin = graph.GetPin(node.id, link.from_pin);
+                    if (out_pin != null && out_pin.type != NodeValueType.Flow && out_pin.type != NodeValueType.None)
+                        continue;
                     GraphNode next = graph.GetNode(link.to_node);
                     if (next != null)
                         stack.Push(next);
@@ -642,7 +702,7 @@ namespace TcgEngine.Workshop
             return result;
         }
 
-        /// <summary>动作节点 → 效果组件实例（未支持返回 null）</summary>
+        /// <summary>动作节点 → 效果组件实例（未支持返回 null）；部分效果需在实例上补配置字段</summary>
         private static EffectData BuildGraphEffect(GraphNode node)
         {
             if (node == null || string.IsNullOrEmpty(node.action))
@@ -654,19 +714,99 @@ namespace TcgEngine.Workshop
                 return ScriptableObject.CreateInstance<EffectHeal>();
             if (node.action == "Damage")
                 return ScriptableObject.CreateInstance<EffectDamage>();
+            if (node.action == "Destroy")
+                return ScriptableObject.CreateInstance<EffectDestroy>();
+            if (node.action == "GainMana")
+            {
+                EffectMana mana = ScriptableObject.CreateInstance<EffectMana>();
+                string mode = GraphRuntime.GetFieldString(node, "mana_mode", "增加上限(空水晶)");
+                mana.increase_max = mode != "恢复当前";   //空水晶=加法力上限；恢复当前=加当前法力
+                mana.increase_value = mode == "恢复当前";
+                return mana;
+            }
+            if (node.action == "AddAttack")
+            {
+                EffectAddStat stat = ScriptableObject.CreateInstance<EffectAddStat>();
+                stat.type = EffectStatType.Attack;
+                return stat;
+            }
+            if (node.action == "AddHP")
+            {
+                EffectAddStat stat = ScriptableObject.CreateInstance<EffectAddStat>();
+                stat.type = EffectStatType.HP;
+                return stat;
+            }
+            if (node.action == "ReturnHand")
+            {
+                EffectSendPile pile = ScriptableObject.CreateInstance<EffectSendPile>();
+                pile.pile = PileType.Hand;
+                return pile;
+            }
+            if (node.action == "ShuffleDeck")
+            {
+                EffectSendPile pile = ScriptableObject.CreateInstance<EffectSendPile>();
+                pile.pile = PileType.Deck;
+                return pile;
+            }
             return null;
         }
 
-        /// <summary>动作节点 → 目标类型：Draw/Heal 作用于己方玩家，Damage 需拖拽目标</summary>
-        private static AbilityTarget GetGraphTarget(GraphNode node)
+        /// <summary>编译目标信息：目标枚举 + 是否需要"随从归属"过滤条件（敌/我）</summary>
+        private class GraphTargetInfo
         {
+            public AbilityTarget target = AbilityTarget.None;
+            public bool owner_enemy;   //true=只选敌方随从（ConditionOwner.IsFalse）
+            public bool owner_ally;    //true=只选友方随从（ConditionOwner.IsTrue）
+        }
+
+        /// <summary>动作节点目标下拉 → AbilityTarget。非法术卡选"出牌选目标"自动降级为自身，避免空目标。</summary>
+        private static GraphTargetInfo GetGraphTarget(GraphNode node, bool is_spell)
+        {
+            GraphTargetInfo info = new GraphTargetInfo();
             if (node == null)
-                return AbilityTarget.None;
-            if (node.action == "Damage")
-                return AbilityTarget.PlayTarget;
-            if (node.action == "Draw" || node.action == "Heal")
-                return AbilityTarget.PlayerSelf;
-            return AbilityTarget.None;
+                return info;
+
+            string mode = GraphRuntime.GetFieldString(node, "target", "");
+            if (mode == "自身") { info.target = AbilityTarget.Self; }
+            else if (mode == "全部敌方随从") { info.target = AbilityTarget.AllCardsBoard; info.owner_enemy = true; }
+            else if (mode == "全部友方随从") { info.target = AbilityTarget.AllCardsBoard; info.owner_ally = true; }
+            else if (mode == "全体随从") { info.target = AbilityTarget.AllCardsBoard; }
+            else if (mode == "敌方英雄") { info.target = AbilityTarget.PlayerOpponent; }
+            else if (mode == "己方英雄") { info.target = AbilityTarget.PlayerSelf; }
+            else if (mode == "出牌选目标") { info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.None; }
+            else
+            {
+                //旧图没有 target 字段 → 按动作语义取默认
+                switch (node.action)
+                {
+                    case "Draw":
+                    case "Heal":
+                    case "GainMana":
+                        info.target = AbilityTarget.PlayerSelf;
+                        break;
+                    case "Damage":
+                    case "Destroy":
+                    case "ReturnHand":
+                    case "ShuffleDeck":
+                    case "AddAttack":
+                    case "AddHP":
+                    default:
+                        //伤害/消灭等需"目标"的动作：非法术卡上不隐式打自己（空转），由玩家显式选择
+                        info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.None;
+                        break;
+                }
+            }
+            return info;
+        }
+
+        /// <summary>为"全部友方/敌方随从"目标附加归属条件（ConditionOwner：IsTrue 同阵营 / IsFalse 敌方）</summary>
+        private static ConditionData[] BuildOwnerCondition(GraphTargetInfo info)
+        {
+            if (!info.owner_enemy && !info.owner_ally)
+                return new ConditionData[0];
+            ConditionOwner cond = ScriptableObject.CreateInstance<ConditionOwner>();
+            cond.oper = info.owner_enemy ? ConditionOperatorBool.IsFalse : ConditionOperatorBool.IsTrue;
+            return new ConditionData[] { cond };
         }
 
         /// <summary>AbilityCustomData → AbilityData（运行时实例）</summary>
