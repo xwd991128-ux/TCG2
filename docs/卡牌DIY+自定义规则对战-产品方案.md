@@ -164,118 +164,167 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 > 创意工坊（上传/评价/投票/评选）**回退阶段3**。
 
 ### 7.0 阶段2 目标（一句话）
+
 让 UGC 玩家能**用节点图定制数值与回合流程**、进入成熟私房对战、拥有**真实账号/云存盘/个人主页/战绩积分**，并管理、分享自己的创意作品。
 
 ### 7.1 范围边界（老板拍板）
 
-| 做（阶段2 完整做） | 不做（回退或后置） |
-|---|---|
-| 规则**数值+回合流程**节点化编辑 | 引擎底层逻辑开放（官方写死）|
-| 完整房管理 + 断线重连 + 房内观战 + 房内聊天 | 官方观战系统（阶段4）|
-| **真实账号 + 云存盘**（注册/登录/同步）| 创意工坊上传/评价/投票/评选（阶段3）|
-| 作品管理/草稿/版本 + 分享/收藏 + 作品美化 | 官方天梯（阶段3）|
-| 战绩/积分 + 个人主页/展示 | 赛事（阶段4）、移动端（阶段5）|
-| .diycard / .diyrule 导出导入 | — |
+| 做（阶段2 完整做）                 | 不做（回退或后置）            |
+| -------------------------- | -------------------- |
+| 规则**数值+回合流程**节点化编辑         | 引擎底层逻辑开放（官方写死）       |
+| 完整房管理 + 断线重连 + 房内观战 + 房内聊天 | 官方观战系统（阶段4）          |
+| **真实账号 + 云存盘**（注册/登录/同步）   | 创意工坊上传/评价/投票/评选（阶段3） |
+| 作品管理/草稿/版本 + 分享/收藏 + 作品美化  | 官方天梯（阶段3）            |
+| 战绩/积分 + 个人主页/展示            | 赛事（阶段4）、移动端（阶段5）     |
+| .diycard / .diyrule 导出导入   | —                    |
 
 ### 7.2 规则系统：数值 + 回合流程 节点化编辑
-- **数值规则**（沿用现有白名单思路，做成节点化修改，而非仅键值表）
-  - 可改项：`starting_hp` / `mana_per_turn` / `mana_max` / `cards_start` / `cards_per_turn` / `cards_max` / `deck_size` / `dup_max` / `mulligan` / `second_bonus`
-  - 每一项带：允许范围、默认值、校验规则（例如 `starting_hp ∈ [15, 60]`）
-- **回合流程**（阶段2 新增开放层，引擎仍官方固定）
-  - 可改项（节点化编排 "回合步骤序列"）：每回合抽牌数、能否额外移动/出法、先手后手权、超时秒数、回合内动作顺序
-  - 示例：`RoundFlow = [Draw N from serialized deck] -> [Mana+1] -> [PlayerAction] -> [AI_Action]`
-  - **守卫**：这些项仍基于官方提供的"回合步骤原子"，玩家只能**重排/增删"官方原子"**，不能发明全新引擎行为
-- `.diyrule` 文件：`{ schema, meta{id,author,title}, rules[]，round_flow[] }`
-- 平衡：每次改动即时做**系统建议**（强度/时长提示），阶段2 不强制拦截（信任本地），但记录为阶段3 审核输入
+
+* **数值规则**（沿用现有白名单思路，做成节点化修改，而非仅键值表）
+
+  * 可改项：`starting_hp` / `mana_per_turn` / `mana_max` / `cards_start` / `cards_per_turn` / `cards_max` / `deck_size` / `dup_max` / `mulligan` / `second_bonus`
+
+  * 每一项带：允许范围、默认值、校验规则（例如 `starting_hp ∈ [15, 60]`）
+
+* **回合流程**（阶段2 新增开放层，引擎仍官方固定）
+
+  * 可改项（节点化编排 "回合步骤序列"）：每回合抽牌数、能否额外移动/出法、先手后手权、超时秒数、回合内动作顺序
+
+  * 示例：`RoundFlow = [Draw N from serialized deck] -> [Mana+1] -> [PlayerAction] -> [AI_Action]`
+
+  * **守卫**：这些项仍基于官方提供的"回合步骤原子"，玩家只能**重排/增删"官方原子"**，不能发明全新引擎行为
+
+* `.diyrule` 文件：`{ schema, meta{id,author,title}, rules[]，round_flow[] }`
+
+* 平衡：每次改动即时做**系统建议**（强度/时长提示），阶段2 不强制拦截（信任本地），但记录为阶段3 审核输入
 
 ### 7.3 私房对战（成熟体验）
-- **建房**：选规则(.diyrule/默认) → 提炼为**规则 hash** → 生成房号/share code → 发布到房间列表
-- **加入**：房号直连 / 房间列表查找 / 分享码；标签展示（标题/规则说明/人数/房主）
-- **房管理（完整）**：房主改房名/规则/开放门票、踢人、设为观战、只允许好友、中途暂停
-- **断线/重连**：会话保留 N 秒，断线重连恢复对局；超时由房主或系统接管/判定
-- **房内观战**：非玩家可旁观本房（阶段2 简化版，阶段4 做官方直播级观战）
-- **房内聊天**：文字聊天、快捷表情、对局内表情
-- **DIY 数据流**：双方本地持有 .diycard，仅同步"卡牌ID + 签名 + 规则 hash"；规则 hash 不一致则拒绝开战
+
+* **建房**：选规则(.diyrule/默认) → 提炼为**规则 hash** → 生成房号/share code → 发布到房间列表
+
+* **加入**：房号直连 / 房间列表查找 / 分享码；标签展示（标题/规则说明/人数/房主）
+
+* **房管理（完整）**：房主改房名/规则/开放门票、踢人、设为观战、只允许好友、中途暂停
+
+* **断线/重连**：会话保留 N 秒，断线重连恢复对局；超时由房主或系统接管/判定
+
+* **房内观战**：非玩家可旁观本房（阶段2 简化版，阶段4 做官方直播级观战）
+
+* **房内聊天**：文字聊天、快捷表情、对局内表情
+
+* **DIY 数据流**：双方本地持有 .diycard，仅同步"卡牌ID + 签名 + 规则 hash"；规则 hash 不一致则拒绝开战
 
 ### 7.4 账号与云存盘（真实账号）
-- 注册/登录（用户名+密码 / 可选第三方）、账号服务端验证 Token
-- **云存盘**：作品(.diycard/.diyrule)、战绩/积分、设置，多端同步(为阶段5移动端铺路)
-- **战绩/积分**：记录 胜/负/场次/胜率/MMR雏形，私房与单人分别统计
-- **个人主页/展示**：昵称、自定义头像/头像框、展示自制作品列表、公开战绩
-- 作品归属：每个 .diycard/.diyrule 绑定 account_id；导出/导入保留作者信息
+
+* 注册/登录（用户名+密码 / 可选第三方）、账号服务端验证 Token
+
+* **云存盘**：作品(.diycard/.diyrule)、战绩/积分、设置，多端同步(为阶段5移动端铺路)
+
+* **战绩/积分**：记录 胜/负/场次/胜率/MMR雏形，私房与单人分别统计
+
+* **个人主页/展示**：昵称、自定义头像/头像框、展示自制作品列表、公开战绩
+
+* 作品归属：每个 .diycard/.diyrule 绑定 account\_id；导出/导入保留作者信息
 
 ### 7.5 DIY 作品管理
-- **作品/草稿/版本**：本地草稿箱、作品列表、重命名、版本迭代/回滚
-- **分享/收藏**：导出分享码/文件、导入他人作品、收藏他人作品到本地
-- **作品美化**：卡面封面图/边框/标签选择，美化展示页
-- （创意工坊上传/评价/投票/评选 → 阶段3）
+
+* **作品/草稿/版本**：本地草稿箱、作品列表、重命名、版本迭代/回滚
+
+* **分享/收藏**：导出分享码/文件、导入他人作品、收藏他人作品到本地
+
+* **作品美化**：卡面封面图/边框/标签选择，美化展示页
+
+* （创意工坊上传/评价/投票/评选 → 阶段3）
 
 ### 7.6 节点系统：对标醉梦全集（319 个，阶段2 全部完成）★核心主线
+
 > 老板拍板：**卡牌节点全量对标醉梦传说 319 个节点，阶段2 全部完成**。这是阶段2 的头号核心主线，优先级最高。
 
-- **全集来源**：以导入的 `zmcs/NodeDoc.xml`（319 ActionComment 节点）为全集蓝本，按分类推进。
-- **分类分布（来自 NodeDoc.xml 实测）**：卡牌87 / 玩家40 / 集合运算37 / 卡牌定义35 / 事件27 / 卡牌快照18 / 其他17 / 效果11 / 增益10 / 牌堆9 / 行动8 / 映射7 / 事件记录7 / 游戏5 / Buff1（总 319，313 中文名）。
-- **三档推进（Tier 分批，全部在阶段2 完成，只是先后次序）**
-  - **Tier1 核心可玩**（首推）：现有引擎能力**直接映射**的节点 → 编辑器第一批可拖可用。实测 **101 个** ✓现成（伤害/抽牌/牌堆移动/属性读取/筛选/基础常量逻辑/条件）。
-  - **Tier2 增强**：现有能力上补数据/运算层（集合聚合/衍生卡/玩家&规则写入/增益体系/效果事件入参/牌堆细节）。实测 **119 个**（△扩展 52 + 待核 67，待核项需引擎侧人工复核归属）。
-  - **Tier3 深度**：**引擎暂无的新机制**（事件低层/事件记录/卡牌快照/映射容器/沉默禁锢控制类/声明遗言护甲标签蓄力陷阱）。实测 **60 个** ✗新机制，是阶段2 真实新增开发量。
-- **过时节点**：39 个负 defineId 或含"过时"的历史副本，**归档不计入完成目标**。→ 实际完成目标 = **280 个有效节点**。
-- **权威底本**（M0 已交付，沙盒生成）：
-  - [阶段2-节点系统全集清单.md](阶段2-节点系统全集清单.md)——319 条全列（defineId/节点名/说明），节点面板与验收核对依据。
-  - [阶段2-节点全量映射表.md](阶段2-节点全量映射表.md)——319 条逐条 ✓/△/✗/过时 标注 + Tier 分级，M1 开工的映射输入。
-- **定义"完成"**：编辑器能查到并拖出全部 280 个有效节点、连线、按语义执行 → 即完成（非逐一精修，可分批验收）。
-- 阶段2 节点能力也包含：节点从 14 → 20 的过渡、读规则值节点 ValueRuleStat、回合流程原子节点（供 7.2 编排）。
+* **全集来源**：以导入的 `zmcs/NodeDoc.xml`（319 ActionComment 节点）为全集蓝本，按分类推进。
+
+* **分类分布（来自 NodeDoc.xml 实测）**：卡牌87 / 玩家40 / 集合运算37 / 卡牌定义35 / 事件27 / 卡牌快照18 / 其他17 / 效果11 / 增益10 / 牌堆9 / 行动8 / 映射7 / 事件记录7 / 游戏5 / Buff1（总 319，313 中文名）。
+
+* **三档推进（Tier 分批，全部在阶段2 完成，只是先后次序）**
+
+  * **Tier1 核心可玩**（首推）：现有引擎能力**直接映射**的节点 → 编辑器第一批可拖可用。实测 **101 个** ✓现成（伤害/抽牌/牌堆移动/属性读取/筛选/基础常量逻辑/条件）。
+
+  * **Tier2 增强**：现有能力上补数据/运算层（集合聚合/衍生卡/玩家&规则写入/增益体系/效果事件入参/牌堆细节）。实测 **119 个**（△扩展 52 + 待核 67，待核项需引擎侧人工复核归属）。
+
+  * **Tier3 深度**：**引擎暂无的新机制**（事件低层/事件记录/卡牌快照/映射容器/沉默禁锢控制类/声明遗言护甲标签蓄力陷阱）。实测 **60 个** ✗新机制，是阶段2 真实新增开发量。
+
+* **过时节点**：39 个负 defineId 或含"过时"的历史副本，**归档不计入完成目标**。→ 实际完成目标 = **280 个有效节点**。
+
+* **权威底本**（M0 已交付，沙盒生成）：
+
+  * [阶段2-节点系统全集清单.md](阶段2-节点系统全集清单.md)——319 条全列（defineId/节点名/说明），节点面板与验收核对依据。
+
+  * [阶段2-节点全量映射表.md](阶段2-节点全量映射表.md)——319 条逐条 ✓/△/✗/过时 标注 + Tier 分级，M1 开工的映射输入。
+
+* **定义"完成"**：编辑器能查到并拖出全部 280 个有效节点、连线、按语义执行 → 即完成（非逐一精修，可分批验收）。
+
+* 阶段2 节点能力也包含：节点从 14 → 20 的过渡、读规则值节点 ValueRuleStat、回合流程原子节点（供 7.2 编排）。
 
 #### 7.6.1 节点编辑器 UI 技术选型（老板已拍板）★
+
 > **结论：自研 uGUI 运行时节点编辑器**（随成品发布、玩家可直接编辑）。不做内置 GraphView(仅编辑器可用)，不采购 uNode/NodeCanvas(带自家规则引擎易冲突)。市面无现成完美匹配"玩家自制卡+节点编辑"场景。
 
-- **数据与 UI 解耦**（核心原则）：统一读写 `.diycard` JSON（数据模型），UI 只是其一种视图；执行走 `NodeGraphRunner` → 现有 EffectData。UI 可随时更换，不动数据与执行层。
-- **三块运行时组件**（uGUI / Canvas）：
+* **数据与 UI 解耦**（核心原则）：统一读写 `.diycard` JSON（数据模型），UI 只是其一种视图；执行走 `NodeGraphRunner` → 现有 EffectData。UI 可随时更换，不动数据与执行层。
+
+* **三块运行时组件**（uGUI / Canvas）：
+
   1. 节点面板 `NodeView`：预制体+对象池复用，绑 `NodeDef.inputs/outputs` 端口。
   2. 贝塞尔连线：`MaskableGraphic` 自绘曲线或 LineRenderer，拖拽实时跟手。
   3. 画布交互：拖节点 / 拖起点→终点连线 / 框选删除 / 缩放平移(RectTransform)。
-- **序列化桥**：视图 → .diycard JSON → NodeGraphRunner。
-- 工作量集中在组件3（拖拽/连线/缩放手感），组件1/2/4 为常规活。
+
+* **序列化桥**：视图 → .diycard JSON → NodeGraphRunner。
+
+* 工作量集中在组件3（拖拽/连线/缩放手感），组件1/2/4 为常规活。
 
 ### 7.7 Tier1 首批节点清单（阶段2 开工第一份清单）
+
 > 原则：**优先映射现有引擎已具备的能力**，第一批即可拖可用。编号复用 NodeDoc.xml 的 defineId 语义标准；未含的现有能力（如 EffectDamage）也补入，统一到"卡牌节点全集"。
 
 **A. 常量/逻辑（现成 Condition/Effect 可直接对应）**
-| defineId | 节点名（editorName）| type | 映射到（现有）|
-|---|---|---|---|
-| 112001 | BooleanConst | 其他 | ConditionBool（固定真值）|
-| 112003 | IntegerConst | 其他 | 固定整数（ValueConstant）|
-| 112002 | Compare | 其他 | ConditionOperatorInt/Bool（比较）|
-| 112004 | Add/Sub | 集合/数值 | ValueMath(Add/Sub) |
+
+| defineId | 节点名（editorName） | type  | 映射到（现有）                       |
+| -------- | --------------- | ----- | ----------------------------- |
+| 112001   | BooleanConst    | 其他    | ConditionBool（固定真值）           |
+| 112003   | IntegerConst    | 其他    | 固定整数（ValueConstant）           |
+| 112002   | Compare         | 其他    | ConditionOperatorInt/Bool（比较） |
+| 112004   | Add/Sub         | 集合/数值 | ValueMath(Add/Sub)            |
 
 **B. 卡牌属性读取（现成 Card.GetAttack/HP/Mana + 状态读取）**
-| defineId | 节点名 | type | 映射到（现有）|
-|---|---|---|---|
-| 104xxx | 获取攻击力/血量/法力 | 卡牌 | ValueTargetStat / ValueCasterStat（已建）|
-| 104xxx | 获取卡牌状态(增益/嘲讽/潜行等) | 卡牌 | Card.HasStatus？ → StatusData 判定 |
-| 104xxx | 获取卡牌所在牌堆 / 拥有者 | 卡牌 | Card.pile / Card.player_id |
+
+| defineId | 节点名               | type | 映射到（现有）                               |
+| -------- | ----------------- | ---- | ------------------------------------- |
+| 104xxx   | 获取攻击力/血量/法力       | 卡牌   | ValueTargetStat / ValueCasterStat（已建） |
+| 104xxx   | 获取卡牌状态(增益/嘲讽/潜行等) | 卡牌   | Card.HasStatus？ → StatusData 判定       |
+| 104xxx   | 获取卡牌所在牌堆 / 拥有者    | 卡牌   | Card.pile / Card.player\_id           |
 
 **C. 动作效果（现成 EffectData，已接 amount 参数来源）**
-| defineId | 节点名 | type | 映射到（现有）|
-|---|---|---|---|
-| 101xxx | 造成伤害 | 效果 | EffectDamage（amount=ValueSource）|
-| 101xxx | 治疗 | 效果 | EffectHeal（amount）|
-| 101xxx | 抽牌 / 弃牌 | 效果 | EffectDraw / EffectDiscard（amount）|
-| 102xxx | 施加增益(加攻/加血/嘲讽等) | 效果 | EffectAddStat / AddStatus → StatusData |
-| 102xxx | 召唤单位到场上 | 效果 | EffectSummonMultiple |
-| 102xxx | 增加/扣除法力 | 效果 | EffectAddMana |
-| 101xxx | 消灭/摧毁 | 效果 | EffectDestroy |
+
+| defineId | 节点名             | type | 映射到（现有）                                |
+| -------- | --------------- | ---- | -------------------------------------- |
+| 101xxx   | 造成伤害            | 效果   | EffectDamage（amount=ValueSource）       |
+| 101xxx   | 治疗              | 效果   | EffectHeal（amount）                     |
+| 101xxx   | 抽牌 / 弃牌         | 效果   | EffectDraw / EffectDiscard（amount）     |
+| 102xxx   | 施加增益(加攻/加血/嘲讽等) | 效果   | EffectAddStat / AddStatus → StatusData |
+| 102xxx   | 召唤单位到场上         | 效果   | EffectSummonMultiple                   |
+| 102xxx   | 增加/扣除法力         | 效果   | EffectAddMana                          |
+| 101xxx   | 消灭/摧毁           | 效果   | EffectDestroy                          |
 
 **D. 流程控制（映射 Condition + ValueSource + NodeGraphRunner 排序）**
-| defineId | 节点名 | type | 映射到（现有）|
-|---|---|---|---|
-| 10xxxx | 分为真/假分支 | 流程 | Condition（真/假两条 exec）|
-| 10xxxx | 重复 N 次 | 流程 | EffectRepeat（次数可选 total）|
-| 10xxxx | 求和/并集/取前N | 集合 | FilterHighest/Lowest + ValueMath 扩展（Tier2 细化）|
+
+| defineId | 节点名       | type | 映射到（现有）                                       |
+| -------- | --------- | ---- | --------------------------------------------- |
+| 10xxxx   | 分为真/假分支   | 流程   | Condition（真/假两条 exec）                         |
+| 10xxxx   | 重复 N 次    | 流程   | EffectRepeat（次数可选 total）                      |
+| 10xxxx   | 求和/并集/取前N | 集合   | FilterHighest/Lowest + ValueMath 扩展（Tier2 细化） |
 
 > **说明**：第三方 319 全集中含"卡牌快照/事件记录/自由映射"等 Tier3 深度节点，另列分批；Tier1 清单只保证"现有能力→节点"的首批可玩集。全部节点均纳入阶段2 完成范围。
 
 ### 7.8 验收标准（阶段2 完成定义）
+
 1. 能创建一个改"血量+回合流程"的规则，节点化编辑并导出 .diyrule
 2. 私房完整管理（建/加/踢/变换规则）+ 断线重连 + 房内观战 + 房内聊天可用
 3. 双方 DIY 卡效果正确；规则 hash 不一致拒绝开战
@@ -284,67 +333,97 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 6. 官方默认规则对局不受影响
 
 ### 7.9 阶段2 落地开工计划（老板确认后按序执行）
+
 > 依据已有工程铺垫（ValueSource 体系 + amount 效果已就位），把阶段2 拆成 **M0→M5** 里程碑，按依赖顺序推进。**节点系统（M0/M1）为第一优先级**，其余主线并行。
 
 **M0 · 节点系统基建（开工第一步）**
-- [ ] 从 `zmcs/NodeDoc.xml` 解析 319 条 ActionComment → 生成完整 `TcgEngineNodeDefs.xml` 节点定义字典（defineId/editorName/category/inputs/outputs/映射目标）
-- [ ] 校验解析脚本能一次性产出全集；输出分类统计（卡牌/集合/玩家/牌堆/增益/行动/流程…）
-- 落点：新增 `Editor/NodeDocImporter`（Editor 工具，仅 Unity 内运行）；产物 `TcgEngineNodeDefs.xml` 已有骨架
+
+* [ ] 从 `zmcs/NodeDoc.xml` 解析 319 条 ActionComment → 生成完整 `TcgEngineNodeDefs.xml` 节点定义字典（defineId/editorName/category/inputs/outputs/映射目标）
+
+* [ ] 校验解析脚本能一次性产出全集；输出分类统计（卡牌/集合/玩家/牌堆/增益/行动/流程…）
+
+* 落点：新增 `Editor/NodeDocImporter`（Editor 工具，仅 Unity 内运行）；产物 `TcgEngineNodeDefs.xml` 已有骨架
 
 **M1 · Tier1 节点首批可拖可用（核心中的核心）**
-- [ ] 按 7.7 清单，为每类节点逐个实现 Handler 并登记到 NodeDef 字典
-  - A 常量/逻辑：`BooleanConst`→ConditionBool、`IntegerConst`→ValueConstant、`Compare`→ConditionOperator、`Add/Sub/Mul/Div/Mod`→ValueMath
-  - B 属性读取：`ValueTargetStat/ValueCasterStat`（已建）、状态/牌堆读取
-  - C 动作效果：`EffectDamage/Heal/Draw/Discard/AddStat/AddStatus/SummonMultiple/AddMana/Destroy`（amount 已接）
-  - D 流程：`Condition`（真/假双 exec）、`EffectRepeat`（N 次）、集合 `FilterHighest/Lowest`
-- [ ] 编辑器左侧节点面板能查到并拖出 Tier1 全部节点；`NodeGraphRunner` 拓扑排序解释执行
-- [ ] 验收：仅用 Tier1 节点能连出「战术洞察：目标每1攻抽1张」
-- 落点：`Scripts/Graph/NodeGraphRunner.cs`、`NodeHandler*`、`Scripts/Data/NodeDef.cs`
+
+* [ ] 按 7.7 清单，为每类节点逐个实现 Handler 并登记到 NodeDef 字典
+  * A 常量/逻辑：`BooleanConst`→ConditionBool、`IntegerConst`→ValueConstant、`Compare`→ConditionOperator、`Add/Sub/Mul/Div/Mod`→ValueMath
+
+  * B 属性读取：`ValueTargetStat/ValueCasterStat`（已建）、状态/牌堆读取
+
+  * C 动作效果：`EffectDamage/Heal/Draw/Discard/AddStat/AddStatus/SummonMultiple/AddMana/Destroy`（amount 已接）
+
+  * D 流程：`Condition`（真/假双 exec）、`EffectRepeat`（N 次）、集合 `FilterHighest/Lowest`
+
+* [ ] 编辑器左侧节点面板能查到并拖出 Tier1 全部节点；`NodeGraphRunner` 拓扑排序解释执行
+
+* [ ] 验收：仅用 Tier1 节点能连出「战术洞察：目标每1攻抽1张」
+
+* 落点：`Scripts/Graph/NodeGraphRunner.cs`、`NodeHandler*`、`Scripts/Data/NodeDef.cs`
 
 **M2 · 规则系统（数值 + 回合流程节点化）**
-- [ ] 数值规则白名单项接入节点化编辑（`starting_hp/mana_per_turn/mana_max/...`），每项带范围+默认+校验
-- [ ] 回合流程原子集合（Draw/Mana/PlayerAction/AI_Action…）→ 编排 `RoundFlow`
-- [ ] `.diyrule` 导出/导入 + 规则 hash 生成
-- 落点：`Scripts/Data/RuleData.cs` 扩展、`Scripts/Gameplay/RoundFlow.cs`、`.diyrule` 序列化
+
+* [ ] 数值规则白名单项接入节点化编辑（`starting_hp/mana_per_turn/mana_max/...`），每项带范围+默认+校验
+
+* [ ] 回合流程原子集合（Draw/Mana/PlayerAction/AI\_Action…）→ 编排 `RoundFlow`
+
+* [ ] `.diyrule` 导出/导入 + 规则 hash 生成
+
+* 落点：`Scripts/Data/RuleData.cs` 扩展、`Scripts/Gameplay/RoundFlow.cs`、`.diyrule` 序列化
 
 **M3 · 私房对战成熟体验**
-- [ ] 建房（选规则→hash→房号/分享码）→ 房列表 / 直连 / 分享码加入
-- [ ] 房主管理（改名/变更规则/踢人/设观战/只允许好友/暂停）
-- [ ] 断线重连（会话保留+超时接管）、房内观战、房内聊天
-- [ ] 双方仅同步"卡牌ID+签名+规则hash"；hash 不一致拒绝开战
-- 落点：`Scripts/Networking/RoomManager.cs`、`RoomJoin*`、`NetMsg` 扩展、房间匹配逻辑
+
+* [ ] 建房（选规则→hash→房号/分享码）→ 房列表 / 直连 / 分享码加入
+
+* [ ] 房主管理（改名/变更规则/踢人/设观战/只允许好友/暂停）
+
+* [ ] 断线重连（会话保留+超时接管）、房内观战、房内聊天
+
+* [ ] 双方仅同步"卡牌ID+签名+规则hash"；hash 不一致拒绝开战
+
+* 落点：`Scripts/Networking/RoomManager.cs`、`RoomJoin*`、`NetMsg` 扩展、房间匹配逻辑
 
 **M4 · 账号与云存盘 + 作品管理**
-- [ ] 注册/登录 + Token 验证；云存盘（作品/战绩/设置多端同步）
-- [ ] 战绩/积分（胜/负/胜率/MMR 雏形）
-- [ ] 个人主页（昵称/头像/作品列表/公开战绩）
-- [ ] 作品管理：草稿/版本/回滚、分享/收藏、美观化
-- 落点：`Scripts/Account/`、`Scripts/Cloud/*`、`Scripts/Ugc/WorkspaceManager.cs`
+
+* [ ] 注册/登录 + Token 验证；云存盘（作品/战绩/设置多端同步）
+
+* [ ] 战绩/积分（胜/负/胜率/MMR 雏形）
+
+* [ ] 个人主页（昵称/头像/作品列表/公开战绩）
+
+* [ ] 作品管理：草稿/版本/回滚、分享/收藏、美观化
+
+* 落点：`Scripts/Account/`、`Scripts/Cloud/*`、`Scripts/Ugc/WorkspaceManager.cs`
 
 **M5 · 回填 + 全量验收**
-- [ ] Tier2/Tier3 节点补齐（集合运算/快照/事件记录/新机制），回查 NodeDoc.xml 全集完成度
-- [ ] 对照 7.8 六条验收逐一过；官方默认规则对局回归不受影响
-- 落点：全量回归 + 验收报告
+
+* [ ] Tier2/Tier3 节点补齐（集合运算/快照/事件记录/新机制），回查 NodeDoc.xml 全集完成度
+
+* [ ] 对照 7.8 六条验收逐一过；官方默认规则对局回归不受影响
+
+* 落点：全量回归 + 验收报告
 
 > ⚠️ 与阶段1 相同：M0/M1 的 C# 均需在 Unity 中编译确认（沙盒无法运行编译器），XML 定义与纯数据部分可在沙盒先行生成校验。
 
 ### 7.10 技术落点（阶段2）
-| 模块 | 落点（对应现有代码）|
-|---|---|
-| 规则节点化 | RuleData + .diyrule；回合流程原子复用现有 TurnActive/AITurn 拆解 |
-| 私房 | 复用 Netcode；新增 RoomConfig 同步协议（规则+DIY签名+观战/聊天）|
-| 账号/云存盘 | 后端账号服务 + Storage API（可参考现有 ApiClient 扩展）|
-| 战绩/积分 | 新增 MatchRecord 数据 + 计算 + 存盘 |
-| 个人主页 | UI 面板 + 云同步 |
-| 作品管理 | DiyProjectStore（草稿/版本/收藏），本地+云 |
-| 读规则值节点 | ValueRuleStat（ValueSource 子类）|
+
+| 模块     | 落点（对应现有代码）                                          |
+| ------ | --------------------------------------------------- |
+| 规则节点化  | RuleData + .diyrule；回合流程原子复用现有 TurnActive/AITurn 拆解 |
+| 私房     | 复用 Netcode；新增 RoomConfig 同步协议（规则+DIY签名+观战/聊天）       |
+| 账号/云存盘 | 后端账号服务 + Storage API（可参考现有 ApiClient 扩展）            |
+| 战绩/积分  | 新增 MatchRecord 数据 + 计算 + 存盘                         |
+| 个人主页   | UI 面板 + 云同步                                         |
+| 作品管理   | DiyProjectStore（草稿/版本/收藏），本地+云                      |
+| 读规则值节点 | ValueRuleStat（ValueSource 子类）                       |
 
 ### 7.11 依赖与风险（阶段2）
-| 项 | 说明 |
-|---|---|
+
+| 项       | 说明                              |
+| ------- | ------------------------------- |
 | 回合流程开放层 | 需新增"回合步骤原子"抽象（官方定义原子集），是关键新增开发量 |
-| 云存盘/账号 | 需要后端基础设施（阶段1完全未涉及），是阶段2最大新增 |
-| 平衡 | 阶段2信任本地+系统建议，正式拦截留给阶段3 |
+| 云存盘/账号  | 需要后端基础设施（阶段1完全未涉及），是阶段2最大新增     |
+| 平衡      | 阶段2信任本地+系统建议，正式拦截留给阶段3          |
 
 ***
 
