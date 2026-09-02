@@ -1,0 +1,44 @@
+{
+  "schema": "diycard/1.0",
+  "meta": {
+    "id": "sample_2_distinct_races",
+    "author": "样例：AI 生成",
+    "title": "抽2张不同种族随从",
+    "cost": 2,
+    "attack": 0,
+    "hp": 3,
+    "type": "随从"
+  },
+  "graph": {
+    "nodes": [
+      { "id": "trg",     "defineId": "Trig_OnPlay", "posX": 40,  "posY": 60, "inputs": [] },
+      { "id": "lib",     "defineId": "101008",      "posX": 160, "posY": 60, "inputs": [] },
+      { "id": "races",   "defineId": "111031",      "posX": 280, "posY": 60, "inputs": [
+        { "name": "属性名", "type": "String", "intValue": 0, "boolValue": false, "stringValue": "种族" }
+      ]},
+      { "id": "racededup", "defineId": "111010",    "posX": 400, "posY": 60, "inputs": [] },
+      { "id": "pick2",   "defineId": "111028",      "posX": 520, "posY": 60, "inputs": [
+        { "name": "数量", "type": "Int", "intValue": 2, "boolValue": false, "stringValue": "" }
+      ]},
+      { "id": "loop",    "defineId": "211001",      "posX": 520, "posY": 200, "inputs": [] },
+      { "id": "filter",  "defineId": "111012",      "posX": 40,  "posY": 200, "inputs": [
+        { "name": "属性", "type": "String", "intValue": 0, "boolValue": false, "stringValue": "种族" },
+        { "name": "等于", "type": "String", "intValue": 0, "boolValue": false, "stringValue": "当前种族" }
+      ]},
+      { "id": "rand1",   "defineId": "111008",      "posX": 160, "posY": 200, "inputs": [] },
+      { "id": "draw",    "defineId": "201003",      "posX": 280, "posY": 200, "inputs": [] }
+    ],
+    "connections": [
+      { "sourceNodeId": "trg",  "sourcePort": "执行", "destNodeId": "lib",   "destPort": "执行" },
+      { "sourceNodeId": "lib",  "sourcePort": "集合", "destNodeId": "races", "destPort": "集合" },
+      { "sourceNodeId": "races", "sourcePort": "集合", "destNodeId": "racededup", "destPort": "集合" },
+      { "sourceNodeId": "racededup", "sourcePort": "集合", "destNodeId": "pick2", "destPort": "集合" },
+      { "sourceNodeId": "pick2", "sourcePort": "集合", "destNodeId": "loop", "destPort": "元素集合" },
+      { "sourceNodeId": "lib",  "sourcePort": "集合", "destNodeId": "filter", "destPort": "集合" },
+      { "sourceNodeId": "loop", "sourcePort": "当前元素", "destNodeId": "filter", "destPort": "筛选值" },
+      { "sourceNodeId": "filter", "sourcePort": "集合", "destNodeId": "rand1", "destPort": "集合" },
+      { "sourceNodeId": "loop", "sourcePort": "循环体", "destNodeId": "draw",  "destPort": "执行" },
+      { "sourceNodeId": "rand1", "sourcePort": "卡牌", "destNodeId": "draw",  "destPort": "目标" }
+    ]
+  }
+}
