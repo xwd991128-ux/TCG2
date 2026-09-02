@@ -226,6 +226,17 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 - **定义"完成"**：编辑器能查到并拖出全部 280 个有效节点、连线、按语义执行 → 即完成（非逐一精修，可分批验收）。
 - 阶段2 节点能力也包含：节点从 14 → 20 的过渡、读规则值节点 ValueRuleStat、回合流程原子节点（供 7.2 编排）。
 
+#### 7.6.1 节点编辑器 UI 技术选型（老板已拍板）★
+> **结论：自研 uGUI 运行时节点编辑器**（随成品发布、玩家可直接编辑）。不做内置 GraphView(仅编辑器可用)，不采购 uNode/NodeCanvas(带自家规则引擎易冲突)。市面无现成完美匹配"玩家自制卡+节点编辑"场景。
+
+- **数据与 UI 解耦**（核心原则）：统一读写 `.diycard` JSON（数据模型），UI 只是其一种视图；执行走 `NodeGraphRunner` → 现有 EffectData。UI 可随时更换，不动数据与执行层。
+- **三块运行时组件**（uGUI / Canvas）：
+  1. 节点面板 `NodeView`：预制体+对象池复用，绑 `NodeDef.inputs/outputs` 端口。
+  2. 贝塞尔连线：`MaskableGraphic` 自绘曲线或 LineRenderer，拖拽实时跟手。
+  3. 画布交互：拖节点 / 拖起点→终点连线 / 框选删除 / 缩放平移(RectTransform)。
+- **序列化桥**：视图 → .diycard JSON → NodeGraphRunner。
+- 工作量集中在组件3（拖拽/连线/缩放手感），组件1/2/4 为常规活。
+
 ### 7.7 Tier1 首批节点清单（阶段2 开工第一份清单）
 > 原则：**优先映射现有引擎已具备的能力**，第一批即可拖可用。编号复用 NodeDoc.xml 的 defineId 语义标准；未含的现有能力（如 EffectDamage）也补入，统一到"卡牌节点全集"。
 
