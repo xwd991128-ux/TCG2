@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>样例连线图 · 打出时抽2张不同种族随从</title>
+<style>
+  body{background:#161a26;color:#e8eaf2;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:32px;line-height:1.6}
+  h1{font-size:20px;margin-bottom:4px}
+  .sub{color:#9aa3c0;font-size:13px;margin-bottom:20px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;font-size:12px;color:#9aa3c0}
+  .lg{display:flex;align-items:center;gap:7px}
+  .sw{width:30px;height:0;border-top:3px solid;position:relative}
+  .sw::after{content:"";position:absolute;right:-8px;top:-3px;border:4px solid transparent;border-left:8px solid}
+  svg{max-width:100%;height:auto;background:#12141d;border:1px solid #3a415c;border-radius:12px}
+</style>
+</head>
+<body>
+  <h1>样例连线图：打出时 → 抽 2 张不同种族的随从牌</h1>
+  <div class="sub">两步走 · 全用现成节点 · 验证「两线制」（紫实线=动作线管顺序 / 彩虚线=取值线管传值）</div>
+  <div class="legend">
+    <div class="lg"><span class="sw" style="border-color:#7c5cff"></span>动作线（执行，顺序）</div>
+    <div class="lg"><span class="sw" style="border-color:#35c28a"></span>取值线·集合</div>
+    <div class="lg"><span class="sw" style="border-color:#12b5a5"></span>取值线·文本(种族)</div>
+    <div class="lg"><span class="sw" style="border-color:#e5484d"></span>取值线·卡牌</div>
+    <div class="lg"><span class="sw" style="border-color:#5b9dff"></span>取值线·整数</div>
+  </div>
+
+<svg viewBox="0 0 1080 540" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="aExec" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c5cff"/></marker>
+    <marker id="aSet" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#35c28a"/></marker>
+    <marker id="aStr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#12b5a5"/></marker>
+    <marker id="aCard" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e5484d"/></marker>
+    <marker id="aInt" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b9dff"/></marker>
+  </defs>
+
+  <!-- 步骤标题 -->
+  <text x="30" y="38" fill="#ffb020" font-size="15" font-weight="700">步骤一 · 先凑出 2 个不同种族</text>
+  <text x="30" y="258" fill="#ffb020" font-size="15" font-weight="700">步骤二 · 对每个种族各抽 1 张</text>
+
+  <!-- ============ 步骤一：5 个节点 ============ -->
+  <!-- 1 打出时 -->
+  <g>
+    <rect x="30" y="60" width="130" height="60" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="30" y="60" width="6" height="60" rx="3" fill="#ff9f43"/>
+    <text x="46" y="84" fill="#e8eaf2" font-size="13">打出时</text>
+    <text x="46" y="104" fill="#9aa3c0" font-size="10">触发</text>
+    <circle cx="160" cy="77" r="5" fill="#7c5cff"/>
+  </g>
+  <!-- 2 获取牌库随从 -->
+  <g>
+    <rect x="210" y="60" width="160" height="92" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="210" y="60" width="6" height="92" rx="3" fill="#35c28a"/>
+    <text x="226" y="84" fill="#e8eaf2" font-size="13">获取牌库随从</text>
+    <circle cx="210" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="358" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="358" cy="110" r="5" fill="#35c28a"/>
+    <text x="348" y="114" fill="#9aa3c0" font-size="11" text-anchor="end">集合</text>
+  </g>
+  <!-- 3 取所有元素的种族属性 -->
+  <g>
+    <rect x="420" y="60" width="180" height="92" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="420" y="60" width="6" height="92" rx="3" fill="#35c28a"/>
+    <text x="436" y="84" fill="#e8eaf2" font-size="13">取所有元素的属性</text>
+    <circle cx="420" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="600" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="432" cy="110" r="5" fill="#35c28a"/><text x="444" y="114" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="432" cy="138" r="5" fill="#12b5a5"/><text x="444" y="142" fill="#9aa3c0" font-size="11">属性名=种族</text>
+    <circle cx="588" cy="110" r="5" fill="#35c28a"/><text x="578" y="114" fill="#9aa3c0" font-size="11" text-anchor="end">种族集合</text>
+  </g>
+  <!-- 4 集合去重 -->
+  <g>
+    <rect x="650" y="60" width="150" height="92" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="650" y="60" width="6" height="92" rx="3" fill="#35c28a"/>
+    <text x="666" y="84" fill="#e8eaf2" font-size="13">集合去重</text>
+    <circle cx="650" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="800" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="662" cy="110" r="5" fill="#35c28a"/><text x="674" y="114" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="788" cy="110" r="5" fill="#35c28a"/><text x="778" y="114" fill="#9aa3c0" font-size="11" text-anchor="end">去重后</text>
+  </g>
+  <!-- 5 随机取X个 -->
+  <g>
+    <rect x="850" y="60" width="170" height="92" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="850" y="60" width="6" height="92" rx="3" fill="#35c28a"/>
+    <text x="866" y="84" fill="#e8eaf2" font-size="13">随机取 X 个</text>
+    <circle cx="850" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="1020" cy="77" r="5" fill="#7c5cff"/>
+    <circle cx="862" cy="110" r="5" fill="#35c28a"/><text x="874" y="114" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="862" cy="138" r="5" fill="#5b9dff"/><text x="874" y="142" fill="#9aa3c0" font-size="11">数量 = 2</text>
+    <circle cx="1008" cy="110" r="5" fill="#35c28a"/><text x="998" y="114" fill="#9aa3c0" font-size="11" text-anchor="end">2个种族</text>
+  </g>
+
+  <!-- ============ 步骤二：4 个节点 ============ -->
+  <!-- 6 遍历 -->
+  <g>
+    <rect x="30" y="280" width="170" height="108" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="30" y="280" width="6" height="108" rx="3" fill="#5b9dff"/>
+    <text x="46" y="304" fill="#e8eaf2" font-size="13">遍历集合</text>
+    <circle cx="30" cy="297" r="5" fill="#7c5cff"/>
+    <circle cx="42" cy="328" r="5" fill="#35c28a"/><text x="54" y="332" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="188" cy="328" r="5" fill="#12b5a5"/><text x="178" y="332" fill="#9aa3c0" font-size="11" text-anchor="end">当前种族</text>
+    <circle cx="188" cy="356" r="5" fill="#7c5cff"/><text x="178" y="360" fill="#9aa3c0" font-size="11" text-anchor="end">循环体</text>
+  </g>
+  <!-- 7 筛选 -->
+  <g>
+    <rect x="250" y="280" width="190" height="108" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="250" y="280" width="6" height="108" rx="3" fill="#ff9f43"/>
+    <text x="266" y="304" fill="#e8eaf2" font-size="13">筛选：种族 = 当前</text>
+    <circle cx="262" cy="328" r="5" fill="#35c28a"/><text x="274" y="332" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="262" cy="356" r="5" fill="#12b5a5"/><text x="274" y="360" fill="#9aa3c0" font-size="11">筛选值=当前种族</text>
+    <circle cx="428" cy="328" r="5" fill="#35c28a"/><text x="418" y="332" fill="#9aa3c0" font-size="11" text-anchor="end">该族随从</text>
+  </g>
+  <!-- 8 随机取1 -->
+  <g>
+    <rect x="500" y="280" width="150" height="80" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="500" y="280" width="6" height="80" rx="3" fill="#35c28a"/>
+    <text x="516" y="304" fill="#e8eaf2" font-size="13">随机取 1</text>
+    <circle cx="512" cy="328" r="5" fill="#35c28a"/><text x="524" y="332" fill="#9aa3c0" font-size="11">集合</text>
+    <circle cx="638" cy="328" r="5" fill="#e5484d"/><text x="628" y="332" fill="#9aa3c0" font-size="11" text-anchor="end">一张随从</text>
+  </g>
+  <!-- 9 抽目标卡牌 -->
+  <g>
+    <rect x="700" y="280" width="170" height="80" rx="8" fill="#20263a" stroke="#3a415c"/>
+    <rect x="700" y="280" width="6" height="80" rx="3" fill="#5b9dff"/>
+    <text x="716" y="304" fill="#e8eaf2" font-size="13">抽目标卡牌</text>
+    <circle cx="700" cy="356" r="5" fill="#7c5cff"/>
+    <circle cx="712" cy="328" r="5" fill="#e5484d"/><text x="724" y="332" fill="#9aa3c0" font-size="11">目标</text>
+  </g>
+
+  <!-- ============ 动作线（紫实线 · 顺序） ============ -->
+  <line x1="160" y1="77" x2="204" y2="77" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)"/>
+  <line x1="370" y1="77" x2="414" y2="77" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)"/>
+  <line x1="600" y1="77" x2="644" y2="77" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)"/>
+  <line x1="800" y1="77" x2="844" y2="77" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)"/>
+  <path d="M1020,77 C1020,185 150,165 34,297" fill="none" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)" stroke-dasharray="6 4"/>
+  <text x="560" y="232" fill="#7c5cff" font-size="11">遍历这 2 个种族</text>
+  <path d="M188,356 C240,420 650,420 694,356" fill="none" stroke="#7c5cff" stroke-width="2.5" marker-end="url(#aExec)" stroke-dasharray="6 4"/>
+  <text x="400" y="436" fill="#7c5cff" font-size="11">每轮循环体：抽 1 张</text>
+
+  <!-- ============ 取值线（彩虚线 · 传值） ============ -->
+  <line x1="358" y1="110" x2="426" y2="110" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <line x1="588" y1="110" x2="656" y2="110" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <line x1="788" y1="110" x2="856" y2="110" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <path d="M1008,110 C1010,240 150,235 38,328" fill="none" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <path d="M358,110 C360,235 255,225 258,328" fill="none" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <line x1="188" y1="328" x2="256" y2="356" stroke="#12b5a5" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aStr)"/>
+  <line x1="428" y1="328" x2="506" y2="328" stroke="#35c28a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aSet)"/>
+  <line x1="638" y1="328" x2="706" y2="328" stroke="#e5484d" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aCard)"/>
+
+  <text x="30" y="500" fill="#9aa3c0" font-size="12">要点：先【去重】再【随机取2】→ 取到的 2 个种族必然不同；「数量=2」是手填固定值，拔掉取值线即回落默认值。</text>
+</svg>
+</body>
+</html>
