@@ -51,6 +51,7 @@ namespace TcgEngine.UI
         public Dropdown dropdown_team;       // 阵营
         public Dropdown dropdown_rarity;     // 稀有度
         public Dropdown dropdown_trait;      // 种族（特质）
+        public Dropdown dropdown_keyword;    // 关键词（KeywordData，可选控件：场景未绑定则忽略，v1 单选）
         public InputField input_mana;        // 费用
         public InputField input_attack;      // 攻击
         public InputField input_hp;          // 生命
@@ -135,6 +136,7 @@ namespace TcgEngine.UI
         private readonly List<string> team_ids = new List<string>();
         private readonly List<string> rarity_ids = new List<string>();
         private readonly List<string> trait_ids = new List<string>();
+        private readonly List<string> keyword_ids = new List<string>();
 
         // ---------------- 节点库预设 ----------------
 
@@ -892,6 +894,11 @@ namespace TcgEngine.UI
             SetupDropdownOptions(dropdown_team, TeamData.GetAll(), team_ids, t => t.title, t => t.id);
             SetupDropdownOptions(dropdown_rarity, RarityData.GetAll(), rarity_ids, r => r.title, r => r.id);
             SetupDropdownOptions(dropdown_trait, TraitData.GetAll(), trait_ids, t => t.title, t => t.id);
+            if (dropdown_keyword != null)
+            {
+                KeywordData.Load();
+                SetupDropdownOptions(dropdown_keyword, KeywordData.GetAll(), keyword_ids, k => k.title, k => k.id);
+            }
         }
 
         private void SetupDropdownOptions<T>(Dropdown dropdown, List<T> list, List<string> ids,
@@ -959,6 +966,8 @@ namespace TcgEngine.UI
             SetDropdown(dropdown_team, team_ids, card.team);
             SetDropdown(dropdown_rarity, rarity_ids, card.rarity);
             SetDropdown(dropdown_trait, trait_ids, card.trait);
+            if (dropdown_keyword != null)
+                SetDropdown(dropdown_keyword, keyword_ids, card.keywords.Count > 0 ? card.keywords[0] : "");
 
             if (dropdown_type != null)
             {
@@ -991,6 +1000,13 @@ namespace TcgEngine.UI
             card.team = GetDropdown(dropdown_team, team_ids, card.team);
             card.rarity = GetDropdown(dropdown_rarity, rarity_ids, card.rarity);
             card.trait = GetDropdown(dropdown_trait, trait_ids, card.trait);
+            if (dropdown_keyword != null)
+            {
+                string kw = GetDropdown(dropdown_keyword, keyword_ids, null);
+                card.keywords.Clear();
+                if (!string.IsNullOrEmpty(kw))
+                    card.keywords.Add(kw);
+            }
 
             if (dropdown_type != null && dropdown_type.value >= 0 && dropdown_type.value < TYPE_ENUMS.Length)
                 card.type = TYPE_ENUMS[dropdown_type.value];

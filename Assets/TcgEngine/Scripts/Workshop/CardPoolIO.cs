@@ -308,7 +308,36 @@ namespace TcgEngine.Workshop
                         data.abilities.Add(AbilityToData(ability));
                 }
             }
+            data.keywords.Clear();
+            if (card.keywords != null)
+            {
+                foreach (KeywordData keyword in card.keywords)
+                {
+                    if (keyword != null && !data.keywords.Contains(keyword.id))
+                        data.keywords.Add(keyword.id);
+                }
+            }
             return data;
+        }
+
+        /// <summary>关键词 id 列表 → KeywordData 数组（未注册/缺失的 id 跳过并警告）</summary>
+        public static KeywordData[] ResolveKeywords(List<string> keyword_ids)
+        {
+            if (keyword_ids == null || keyword_ids.Count == 0)
+                return new KeywordData[0];
+            KeywordData.Load();
+            List<KeywordData> result = new List<KeywordData>();
+            foreach (string id in keyword_ids)
+            {
+                if (string.IsNullOrEmpty(id))
+                    continue;
+                KeywordData keyword = KeywordData.Get(id);
+                if (keyword != null)
+                    result.Add(keyword);
+                else
+                    Debug.LogWarning("[CardPoolIO] 关键词未找到，已跳过: " + id);
+            }
+            return result.ToArray();
         }
 
         /// <summary>AbilityData → AbilityCustomData</summary>
@@ -452,6 +481,7 @@ namespace TcgEngine.Workshop
                 TraitData trait = TraitData.Get(data.trait);
                 card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
             }
+            card.keywords = ResolveKeywords(data.keywords);
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;
@@ -511,6 +541,7 @@ namespace TcgEngine.Workshop
                 TraitData trait = TraitData.Get(data.trait);
                 card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
             }
+            card.keywords = ResolveKeywords(data.keywords);
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;

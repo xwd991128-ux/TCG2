@@ -40,6 +40,7 @@ namespace TcgEngine.Workshop
         public bool deckbuilding;
         public int cost;
         public List<AbilityCustomData> abilities = new List<AbilityCustomData>();
+        public List<string> keywords = new List<string>();   // 关键词（KeywordData.id，可多个）
 
         // ---- 卡牌节点编辑器（P2+）附加配置 ----
         public GraphData graph;              // 该卡自己的规则图（可为 null，首次进入编辑器时创建）
