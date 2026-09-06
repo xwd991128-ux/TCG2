@@ -98,6 +98,8 @@ namespace TcgEngine.UI
         private CardCustomData card;         // 当前编辑的卡
         private string save_path;            // 卡池文件路径
         private GraphData graph;             // 当前卡的规则图（= card.graph）
+        private KeywordData editing_keyword;   // 关键词模式：当前编辑的关键词（card/pool 为空）
+        private KeywordRule editing_rule;      // 关键词模式：当前编辑的规则条目（graph 引用其 graph）
         /// <summary>当前卡的规则图（供 NodePin 等组件读取取值）</summary>
         public GraphData Graph { get { return graph; } }
 
@@ -851,6 +853,8 @@ namespace TcgEngine.UI
         /// <summary>打开某张卡的规则编辑器（pool/card 为引用，修改后保存时整体写盘）</summary>
         public void Open(CardPoolData pool, CardCustomData card, string savePath)
         {
+            editing_keyword = null;   //退出关键词模式
+            editing_rule = null;
             this.pool = pool;
             this.card = card;
             this.save_path = savePath;
@@ -882,6 +886,51 @@ namespace TcgEngine.UI
 
             SetStatus("正在编辑规则图: " + (card != null && !string.IsNullOrEmpty(card.title) ? card.title : "（未命名卡）"));
         }
+
+        /// <summary>
+        /// 关键词模式：编辑某个关键词某条规则的规则图（graph 直接引用 rule.graph，保存时写回资产）。
+        /// 属性区（卡名/费用等）在关键词模式下不生效，保存仅写回关键词资产。
+        /// </summary>
+        public void OpenForKeyword(KeywordData keyword, KeywordRule rule)
+        {
+            if (keyword == null || rule == null)
+                return;
+
+            pool = null;
+            card = null;
+            save_path = null;
+            editing_keyword = keyword;
+            editing_rule = rule;
+
+            graph = rule.graph;
+            if (graph == null)
+            {
+                graph = new GraphData();
+                rule.graph = graph;
+            }
+            if (string.IsNullOrEmpty(graph.name))
+                graph.name = "keyword_" + keyword.id;
+
+            node_index = 0;
+            undo_stack.Clear();
+            redo_stack.Clear();
+            copied_node = null;
+            foreach (GraphNode n in graph.nodes)
+                MigratePins(n);
+            RefreshForm();
+            RefreshPanelArtRow();
+            RebuildCanvas();
+            RefreshNodeLib();
+            ResetView();
+
+            SetStatus("正在编辑关键词规则图: " + keyword.title + "（保存写回关键词资产）");
+        }
+
+        /// <summary>是否处于关键词编辑模式</summary>
+        public bool IsKeywordMode => editing_keyword != null;
+
+        /// <summary>关键词资产保存回调：由 Editor 程序集注册（SetDirty+SaveAssets），运行时为空则只改内存</summary>
+        public static System.Action<UnityEngine.Object> keyword_asset_saver;
 
         // ---------------- 属性区 ----------------
 
@@ -3362,6 +3411,25 @@ namespace TcgEngine.UI
 
         private void OnSave()
         {
+            //关键词模式：校验后直接写回关键词资产（无卡池文件/卡牌属性）
+            if (editing_keyword != null)
+            {
+                List<GraphIssue> kissues = ValidateGraph();
+                if (kissues.Count > 0)
+                {
+                    ApplyValidationMarks();
+                    SetStatus("无法保存：规则图有 " + kissues.Count + " 处缺输入，请先补全（红「!」节点）");
+                    return;
+                }
+                editing_rule.graph = graph;
+                if (string.IsNullOrEmpty(graph.name))
+                    graph.name = "keyword_" + editing_keyword.id;
+                if (keyword_asset_saver != null)
+                    keyword_asset_saver.Invoke(editing_keyword);   //Editor 程序集注册：写资产并 SaveAssets
+                SetStatus("已保存关键词规则图: " + editing_keyword.title);
+                return;
+            }
+
             if (card == null || pool == null)
             {
                 SetStatus("没有可保存的数据");
@@ -3408,6 +3476,12 @@ namespace TcgEngine.UI
         /// 再跳转人机战斗（我方卡组由当前卡组成一整套，AI 用随机初始卡池，开局双方法力直接为上限）</summary>
         private void OnTest()
         {
+            if (editing_keyword != null)
+            {
+                SetStatus("关键词不支持单独模拟测试，请把关键词挂到卡牌上后在对局验证");
+                return;
+            }
+
             if (card == null || pool == null)
             {
                 SetStatus("没有可测试的卡牌");
