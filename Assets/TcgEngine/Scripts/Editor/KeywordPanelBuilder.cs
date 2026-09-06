@@ -298,10 +298,10 @@ namespace TcgEngine.EditorTools
             trigger_field.sizeDelta = new Vector2(0, 30);
             CreateInputIn(trigger_field, "触发时机（OnPlay/StartOfTurn/OnDeath…）");
 
-            Button edit_btn = CreateButton("EditBtn", row, "编辑图", _font, 16, new Color(0.25f, 0.45f, 0.7f, 1f));
+            Button edit_btn = CreateButton("EditBtn", row.transform, "编辑图", _font, 16, new Color(0.25f, 0.45f, 0.7f, 1f));
             AnchorRect(edit_btn.GetComponent<RectTransform>(), new Vector2(0.62f, 0.5f), new Vector2(0, 0), new Vector2(90, 30));
 
-            Button del_btn = CreateButton("DelBtn", row, "删除", _font, 16, new Color(0.7f, 0.25f, 0.25f, 1f));
+            Button del_btn = CreateButton("DelBtn", row.transform, "删除", _font, 16, new Color(0.7f, 0.25f, 0.25f, 1f));
             AnchorRect(del_btn.GetComponent<RectTransform>(), new Vector2(1, 0.5f), new Vector2(-8, 0), new Vector2(60, 30));
 
             row.SetActive(false);
