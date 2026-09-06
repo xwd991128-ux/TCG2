@@ -23,6 +23,28 @@ namespace TcgEngine.EditorTools
                 EditorUtility.SetDirty(kw);
                 AssetDatabase.SaveAssets();
             };
+
+            //运行时关键词面板（KeywordPanel）的资产落盘桥
+            KeywordAssetIO.create = (kw, path) =>
+            {
+                try
+                {
+                    AssetDatabase.CreateAsset(kw, path);
+                    AssetDatabase.SaveAssets();
+                    return true;
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError("[关键词管理] 资产创建失败: " + e.Message);
+                    return false;
+                }
+            };
+            KeywordAssetIO.save = kw =>
+            {
+                if (kw == null) return;
+                EditorUtility.SetDirty(kw);
+                AssetDatabase.SaveAssets();
+            };
         }
 
         private Vector2 list_scroll;
