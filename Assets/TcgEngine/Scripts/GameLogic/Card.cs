@@ -31,6 +31,8 @@ namespace TcgEngine
         public List<CardTrait> traits = new List<CardTrait>();
         public List<CardTrait> ongoing_traits = new List<CardTrait>();
 
+        public List<string> keywords = new List<string>();  //拥有的关键词（KeywordData.id）
+
         public List<CardStatus> status = new List<CardStatus>();
         public List<CardStatus> ongoing_status = new List<CardStatus>();
 
@@ -69,6 +71,7 @@ namespace TcgEngine
             hp = icard.hp;
             mana = icard.mana;
             SetTraits(icard);
+            SetKeywords(icard);
             SetAbilities(icard);
         }
 
@@ -82,6 +85,27 @@ namespace TcgEngine
                 foreach (TraitStat stat in icard.stats)
                     SetTrait(stat.trait.id, stat.value);
             }
+        }
+
+        public void SetKeywords(CardData icard)
+        {
+            keywords.Clear();
+            if (icard.keywords == null)
+                return;
+            foreach (KeywordData keyword in icard.keywords)
+            {
+                if (keyword == null || keywords.Contains(keyword.id))
+                    continue;
+                keywords.Add(keyword.id);
+                //原生机制关键词（风怒/冲锋/圣盾…）：直接转成永久状态，复用 GameLogic 原有机制判定
+                if (keyword.status_type != StatusType.None)
+                    AddStatus(keyword.status_type, 0, 0);
+            }
+        }
+
+        public bool HasKeyword(string id)
+        {
+            return keywords.Contains(id);
         }
 
         public void SetAbilities(CardData icard)

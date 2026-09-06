@@ -1150,6 +1150,8 @@ namespace TcgEngine.Gameplay
                 }
             }
 
+            TriggerCardKeywords(type, caster, triggerer, null);
+
             Card equipped = game_data.GetEquipCard(caster.equipped_uid);
             if (equipped != null)
                 TriggerCardAbilityType(type, equipped, triggerer);
@@ -1165,9 +1167,52 @@ namespace TcgEngine.Gameplay
                 }
             }
 
+            TriggerCardKeywords(type, caster, null, triggerer);
+
             Card equipped = game_data.GetEquipCard(caster.equipped_uid);
             if (equipped != null)
                 TriggerCardAbilityType(type, equipped, triggerer);
+        }
+
+        /// <summary>
+        /// 自定义关键词（带规则图的 KeywordData）触发旁路：
+        /// 遍历卡牌拥有的关键词，按触发时机执行其规则图。
+        /// 与能力不同，关键词规则不走 resolve_queue，直接同步执行（NodeDocRunner 本身就是同步的）。
+        /// </summary>
+        public virtual void TriggerCardKeywords(AbilityTrigger type, Card caster, Card triggerer, Player triggerer_player)
+        {
+            if (caster == null || caster.HasStatus(StatusType.Silenced))
+                return;
+
+            string action = type.ToString();
+
+            //目标解析：攻击/受伤类事件用 triggerer；打出类事件从 caster.slot 解析玩家选中的 PlayTarget（同 ResolveCardAbilityPlayTarget）
+            Card target_card = (triggerer != null && triggerer != caster) ? triggerer : null;
+            Player target_player = triggerer_player;
+            if (target_card == null && target_player == null && type == AbilityTrigger.OnPlay)
+            {
+                Slot slot = caster.slot;
+                if (slot.IsValid())
+                {
+                    Card slot_card = game_data.GetSlotCard(slot);
+                    if (slot_card != null)
+                        target_card = slot_card;
+                    else if (slot.IsPlayerSlot())
+                        target_player = game_data.GetPlayer(slot.p);
+                }
+            }
+
+            foreach (string keyword_id in caster.keywords)
+            {
+                KeywordData kdata = KeywordData.Get(keyword_id);
+                if (kdata == null || !kdata.HasRules)
+                    continue;
+                KeywordRule rule = kdata.GetRule(action);
+                if (rule == null)
+                    continue;
+
+                Workshop.NodeDocRunner.Run(this, rule.graph, caster, target_card, target_player, action);
+            }
         }
 
         public virtual void TriggerOtherCardsAbilityType(AbilityTrigger type, Card triggerer)

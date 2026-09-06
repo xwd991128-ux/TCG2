@@ -36,6 +36,7 @@ namespace TcgEngine
             TeamData.Load();
             RarityData.Load();
             TraitData.Load();
+            KeywordData.Load();
             VariantData.Load();
             PackData.Load();
             LevelData.Load();

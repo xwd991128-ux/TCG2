@@ -48,6 +48,9 @@ namespace TcgEngine
         public TraitData[] traits;
         public TraitStat[] stats;
 
+        [Header("Keywords")]
+        public KeywordData[] keywords;      //机制关键词（风怒/冲锋…），运行时自动转状态/触发规则图
+
         [Header("Abilities")]
         public AbilityData[] abilities;
 

@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfaf9815c68308e4383d7f99a36d5f64, type: 3}
+  m_Name: keyword_test
+  m_EditorClassIdentifier: 
+  id: keyword_test
+  title: "\u6D4B\u8BD5\u5173\u952E\u8BCD"
+  icon: {fileID: 0}
+  desc: "\u9A8C\u8BC1\u7528\uFF1A\u6253\u51FA\u65F6\u5BF9\u76EE\u6807\u9020\u6210
+    1 \u70B9\u4F24\u5BB3"
+  status_type: 0
+  rules:
+  - trigger_action: OnPlay
+    graph:
+      name: graph_OnPlay_202001
+      nodes:
+      - id: ev_JZH3
+        type: 0
+        action: OnPlay
+        title: OnPlay
+        category: 
+        pos:
+          x: 0
+          y: 0
+        collapsed: 0
+        pins:
+        - id: ev_JZH3_out
+          name: out
+          display_name: "\u89E6\u53D1"
+          is_output: 1
+          type: 1
+          is_array: 0
+        fields: []
+      - id: act_JZH3
+        type: 2
+        action: 202001
+        title: 202001
+        category: 
+        pos:
+          x: 0
+          y: 0
+        collapsed: 0
+        pins:
+        - id: act_JZH3_in
+          name: in
+          display_name: "\u5165"
+          is_output: 0
+          type: 1
+          is_array: 0
+        - id: act_JZH3_out
+          name: out
+          display_name: "\u51FA"
+          is_output: 1
+          type: 1
+          is_array: 0
+        fields:
+        - name: value
+          value: 1
+      links:
+      - from_node: ev_JZH3
+        from_pin: ev_JZH3_out
+        to_node: act_JZH3
+        to_pin: act_JZH3_in

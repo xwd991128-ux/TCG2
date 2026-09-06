@@ -7,6 +7,23 @@ namespace TcgEngine.Workshop
     /// </summary>
     public static class GraphBuilder
     {
+        /// <summary>
+        /// 构建最小规则图（供自定义词条等外部系统复用）：trigger 时机 → 执行 action_id 动作（value 为数值字段）。
+        /// 动作节点的目标/来源口不连线时，执行层自动沿用选中目标（如打出时的 PlayTarget）。
+        /// </summary>
+        public static GraphData BuildSimpleGraph(string trigger, string action_id, int value = 0)
+        {
+            GraphData graph = new GraphData();
+            graph.name = "graph_" + trigger + "_" + action_id;
+            string suffix = GameTool.GenerateRandomID(4, 6);
+            GraphNode ev = Event("ev_" + suffix, trigger, trigger);
+            GraphNode act = Action("act_" + suffix, action_id, action_id, value);
+            graph.nodes.Add(ev);
+            graph.nodes.Add(act);
+            Link(graph, ev, act);
+            return graph;
+        }
+
         /// <summary>新建事件节点（触发入口）</summary>
         public static GraphNode Event(string id, string action, string title)
         {
