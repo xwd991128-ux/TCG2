@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 namespace TcgEngine.UI
 {
@@ -25,6 +26,8 @@ namespace TcgEngine.UI
         private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
 
         private static Font _font;
+        private static TMP_FontAsset _tmpFont;
+        private const string TMP_FONT_PATH = "Assets/TcgEngine/Fonts/SimHei_TMP.asset";
 
         [MenuItem(MENU + "生成规则编辑器页面到主菜单场景")]
         public static void BuildGraphEditor()
@@ -66,6 +69,41 @@ namespace TcgEngine.UI
             Debug.Log("规则编辑器页面已生成到 Menu.unity 并保存");
             EditorUtility.DisplayDialog("规则编辑器",
                 "已生成卡牌规则编辑器页面。\n从卡牌编辑器「进行」按钮进入，编辑单张卡自己的规则图。\n已自动保存，可直接点 Play 测试。", "确定");
+        }
+
+        /// <summary>生成/获取 SimHei 的 TMP 动态字体资产（动态模式：运行时按需光栅中文）。</summary>
+        [MenuItem(MENU + "生成 SimHei TMP 字体资产")]
+        public static void BuildTmpFontAsset()
+        {
+            TMP_FontAsset fa = GetTmpFont();
+            if (fa != null)
+            {
+                EditorUtility.DisplayDialog("规则编辑器",
+                    "已就绪 SimHei TMP 字体资产：\n" + TMP_FONT_PATH + "\n\n若在资源窗口 Assets/TcgEngine/Fonts 下可见，说明 TMP 字体生成成功。", "确定");
+                EditorGUIUtility.PingObject(fa);
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("规则编辑器", "TMP 字体生成失败，请查看 Console。", "确定");
+            }
+        }
+
+        private static TMP_FontAsset GetTmpFont()
+        {
+            if (_tmpFont != null) return _tmpFont;
+            _tmpFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TMP_FONT_PATH);
+            if (_tmpFont == null)
+            {
+                Font src = AssetDatabase.LoadAssetAtPath<Font>(FONT_PATH);
+                if (src == null) src = AssetDatabase.LoadAssetAtPath<Font>(FONT_FALLBACK_PATH);
+                if (src == null) src = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                _tmpFont = TMP_FontAsset.CreateFontAsset(src);
+                _tmpFont.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+                AssetDatabase.CreateAsset(_tmpFont, TMP_FONT_PATH);
+                AssetDatabase.SaveAssets();
+                Debug.Log("规则编辑器：已创建 SimHei TMP 字体资产: " + TMP_FONT_PATH);
+            }
+            return _tmpFont;
         }
 
         // ---------------- 页面 ----------------
@@ -136,7 +174,8 @@ namespace TcgEngine.UI
             title.rectTransform.pivot = new Vector2(0, 0.5f);
             title.rectTransform.anchoredPosition = new Vector2(30, 0);
             title.rectTransform.sizeDelta = new Vector2(640, 50);
-            panel.title_text = title;
+            //title_text 已改为 TMP_Text（运行时用 <sprite> 标签），默认布局不再绑定 UGUI 标题
+            //需要 TMP 标题时：在场景中把标题文本换成 TMP - Text 并手动拖到面板的 Title Text 槽
 
             panel.btn_undo = CreateButton("UndoBtn", bar, "撤销", _font, 22,
                 new Color(1f, 0.85f, 0.5f, 0.4f));
@@ -337,7 +376,7 @@ namespace TcgEngine.UI
             crt.sizeDelta = new Vector2(6, 0);
 
             //标题：Header 垂直居中（规格第3节：字号 14，左 padding 12；右侧让出右上角按钮区，避免文字与按钮重叠）
-            Text title = CreateText("TitleText", header, "标题", _font, 14, Color.white, TextAnchor.MiddleLeft);
+            TMP_Text title = CreateTMPText("TitleText", header, "标题", 14, Color.white, TextAlignmentOptions.Left);
             title.rectTransform.anchorMin = new Vector2(0, 0);
             title.rectTransform.anchorMax = new Vector2(1, 1);
             title.rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -369,8 +408,8 @@ namespace TcgEngine.UI
             pins.offsetMin = new Vector2(0, 24);
             pins.offsetMax = new Vector2(0, -33);
 
-            //底部说明区（规格第3节）
-            Text desc = CreateText("DescText", node, "描述", _font, 13, new Color(1, 1, 1, 0.6f), TextAnchor.MiddleLeft);
+            //底部说明区（规格第3节；字色不透明）
+            TMP_Text desc = CreateTMPText("DescText", node, "描述", 13, Color.white, TextAlignmentOptions.Left);
             desc.rectTransform.anchorMin = new Vector2(0, 0);
             desc.rectTransform.anchorMax = new Vector2(1, 0);
             desc.rectTransform.pivot = new Vector2(0.5f, 0);
@@ -1011,7 +1050,8 @@ namespace TcgEngine.UI
             drt.anchoredPosition = Vector2.zero;
             drt.offsetMin = new Vector2(0, -17);
             drt.offsetMax = new Vector2(0, 17);
-            panel.node_filter_dropdown = dd;
+            //node_filter_dropdown 已改为 TMP_Dropdown 类型（用户手搭 TMP 下拉后拖入面板字段绑定）；
+            //默认布局此处不再自动绑定，重建后需手动创建 TMP Dropdown 并拖入 Node Filter Dropdown 槽
             panel.filter_buttons = null;   //旧按钮数组不再生成（运行时存在下拉即自动隐藏旧按钮）
 
             //最近使用栏（横向小按钮，运行时动态生成，无最近时隐藏）
@@ -1092,7 +1132,7 @@ namespace TcgEngine.UI
             cat_img.raycastTarget = false;
 
             //分类图标字符（色条右侧，运行时按分类显示 ⚡/?/▶/# 并上色）
-            Text icon = CreateText("IconText", item, "?", _font, 13, Color.white, TextAnchor.MiddleCenter);
+            TMP_Text icon = CreateTMPText("IconText", item, "?", 13, Color.white, TextAlignmentOptions.Center);
             RectTransform irt = icon.rectTransform;
             irt.anchorMin = Vector2.zero;
             irt.anchorMax = new Vector2(0, 1);
@@ -1101,7 +1141,7 @@ namespace TcgEngine.UI
             irt.sizeDelta = new Vector2(22, 0);
 
             //只显示一个节点名（行内上下居中，压缩成单行，左侧让出色条+图标，右侧让出收藏星标）
-            Text title = CreateText("TitleText", item, "标题", _font, 16, Color.white, TextAnchor.MiddleLeft);
+            TMP_Text title = CreateTMPText("TitleText", item, "标题", 16, Color.white, TextAlignmentOptions.Left);
             title.rectTransform.anchorMin = Vector2.zero;
             title.rectTransform.anchorMax = Vector2.one;
             title.rectTransform.offsetMin = new Vector2(40, 0);
@@ -1220,6 +1260,24 @@ namespace TcgEngine.UI
             txt.raycastTarget = false;
             txt.horizontalOverflow = HorizontalWrapMode.Overflow;
             txt.verticalOverflow = VerticalWrapMode.Overflow;
+            return txt;
+        }
+
+        /// <summary>创建 TMP 纯文字（TextMeshProUGUI），用 SimHei 动态 TMP 字体。供全页 TMP 迁移使用。</summary>
+        private static TMP_Text CreateTMPText(string name, Transform parent, string text, int size, Color color, TextAlignmentOptions align)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            TMP_Text txt = go.GetComponent<TextMeshProUGUI>();
+            txt.text = text;
+            txt.font = GetTmpFont();
+            txt.fontSize = size;
+            txt.fontStyle = FontStyles.Normal;
+            txt.alignment = align;
+            txt.color = color;
+            txt.raycastTarget = false;
+            txt.enableWordWrapping = false;
+            txt.overflowMode = TextOverflowModes.Overflow;
             return txt;
         }
 

@@ -23,12 +23,25 @@ namespace TcgEngine
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)
         {
+            Debug.Log("[RunGraph] 图执行触发 action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null") + " 目标卡=" + (target != null ? target.CardData?.id : "无"));
             NodeDocRunner.Run(logic, graph, caster, target, null, trigger_action);
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Player target)
         {
             NodeDocRunner.Run(logic, graph, caster, null, target, trigger_action);
+        }
+
+        public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Slot target)
+        {
+            //选目标时以"格子"结算（SelectSlot/PlayTarget 落点）：格内有卡→卡牌目标；空己方格→玩家目标；空敌方格→无目标
+            if (target == null)
+                return;
+            Card slot_card = logic.GameData.GetSlotCard(target);
+            if (slot_card != null)
+                NodeDocRunner.Run(logic, graph, caster, slot_card, null, trigger_action);
+            else
+                NodeDocRunner.Run(logic, graph, caster, null, logic.GameData.GetPlayer(target.p), trigger_action);
         }
     }
 }

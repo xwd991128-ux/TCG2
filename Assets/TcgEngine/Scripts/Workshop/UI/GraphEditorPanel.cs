@@ -5,7 +5,9 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using TMPro;
 using TcgEngine;
+using TcgEngine.Client;
 using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
@@ -21,7 +23,7 @@ namespace TcgEngine.UI
     public class GraphEditorPanel : UIPanel
     {
         [Header("标题/状态")]
-        public Text title_text;              // 页面标题
+        public TMPro.TMP_Text title_text;    // 页面标题（TMP，支持 <sprite> 富文本标签；场景里用 TMP 文本组件绑定）
         public Text status_text;             // 底部状态提示
 
         [Header("工具栏")]
@@ -78,7 +80,7 @@ namespace TcgEngine.UI
         public Text node_lib_count;          // 数量提示
         public InputField node_search_input; // 节点库搜索框（按节点名过滤）
         public RectTransform node_recent_root;// 最近使用栏（横向按钮容器）
-        public Dropdown node_filter_dropdown; // 节点库分类下拉（全部/内置/收藏 + NodeDoc zmcs 分类）
+        public TMPro.TMP_Dropdown node_filter_dropdown; // 节点库分类下拉（全部/内置/收藏 + NodeDoc zmcs 分类；场景里用 TMP Dropdown 绑定）
 
         [Header("右侧节点参数编辑区")]
         public RectTransform node_field_area;            // 节点参数编辑区容器（选中节点后填充）
@@ -137,7 +139,7 @@ namespace TcgEngine.UI
         // ---------------- 节点库预设 ----------------
 
         /// <summary>字段编辑方式</summary>
-        private enum FieldEditType { Input, Dropdown, Toggle }
+        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect }
 
         /// <summary>节点字段定义：决定节点参数区用哪种控件编辑（数值输入/枚举下拉/开关）</summary>
         private class FieldDef
@@ -180,6 +182,7 @@ namespace TcgEngine.UI
             public string category;                                   // zmcs 主题分类（NodeDoc 节点）；内置节点为空
             public List<FieldDef> fields = new List<FieldDef>();  // 节点参数（数值/枚举）
             public List<PinDef> pins = new List<PinDef>();
+            public bool supported = true;                         // zmcs 节点是否已接入执行（未接入的灰显、不可拖入）
         }
 
         /// <summary>比较/运算等节点的枚举字段定义辅助</summary>
@@ -196,158 +199,28 @@ namespace TcgEngine.UI
             return new FieldDef(name, display_name, FieldEditType.Toggle, null, def);
         }
 
-        /// <summary>节点库预设（端口布局参考 zmcs/NodeDoc.xml：左输入 / 右输出，Flow 为执行流，其余为数据流）</summary>
-        private static readonly NodePreset[] PRESETS = new NodePreset[]
+        /// <summary>StatusType 枚举名选项（光环入口"增益定义"下拉，剔除 None/HeroNewTurn 等内部项）</summary>
+        private static string[] status_type_options;
+        private static string[] StatusTypeOptions()
         {
-            // 触发（Event：右侧单个执行流输出）
-            new NodePreset { type = GraphNodeType.Event, action = "OnPlay", title = "打出时", desc = "卡牌被使用/打出时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "StartOfTurn", title = "回合开始", desc = "己方回合开始时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "EndOfTurn", title = "回合结束", desc = "己方回合结束时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "OnAttack", title = "攻击时", desc = "该卡发起攻击时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "OnDamaged", title = "受到伤害", desc = "该卡受到伤害时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "OnDeath", title = "死亡时", desc = "该卡死亡时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "OnHeal", title = "受到治疗", desc = "该卡受到治疗时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            new NodePreset { type = GraphNodeType.Event, action = "OnDraw", title = "抽到时", desc = "该卡被抽到手中时触发",
-                pins = { new PinDef("out", "触发", NodeValueType.Flow, true) } },
-            // 条件（Condition：左入 + 数据输入，右出真/假分支）
-            new NodePreset { type = GraphNodeType.Condition, action = "IfHealth", title = "生命>值", desc = "目标生命大于设定值",
-                fields = { IntField("value", "值", "1") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("target", "目标", NodeValueType.Card, false),
-                    new PinDef("value", "值", NodeValueType.Int32, false),
-                    new PinDef("true", "真", NodeValueType.Flow, true),
-                    new PinDef("false", "假", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Condition, action = "IfMana", title = "法力>值", desc = "当前法力大于设定值",
-                fields = { IntField("value", "值", "1") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("value", "值", NodeValueType.Int32, false),
-                    new PinDef("true", "真", NodeValueType.Flow, true),
-                    new PinDef("false", "假", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Condition, action = "IfRandom", title = "概率判定", desc = "以概率决定走真/假分支",
-                fields = { IntField("value", "概率%", "50") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("chance", "概率", NodeValueType.Int32, false),
-                    new PinDef("true", "真", NodeValueType.Flow, true),
-                    new PinDef("false", "假", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Condition, action = "IfTarget", title = "存在目标", desc = "场上存在有效目标",
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("true", "真", NodeValueType.Flow, true),
-                    new PinDef("false", "假", NodeValueType.Flow, true),
-                } },
-            // 动作（Action：左入执行流 + 数据输入，右出执行流）——仅保留能真实编译进对战的内置直通动作；
-            // 更丰富的能力（目标选取/集合/属性修改等）请使用 NodeDoc(zmcs) 节点（下方分类下拉中选取）
-            new NodePreset { type = GraphNodeType.Action, action = "Damage", title = "造成伤害", desc = "对目标造成 N 点伤害",
-                fields = { IntField("value", "伤害值", "2") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("target", "目标", NodeValueType.Card, false),
-                    new PinDef("value", "伤害值", NodeValueType.Int32, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Action, action = "Heal", title = "治疗", desc = "为己方英雄恢复 N 点生命",
-                fields = { IntField("value", "治疗量", "2") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("value", "治疗量", NodeValueType.Int32, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Action, action = "Draw", title = "抽牌", desc = "己方抽取 N 张牌",
-                fields = { IntField("value", "数量", "1") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("count", "数量", NodeValueType.Int32, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Action, action = "GainMana", title = "获得法力", desc = "获得 N 点法力水晶",
-                fields = { IntField("value", "数量", "1") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("amount", "数量", NodeValueType.Int32, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Action, action = "Summon", title = "召唤随从", desc = "召唤一个随从",
-                fields = { IntField("card_id", "随从ID", "") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("card", "随从", NodeValueType.CardDefine, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            new NodePreset { type = GraphNodeType.Action, action = "Destroy", title = "消灭目标", desc = "消灭目标单位",
-                fields = { IntField("value", "伤害值", "0") },
-                pins = {
-                    new PinDef("in", "入", NodeValueType.Flow, false) { required = true },
-                    new PinDef("target", "目标", NodeValueType.Card, false),
-                    new PinDef("out", "出", NodeValueType.Flow, true),
-                } },
-            // 数值（Value：左数据输入，右数据输出）
-            new NodePreset { type = GraphNodeType.Value, action = "Health", title = "目标生命", desc = "读取目标当前生命值",
-                pins = {
-                    new PinDef("target", "目标", NodeValueType.Card, false),
-                    new PinDef("val", "生命", NodeValueType.Int32, true),
-                } },
-            new NodePreset { type = GraphNodeType.Value, action = "Mana", title = "当前法力", desc = "读取当前法力值",
-                pins = { new PinDef("val", "法力", NodeValueType.Int32, true) } },
-            new NodePreset { type = GraphNodeType.Value, action = "Attack", title = "目标攻击", desc = "读取目标攻击力",
-                pins = {
-                    new PinDef("target", "目标", NodeValueType.Card, false),
-                    new PinDef("val", "攻击", NodeValueType.Int32, true),
-                } },
-            new NodePreset { type = GraphNodeType.Value, action = "Random", title = "随机数", desc = "返回 0~N 随机数",
-                fields = { IntField("value", "上限", "10") },
-                pins = {
-                    new PinDef("max", "上限", NodeValueType.Int32, false),
-                    new PinDef("val", "结果", NodeValueType.Int32, true),
-                } },
-            // 通用：常量/运算（对应 NodeDoc 的"其他"分类）
-            new NodePreset { type = GraphNodeType.Value, action = "IntegerConst", title = "整数常量", desc = "一个固定的整数值",
-                fields = { IntField("value", "数值", "1") },
-                pins = { new PinDef("val", "值", NodeValueType.Int32, true) } },
-            new NodePreset { type = GraphNodeType.Value, action = "BooleanConst", title = "布尔常量", desc = "固定的真/假值",
-                fields = { BoolField("value", "真/假", "true") },
-                pins = { new PinDef("val", "值", NodeValueType.Boolean, true) } },
-            new NodePreset { type = GraphNodeType.Value, action = "Compare", title = "比较", desc = "比较两个整数（a op b）",
-                fields = {
-                    IntField("a", "左值", "0"),
-                    EnumField("op", "关系", new string[] { ">", "<", ">=", "<=", "==", "!=" }, ">"),
-                    IntField("b", "右值", "0"),
-                },
-                pins = {
-                    new PinDef("a", "左值", NodeValueType.Int32, false),
-                    new PinDef("b", "右值", NodeValueType.Int32, false),
-                    new PinDef("val", "结果", NodeValueType.Boolean, true),
-                } },
-            new NodePreset { type = GraphNodeType.Value, action = "IntegerOperation", title = "整数运算", desc = "对两个整数做加减乘除",
-                fields = {
-                    IntField("a", "左值", "0"),
-                    EnumField("op", "运算", new string[] { "+", "-", "*", "/", "%" }, "+"),
-                    IntField("b", "右值", "0"),
-                },
-                pins = {
-                    new PinDef("a", "左值", NodeValueType.Int32, false),
-                    new PinDef("b", "右值", NodeValueType.Int32, false),
-                    new PinDef("val", "结果", NodeValueType.Int32, true),
-                } },
-        };
+            if (status_type_options == null)
+            {
+                List<string> names = new List<string>();
+                foreach (string n in Enum.GetNames(typeof(TcgEngine.StatusType)))
+                {
+                    if (n == "None" || n == "HeroNewTurn")
+                        continue;
+                    names.Add(n);
+                }
+                status_type_options = names.ToArray();
+            }
+            return status_type_options;
+        }
 
         // ---------------- NodeDoc(zmcs) 节点照搬：319 节点数据驱动并入节点库 ----------------
 
-        /// <summary>节点库分类下拉选项（与 filter_index 一一对应）：全部/内置/收藏 + NodeDoc zmcs 分类</summary>
+        /// <summary>节点库分类下拉选项（与 filter_index 一一对应）：全部/收藏 + NodeDoc zmcs 分类（内置节点已移除）</summary>
         private const string CAT_ALL = "全部";
-        private const string CAT_BUILTIN = "内置";
         private const string CAT_FAV = "收藏";
 
         private static List<string> filter_options_cache;
@@ -355,44 +228,193 @@ namespace TcgEngine.UI
         {
             if (filter_options_cache == null)
             {
-                filter_options_cache = new List<string> { CAT_ALL, CAT_BUILTIN, CAT_FAV };
+                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV };
                 foreach (string c in NodeDocDb.Categories)
                     filter_options_cache.Add(c);
             }
             return filter_options_cache;
         }
 
-        /// <summary>完整节点源：内置直通节点 + NodeDoc(zmcs) 全部节点（懒加载缓存）</summary>
+        /// <summary>完整节点源：NodeDoc(zmcs) 全量节点（未接入执行的标记 supported=false，库内灰显；内置节点已删除）</summary>
         private static List<NodePreset> all_presets_cache;
         private static List<NodePreset> AllPresets()
         {
             if (all_presets_cache == null)
             {
-                all_presets_cache = new List<NodePreset>(PRESETS);
+                all_presets_cache = new List<NodePreset>();
+                //内置直通节点（原 PRESETS 数组）已整体删除：节点库只保留 NodeDoc(zmcs) 节点；
+                //旧图残留的内置节点仍由 GraphRuntime 按 action 执行（无需预设数据）
                 foreach (NodeDocDef d in NodeDocDb.All)
-                    all_presets_cache.Add(NodePresetFromDoc(d));
+                {
+                    NodePreset p = NodePresetFromDoc(d);
+                    p.supported = SupportedNodeIds.Contains(d.define_id);
+                    all_presets_cache.Add(p);
+                }
             }
             return all_presets_cache;
         }
+
+        /// <summary>已接入执行的 NodeDoc 节点白名单（决定库里 zmcs 节点能否拖入画布；每实现一个节点就加进来，
+        /// 并清理同名的旧变体——如 102002 卡牌类型判断被 102032 取代、202008/202009/202010 已标过时）</summary>
+        private static readonly HashSet<string> SupportedNodeIds = new HashSet<string>
+        {
+            //动作（执行层已实现）
+            "202001",   //造成伤害（单目标）
+            "202041",   //造成伤害或法伤（多目标/法伤开关，卡池主流）
+            "202016",   //消灭
+            "202013",   //治疗目标卡牌
+            "202039",   //治疗（变体，与 202013 同规执行）
+            "202047",   //治疗（变体，与 202013 同规执行）
+            "212001",   //分支动作（真值→动作/否则动作；条件用内置比较/布尔常量节点）
+            "212002",   //重复动作（数量→循环执行 动作 口；repeatTime 输出第 n 次迭代供循环体数值口取值）
+            "202003",   //创建衍生卡并置入战场（卡牌定义口 v1 填卡牌 id，空位自动选择）
+            "202004",   //创建衍生卡并置入手牌（卡牌定义口 v1 填卡牌 id，手牌满则不创建）
+            "210001",   //简单抽牌（玩家口无连线默认施法卡所属玩家；手牌满时 TCG2 不抽不爆牌）
+            "201003",   //抽目标卡牌（目标卡取值线→从拥有者卡库抽到手牌，手牌满爆牌进墓地）
+            //取值/数据（取值线求值已支持）
+            "102001",   //这张卡牌（施法卡自身）
+            "102010",   //获取卡牌拥有者（Card→Player）
+            "101003",   //获取玩家对手
+            "101004",   //获取玩家英雄
+            "111004",   //获取元素数量（集合→Int32，可用作伤害值等）
+            "111008",   //获取集合中的随机元素
+            "111007",   //获取第X个元素（集合口+元素位置[Int32 字段/取值线]）
+            "102027",   //获取卡牌属性（卡牌口+属性下拉[攻击/生命/法力费用]→数值，接动作的数值口）
+            "202037",   //设置卡牌属性（卡牌口+属性下拉+数值[取值线或字段]→直接设置基础值）
+            "210002",   //卡牌置入战场（卡牌口[集合/取值线]→逐张移到拥有者一侧空位，走 PlayCard 触发入场不扣费）
+            "206001",   //添加增益（v1 数值增益：攻击/生命加成+持续回合字段，替代 zmcs BuffDefine 引用）
+            "206002",   //移除增益（v1=移除卡牌身上加成状态：属性下拉 攻击/生命/全部）
+            "206003",   //设置增益属性（v1=设置卡牌身上加成状态的值/持续：属性下拉+数值口）
+            "106004",   //获取增益属性（v1=读卡牌身上加成状态的值/持续→整数）
+            "112005",   //逻辑运算（且/或/非；内置无对应节点，112002 比较/112004 整数运算与内置重复不放）
+            //取值/集合（取值线求值已支持）
+            "111012",   //筛选
+            "102013",   //获取所有角色
+            "102015",   //获取友方角色
+            "102017",   //获取敌方角色
+            "102014",   //获取友方随从（不含英雄）
+            "102016",   //获取敌方随从（不含英雄）
+            "101008",   //获取玩家牌库中的卡牌
+            "101006",   //获取玩家的手牌
+            "101017",   //获取牌堆（牌堆名下拉：牌库/手牌/墓地）
+            "102032",   //卡牌类型判断（目标1条件；同名 102002 为 CardDefineSelect 版，不支持，不放出）
+            "111005",   //包含（集合口+元素口→布尔，接分支动作真值口；元素 v1 按卡牌解析）
+            //控制流 / 临时变量（第二批）
+            "212005",   //重复动作直到（条件口+maxRepeatTime 字段；repeatTime 输出当前迭代；硬上限 1000 次）
+            "212006",   //停止重复动作（break，作用于最内层循环）
+            "212007",   //跳过重复动作（continue，作用于最内层循环）
+            "212004",   //设置临时变量（变量名 String 字段 + 值口；v1 全图扁平作用域）
+            "112007",   //获取临时变量（整数/布尔/卡牌/集合按用途解析）
+            "112010",   //根据条件选择值（isTrue 真→值口 否→否则值口）
+            //集合运算（第二批，全部基于卡牌集合/卡牌属性整数集合）
+            "111001",   //创建集合（elements 单卡 → 单元素集合）
+            "111002",   //向集合添加元素
+            "111009",   //反转集合
+            "111032",   //打乱集合内元素顺序
+            "111013",   //排序（v1 按属性下拉[攻击/生命/法力费用]+升降序；zmcs 原为条件表达式排序键，不支持）
+            "111024",   //获取第一个元素
+            "111025",   //获取最后一个元素
+            "111026",   //获取集合内前X个元素
+            "111028",   //获取集合内的随机X个元素
+            "111031",   //获取集合内所有元素的某项属性（属性下拉 → 整数集合，供求和/最值/均值）
+            "111014",   //求和（上游 111031 或卡牌集合×属性下拉）
+            "111015",   //获取最小值
+            "111016",   //获取最大值
+            "111017",   //获取平均值
+            //卡牌/玩家行动（第二批）
+            "202015",   //沉默（v1=清空所有状态/特性/持续效果）
+            "202038",   //丢弃卡牌
+            "202044",   //复制卡牌（目标牌堆下拉：手牌/战场/牌库）
+            "202029",   //变形为卡牌定义（isreset 忽略）
+            "202028",   //获得控制权（v1 仅转移归属）
+            "202005",   //创建衍生卡并洗入牌库
+            "210003",   //卡牌移回手牌（手牌满则跳过）
+            "210004",   //卡牌洗入牌库（top=true 置牌库顶）
+            "210005",   //卡牌置入墓地（走 DiscardCard，场上卡触发死亡）
+            "201008",   //增加当前灵力值（不超过上限）
+            "201010",   //增加灵力上限
+            //卡牌定义家族 / 玩家查询 / 杂项（第三批；zmcs CardDefine ≈ TCG2 CardData）
+            "103002",   //获取卡牌定义（cardRef 口 v1 换成卡牌选择字段，填卡牌 id）
+            "103008",   //获取单张卡牌的定义（Card→CardData）
+            "103010",   //获取卡牌定义花费
+            "103011",   //获取卡牌定义攻击力
+            "103012",   //获取卡牌定义生命值
+            "103024",   //卡牌定义类型判断（目标1条件可用；同名 103005 为 CardDefineSelect 版，不支持）
+            "103017",   //卡牌定义具有宣言（v1=定义带 OnPlay 能力）
+            "103018",   //卡牌定义具有遗言（v1=定义带 OnDeath 能力）
+            "101005",   //获取当前回合的玩家
+            "101014",   //获取当前灵力值
+            "101015",   //获取灵力上限
+            "101018",   //获取玩家的当前回合数（v1 简化为全局回合数）
+            "101019",   //玩家是否是先手
+            "109008",   //获取当前回合数
+            "112008",   //X到Y之间的随机整数（含两端）
+            "112009",   //是否不存在（值口解析为 null → 真）
+            //定义集合通道（第四批；103003 定义列表的 DefineReference 入口无来源，不放出）
+            "103001",   //获取所有卡牌定义（定义集合源头，配 111008 随机元素+202003 可随机召唤）
+        };
 
         /// <summary>NodeDoc 定义 → 面板预设：端口 1:1 照搬；Int32/Boolean/String 输入转为右侧可编辑常量字段</summary>
         private static NodePreset NodePresetFromDoc(NodeDocDef d)
         {
             NodePreset p = new NodePreset();
-            p.type = d.outputs.Count == 0 ? GraphNodeType.Action : GraphNodeType.Value;  //启发：无输出→动作；有输出→取值/查询
+            //分类规则：zmcs defineId 前两位即节点大类——10/11=取值/数据节点（卡牌/玩家/增益/集合运算…），
+            //20/21=动作/控制节点（效果/卡牌/玩家/行动/分支循环…），全量 306 个无交叉（曾经"看输出口猜类型"
+            //的启发式判不对 202003/202004 这类"有返回值输出的动作节点"，已废弃）
+            p.type = (d.define_id.StartsWith("20") || d.define_id.StartsWith("21"))
+                ? GraphNodeType.Action : GraphNodeType.Value;
             p.action = d.define_id;
             p.title = d.editor_name;
             p.desc = d.CleanSummary();
             p.category = d.category;
             foreach (NodeDocPort ip in d.inputs)
+            {
+                //206001 添加增益：zmcs 的 BuffDefine 引用在 TCG2 无对应物，v1 不生成引用口，
+                //改用下方 攻击加成/生命加成/持续回合 三个数值字段表达增益
+                if (p.action == "206001" && ip.type == NodeValueType.BuffDefine)
+                    continue;
+                //增益家族 v1（206002/106004/206003）：Buff 引用口不生成；propName(String) 口换成属性下拉（下方字段）；
+                //106004/206003 没有 card 口，下方补一个
+                if ((p.action == "206002" || p.action == "106004" || p.action == "206003")
+                    && (ip.type == NodeValueType.Buff || ip.type == NodeValueType.BuffDefine))
+                    continue;
+                if ((p.action == "106004" || p.action == "206003") && ip.name == "propName")
+                    continue;
+                //111013 排序 / 111031 属性映射：zmcs 用条件/选择器表达式当排序键/属性选择，v1 不支持 lambda，
+                //这两个口不生成，改用 prop 属性下拉字段（见下方字段区）
+                if ((p.action == "111013" && ip.name == "condition") || (p.action == "111031" && ip.name == "selector"))
+                    continue;
+                //103002 获取卡牌定义：DefineReference 引用口不生成，换成卡牌选择字段（下方字段区）
+                if (p.action == "103002" && ip.type == NodeValueType.DefineReference)
+                    continue;
+                //ActionNode 型"输入"实为分支/循环的动作出口（zmcs 控制流节点规范）→ 转成执行流输出口
+                if (ip.type == NodeValueType.ActionNode)
+                {
+                    p.pins.Add(new PinDef(ip.name, ip.display_name, NodeValueType.Flow, true));
+                    continue;
+                }
                 p.pins.Add(new PinDef(ip.name, ip.display_name, ip.type, false, ip.is_array));
+            }
             foreach (NodeDocPort op in d.outputs)
+            {
+                //111013/111031 的 元素 口是 lambda 表达式的输出口（v1 不支持，见上方输入口说明）
+                if ((p.action == "111013" || p.action == "111031") && op.name == "element")
+                    continue;
+                //outputs 段的 ActionNode 同样是分支口（212001 动作/否则动作）→ 执行流输出口
+                if (op.type == NodeValueType.ActionNode)
+                {
+                    p.pins.Add(new PinDef(op.name, op.display_name, NodeValueType.Flow, true));
+                    continue;
+                }
                 p.pins.Add(new PinDef(op.name, op.display_name, op.type, true, op.is_array));
-            //纯动作（无输出数据口）：补一对执行流口（入/出），才能从入口事件接入真实执行链（v1 解释器沿此驱动）
+            }
+            //动作节点一律自带 执行 in/out 一对执行流口（才能从入口事件接入执行链）
             if (p.type == GraphNodeType.Action)
             {
+                //执行 in/out 固定在各自一侧最上面（输出口插到第一个输出位，分支口/事件参数口排在下面）
                 p.pins.Insert(0, new PinDef("in", "执行", NodeValueType.Flow, false));
-                p.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+                int first_out = p.pins.FindIndex(x => x.is_output);
+                p.pins.Insert(first_out < 0 ? p.pins.Count : first_out, new PinDef("out", "执行", NodeValueType.Flow, true));
             }
             foreach (NodeDocPort ip in d.inputs)
             {
@@ -404,7 +426,59 @@ namespace TcgEngine.UI
                     p.fields.Add(BoolField(ip.name, ip.display_name, "false"));
                 else if (ip.type == NodeValueType.String)
                     p.fields.Add(new FieldDef(ip.name, ip.display_name, FieldEditType.Input, null, ""));
+                else if (ip.type == NodeValueType.CardDefine)
+                    p.fields.Add(new FieldDef(ip.name, ip.display_name, FieldEditType.CardSelect, null, ""));   //下拉选当前卡池的卡牌（选项在创建控件时动态生成）
+                else if (ip.type == NodeValueType.CardType)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, TYPE_NAMES, "随从"));  //卡牌类型枚举口 → 中文下拉（如 102032 卡牌类型判断）
+                else if (ip.type == NodeValueType.CardPropertyGetterName)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //102027 获取卡牌属性
+                else if (ip.type == NodeValueType.CardPropertySetterName)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //202037 设置卡牌属性
+                else if (ip.type == NodeValueType.PileName)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "牌库", "手牌", "墓地" }, "牌库"));  //101017 获取牌堆
+                else if (p.action == "202037" && ip.name == "value" && ip.type == NodeValueType.Object)
+                    p.fields.Add(IntField(ip.name, ip.display_name, "0"));   //设置属性的无连线默认值（有取值线时以线为准）
+                else if (ip.type == NodeValueType.CompareOperator)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { ">", "<", ">=", "<=", "==", "!=" }, ">"));
+                else if (ip.type == NodeValueType.LogicOperator)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "且", "或", "非" }, "且"));
+                else if (ip.type == NodeValueType.IntegerOperator)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "+", "-", "*", "/", "%" }, "+"));
             }
+            //206001 添加增益：v1 增益=数值加成（BuffDefine 引用口的替代表达，持续回合 0=永久）
+            if (p.action == "206001")
+            {
+                p.fields.Add(IntField("attack_add", "攻击加成", "0"));
+                p.fields.Add(IntField("hp_add", "生命加成", "0"));
+                p.fields.Add(IntField("duration", "持续回合(0=永久)", "0"));
+            }
+            //增益家族 v1：端口/字段替代表达
+            if (p.action == "206002")
+            {
+                p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //目标卡（支持取值线）
+                p.fields.Add(EnumField("prop", "移除属性", new string[] { "攻击", "生命", "全部" }, "全部"));
+            }
+            if (p.action == "106004" || p.action == "206003")
+            {
+                p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //补卡牌定位口（zmcs 原为 Buff 引用）
+                p.fields.Add(EnumField("prop", "属性",
+                    p.action == "106004"
+                        ? new string[] { "攻击加成", "生命加成", "攻击加成持续", "生命加成持续" }
+                        : new string[] { "攻击加成", "生命加成", "持续回合" },
+                    "攻击加成"));
+            }
+            if (p.action == "206003")
+                p.fields.Add(IntField("value", "值", "0"));
+            //111013 排序 / 111031 属性映射 / 111014~111017 求和最值均值：卡牌属性下拉（排序键/求值属性）
+            if (p.action == "111013" || p.action == "111031" || p.action == "111014"
+                || p.action == "111015" || p.action == "111016" || p.action == "111017")
+                p.fields.Add(EnumField("prop", "属性", new string[] { "攻击", "生命", "法力费用" }, "攻击"));
+            //202044 复制卡牌：zmcs 的 Pile 引用口 v1 换成目标牌堆下拉
+            if (p.action == "202044")
+                p.fields.Add(EnumField("targetPile", "目标牌堆", new string[] { "手牌", "战场", "牌库" }, "手牌"));
+            //103002 获取卡牌定义：DefineReference 引用口的替代表达——卡牌选择下拉（选当前卡池的卡牌）
+            if (p.action == "103002")
+                p.fields.Add(new FieldDef("cardRef", "卡牌定义", FieldEditType.CardSelect, null, ""));
             return p;
         }
 
@@ -420,8 +494,6 @@ namespace TcgEngine.UI
                 return true;
             }
             string sel = opts[filter_index];
-            if (sel == CAT_BUILTIN)
-                return string.IsNullOrEmpty(p.category);
             if (sel == CAT_FAV)
                 return favs.Contains(p.action);
             return p.category == sel;
@@ -658,13 +730,29 @@ namespace TcgEngine.UI
                 trt.anchorMax = new Vector2(1f, 1f);
                 trt.offsetMin = Vector2.zero;
                 trt.offsetMax = Vector2.zero;
-                Text text = tgo.AddComponent<Text>();
-                text.font = (status_text != null) ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                text.fontSize = 28;
-                text.color = new Color(1f, 1f, 1f, 0.35f);
-                text.alignment = TextAnchor.MiddleCenter;
-                text.raycastTarget = false;
-                text.text = "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                TMP_Text text = null;
+                try
+                {
+                    text = tgo.AddComponent<TextMeshProUGUI>();
+                    ApplyNodeFont(text, "画布为空：从右侧节点库点选节点，或一键生成示例效果");
+                    text.fontSize = 28;
+                    text.color = new Color(1f, 1f, 1f, 0.35f);   //空画布引导属提示性文字，保留半透明；非节点文字
+                    text.alignment = TextAlignmentOptions.Center;
+                    text.raycastTarget = false;
+                    text.text = "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError("空画布提示 TMP 化失败，已回退旧版 Text。原因：\n" + e);
+                    text = null;
+                    Text back = tgo.AddComponent<Text>();
+                    back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    back.fontSize = 28;
+                    back.color = new Color(1f, 1f, 1f, 0.35f);
+                    back.alignment = TextAnchor.MiddleCenter;
+                    back.raycastTarget = false;
+                    back.text = "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                }
 
                 //一键示例按钮（下半，规格第6.5节最小可用效果引导）
                 GameObject bgo = new GameObject("SampleBtn", typeof(RectTransform));
@@ -678,8 +766,9 @@ namespace TcgEngine.UI
                 bimg.color = new Color(0.486f, 0.361f, 1f, 0.85f);   //紫（执行流品牌色）
                 Button btn = bgo.AddComponent<Button>();
                 btn.targetGraphic = bimg;
-                Text btext = CreateStretchTextChild(bgo.transform, 20, Color.white);
-                btext.text = "一键生成示例效果：打出时对目标造成 1 点伤害";
+                TMP_Text btext = CreateStretchTextChild(bgo.transform, 20, Color.white);
+                if (btext != null)
+                    btext.text = "一键生成示例效果：打出时对目标造成 1 点伤害";
                 btn.onClick.AddListener(BuildSampleEffect);
 
                 empty_hint = go;
@@ -1039,6 +1128,267 @@ namespace TcgEngine.UI
             }
         }
 
+        // ---------------- 节点画布 TMP 文本工具 ----------------
+
+        /// <summary>节点画布 TMP 字体候选（按优先级）：
+        /// ① 场景绑定的 title_text 字体；② 项目 STSONG CJK 字体资产；③ 场景里已实际渲染在用的字体（必然可用）；
+        /// ④ TMP 内置 LiberationSans；⑤ 其余。坏资产由 ApplyNodeFont 的 try/catch 自动淘汰。</summary>
+        private List<TMP_FontAsset> TmpFontCandidates()
+        {
+            List<TMP_FontAsset> list = new List<TMP_FontAsset>();
+            if (title_text != null && title_text.font != null)
+                list.Add(title_text.font);
+
+            TMP_FontAsset[] all = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            List<TMP_FontAsset> others = new List<TMP_FontAsset>();
+            foreach (TMP_FontAsset fa in all)
+            {
+                if (fa == null || list.Contains(fa))
+                    continue;
+                if (fa.name.Contains("STSONG"))
+                    list.Add(fa);
+                else
+                    others.Add(fa);
+            }
+            //场景中已在使用中的字体资产（有 TMP 文本引用且非空）优先
+            foreach (TextMeshProUGUI t in Resources.FindObjectsOfTypeAll<TextMeshProUGUI>())
+            {
+                if (t == null || t.font == null || list.Contains(t.font) || others.Contains(t.font))
+                    continue;
+                others.Insert(0, t.font);
+            }
+            others.Sort((a, b) =>
+                (a.name.Contains("LiberationSans") ? 0 : 1) - (b.name.Contains("LiberationSans") ? 0 : 1));
+            foreach (TMP_FontAsset fa in others)
+            {
+                if (!list.Contains(fa))
+                    list.Add(fa);
+            }
+            return list;
+        }
+
+        private TMP_FontAsset m_node_tmp_font;        //成功赋值过的字体缓存
+        private readonly HashSet<string> m_bad_fonts = new HashSet<string>();   //赋值失败/缺字过的字体资产名
+        private static TMP_FontAsset m_os_font_asset; //运行时用系统字体现做的动态字体资产（全项目共享）
+
+        /// <summary>探测句：涵盖节点标题/说明里最常用的汉字（含此前显示为方块的：开始/生效/获取/所有/随机/筛选等）。
+        /// 候选字体必须能渲染其中全部字符才算合格，从根上避免"半个词是方块"的缺字体面。</summary>
+        private const string FontProbe = "规则编辑器回合开始结束生效获取友方敌方所有随机筛选目标卡牌属性攻击生命法力值抽牌治疗召唤伤害创建衍生并置入战场简单玩家触发条件类型判断打击消灭";
+
+        /// <summary>实测字体能否渲染探测文本：动态字体会当场补字，补不齐（图盘满/资产损坏）即判不合格</summary>
+        private static bool FontCovers(TMP_FontAsset fa, string text)
+        {
+            if (fa == null || string.IsNullOrEmpty(text))
+                return true;
+            try
+            {
+                uint[] missing;
+                fa.HasCharacters(text, out missing, false, true);
+                return missing == null || missing.Length == 0;
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>用项目里导入的中文字体现做动态 TMP 字体资产（图盘按需增长、不会缺字）。
+        /// 编辑器下必须用导入的字体文件——OS 动态字体没有资产路径，TMP 动态补字会全部失败（整体变方块）；
+        /// 打包环境退回 OS 字体。</summary>
+        private TMP_FontAsset CreateOsFontAsset()
+        {
+            if (m_os_font_asset != null)
+                return m_os_font_asset;
+            try
+            {
+                Font f = null;
+#if UNITY_EDITOR
+                string[] asset_candidates = {
+                    "Assets/TcgEngine/Fonts/SimHei.ttf",
+                    "Assets/TcgEngine/Fonts/MSYH.TTC",
+                    "Assets/TcgEngine/Fonts/STSONG.TTF",
+                    "Assets/TcgEngine/Fonts/SIMSUN.TTC",
+                };
+                foreach (string p in asset_candidates)
+                {
+                    f = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(p);
+                    if (f != null)
+                        break;
+                }
+#endif
+                if (f == null)
+                    f = Font.CreateDynamicFontFromOSFont(new string[]
+                        { "SimHei", "Microsoft YaHei", "微软雅黑", "SimSun", "宋体", "STSong", "华文宋体" }, 24);
+                if (f == null)
+                    return null;
+                //不能用单参重载：其默认 90pt 采样 + 1024 图盘，一页只装得下几十个字，很快塞满出方块。
+                //48pt 采样 + 2048 图盘 + 多页支持：一页可容纳两千余字，超出自动加页
+                TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(f, 48, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA,
+                    2048, 2048, AtlasPopulationMode.Dynamic, true);
+                if (fa == null)
+                    return null;
+                fa.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+                m_os_font_asset = fa;
+                Debug.Log("节点 TMP：已用「" + f.name + "」现做动态字体资产（48pt/2048/多页）");
+                return fa;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("动态 TMP 字体创建失败：" + e.Message);
+                return null;
+            }
+        }
+
+        /// <summary>为 TMP 文本设置画布字体：优先用系统字体（黑体/雅黑）现做的动态字体资产——
+        /// 项目里的 SimHei_TMP/STSONG 资产缺字严重（图盘满、多页关闭），不作首选；
+        /// 系统字体不可用时再逐个尝试项目字体资产，实测覆盖探测文本才算合格</summary>
+        private void ApplyNodeFont(TMP_Text tmp, string probe = null)
+        {
+            if (tmp == null)
+                return;
+            string probe_text = string.IsNullOrEmpty(probe) ? FontProbe : (probe + FontProbe);
+            TMP_FontAsset original_font = tmp.font;   //全失败时恢复用（防 setter 半途抛异常留下 font/材质不一致的残缺态）
+            if (m_node_tmp_font != null)
+            {
+                try { tmp.font = m_node_tmp_font; return; }
+                catch (System.Exception) { m_bad_fonts.Add(m_node_tmp_font.name); m_node_tmp_font = null; }
+            }
+
+            //第一优先：系统字体现做动态字体（图盘按需增长、不会缺字）
+            TMP_FontAsset os = CreateOsFontAsset();
+            if (os != null && !m_bad_fonts.Contains(os.name))
+            {
+                try
+                {
+                    tmp.font = os;
+                    if (!FontCovers(os, probe_text))
+                        throw new System.InvalidOperationException("系统动态字体缺字");
+                    m_node_tmp_font = os;
+                    Debug.Log("节点 TMP 字体选定：系统动态字体（" + os.name + "）");
+                    return;
+                }
+                catch (System.Exception e)
+                {
+                    m_bad_fonts.Add(os.name);
+                    Debug.LogWarning("系统动态字体不可用，转用项目字体资产：" + e.Message);
+                }
+            }
+
+            foreach (TMP_FontAsset fa in TmpFontCandidates())
+            {
+                if (fa == null || m_bad_fonts.Contains(fa.name))
+                    continue;
+                try
+                {
+                    tmp.font = fa;
+                }
+                catch (System.Exception e)
+                {
+                    m_bad_fonts.Add(fa.name);
+                    Debug.LogWarning("节点 TMP 字体「" + fa.name + "」赋值失败，已跳过：" + e.Message);
+                    continue;
+                }
+                if (!FontCovers(fa, probe_text))
+                {
+                    m_bad_fonts.Add(fa.name);
+                    Debug.LogWarning("节点 TMP 字体「" + fa.name + "」缺字（无法渲染探测句全部汉字），已跳过");
+                    continue;
+                }
+                m_node_tmp_font = fa;
+                Debug.Log("节点 TMP 字体选定：" + fa.name);
+                return;
+            }
+            //所有候选都失败：若 setter 半途抛异常导致 sharedMaterial 为 null，后续排版（preferredWidth 等）
+            //会在 TMP 内部空引用，恢复原字体保持 font/材质一致，界面退回旧字体显示
+            try
+            {
+                if (tmp.fontSharedMaterial == null && original_font != null)
+                    tmp.font = original_font;
+            }
+            catch (System.Exception) { }
+        }
+
+        /// <summary>TextAnchor → TMP 对齐（TMP 用 TextAlignmentOptions 枚举）</summary>
+        private static TextAlignmentOptions ToTmpAlignment(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
+                case TextAnchor.UpperCenter: return TextAlignmentOptions.Top;
+                case TextAnchor.UpperRight: return TextAlignmentOptions.TopRight;
+                case TextAnchor.MiddleLeft: return TextAlignmentOptions.Left;
+                case TextAnchor.MiddleCenter: return TextAlignmentOptions.Center;
+                case TextAnchor.MiddleRight: return TextAlignmentOptions.Right;
+                case TextAnchor.LowerLeft: return TextAlignmentOptions.BottomLeft;
+                case TextAnchor.LowerCenter: return TextAlignmentOptions.Bottom;
+                default: return TextAlignmentOptions.BottomRight;
+            }
+        }
+
+        /// <summary>取子物体上的 TMP 文本；若场景模板还是旧 UGUI Text，则销毁旧组件换成 TMP
+        /// （字号/颜色/对齐迁移，字体换成 ApplyNodeFont）。TMP 环境异常（坏字体资产/设置缺失）时
+        /// 整体回退为旧版 Text 并把真实错误打进 Console，保证节点 UI 永不因字体问题崩溃。</summary>
+        private TMP_Text EnsureTmpText(Transform root, string path)
+        {
+            Transform t = root != null ? root.Find(path) : null;
+            if (t == null)
+                return null;
+            Text legacy = t.GetComponent<Text>();
+            string s = legacy != null ? legacy.text : "";
+            TMP_Text tmp = t.GetComponent<TMP_Text>();
+            if (tmp != null)
+            {
+                //已是 TMP 也要查字：场景模板可能绑了缺字字体（如 MSYH SDF 缺「的/（」），覆盖不了就换
+                if (!FontCovers(tmp.font, string.IsNullOrEmpty(s) ? FontProbe : s + FontProbe))
+                    ApplyNodeFont(tmp, s);
+                return tmp;
+            }
+            Color c = legacy != null ? legacy.color : Color.white;
+            int size = legacy != null ? legacy.fontSize : 14;
+            TextAnchor anchor = legacy != null ? legacy.alignment : TextAnchor.UpperLeft;
+            bool raycast = legacy != null && legacy.raycastTarget;
+            try
+            {
+                //必须 DestroyImmediate：Destroy 是帧末销毁，同一帧内旧 Text 还占着 Graphic 位，
+                //AddComponent<TextMeshProUGUI> 会因「一个 GameObject 只能有一个 Graphic」被拒绝
+                if (legacy != null)
+                    DestroyImmediate(legacy);
+                tmp = t.gameObject.AddComponent<TextMeshProUGUI>();
+                if (tmp == null)
+                    throw new System.InvalidOperationException("AddComponent<TextMeshProUGUI> 返回 null（TMP 组件创建失败）");
+                ApplyNodeFont(tmp, s);
+                tmp.fontSize = size;
+                tmp.color = c;
+                tmp.alignment = ToTmpAlignment(anchor);
+                tmp.raycastTarget = raycast;
+                tmp.enableWordWrapping = false;
+                tmp.overflowMode = TextOverflowModes.Overflow;
+                return tmp;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("节点 TMP 化失败（" + path + " @ " + root.name + "），该文本已回退为旧版 Text。原因：\n" + e);
+                //旧 Text 已标记销毁的话重建等价 Text，界面照常工作
+                if (t.GetComponent<Text>() == null)
+                {
+                    Text back = t.gameObject.AddComponent<Text>();
+                    back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    back.fontSize = size;
+                    back.color = Opaque(c);
+                    back.alignment = anchor;
+                    back.raycastTarget = raycast;
+                    back.text = s;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>强制文字颜色不透明（保留 RGB，只把 alpha 置 1；规格：节点文字不做半透明淡化）</summary>
+        private static Color Opaque(Color c)
+        {
+            return new Color(c.r, c.g, c.b, 1f);
+        }
+
         // ---------------- 节点库 ----------------
 
         private void RefreshNodeLib()
@@ -1056,7 +1406,7 @@ namespace TcgEngine.UI
 
             int shown = 0;
             bool use_dropdown = node_filter_dropdown != null;
-            List<NodePreset> source = use_dropdown ? AllPresets() : new List<NodePreset>(PRESETS);
+            List<NodePreset> source = AllPresets();   //节点库只出 NodeDoc(zmcs) 节点（内置节点已移除）
             for (int i = 0; i < source.Count; i++)
             {
                 NodePreset p = source[i];
@@ -1088,7 +1438,7 @@ namespace TcgEngine.UI
             inst.name = "Lib_" + preset.action;
             inst.SetActive(true);
 
-            Text title = inst.transform.Find("TitleText")?.GetComponent<Text>();
+            TMP_Text title = EnsureTmpText(inst.transform, "TitleText");
             if (title != null)
                 title.text = preset.title;
 
@@ -1096,21 +1446,30 @@ namespace TcgEngine.UI
             Image cat = inst.transform.Find("CatBar")?.GetComponent<Image>();
             if (cat != null)
                 cat.color = CategoryColor(preset.type);
-            Text icon = inst.transform.Find("IconText")?.GetComponent<Text>();
+            TMP_Text icon = EnsureTmpText(inst.transform, "IconText");
             if (icon != null)
             {
                 icon.text = CategoryIcon(preset.type);
                 icon.color = CategoryColor(preset.type);
             }
 
-            //端口概要（▸输出 ◂输入）
-            Text desc = inst.transform.Find("DescText")?.GetComponent<Text>();
+            //端口概要（▸输出 ◂输入）；未接入执行的 zmcs 节点：灰显 + 「未接入」标记，点击不生成只提示
+            TMP_Text desc = EnsureTmpText(inst.transform, "DescText");
             if (desc != null)
                 desc.text = PortSummary(preset);
+            if (!preset.supported)
+            {
+                Color gray = new Color(0.55f, 0.55f, 0.58f, 1f);   //灰显但字色不透明
+                if (title != null)
+                    title.text = preset.title + "（未接入）";
+                if (title != null) title.color = gray;
+                if (desc != null) desc.color = gray;
+                if (icon != null) icon.color = gray;
+            }
 
             //收藏星标（右上角，点击切换收藏状态并持久化）
             bool is_fav = favs.Contains(preset.action);
-            Text star = inst.transform.Find("FavBtn/Text")?.GetComponent<Text>();
+            TMP_Text star = EnsureTmpText(inst.transform, "FavBtn/Text");
             if (star != null)
             {
                 star.text = is_fav ? "★" : "☆";
@@ -1123,10 +1482,17 @@ namespace TcgEngine.UI
                 fav.onClick.AddListener(() => ToggleFav(act));
             }
 
+            //主按钮：已接入的拖入画布；未接入的点击只提示
             Button btn = inst.GetComponent<Button>();
             if (btn == null)
                 btn = inst.AddComponent<Button>();
-            btn.onClick.AddListener(() => AddNodeFromPreset(preset));
+            if (preset.supported)
+                btn.onClick.AddListener(() => AddNodeFromPreset(preset));
+            else
+            {
+                string t = preset.title;
+                btn.onClick.AddListener(() => SetStatus("「" + t + "」尚未接入执行层，暂不能加入规则图（已接入节点不带此标记）"));
+            }
         }
 
         /// <summary>切换收藏状态并持久化（规格第1节）</summary>
@@ -1236,11 +1602,11 @@ namespace TcgEngine.UI
             go.transform.SetParent(node_recent_root, false);
             Image img = go.AddComponent<Image>();
             img.color = new Color(0.3f, 0.45f, 0.6f, 0.45f);
-            Text txt = go.AddComponent<Text>();
-            txt.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            TMP_Text txt = go.AddComponent<TextMeshProUGUI>();
+            ApplyNodeFont(txt);
             txt.fontSize = 13;
             txt.color = new Color(0.9f, 1f, 1f, 1f);
-            txt.alignment = TextAnchor.MiddleCenter;
+            txt.alignment = TextAlignmentOptions.Center;
             txt.text = p.title;
             txt.raycastTarget = false;
             return go.AddComponent<Button>();
@@ -1271,7 +1637,7 @@ namespace TcgEngine.UI
         private readonly Dictionary<string, GameObject> issue_badges = new Dictionary<string, GameObject>();   // 节点 id → 红感叹号角标
         private readonly Dictionary<string, GameObject> collapse_badges = new Dictionary<string, GameObject>(); // 节点 id → 收起角标（「×N」圆徽）
         private RectTransform hover_tooltip_root;   // 收起节点悬停细目提示根（挂在画布容器内）
-        private Text hover_tooltip_text;            // 悬停细目提示文本
+        private TMP_Text hover_tooltip_text;        // 悬停细目提示文本
         private RectTransform hover_tooltip_rect;   // 悬停细目提示 RectTransform
 
         /// <summary>校验整张图：必填输入口未接动作线、事件节点没有连出动作线（图什么都不做）</summary>
@@ -1410,15 +1776,18 @@ namespace TcgEngine.UI
             bg.color = new Color(0.9f, 0.2f, 0.2f, 1f);
             bg.raycastTarget = false;
 
-            Text txt = CreateStretchTextChild(go.transform, 15, Color.white);   //Text 放独立子对象（Graphic 唯一限制）
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.text = "!";
+            TMP_Text txt = CreateStretchTextChild(go.transform, 15, Color.white);   //Text 放独立子对象（Graphic 唯一限制）
+            if (txt != null)
+            {
+                txt.alignment = TextAlignmentOptions.Center;
+                txt.text = "!";
+            }
             return go;
         }
 
-        /// <summary>在指定父级下创建铺满父级的 Text 子对象（Unity 限制一个 GameObject 只能有一个 Graphic，
-        /// 因此背景 Image 与文字 Text 必须分属父子两个对象）</summary>
-        private Text CreateStretchTextChild(Transform parent, int font_size, Color color)
+        /// <summary>在指定父级下创建铺满父级的 TMP 文本子对象（Unity 限制一个 GameObject 只能有一个 Graphic，
+        /// 因此背景 Image 与文字 Text 必须分属父子两个对象）。TMP 环境异常时返回 null（调用方需判空）。</summary>
+        private TMP_Text CreateStretchTextChild(Transform parent, int font_size, Color color)
         {
             GameObject tgo = new GameObject("Text", typeof(RectTransform));
             tgo.transform.SetParent(parent, false);
@@ -1428,12 +1797,21 @@ namespace TcgEngine.UI
             trt.offsetMin = Vector2.zero;
             trt.offsetMax = Vector2.zero;
 
-            Text txt = tgo.AddComponent<Text>();
-            txt.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txt.fontSize = font_size;
-            txt.color = color;
-            txt.raycastTarget = false;
-            return txt;
+            try
+            {
+                TextMeshProUGUI txt = tgo.AddComponent<TextMeshProUGUI>();
+                ApplyNodeFont(txt);
+                txt.fontSize = font_size;
+                txt.color = color;
+                txt.raycastTarget = false;
+                return txt;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("节点 TMP 文本创建失败，已跳过（" + parent.name + "）。原因：\n" + e);
+                Destroy(tgo);
+                return null;
+            }
         }
 
         /// <summary>取选中节点的缺输入提示（供选中时状态栏显示「还差…」）</summary>
@@ -1546,37 +1924,101 @@ namespace TcgEngine.UI
             return null;
         }
 
-        /// <summary>旧图数据迁移：旧节点引脚无类型（type=None），按预设重建端口（id 命名规则不变，连线保持有效）</summary>
+        /// <summary>旧图数据迁移：①旧节点引脚无类型（type=None）→ 按预设整体重建（id 命名规则不变，连线保持有效）；
+        /// ②节点分类规则升级后被改型的（如 202041 由取值改动作）→ 修正 node.type；
+        /// ③预设后来新增的引脚（如 主动效果入口的 目标1条件）→ 增量补进节点，已有引脚与连线不动。</summary>
         private static void MigratePins(GraphNode node)
         {
-            if (node == null || node.pins == null || node.pins.Count == 0)
+            if (node == null || node.pins == null)
                 return;
-            bool need_migrate = false;
+            NodePreset preset = FindPreset(node.type, node.action);
+            if (preset == null)
+            {
+                //按动作跨类型找（分类规则升级：如 202041 有事件参数输出 → 由取值改判为动作）
+                foreach (NodePreset p in AllPresets())
+                {
+                    if (p.action == node.action && p.type != node.type)
+                    {
+                        preset = p;
+                        node.type = p.type;
+                        break;
+                    }
+                }
+            }
+            if (preset == null)
+                return;
+            bool need_rebuild = node.pins.Count == 0;
             foreach (GraphPin p in node.pins)
             {
                 if (p.type == NodeValueType.None)
                 {
-                    need_migrate = true;
+                    need_rebuild = true;
                     break;
                 }
             }
-            if (!need_migrate)
+            if (need_rebuild)
+            {
+                node.pins.Clear();
+                foreach (PinDef pd in preset.pins)
+                {
+                    node.pins.Add(new GraphPin
+                    {
+                        id = node.id + "_" + pd.name,
+                        name = pd.name,
+                        display_name = pd.display_name,
+                        type = pd.type,
+                        is_output = pd.is_output,
+                        is_array = pd.is_array,
+                    });
+                }
                 return;
-            NodePreset preset = FindPreset(node.type, node.action);
-            if (preset == null)
-                return;
-            node.pins.Clear();
+            }
+            //增量同步：预设里新增的引脚补进来；已有引脚按预设修正类型（如 ActionNode 分支口 → 执行流），
+            //引脚 id 命名规则不变，旧连线不受影响
             foreach (PinDef pd in preset.pins)
             {
-                node.pins.Add(new GraphPin
+                GraphPin found = null;
+                foreach (GraphPin p in node.pins)
                 {
-                    id = node.id + "_" + pd.name,
-                    name = pd.name,
-                    display_name = pd.display_name,
-                    type = pd.type,
-                    is_output = pd.is_output,
-                    is_array = pd.is_array,
-                });
+                    if (p.name == pd.name)
+                    {
+                        found = p;
+                        break;
+                    }
+                }
+                if (found == null)
+                {
+                    node.pins.Add(new GraphPin
+                    {
+                        id = node.id + "_" + pd.name,
+                        name = pd.name,
+                        display_name = pd.display_name,
+                        type = pd.type,
+                        is_output = pd.is_output,
+                        is_array = pd.is_array,
+                    });
+                }
+                else
+                {
+                    found.type = pd.type;
+                    found.is_output = pd.is_output;
+                    found.is_array = pd.is_array;
+                    found.display_name = pd.display_name;
+                }
+            }
+            //按预设顺序重排（如执行 in/out 移到最上面）：连线按引脚 id 引用，顺序变化不影响已有连线；
+            //预设里没有的引脚（历史遗留）保持在末尾
+            int sorted = 0;
+            foreach (PinDef pd in preset.pins)
+            {
+                int idx = node.pins.FindIndex(x => x.name == pd.name);
+                if (idx >= 0 && idx != sorted)
+                {
+                    GraphPin move = node.pins[idx];
+                    node.pins.RemoveAt(idx);
+                    node.pins.Insert(sorted, move);
+                }
+                sorted++;
             }
         }
 
@@ -1657,35 +2099,48 @@ namespace TcgEngine.UI
             rect.anchorMax = Vector2.zero;
             rect.pivot = Vector2.zero;
             rect.anchoredPosition = new Vector2(node.pos.x, node.pos.y);
-            //节点宽/高自适应：宽度按最宽一行文字、高度按 Header+端口行数+说明区（规格第3节），
-            //输出口 x 与端口行 y 依赖该尺寸，须先于 CreatePinUI 设置
-            rect.sizeDelta = new Vector2(EstimateNodeWidth(node), EstimateNodeHeight(node));
 
-            //Header：分类色条 + 类型标签 + 标题
+            //Header：分类色条 + 类型标签 + 标题（画布节点文字统一 TMP、颜色不透明）
             Transform header = inst.transform.Find("Header");
             if (header != null)
             {
                 Image cat = header.Find("CatBar")?.GetComponent<Image>();
                 if (cat != null)
                     cat.color = CategoryColor(node.type);
-                Text type = header.Find("TypeText")?.GetComponent<Text>();
+                TMP_Text type = EnsureTmpText(header, "TypeText");
                 if (type != null)
                 {
                     //zmcs(NodeDoc) 节点头部显示其主题分类（如"卡牌"），内置节点沿用原四类名
                     string label = string.IsNullOrEmpty(node.category) ? NodeTypeLabel(node.type) : node.category;
                     type.text = CategoryIcon(node.type) + " " + label;   //规格第6.4节：颜色+图标辅助扫视
-                    type.color = CategoryColor(node.type);
+                    type.color = Opaque(CategoryColor(node.type));
                 }
             }
-            Text title = inst.transform.Find("Header/TitleText")?.GetComponent<Text>();
+            TMP_Text title = EnsureTmpText(inst.transform, "Header/TitleText");
             if (title != null)
+            {
                 title.text = node.title;
-            Text desc = inst.transform.Find("DescText")?.GetComponent<Text>();
+                title.color = Opaque(title.color);
+            }
+            TMP_Text desc = EnsureTmpText(inst.transform, "DescText");
             if (desc != null)
             {
                 desc.text = NodeSummary(node);
+                desc.color = Opaque(desc.color);   //说明文字不再半透明
                 desc.gameObject.SetActive(!string.IsNullOrEmpty(desc.text));   //无说明则高度 0
             }
+
+            //节点宽/高自适应：宽度取「标题 TMP 实测宽度(preferredWidth)+边距」与端口标签估算的最宽者
+            //（TMP 实测精确到字形，中文/英文混排不再偏窄）；高度按 Header+端口行数+说明区（规格第3节），
+            //输出口 x 与端口行 y 依赖该尺寸，须先于 CreatePinUI 设置
+            float title_w = 0f;
+            if (title != null && !string.IsNullOrEmpty(title.text))
+            {
+                try { title_w = title.preferredWidth + 104f; }   //104 = 左边距12 + 右侧按钮区90 + 2
+                catch (System.Exception) { title_w = 0f; }   //字体/材质异常时退回估算宽度，不让排版崩掉整个画布
+            }
+            float node_w = Mathf.Max(EstimateNodeWidth(node), title_w);
+            rect.sizeDelta = new Vector2(Mathf.Clamp(node_w, 190f, 460f), EstimateNodeHeight(node));
 
             //收起/删除按钮（每个节点自带，规格第4节）
             string nid = node.id;
@@ -1757,7 +2212,8 @@ namespace TcgEngine.UI
             return 33f + rows * 28f + (has_desc ? 26f : 0f) + 6f;
         }
 
-        /// <summary>估算节点宽度：取标题/端口标签/内联值框中最宽一行（规格第3节 min190/max320，中文全角按字号、ASCII半角按0.55字号）</summary>
+        /// <summary>估算节点宽度：取标题/端口标签/内联值框中最宽一行（中文全角按字号、ASCII半角按0.55字号估算；
+        /// 画布实例化时会用标题 TMP preferredWidth 实测值取更宽者，min190/max460，规格第3节）</summary>
         private static float EstimateNodeWidth(GraphNode node)
         {
             float w = EstimateTextWidth(node.title, 20) + 24;
@@ -1771,7 +2227,7 @@ namespace TcgEngine.UI
                     w = Mathf.Max(w, EstimateTextWidth(name, 12) + 44);
                 }
             }
-            return Mathf.Clamp(w, 190f, 320f);
+            return Mathf.Clamp(w, 190f, 460f);
         }
 
         /// <summary>估算一行文字宽度（px）：中文/全角按字号，ASCII/半角按 0.55 字号</summary>
@@ -1851,7 +2307,7 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>创建端口名称标签（挂在引脚实例上：输出口贴点左侧右对齐，输入口贴点右侧左对齐）</summary>
+        /// <summary>创建端口名称标签（TMP，挂在引脚实例上：输出口贴点左侧右对齐，输入口贴点右侧左对齐）</summary>
         private void CreatePinNameLabel(Transform pin_inst, GraphPin pin, bool is_output)
         {
             GameObject go = new GameObject("PinName", typeof(RectTransform));
@@ -1865,17 +2321,35 @@ namespace TcgEngine.UI
             rt.anchoredPosition = new Vector2(is_output ? -72f : 72f, 0f);
             rt.sizeDelta = new Vector2(130f, 18f);
 
-            Text txt = go.AddComponent<Text>();
-            txt.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txt.fontSize = 12;
-            txt.alignment = is_output ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
-            txt.color = PinColor(pin);
-            txt.text = string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name;
-            txt.raycastTarget = false;
+            TextMeshProUGUI txt;
+            try
+            {
+                txt = go.AddComponent<TextMeshProUGUI>();
+                ApplyNodeFont(txt, string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name);
+                txt.fontSize = 12;
+                txt.alignment = is_output ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
+                txt.color = Opaque(PinColor(pin));   //端口标签不透明
+                txt.text = string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name;
+                txt.raycastTarget = false;
+                txt.enableWordWrapping = false;
+                txt.overflowMode = TextOverflowModes.Overflow;
+            }
+            catch (System.Exception e)
+            {
+                //TMP 环境异常：回退旧版 Text，端口标签照常显示
+                Debug.LogError("端口标签 TMP 化失败，已回退旧版 Text。原因：\n" + e);
+                Text back = go.AddComponent<Text>();
+                back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                back.fontSize = 12;
+                back.alignment = is_output ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
+                back.color = Opaque(PinColor(pin));
+                back.text = string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name;
+                back.raycastTarget = false;
+            }
         }
 
-        /// <summary>创建输入口的内联数值框（挂在引脚实例上，位于圆点右侧）</summary>
-        private Text CreatePinValueLabel(Transform pin_inst)
+        /// <summary>创建输入口的内联数值框（TMP，挂在引脚实例上，位于圆点右侧）；失败返回 null（NodePin 已判空）</summary>
+        private TMP_Text CreatePinValueLabel(Transform pin_inst)
         {
             GameObject go = new GameObject("ValueLabel", typeof(RectTransform));
             go.transform.SetParent(pin_inst, false);
@@ -1886,13 +2360,29 @@ namespace TcgEngine.UI
             rt.anchoredPosition = new Vector2(62f, 0f);   //圆点右侧向框内延伸（点中心 6px + 半宽 60px → 框内），避免文字出框
             rt.sizeDelta = new Vector2(120f, 18f);
 
-            Text txt = go.AddComponent<Text>();
-            txt.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txt.fontSize = 12;
-            txt.alignment = TextAnchor.MiddleLeft;
-            txt.color = new Color(0.357f, 0.616f, 1f, 1f);
-            txt.raycastTarget = true;
-            return txt;
+            try
+            {
+                TextMeshProUGUI txt = go.AddComponent<TextMeshProUGUI>();
+                ApplyNodeFont(txt);
+                txt.fontSize = 12;
+                txt.alignment = TextAlignmentOptions.Left;
+                txt.color = new Color(0.357f, 0.616f, 1f, 1f);
+                txt.raycastTarget = true;
+                txt.enableWordWrapping = false;
+                txt.overflowMode = TextOverflowModes.Overflow;
+                return txt;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("端口值框 TMP 化失败，已回退旧版 Text。原因：\n" + e);
+                Text back = go.AddComponent<Text>();
+                back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                back.fontSize = 12;
+                back.alignment = TextAnchor.MiddleLeft;
+                back.color = new Color(0.357f, 0.616f, 1f, 1f);
+                back.raycastTarget = true;
+                return null;
+            }
         }
 
         /// <summary>刷新所有输入口的内联数值框（连线/字段编辑后调用）</summary>
@@ -2126,14 +2616,14 @@ namespace TcgEngine.UI
                 Image bg = rect.Find("LineBG")?.GetComponent<Image>();
                 if (bg != null)
                 {
-                    //三级状态：选中蓝 > 缺输入淡红（规格第6.6节）> 默认白
+                    //三级状态：选中蓝 > 缺输入暗红（规格第6.6节）> 默认深灰底；全部不透明
                     bool issue = !string.IsNullOrEmpty(MissingInputHint(node_id));
                     if (node_id == selected_node)
-                        bg.color = new Color(0.35f, 0.65f, 0.95f, 0.45f);
+                        bg.color = new Color(0.20f, 0.36f, 0.55f, 1f);
                     else if (issue)
-                        bg.color = new Color(0.8f, 0.2f, 0.2f, 0.18f);
+                        bg.color = new Color(0.40f, 0.12f, 0.12f, 1f);
                     else
-                        bg.color = new Color(1f, 1f, 1f, 0.12f);
+                        bg.color = new Color(0.14f, 0.15f, 0.20f, 1f);
                 }
             }
         }
@@ -2175,6 +2665,7 @@ namespace TcgEngine.UI
                     case FieldEditType.Input: CreateFieldInput(node, fd, current); break;
                     case FieldEditType.Dropdown: CreateFieldDropdown(node, fd, current); break;
                     case FieldEditType.Toggle: CreateFieldToggle(node, fd, current); break;
+                    case FieldEditType.CardSelect: CreateFieldCardSelect(node, fd, current); break;
                 }
             }
         }
@@ -2246,6 +2737,50 @@ namespace TcgEngine.UI
             });
         }
 
+        /// <summary>卡牌定义选择器（CardDefine 输入口）：下拉列出当前卡池的所有卡牌（显示「标题 (id)」，存储 id）</summary>
+        private void CreateFieldCardSelect(GraphNode node, FieldDef fd, string current)
+        {
+            if (node_field_dropdown_template == null)
+                return;
+            GameObject inst = Instantiate(node_field_dropdown_template, node_field_area);
+            inst.name = "Field_" + fd.name;
+            inst.SetActive(true);
+
+            Text label = inst.transform.Find("Label")?.GetComponent<Text>();
+            if (label != null)
+                label.text = fd.display_name;
+
+            //选项动态生成：当前卡池全部卡牌（字段定义里不预设，因为随编辑的卡池变化）
+            List<string> ids = new List<string>();
+            List<string> displays = new List<string>();
+            if (pool != null && pool.cards != null)
+            {
+                foreach (CardCustomData c in pool.cards)
+                {
+                    if (c == null || string.IsNullOrEmpty(c.id))
+                        continue;
+                    ids.Add(c.id);
+                    displays.Add((string.IsNullOrEmpty(c.title) ? c.id : c.title) + " (" + c.id + ")");
+                }
+            }
+
+            Dropdown dd = inst.GetComponentInChildren<Dropdown>(true);
+            if (dd == null)
+                return;
+            dd.ClearOptions();
+            dd.AddOptions(displays);
+            int idx = ids.IndexOf(current);
+            dd.value = idx < 0 ? 0 : idx;
+            dd.RefreshShownValue();
+            dd.onValueChanged.AddListener((v) =>
+            {
+                string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
+                SetFieldValue(node, fd.name, val);
+                RefreshNodeSummary(node);
+                RefreshPinValues();
+            });
+        }
+
         private void CreateFieldToggle(GraphNode node, FieldDef fd, string current)
         {
             if (node_field_toggle_template == null)
@@ -2277,7 +2812,7 @@ namespace TcgEngine.UI
                 return;
             if (node_rows.TryGetValue(node.id, out RectTransform rect))
             {
-                Text desc = rect.Find("DescText")?.GetComponent<Text>();
+                TMP_Text desc = rect.Find("DescText")?.GetComponent<TMP_Text>();
                 if (desc != null)
                 {
                     desc.text = NodeSummary(node);
@@ -2453,7 +2988,7 @@ namespace TcgEngine.UI
                     badge = CreateCollapseBadge(kv.Value);
                     collapse_badges[kv.Key] = badge;
                 }
-                Text t = badge.GetComponentInChildren<Text>();
+                TMP_Text t = badge.GetComponentInChildren<TMP_Text>(true);
                 if (t != null)
                     t.text = "×" + in_count;
             }
@@ -2476,9 +3011,12 @@ namespace TcgEngine.UI
             bg.color = new Color(0.95f, 0.6f, 0.1f, 1f);   //橙黄圆徽，醒目但不喧宾夺主
             bg.raycastTarget = false;
 
-            Text txt = CreateStretchTextChild(go.transform, 14, Color.white);   //Text 放独立子对象（Graphic 唯一限制）
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.text = "×0";
+            TMP_Text txt = CreateStretchTextChild(go.transform, 14, Color.white);   //Text 放独立子对象（Graphic 唯一限制）
+            if (txt != null)
+            {
+                txt.alignment = TextAlignmentOptions.Center;
+                txt.text = "×0";
+            }
             return go;
         }
 
@@ -2510,7 +3048,7 @@ namespace TcgEngine.UI
                 return;
             }
 
-            Text tip = EnsureHoverTooltip();
+            TMP_Text tip = EnsureHoverTooltip();
             if (tip == null)
                 return;
             tip.text = content;
@@ -2530,7 +3068,7 @@ namespace TcgEngine.UI
         }
 
         /// <summary>创建/复用悬停细目提示（挂在画布容器内，随画布平移缩放）</summary>
-        private Text EnsureHoverTooltip()
+        private TMP_Text EnsureHoverTooltip()
         {
             if (hover_tooltip_text != null)
                 return hover_tooltip_text;
@@ -2548,8 +3086,9 @@ namespace TcgEngine.UI
             bg.raycastTarget = false;
 
             //Text 需放独立子对象（Unity 限制一个 GameObject 只能有一个 Graphic）
-            Text txt = CreateStretchTextChild(go.transform, 13, Color.white);
-            txt.alignment = TextAnchor.MiddleCenter;
+            TMP_Text txt = CreateStretchTextChild(go.transform, 13, Color.white);
+            if (txt != null)
+                txt.alignment = TextAlignmentOptions.Center;
 
             hover_tooltip_root = rt;
             hover_tooltip_text = txt;
@@ -2849,39 +3388,86 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>用模拟宿主执行当前卡规则图，验证触发→动作闭环，并高亮执行路径</summary>
+        /// <summary>「模拟测试」：与卡牌编辑页同款——先把当前规则图保存进卡牌并同步运行时数据，
+        /// 再跳转人机战斗（我方卡组由当前卡组成一整套，AI 用随机初始卡池，开局双方法力直接为上限）</summary>
         private void OnTest()
         {
-            if (graph == null || graph.nodes.Count == 0)
+            if (card == null || pool == null)
             {
-                SetStatus("当前卡还没有规则图，先在节点库添加节点");
+                SetStatus("没有可测试的卡牌");
                 return;
             }
-            //编辑器层阶段：NodeDoc(zmcs) 节点图的真实执行（图解释器）将在后续版本接入
-            foreach (GraphNode gn in graph.nodes)
+
+            //带规则图时先做与保存同规的校验+写回（否则进对战跑的还是上一次保存的图）
+            if (graph != null && graph.nodes.Count > 0)
             {
-                if (gn != null && !string.IsNullOrEmpty(gn.category))
+                List<GraphIssue> issues = ValidateGraph();
+                if (issues.Count > 0)
                 {
-                    SetStatus("已包含 zmcs(NodeDoc) 节点：当前支持编辑/保存/预览，真实对局执行将在后续版本接入（内置动作节点仍可模拟/编译）");
+                    ApplyValidationMarks();
+                    SetStatus("无法测试：规则图有 " + issues.Count + " 处缺输入，请先补全（红「!」节点）");
                     return;
                 }
+                ReadForm();
+                graph.name = string.IsNullOrEmpty(card.title) ? "NewGraph" : card.title;
+                card.graph = graph;
             }
-            //规格第6.6节：试跑时醒目提示缺输入（不拦截，跑完仍可看高亮）
-            List<GraphIssue> issues = ValidateGraph();
-            if (issues.Count > 0)
-                ApplyValidationMarks();
-            SimulatedGraphHost host = new SimulatedGraphHost();
-            GraphRuntime.ExecutionResult result = GraphRuntime.Execute(graph, host, "");
-            if (result.success)
+
+            //确保该卡运行时数据已注册且为最新（含规则图编译的能力）
+            CardData data = CardData.Get(card.id);
+            if (data == null)
             {
-                string warn = issues.Count > 0 ? " | 注意：有 " + issues.Count + " 处缺输入（红「!」节点可能不执行）" : "";
-                SetStatus("测试完成: 执行 " + result.visited.Count + " 个节点 | HP=" + host.hp + " 手牌=" + host.hand + warn);
-                ShowRunHighlight(result);
+                data = CardPoolIO.BuildCardData(card);
+                if (data != null)
+                    CardPoolIO.RegisterCard(data);
             }
             else
             {
-                SetStatus("测试失败: " + result.error);
+                CardPoolIO.UpdateCardData(card); //同步最新属性与规则图能力
             }
+            if (data == null)
+            {
+                SetStatus("无法构建测试卡牌数据，请先保存卡池");
+                return;
+            }
+
+            //我方卡组：一整套全是这张卡
+            int deck_size = GameplayData.Get().deck_size;
+            UserDeckData test_deck = new UserDeckData();
+            test_deck.tid = "test_" + System.Guid.NewGuid().ToString("N").Substring(0, 8);
+            test_deck.title = "测试 - " + (string.IsNullOrEmpty(card.title) ? data.title : card.title);
+            test_deck.hero = GetDefaultHero();
+            test_deck.cards = new UserCardData[]
+            {
+                new UserCardData { tid = data.id, variant = VariantData.GetDefault().id, quantity = deck_size }
+            };
+
+            //AI：随机初始卡池
+            DeckData ai_data = GameplayData.Get().GetRandomAIDeck();
+            if (ai_data == null)
+            {
+                SetStatus("没有可用的 AI 初始卡池");
+                return;
+            }
+
+            //设置对战参数并跳转人机战斗
+            GameClient.player_settings.deck = test_deck;
+            GameClient.ai_settings.deck = new UserDeckData(ai_data);
+            GameClient.ai_settings.ai_level = GameplayData.Get().ai_level;
+            GameClient.game_settings.test_full_mana = true;
+
+            MainMenu.Get().StartGame(GameType.Solo, GameMode.Casual);
+        }
+
+        /// <summary>取一张默认英雄卡作为测试卡组的英雄</summary>
+        private UserCardData GetDefaultHero()
+        {
+            foreach (CardData c in CardData.GetAll())
+            {
+                if (c.type == CardType.Hero)
+                    return new UserCardData(c, VariantData.GetDefault());
+            }
+            return new UserCardData();
         }
 
         // ---------------- 运行走线高亮 ----------------
@@ -2900,7 +3486,7 @@ namespace TcgEngine.UI
                 Transform t = rect.Find("Header/TitleText");
                 if (t != null)
                 {
-                    Text txt = t.GetComponent<Text>();
+                    TMP_Text txt = t.GetComponent<TMP_Text>();
                     if (txt != null)
                         txt.color = run_hl_color;
                 }
@@ -2947,7 +3533,7 @@ namespace TcgEngine.UI
                 Transform t = rect.Find("Header/TitleText");
                 if (t != null)
                 {
-                    Text txt = t.GetComponent<Text>();
+                    TMP_Text txt = t.GetComponent<TMP_Text>();
                     if (txt != null)
                         txt.color = Color.white;
                 }
@@ -3006,7 +3592,13 @@ namespace TcgEngine.UI
         {
             string s = string.IsNullOrEmpty(node.title) ? node.action : node.title;
             foreach (FieldCustomData f in node.fields)
+            {
+                //入口目标配置字段(归属/范围/优先级/报错)不进节点摘要，避免刷屏英文键名
+                if (f.name == "target_side" || f.name == "target_scope"
+                    || f.name == "target_error" || f.name == "priority")
+                    continue;
                 s += "  " + f.name + "=" + f.value;
+            }
             //端口概要（▸输出 ◂输入）；zmcs(NodeDoc) 节点端口多，不再拼到摘要防节点过大
             if (string.IsNullOrEmpty(node.category) && node.pins.Count > 0)
             {

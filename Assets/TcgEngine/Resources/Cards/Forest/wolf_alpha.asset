@@ -36,8 +36,8 @@ MonoBehaviour:
   attack_fx: {fileID: 0}
   damage_fx: {fileID: 0}
   idle_fx: {fileID: 0}
-  spawn_audio: {fileID: 0}
-  death_audio: {fileID: 0}
+  spawn_audio: {fileID: 8300000, guid: ff129e98db462f34baf5e09e7e4eb268, type: 3}
+  death_audio: {fileID: 8300000, guid: ff129e98db462f34baf5e09e7e4eb268, type: 3}
   attack_audio: {fileID: 0}
   damage_audio: {fileID: 0}
   deckbuilding: 1

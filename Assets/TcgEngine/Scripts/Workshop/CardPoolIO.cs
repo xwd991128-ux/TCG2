@@ -367,7 +367,7 @@ namespace TcgEngine.Workshop
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("加载自定义卡池失败: " + file + "\n" + e.Message);
+                    Debug.LogError("加载自定义卡池失败: " + file + "\n" + e);   //带堆栈，便于定位抛异常的 Add
                 }
             }
         }
@@ -550,19 +550,58 @@ namespace TcgEngine.Workshop
                 return result;
 
             GraphData graph = data.graph;
+            //控制节点(212001 分支 / 212002 重复)下游若接了内置直通动作：内置动作按无条件触发编译（不走分支/循环），提醒改用 NodeDoc 动作
+            foreach (GraphNode bn in graph.nodes)
+            {
+                if (bn == null || bn.type != GraphNodeType.Action
+                    || (bn.action != "212001" && bn.action != "212002"))
+                    continue;
+                string ctrl = bn.action == "212001" ? "分支动作" : "重复动作";
+                foreach (GraphNode ba in FindReachableActions(graph, bn.id))
+                {
+                    if (ba != null && string.IsNullOrEmpty(ba.category))
+                    {
+                        Debug.LogWarning("[规则图] " + ctrl + "下游包含内置直通动作（" + ba.action + " " + ba.title + "）：内置动作不走" + ctrl + "，" + (bn.action == "212001" ? "分支内" : "循环体内") + "请使用 NodeDoc 动作（如 造成伤害或法伤）");
+                        break;
+                    }
+                }
+            }
             foreach (GraphNode ev in graph.nodes)
             {
                 if (ev == null || ev.type != GraphNodeType.Event)
                     continue;
 
-                AbilityTrigger trigger = MapGraphTrigger(ev.action);
+                AbilityTrigger trigger = ResolveEventTrigger(ev);
                 if (trigger == AbilityTrigger.None)
                 {
-                    Debug.LogWarning("[规则图] 触发器未支持，跳过: " + ev.action);
+                    //被动入口非亡语标签：按约定跳过（其余触发时机等用户后续提供的节点格式）
+                    if (ev.action == "PassiveEffect")
+                        continue;
+                    Debug.LogWarning("[规则图] 触发器未支持，跳过: " + ev.action +
+                        (ev.action == "EventEffect" ? "（监听事件: " + GraphRuntime.GetFieldString(ev, "event_name", "") + "）" : ""));
+                    continue;
+                }
+                //光环入口的下游 NodeDoc 动作线：Ongoing 管线不走 EffectRunGraph，执行层未接入，提前警告（光环本体增益仍会编译）
+                if (ev.action == "AuraEffect" && GraphHasNodeDocAction(graph, ev.id))
+                {
+                    Debug.LogWarning("[规则图] " + (ev.title ?? ev.action) + " 下游的 NodeDoc 动作线暂不执行（光环动作线执行层待接入）");
+                }
+
+                //光环效果入口：增益由入口节点自身定义（增益定义/生效区域/作用区域），直接编译为 Ongoing 光环能力；
+                //下游动作线（Ongoing 管线不执行 Flow）暂不编译，见上方警告
+                if (ev.action == "AuraEffect")
+                {
+                    AbilityData aura = BuildAuraAbility(data, ev);
+                    if (aura != null)
+                    {
+                        RegisterAbility(aura);
+                        result.Add(aura);
+                    }
                     continue;
                 }
 
-                List<GraphNode> acts = FindReachableActions(graph, ev.id);
+                List<GraphNode> acts = FindReachableActions(graph, ev.id,
+                    ev.action == "PassiveEffect" ? new string[] { "enable", "disable" } : null);
                 bool is_spell = string.Equals(data.type, "Spell", StringComparison.OrdinalIgnoreCase);
 
                 //NodeDoc(zmcs) 动作：挂 EffectRunGraph 由解释器在真实对局执行（按事件单独挂载）
@@ -580,33 +619,66 @@ namespace TcgEngine.Workshop
                     AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
                     ab.id = "graph_" + data.id + "_" + ev.action + "_node" + Guid.NewGuid().ToString("N").Substring(0, 6);
                     ab.trigger = trigger;
-                    //v1 目标模式：法术且图中含"需选择目标"类动作(伤害/消灭/治疗目标卡) → PlayTarget 弹出选择
+
+                    //图中含"需选择目标"类动作(伤害/消灭/治疗目标卡) → 需要目标解析
                     bool wants_target = false;
                     foreach (GraphNode act in acts)
                     {
                         if (act != null && !string.IsNullOrEmpty(act.category)
                             && (act.action == "202001" || act.action == "202016"
-                                || act.action == "202013" || act.action == "202039" || act.action == "202047"))
+                                || act.action == "202013" || act.action == "202039" || act.action == "202047"
+                                || act.action == "202041"))
                         {
                             wants_target = true;
                             break;
                         }
                     }
-                    ab.target = (is_spell && wants_target) ? AbilityTarget.PlayTarget : AbilityTarget.None;
-                    if (wants_target && !is_spell)
-                        Debug.LogWarning("[规则图] " + (ev.title ?? ev.action)
-                            + " 下游动作需要选择目标，但该卡类型不是法术 → 效果不会执行（请把卡类型改为法术，或改用无需目标的动作）");
+
+                    //入场目标配置（读"打出时"事件节点上的字段，语义同"入场技能目标设置"面板）：
+                    //   target_side  归属：任意/敌方/友方
+                    //   target_scope 范围：任意/仅角色/仅英雄（仅英雄=直接选玩家，不再弹目标）
+                    string tside = GraphRuntime.GetFieldString(ev, "target_side", "任意");
+                    string tscope = GraphRuntime.GetFieldString(ev, "target_scope", "任意");
+                    bool hero_only = tscope == "仅英雄";
+                    List<ConditionData> tconds = new List<ConditionData>();
+                    AbilityTarget atarget = AbilityTarget.None;
+                    if (wants_target)
+                    {
+                        if (hero_only)
+                        {
+                            //打脸/打自己英雄：直接按归属指向玩家，无需弹出选择
+                            atarget = tside == "友方" ? AbilityTarget.PlayerSelf : AbilityTarget.PlayerOpponent;
+                        }
+                        else
+                        {
+                            //目标通道：法术=打出时拖选(PlayTarget)；随从/装备等=入场后弹出选择(SelectTarget)
+                            atarget = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget;
+                            if (tside == "敌方")
+                                tconds.Add(MakeOwnerCondition(false));
+                            else if (tside == "友方")
+                                tconds.Add(MakeOwnerCondition(true));
+                            if (tscope == "仅角色")
+                            {
+                                ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
+                                role.player_only = false;   //只能选场上角色，不能选玩家
+                                tconds.Add(role);
+                            }
+                        }
+                    }
+                    ab.target = atarget;
+
                     EffectRunGraph run = ScriptableObject.CreateInstance<EffectRunGraph>();
                     run.graph = graph;
                     run.trigger_action = ev.action;
                     ab.effects = new EffectData[] { run };
                     ab.conditions_trigger = new ConditionData[0];
-                    ab.conditions_target = new ConditionData[0];
+                    ab.conditions_target = tconds.ToArray();
                     ab.filters_target = new FilterData[0];
                     ab.status = new StatusData[0];
                     ab.chain_abilities = new AbilityData[0];
                     ab.title = (ev.title ?? ev.action) + "：规则图执行";
                     ab.desc = ab.title;
+                    ApplyEntryOverrides(ab, ev, is_spell, graph);
                     RegisterAbility(ab);
                     result.Add(ab);
                 }
@@ -657,12 +729,167 @@ namespace TcgEngine.Workshop
                 case "OnDeath": return AbilityTrigger.OnDeath;
                 case "OnAttack": return AbilityTrigger.OnBeforeAttack;
                 case "OnDraw": return AbilityTrigger.OnDraw;
+                case "ActivateEffect": return AbilityTrigger.OnPlay;    //主动效果入口（zmcs）= 打出时触发（炉石战吼/法术）
+                case "AuraEffect": return AbilityTrigger.Ongoing;       //光环效果入口（zmcs）
                 default: return AbilityTrigger.None;
             }
         }
 
-        /// <summary>从事件节点出发，沿输出连线查找可达的动作节点（跳过条件/值节点）</summary>
-        private static List<GraphNode> FindReachableActions(GraphData graph, string from_id)
+        /// <summary>入口节点触发器解析：常规入口按 action 映射；
+        /// 被动效果入口按 标签列表（v1 仅「亡语」→OnDeath，其余时机待后续节点格式）；
+        /// 事件效果入口按 监听事件 字段（zmcs 事件名 → TCG2 触发器）。</summary>
+        private static AbilityTrigger ResolveEventTrigger(GraphNode ev)
+        {
+            switch (ev.action)
+            {
+                case "PassiveEffect":
+                    return GraphRuntime.GetFieldString(ev, "tag_list", "亡语") == "亡语" ? AbilityTrigger.OnDeath : AbilityTrigger.None;
+                case "EventEffect":
+                    return MapEventName(GraphRuntime.GetFieldString(ev, "event_name", "回合结束"));
+                default:
+                    return MapGraphTrigger(ev.action);
+            }
+        }
+
+        /// <summary>zmcs 事件入口的监听事件名 → TCG2 触发器（未支持返回 None）。
+        /// 注：受伤/治疗类事件 TCG2 无对应触发器，暂不提供选项。</summary>
+        private static AbilityTrigger MapEventName(string name)
+        {
+            switch (name)
+            {
+                case "回合结束": return AbilityTrigger.EndOfTurn;
+                case "回合开始": return AbilityTrigger.StartOfTurn;
+                case "打出牌": return AbilityTrigger.OnPlayOther;   //zmcs UseEvent=任意卡打出（含其他卡）
+                case "攻击时": return AbilityTrigger.OnBeforeAttack;
+                case "死亡时": return AbilityTrigger.OnDeath;
+                case "抽到时": return AbilityTrigger.OnDraw;
+                default: return AbilityTrigger.None;
+            }
+        }
+
+        /// <summary>光环效果入口 → Ongoing 光环能力：增益定义编译为 EffectAddStatus（走 DoOngoingEffect 持续刷新），
+        /// 生效区域 → AbilityTarget，作用区域 → 目标归属条件（ConditionOwner）。返回 null 表示增益未配置/未识别。</summary>
+        private static AbilityData BuildAuraAbility(CardCustomData data, GraphNode ev)
+        {
+            string buff = GraphRuntime.GetFieldString(ev, "buff", "AddAttack");
+            StatusData sdata = StatusData.Get(ParseEnum(buff, StatusType.None));
+            if (sdata == null)
+            {
+                Debug.LogWarning("[规则图] 光环效果入口的增益定义未识别: " + buff);
+                return null;
+            }
+
+            EffectAddStatus effect = ScriptableObject.CreateInstance<EffectAddStatus>();
+            effect.status = sdata;
+            effect.value = 1;
+            effect.duration = 0;
+
+            AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
+            ab.id = "graph_" + data.id + "_aura_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            ab.trigger = AbilityTrigger.Ongoing;
+            string live_area = GraphRuntime.GetFieldString(ev, "live_area", "场上");
+            ab.target = live_area == "手牌" ? AbilityTarget.AllCardsHand
+                      : live_area == "全部区域" ? AbilityTarget.AllCardsAllPiles
+                      : AbilityTarget.AllCardsBoard;
+
+            List<ConditionData> tconds = new List<ConditionData>();
+            string target_area = GraphRuntime.GetFieldString(ev, "target_area", "双方");
+            if (target_area == "己方")
+                tconds.Add(MakeOwnerCondition(true));
+            else if (target_area == "敌方")
+                tconds.Add(MakeOwnerCondition(false));
+            ab.conditions_target = tconds.ToArray();
+
+            ab.effects = new EffectData[] { effect };
+            ab.value = 1;
+            ab.conditions_trigger = new ConditionData[0];
+            ab.filters_target = new FilterData[0];
+            ab.status = new StatusData[0];
+            ab.chain_abilities = new AbilityData[0];
+            ab.title = (ev.title ?? "光环效果入口") + "：" + buff;
+            ab.desc = ab.title;
+            return ab;
+        }
+
+        /// <summary>入口节点级参数覆盖（在能力编译完成后调用）：
+        /// 主动效果入口=打出时触发（炉石战吼/法术），按 目标类型 字段配置目标解析方式；
+        /// 「目标1条件」输入口有连线时追加 ConditionGraphTarget（逐候选目标求值图条件链，zmcs 机制）。</summary>
+        private static void ApplyEntryOverrides(AbilityData ab, GraphNode ev, bool is_spell, GraphData graph)
+        {
+            if (ab == null || ev == null)
+                return;
+            switch (ev.action)
+            {
+                case "ActivateEffect":
+                {
+                    string tt = GraphRuntime.GetFieldString(ev, "target_type", "无");
+                    if (tt == "角色")
+                    {
+                        //法术=打出时拖选(PlayTarget)；随从/装备等=入场后弹出选择(SelectTarget)，且只能选场上角色
+                        ab.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget;
+                        //目标归属：敌方/友方 → ConditionOwner 归属过滤（任意不加）
+                        string side = GraphRuntime.GetFieldString(ev, "target_side", "任意");
+                        if (side == "敌方")
+                            ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(false));
+                        else if (side == "友方")
+                            ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(true));
+                        ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
+                        role.player_only = false;
+                        role.allow_player = true;   //zmcs「角色」含英雄：玩家英雄也可选
+                        ab.conditions_target = AppendCondition(ab.conditions_target, role);
+                    }
+                    else if (tt == "英雄")
+                    {
+                        ab.target = AbilityTarget.PlayerOpponent;   //直接指向对方英雄，不弹选
+                    }
+                    else
+                    {
+                        ab.target = AbilityTarget.None; //无目标：走无目标分支直接执行（NodeDoc 动作自行决定目标）
+                    }
+                    //目标1条件（zmcs：目标1条件 ← 条件节点链，如 卡牌类型判断=仆从）
+                    if (graph != null)
+                    {
+                        GraphPin tc_pin = graph.GetPinByName(ev.id, "targetCondition");
+                        GraphLink tc_link = tc_pin != null ? graph.GetIncomingLink(ev.id, tc_pin.id) : null;
+                        if (tc_link != null)
+                        {
+                            ConditionGraphTarget cond = ScriptableObject.CreateInstance<ConditionGraphTarget>();
+                            cond.graph = graph;
+                            cond.entry_node_id = ev.id;
+                            ab.conditions_target = AppendCondition(ab.conditions_target, cond);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        /// <summary>追加条件到数组（保持非 null 约定）</summary>
+        private static ConditionData[] AppendCondition(ConditionData[] array, ConditionData extra)
+        {
+            List<ConditionData> list = new List<ConditionData>();
+            if (array != null)
+                list.AddRange(array);
+            list.Add(extra);
+            return list.ToArray();
+        }
+
+        /// <summary>某事件节点下游是否连有 NodeDoc(zmcs) 动作（沿 Flow 可达，预留出口不计）</summary>
+        private static bool GraphHasNodeDocAction(GraphData graph, string event_id)
+        {
+            GraphNode ev = graph.GetNode(event_id);
+            string[] skip = (ev != null && ev.action == "PassiveEffect") ? new string[] { "enable", "disable" } : null;
+            foreach (GraphNode act in FindReachableActions(graph, event_id, skip))
+            {
+                if (act != null && !string.IsNullOrEmpty(act.category))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>从事件节点出发，沿输出连线查找可达的动作节点（跳过条件/值节点）。
+        /// skip_pin_names：跳过起点上这些短名的 Flow 输出口（如被动入口预留的 生效/失效动作）。</summary>
+        private static List<GraphNode> FindReachableActions(GraphData graph, string from_id, params string[] skip_pin_names)
         {
             List<GraphNode> result = new List<GraphNode>();
             if (graph == null)
@@ -694,6 +921,8 @@ namespace TcgEngine.Workshop
                     GraphPin out_pin = graph.GetPin(node.id, link.from_pin);
                     if (out_pin != null && out_pin.type != NodeValueType.Flow && out_pin.type != NodeValueType.None)
                         continue;
+                    if (out_pin != null && skip_pin_names != null && Array.IndexOf(skip_pin_names, out_pin.name) >= 0)
+                        continue;   //预留出口（如被动入口 生效/失效动作）：v1 不执行
                     GraphNode next = graph.GetNode(link.to_node);
                     if (next != null)
                         stack.Push(next);
@@ -773,7 +1002,7 @@ namespace TcgEngine.Workshop
             else if (mode == "全体随从") { info.target = AbilityTarget.AllCardsBoard; }
             else if (mode == "敌方英雄") { info.target = AbilityTarget.PlayerOpponent; }
             else if (mode == "己方英雄") { info.target = AbilityTarget.PlayerSelf; }
-            else if (mode == "出牌选目标") { info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.None; }
+            else if (mode == "出牌选目标") { info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget; }
             else
             {
                 //旧图没有 target 字段 → 按动作语义取默认
@@ -791,12 +1020,20 @@ namespace TcgEngine.Workshop
                     case "AddAttack":
                     case "AddHP":
                     default:
-                        //伤害/消灭等需"目标"的动作：非法术卡上不隐式打自己（空转），由玩家显式选择
-                        info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.None;
+                        //伤害/消灭等需"目标"的动作：法术打出拖选目标，随从等入场后弹出选择
+                        info.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget;
                         break;
                 }
             }
             return info;
+        }
+
+        /// <summary>创建"目标归属"条件：ally=true 只选友方，false 只选敌方</summary>
+        private static ConditionData MakeOwnerCondition(bool ally)
+        {
+            ConditionOwner cond = ScriptableObject.CreateInstance<ConditionOwner>();
+            cond.oper = ally ? ConditionOperatorBool.IsTrue : ConditionOperatorBool.IsFalse;
+            return cond;
         }
 
         /// <summary>为"全部友方/敌方随从"目标附加归属条件（ConditionOwner：IsTrue 同阵营 / IsFalse 敌方）</summary>

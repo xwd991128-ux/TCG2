@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using TMPro;
 using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
@@ -20,7 +21,7 @@ namespace TcgEngine.UI
         public RectTransform node_rect;      // 所属节点根
         public Vector2 offset;               // 引脚相对节点左下角的偏移（画布局部）
         public Vector2 original_offset;      // 展开时的原始偏移（收起/展开恢复用）
-        public Text value_label;             // 内联数值框（仅输入口）：= 固定值 / ← 来源
+        public TMP_Text value_label;         // 内联数值框（仅输入口）：= 固定值 / ← 来源
 
         public void Setup(GraphEditorPanel editor, string node_id, string pin_id, bool is_output,
             RectTransform node_rect, Vector2 offset)
