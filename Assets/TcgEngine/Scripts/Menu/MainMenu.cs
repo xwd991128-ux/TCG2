@@ -117,7 +117,7 @@ namespace TcgEngine.UI
                 if (p == null) continue;
                 if (p.name == "HomePanel") continue;                       //主界面保留
                 if (p.name == "BlackPanel" || p.name == "CardEditorPanel" ||
-                    p.name == "CardPoolPanel" || p.name == "GraphEditorPanel")
+                    p.name == "CardPoolPanel" || p.name == "GraphEditorPanel" || p.name == "KeywordPanel")
                 {
                     if (p.name == "GraphEditorPanel" && !p.enabled)
                         p.enabled = true; //修复：组件被禁用会导致永不自动隐藏且 Show() 失效
@@ -295,6 +295,20 @@ namespace TcgEngine.UI
         {
             if (CardPoolPanel.Get() != null)
                 CardPoolPanel.Get().Show();
+        }
+
+        /// <summary>打开关键词管理面板（场景按钮 OnClick 里选此方法；面板未生成时提示）</summary>
+        public void OnClickKeywordPanel()
+        {
+            TcgEngine.UI.KeywordPanel panel = TcgEngine.UI.KeywordPanel.Get();
+            if (panel == null)
+                panel = FindObjectOfType<TcgEngine.UI.KeywordPanel>(true);
+            if (panel == null)
+            {
+                Debug.LogWarning("未找到 KeywordPanel：请先在编辑器菜单运行「生成关键词管理页面到主菜单场景」");
+                return;
+            }
+            panel.Show();
         }
 
         public void OnClickPlayCode()

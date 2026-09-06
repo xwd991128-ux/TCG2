@@ -39,6 +39,15 @@ namespace TcgEngine.UI
         private int selected = -1;
         private const string NEW_ID_SEED = "keyword_";
 
+        private static KeywordPanel instance;
+        public static KeywordPanel Get() { return instance; }
+
+        protected override void Awake()
+        {
+            base.Awake();
+            instance = this;
+        }
+
         protected override void Start()
         {
             base.Start();
