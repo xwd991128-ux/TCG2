@@ -118,7 +118,42 @@ namespace TcgEngine
             //if (game_data.GetActivePlayer() != null)
             //    textTemp = textTemp.Replace("{mana}",game_data.GetActivePlayer().ToString());
             else textTemp = textTemp.Replace("{mana}", "1");
-            return textTemp;
+            //关键词名前置显示在卡面文本前（如 "<b>冲锋。</b>..."），所有用 GetText 的卡面 UI 自动带上
+            string kw = GetKeywordsTitleText();
+            return string.IsNullOrEmpty(kw) ? textTemp : kw + textTemp;
+        }
+
+        /// <summary>关键词名串（"<b>冲锋。</b>风怒。"），无关键词返回空串</summary>
+        public string GetKeywordsTitleText()
+        {
+            if (keywords == null || keywords.Length == 0)
+                return "";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            foreach (KeywordData keyword in keywords)
+            {
+                if (keyword == null || string.IsNullOrEmpty(keyword.title))
+                    continue;
+                sb.Append("<b>").Append(keyword.title).Append("</b>。");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>关键词说明串（悬浮预览用，每行 "标题：说明"），无关键词返回空串</summary>
+        public string GetKeywordsDescText()
+        {
+            if (keywords == null || keywords.Length == 0)
+                return "";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            foreach (KeywordData keyword in keywords)
+            {
+                if (keyword == null || string.IsNullOrEmpty(keyword.title))
+                    continue;
+                sb.Append("<b>").Append(keyword.title).Append("</b>");
+                if (!string.IsNullOrEmpty(keyword.desc))
+                    sb.Append("：").Append(keyword.desc);
+                sb.Append("\n");
+            }
+            return sb.ToString();
         }
 
         public string GetDesc()

@@ -80,10 +80,14 @@ namespace TcgEngine.UI
 
                 string cdesc = icard.GetDesc();
                 string adesc = icard.GetAbilitiesDesc();
+                string kdesc = icard.GetKeywordsDescText();   //关键词说明（标题：说明，每行一条）
+                string body = "";
                 if (!string.IsNullOrWhiteSpace(cdesc))
-                    this.desc.text = cdesc + "\n\n" + adesc;
-                else
-                    this.desc.text = adesc;
+                    body += cdesc + "\n\n";
+                if (!string.IsNullOrWhiteSpace(kdesc))
+                    body += kdesc + "\n";
+                body += adesc;
+                this.desc.text = body;
 
                 //Abilities
                 int index = 0;
