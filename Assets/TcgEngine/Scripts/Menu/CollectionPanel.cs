@@ -140,18 +140,15 @@ namespace TcgEngine.UI
                 Destroy(card.gameObject);
             all_list.Clear();
 
-            foreach (VariantData variant in VariantData.GetAll())
+            foreach (CardData card in CardData.GetAll())
             {
-                foreach (CardData card in CardData.GetAll())
-                {
-                    GameObject nCard = Instantiate(card_prefab, grid_content.transform);
-                    CollectionCard dCard = nCard.GetComponent<CollectionCard>();
-                    dCard.SetCard(card, variant, 0);
-                    dCard.onClick += OnClickCard;
-                    dCard.onClickRight += OnClickCardRight;
-                    all_list.Add(dCard);
-                    nCard.SetActive(false);
-                }
+                GameObject nCard = Instantiate(card_prefab, grid_content.transform);
+                CollectionCard dCard = nCard.GetComponent<CollectionCard>();
+                dCard.SetCard(card, VariantData.GetDefault(), 0);
+                dCard.onClick += OnClickCard;
+                dCard.onClickRight += OnClickCardRight;
+                all_list.Add(dCard);
+                nCard.SetActive(false);
             }
         }
 
