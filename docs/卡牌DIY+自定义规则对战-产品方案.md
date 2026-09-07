@@ -488,6 +488,70 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 5. 官方卡全量迁移（扫地，对应 7.12.4-2）
 6. 网络/存档/工具（#9/#10）→ 联机验证与后续运维
 
+### 7.13 可配置战斗按钮（数据驱动，玩家可自定义显示与触发动作）
+
+> 需求：战斗界面增加几个按钮，可自定义**显示内容**和**触发动作**。方案 = 纯数据驱动的外挂按钮系统，不侵入现有 `AbilityButton`（卡上技能按钮）/`GameUI`（写死的出牌/结束回合）逻辑。
+
+#### 7.13.1 数据结构
+
+```csharp
+[CreateAssetMenu(menuName = "TcgEngine/BattleButton")]
+public class BattleButtonData : ScriptableObject
+{
+    public string id;                 // 按钮标识
+    public string label;              // 显示文字
+    public Sprite icon;               // 显示图标
+    public int sort_order;            // 排列顺序
+    public BattleButtonAction action; // 触发动作（见 7.13.2）
+    public bool enabled_on_turn;      // 是否仅自己回合可点
+}
+```
+
+#### 7.13.2 触发动作（两级，与 DIY 打通）
+
+| 层级 | 动作类型 | 例子 | 落点 |
+|---|---|---|---|
+| 引擎内置动作 | `enum` 固定几种 | 结束回合 / 投降 / 打开菜单 / 抽1张 | 复用 `GameClient`（`EndTurn/Resign` 等） |
+| DIY 自定义动作 | `RunNodeGraphAction`（节点图） | `抽3张` / `给全体+1攻` | 丢给 `NodeGraphRunner` → 现有 EffectData → GameLogic |
+
+动作抽象：
+```csharp
+public abstract class BattleButtonAction : ScriptableObject
+{
+    public string label;
+    public abstract void Execute(BattleButtonContext ctx);
+}
+public class BattleButtonContext
+{
+    public Player player;   // 谁的回合
+    public GameUI ui;
+    public GameClient client;
+}
+```
+
+#### 7.13.3 运行时排布（不动核心对局逻辑）
+
+新增 `BattleButtonBar : MonoBehaviour`（挂战斗场景顶层 UI）：
+* 暴露 `List<BattleButtonData> buttons` 配置哪几个。
+* 按 `sort_order` 用 `HorizontalLayoutGroup` 自动排布。
+* 每个槽位创建通用 `BattleButtonUI`，从数据 Fill 文字/图标/可点状态。
+* 点击 → 按 `action` 分发到 `BattleButtonAction.Execute(ctx)`。
+
+#### 7.13.4 与现有引擎对接点
+
+* **显示**：新建独立 `BattleButtonUI`，复用现有按钮样式，不碰 `AbilityButton`。
+* **引擎动作**：复用 `GameClient` 玩家指令（`PlayCard/AttackTarget/Move/CastAbility/EndTurn/Resign`），天然走网络同步，私房对战可用。
+* **DIY 动作**：复用 `ValueSource + EffectData + NodeGraphRunner`，触发后跑绑定的节点图。
+
+#### 7.13.5 建议首期最小闭环
+
+1. `BattleButtonData`（显示 + 动作）。
+2. `BattleButtonBar` + 通用 `BattleButtonUI`。
+3. 预置两动作验证通路：`结束回合`（引擎动作）、`抽3张牌`（DIY 节点图动作）。
+4. 存盘先本地简单的 `.diybutton` 或 SO。
+
+**注意**：本系统是新增独立模块，与 7.12 强统一解耦——先做官方按钮受控、DIY 按钮逐步开放，不影响现有出牌流程。
+
 ***
 
 ## 8. 待办（下一步）
