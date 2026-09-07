@@ -463,6 +463,31 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 * **初期成本高**：官方卡迁移是纯苦力；且 319 节点的补全（集合/取余/计算）必须在官方卡迁移**之前**具备，否则迁移到一半发现无法表达。
 * **官方丢代码灵活度**：官方想再做复杂机制，最终表达也被限制在节点能力内。这是为"统一、可复用长期架构"付出的代价。
 
+#### 7.12.6 强统一改造清单（逐模块落地依据）
+
+> 引擎现状：官方卡效果 = `AbilityData(能力)` + `EffectData/ConditionData/FilterData(效果/条件/筛选)` ScriptableObject 组合，靠 `AbilityTrigger` 枚举触发 + `GameLogic.TriggerCardAbilityType` 粗粒度分发执行。强统一 = 把这套"代码组合配置"整体替换为"节点图"。**不是小改，是动引擎心脏。**
+
+| # | 模块 | 现有代码 | 强统一改造目标 | 性质 |
+|---|---|---|---|---|
+| 1 | **卡数据** | [CardData.cs](Assets/TcgEngine/Scripts/Data/CardData.cs) `abilities` 字段 | 废弃 `AbilityData[]`，改挂 `CardGraphData` 节点图 | 改造 |
+| 2 | **卡加载** | `CardData.Load()` 走 `Resources.LoadAll<CardData>` | 官方卡改为从 `.diycard` 加载（保留 CardData 壳或直接图） | 改造 |
+| 3 | **能力载体** | [AbilityData.cs](Assets/TcgEngine/Scripts/Data/AbilityData.cs) 整类 | 不再被卡直接引用，仅作"官方自定义节点/关键词"封壳 | 收缩 |
+| 4 | **效果引擎** | Effects/Values/Conditions/Filters 四大目录（约 100+ 文件） | **不删**，转作 `NodeGraphRunner` 的底层 Handler，被节点重新编排 | 保留复用 |
+| 5 | **触发执行** | [GameLogic.cs](Assets/TcgEngine/Scripts/GameLogic/GameLogic.cs) `TriggerCardAbilityType` 35+ 枚举触发点 | 收敛为**一套事件总线**，找带触发器节点图 → 跑 `NodeGraphRunner` | 改造★ |
+| 6 | **运行时卡模** | [Card.cs](Assets/TcgEngine/Scripts/GameLogic/Card.cs)、[Player.cs](Assets/TcgEngine/Scripts/GameLogic/Player.cs) | 节点图实例化效果；`CardTrait` 体系作自定义关键词底座并与节点触发打通 | 扩展 |
+| 7 | **目标选择** | `AbilityTarget` 枚举 + SelectTargetUI/CardSelector/ChoiceSelector | 被节点目标端口替代，或保留作节点的"目标取值节点"后端 | 改造★ |
+| 8 | **出牌 UI** | CardLine/AbilityButton 依赖 trigger/target 枚举判断 | 新增一批"官方只读节点"承接可否打出/有无目标判断 | 改造 |
+| 9 | **网络/存档** | GameAction 同步 CardData id、JsonUtility 存档 | 同步自定义卡效果图签名/hash；存档读 `.diycard` | 改造 |
+| 10 | **开发工具** | Editor/CardBrowserWindow 卡浏览器 | 扩展为官方卡也在节点编辑器编辑，或废弃 | 迁移 |
+
+**改造优先级排序（依赖顺序）**：
+1. 补全节点到能表达官方现有卡（集合 / 四则+取余 / 事件触发钩子）→ 对应 7.12.4-1
+2. 数据层落挂载（#1/#2/#3）→ 卡能挂图、能加载
+3. 事件驱动执行（#5/#6）→ 节点图真能跑成对局效果
+4. 目标选择与出牌 UI（#7/#8）→ 玩家能完整打出 & 选目标
+5. 官方卡全量迁移（扫地，对应 7.12.4-2）
+6. 网络/存档/工具（#9/#10）→ 联机验证与后续运维
+
 ***
 
 ## 8. 待办（下一步）
