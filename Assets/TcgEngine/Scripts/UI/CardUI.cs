@@ -130,7 +130,7 @@ namespace TcgEngine.UI
             {
                 if (card.traits != null && card.traits.Length > 0 && card.type != CardType.Hero)
                 {
-                    trait_text.text = string.Join(",", card.traits.Select(t => t.title));
+                    trait_text.text = string.Join(",", card.traits.Where(t => t != null).Select(t => t.title));
                     trait_text.enabled = true;
                 }
                 else

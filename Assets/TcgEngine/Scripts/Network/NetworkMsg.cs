@@ -1,4 +1,4 @@
-﻿
+
 using Unity.Netcode;
 using UnityEngine.Events;
 
@@ -331,6 +331,16 @@ namespace TcgEngine
         {
             serializer.SerializeValue(ref player_id);
             serializer.SerializeValue(ref msg);
+        }
+    }
+
+    public class MsgBattleButton : INetworkSerializable
+    {
+        public string button_id;   //被点击的战斗按钮 id
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref button_id);
         }
     }
 

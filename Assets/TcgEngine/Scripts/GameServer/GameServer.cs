@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TcgEngine.AI;
 using TcgEngine.Gameplay;
 using Unity.Netcode;
@@ -70,6 +70,7 @@ namespace TcgEngine.Server
             RegisterAction(GameAction.CancelSelect, ReceiveCancelSelection);
             RegisterAction(GameAction.EndTurn, ReceiveEndTurn);
             RegisterAction(GameAction.Resign, ReceiveResign);
+            RegisterAction(GameAction.BattleButton, ReceiveBattleButton);
             RegisterAction(GameAction.ChatMessage, ReceiveChat);
 
             //Events
@@ -440,6 +441,17 @@ namespace TcgEngine.Server
             if (player != null && game_data.IsPlayerTurn(player))
             {
                 gameplay.NextStep();
+            }
+        }
+
+        public void ReceiveBattleButton(ClientData iclient, SerializedData sdata)
+        {
+            MsgBattleButton msg = sdata.Get<MsgBattleButton>();
+            Player player = GetPlayer(iclient);
+            //仅自己回合可点（全局按钮，服务端校验，防回合外操作）
+            if (player != null && msg != null && game_data.IsPlayerTurn(player) && !gameplay.IsResolving())
+            {
+                gameplay.PressBattleButton(player, msg.button_id);
             }
         }
 

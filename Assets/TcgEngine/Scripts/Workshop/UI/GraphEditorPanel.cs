@@ -100,6 +100,8 @@ namespace TcgEngine.UI
         private GraphData graph;             // 当前卡的规则图（= card.graph）
         private KeywordData editing_keyword;   // 关键词模式：当前编辑的关键词（card/pool 为空）
         private KeywordRule editing_rule;      // 关键词模式：当前编辑的规则条目（graph 引用其 graph）
+        private BuffData editing_buff;         // 增益模式：当前编辑的增益定义（card/pool/关键词均为空，graph 引用其 graph）
+        private BattleButtonConfig editing_button_config;   // 按钮模式：当前编辑的全局按钮配置（card/pool/关键词/增益均为空，graph 引用其共享图）
         /// <summary>当前卡的规则图（供 NodePin 等组件读取取值）</summary>
         public GraphData Graph { get { return graph; } }
 
@@ -143,7 +145,7 @@ namespace TcgEngine.UI
         // ---------------- 节点库预设 ----------------
 
         /// <summary>字段编辑方式</summary>
-        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect }
+        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect, BuffSelect, ButtonSelect }
 
         /// <summary>节点字段定义：决定节点参数区用哪种控件编辑（数值输入/枚举下拉/开关）</summary>
         private class FieldDef
@@ -223,23 +225,26 @@ namespace TcgEngine.UI
 
         // ---------------- NodeDoc(zmcs) 节点照搬：319 节点数据驱动并入节点库 ----------------
 
-        /// <summary>节点库分类下拉选项（与 filter_index 一一对应）：全部/收藏 + NodeDoc zmcs 分类（内置节点已移除）</summary>
+        /// <summary>节点库分类下拉选项（与 filter_index 一一对应）：全部/收藏/触发器/增益触发/按钮 + NodeDoc zmcs 分类（内置节点已移除）</summary>
         private const string CAT_ALL = "全部";
         private const string CAT_FAV = "收藏";
+        private const string CAT_TRIGGER = "触发器";
+        private const string CAT_BUFF_TRIGGER = "增益触发";
+        private const string CAT_BUTTON = "按钮";
 
         private static List<string> filter_options_cache;
         private static List<string> FilterOptions()
         {
             if (filter_options_cache == null)
             {
-                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV };
+                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV, CAT_TRIGGER, CAT_BUFF_TRIGGER, CAT_BUTTON };
                 foreach (string c in NodeDocDb.Categories)
                     filter_options_cache.Add(c);
             }
             return filter_options_cache;
         }
 
-        /// <summary>完整节点源：NodeDoc(zmcs) 全量节点（未接入执行的标记 supported=false，库内灰显；内置节点已删除）</summary>
+        /// <summary>完整节点源：NodeDoc(zmcs) 全量节点 + 入口触发器预设（未接入执行的 NodeDoc 标记 supported=false，库内灰显）</summary>
         private static List<NodePreset> all_presets_cache;
         private static List<NodePreset> AllPresets()
         {
@@ -254,8 +259,135 @@ namespace TcgEngine.UI
                     p.supported = SupportedNodeIds.Contains(d.define_id);
                     all_presets_cache.Add(p);
                 }
+                //入口触发器（Event 类型）：新图从节点库拖入，暴露事件环境变量端口（自身/目标/有无目标/己方/敌方玩家）
+                all_presets_cache.AddRange(BuildTriggerPresets());
+                //增益触发（Event 类型）：增益效果图的入口（BuffData.graph），暴露增益上下文变量（自身/施加者/增益定义/双方玩家/剩余回合）
+                all_presets_cache.AddRange(BuildBuffTriggerPresets());
+                //按钮节点（Event/动作）：战斗界面自定义按钮（一图多按钮），点击按钮时/点击按钮后/触发按钮效果
+                all_presets_cache.AddRange(BuildButtonPresets());
             }
             return all_presets_cache;
+        }
+
+        /// <summary>入口触发器预设（事件环境变量）：动作线从 out 触发口接入执行链；
+        /// self/target/has_target/player/enemy 数据端口供动作节点取值线读取事件上下文
+        /// （运行时 NodeDocRunner 按口名解析：self→施法卡、target→选中目标、has_target→有无目标、
+        /// player→己方玩家、enemy→敌方玩家）。action 与 CardPoolIO.MapGraphTrigger 保持一致。</summary>
+        private static List<NodePreset> BuildTriggerPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+            string[][] defs = new string[][]
+            {
+                new string[] { "OnPlay", "打出时", "卡牌打出/入场时触发（法术=打出选中目标后；随从/装备=入场后）" },
+                new string[] { "StartOfTurn", "回合开始", "拥有者回合开始时触发" },
+                new string[] { "EndOfTurn", "回合结束", "拥有者回合结束时触发" },
+                new string[] { "OnDeath", "死亡时", "这张卡死亡时触发（亡语）" },
+                new string[] { "OnAttack", "攻击前", "这张卡发动攻击时触发" },
+                new string[] { "OnDraw", "抽牌时", "这张卡被抽到时触发" },
+            };
+            foreach (string[] d in defs)
+            {
+                NodePreset p = new NodePreset();
+                p.type = GraphNodeType.Event;
+                p.action = d[0];
+                p.title = d[1];
+                p.desc = d[2];
+                p.category = CAT_TRIGGER;
+                p.supported = true;
+                p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+                p.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
+                p.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
+                p.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
+                p.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+                presets.Add(p);
+            }
+            return presets;
+        }
+
+        /// <summary>增益触发入口节点（增益效果图专用，挂在 BuffData.graph）：
+        /// 动作线从 out 触发口接入执行链；self/giver/buff/player/enemy/duration 数据端口供取值线读取增益上下文。
+        /// action 与 NodeDocRunner 增益触发事件名保持一致（OnBuffAdding/OnBuffAdded/OnBuffRemoving/OnBuffRemoved/OnBuffTurnStart/OnBuffTurnEnd）。</summary>
+        private static List<NodePreset> BuildBuffTriggerPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+            string[][] defs = new string[][]
+            {
+                new string[] { "OnBuffAdding", "添加增益时", "增益正要挂上、属性生效之前触发（防递归：嵌套添加增益不再回触发本事件）" },
+                new string[] { "OnBuffAdded", "添加增益后", "增益已挂上、属性已生效之后触发" },
+                new string[] { "OnBuffRemoving", "移除增益时", "增益正要移除之前触发" },
+                new string[] { "OnBuffRemoved", "移除增益后", "增益已移除之后触发" },
+                new string[] { "OnBuffTurnStart", "每回合开始", "携带增益的卡所属玩家回合开始时触发（每回合一次，配合 duration 递减）" },
+                new string[] { "OnBuffTurnEnd", "每回合结束", "携带增益的卡所属玩家回合结束时触发" },
+            };
+            foreach (string[] d in defs)
+            {
+                NodePreset p = new NodePreset();
+                p.type = GraphNodeType.Event;
+                p.action = d[0];
+                p.title = d[1];
+                p.desc = d[2];
+                p.category = CAT_BUFF_TRIGGER;
+                p.supported = true;
+                p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+                p.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));         //携带增益的卡
+                p.pins.Add(new PinDef("giver", "施加者", NodeValueType.Card, true));      //谁加的增益（无则空）
+                p.pins.Add(new PinDef("buff", "增益定义", NodeValueType.BuffDefine, true));//本增益定义（BuffPoolIO 查 id）
+                p.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("duration", "剩余回合", NodeValueType.Int32, true));//当前剩余持续回合
+                presets.Add(p);
+            }
+            return presets;
+        }
+
+        /// <summary>战斗按钮节点预设（分类「按钮」，一图多按钮）：「点击按钮时」/「点击按钮后」是事件入口，
+        /// 用 button_id 字段（按钮选择下拉）区分对应按钮；「触发按钮效果」是动作节点，主动触发指定按钮
+        /// （模拟完整点击：先「时」后「后」，递归深度受限）。
+        /// action 与 NodeDocRunner.RunButtonClick 的触发事件名保持一致（ButtonClicked/ButtonClickedAfter）。</summary>
+        private static List<NodePreset> BuildButtonPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+            string[][] evs = new string[][]
+            {
+                new string[] { "ButtonClicked", "点击按钮时", "指定按钮被点击的瞬间触发（选择按钮）" },
+                new string[] { "ButtonClickedAfter", "点击按钮后", "指定按钮的「点击按钮时」分支执行完毕后再触发（前后两段逻辑）" },
+            };
+            foreach (string[] d in evs)
+            {
+                NodePreset p = new NodePreset();
+                p.type = GraphNodeType.Event;
+                p.action = d[0];
+                p.title = d[1];
+                p.desc = d[2];
+                p.category = CAT_BUTTON;
+                p.supported = true;
+                p.fields.Add(ButtonField("button_id"));
+                p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+                p.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));        //点击玩家英雄
+                p.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+                presets.Add(p);
+            }
+
+            NodePreset act = new NodePreset();
+            act.type = GraphNodeType.Action;
+            act.action = "TriggerButtonEffect";
+            act.title = "触发按钮效果";
+            act.desc = "主动触发指定按钮（模拟点击：先「时」后「后」，可被其他节点调用）";
+            act.category = CAT_BUTTON;
+            act.supported = true;
+            act.fields.Add(ButtonField("button_id"));
+            act.pins.Add(new PinDef("in", "入", NodeValueType.Flow, false));
+            act.pins.Add(new PinDef("out", "出", NodeValueType.Flow, true));
+            presets.Add(act);
+            return presets;
+        }
+
+        /// <summary>按钮选择字段定义（下拉选项运行时从 BattleButtonIO 动态生成，见 CreateFieldButtonSelect）</summary>
+        private static FieldDef ButtonField(string name)
+        {
+            return new FieldDef(name, "按钮", FieldEditType.ButtonSelect, new string[] { "（无）" }, "（无）");
         }
 
         /// <summary>已接入执行的 NodeDoc 节点白名单（决定库里 zmcs 节点能否拖入画布；每实现一个节点就加进来，
@@ -315,6 +447,10 @@ namespace TcgEngine.UI
             "111002",   //向集合添加元素
             "111009",   //反转集合
             "111032",   //打乱集合内元素顺序
+            "111022",   //是否所有元素都满足条件（条件回调逐元素；可与 111012 同方式连条件节点）
+            "111023",   //是否有任意元素满足条件（条件回调逐元素）
+            "111029",   //获取集合内元素直到条件不成立（取开头连续满足段）
+            "111030",   //条件不成立后获取剩余元素（跳过开头连续满足段）
             "111013",   //排序（v1 按属性下拉[攻击/生命/法力费用]+升降序；zmcs 原为条件表达式排序键，不支持）
             "111024",   //获取第一个元素
             "111025",   //获取最后一个元素
@@ -356,6 +492,28 @@ namespace TcgEngine.UI
             "112009",   //是否不存在（值口解析为 null → 真）
             //定义集合通道（第四批；103003 定义列表的 DefineReference 入口无来源，不放出）
             "103001",   //获取所有卡牌定义（定义集合源头，配 111008 随机元素+202003 可随机召唤）
+            //纯查询/取值（第五批，全部真实取值无空转）
+            "102005",   //获取卡牌花费
+            "102006",   //获取卡牌攻击力
+            "102007",   //获取卡牌最大生命值
+            "102008",   //获取卡牌当前生命值
+            "101002",   //获取玩家属性（Object→v1 整数字段：生命/最大生命/灵力/灵力上限/击杀数）
+            "111034",   //获取元素在集合中的位置（找不到 -1）
+            "102018",   //是否濒死（GetHP()<=0）
+            "102021",   //卡牌具有宣言（v1=定义带 OnPlay 能力）
+            "102022",   //卡牌具有遗言（v1=定义带 OnDeath 能力）
+            "105001",   //卡牌所在牌堆判断（过时版，同 105005）
+            "105005",   //卡牌所在牌堆判断（手牌/牌库/墓地/战场/装备/奥秘）
+            "111021",   //是否是某集合的子集
+            "111033",   //集合内容是否相同（ignoreOrder）
+            "101007",   //获取玩家的墓地卡牌
+            "102012",   //获取所有仆从（全场战场随从）
+            "111010",   //集合去重
+            "111011",   //集合相减
+            "111018",   //集合相加
+            "111019",   //获取并集
+            "111020",   //获取交集
+            "111027",   //获取集合内前X个元素之外的元素
         };
 
         /// <summary>NodeDoc 定义 → 面板预设：端口 1:1 照搬；Int32/Boolean/String 输入转为右侧可编辑常量字段</summary>
@@ -377,9 +535,11 @@ namespace TcgEngine.UI
                 //改用下方 攻击加成/生命加成/持续回合 三个数值字段表达增益
                 if (p.action == "206001" && ip.type == NodeValueType.BuffDefine)
                     continue;
-                //增益家族 v1（206002/106004/206003）：Buff 引用口不生成；propName(String) 口换成属性下拉（下方字段）；
-                //106004/206003 没有 card 口，下方补一个
-                if ((p.action == "206002" || p.action == "106004" || p.action == "206003")
+                //增益家族 v1（206002/106003/106004/206003/106005/106006）：Buff 引用口不生成（v1 无 Buff 值通道，
+                //以 buff_id 下拉字段引用增益定义）；106004/206003 没有 card 口，下方补一个；
+                //106005/106006 的 Buff 口跳过（取定义/取集合留待 Buff 值通道落地后实现）
+                if ((p.action == "206002" || p.action == "106004" || p.action == "206003" || p.action == "106003"
+                        || p.action == "106005" || p.action == "106006")
                     && (ip.type == NodeValueType.Buff || ip.type == NodeValueType.BuffDefine))
                     continue;
                 if ((p.action == "106004" || p.action == "206003") && ip.name == "propName")
@@ -439,7 +599,15 @@ namespace TcgEngine.UI
                 else if (ip.type == NodeValueType.CardPropertySetterName)
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //202037 设置卡牌属性
                 else if (ip.type == NodeValueType.PileName)
-                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "牌库", "手牌", "墓地" }, "牌库"));  //101017 获取牌堆
+                {
+                    //105001/105005 卡牌所在牌堆判断：要能选全部区域（含战场/装备/奥秘，运行时只判真区域）
+                    //101017 获取牌堆只能抓 牌库/手牌/墓地（TCG2 可抓取的实体堆）
+                    if (p.action == "105001" || p.action == "105005")
+                        p.fields.Add(EnumField(ip.name, ip.display_name,
+                            new string[] { "手牌", "牌库", "墓地", "战场", "装备", "奥秘" }, "战场"));
+                    else
+                        p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "牌库", "手牌", "墓地" }, "牌库"));
+                }
                 else if (p.action == "202037" && ip.name == "value" && ip.type == NodeValueType.Object)
                     p.fields.Add(IntField(ip.name, ip.display_name, "0"));   //设置属性的无连线默认值（有取值线时以线为准）
                 else if (ip.type == NodeValueType.CompareOperator)
@@ -449,27 +617,30 @@ namespace TcgEngine.UI
                 else if (ip.type == NodeValueType.IntegerOperator)
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "+", "-", "*", "/", "%" }, "+"));
             }
-            //206001 添加增益：v1 增益=数值加成（BuffDefine 引用口的替代表达，持续回合 0=永久）
+            //206001 添加增益：buff_id 选增益池定义（属性表增益，攻击/生命加成自动映射原生战斗）；
+            //duration 覆盖持续回合（0=取定义默认/永久）；旧图 attack_add/hp_add 数值模式仍被运行时兼容
             if (p.action == "206001")
             {
-                p.fields.Add(IntField("attack_add", "攻击加成", "0"));
-                p.fields.Add(IntField("hp_add", "生命加成", "0"));
-                p.fields.Add(IntField("duration", "持续回合(0=永久)", "0"));
+                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
+                p.fields.Add(IntField("duration", "持续回合(0=默认)", "0"));
             }
             //增益家族 v1：端口/字段替代表达
             if (p.action == "206002")
             {
                 p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //目标卡（支持取值线）
-                p.fields.Add(EnumField("prop", "移除属性", new string[] { "攻击", "生命", "全部" }, "全部"));
+                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
+                p.fields.Add(EnumField("prop", "移除属性", new string[] { "攻击", "生命", "全部" }, "全部"));   //旧路径兼容（无 buff_id 时）
+            }
+            if (p.action == "106003")
+            {
+                //是否具有增益：card 口来自 NodeDoc 输入（Card），buff_id 选增益定义 → 布尔
+                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
             }
             if (p.action == "106004" || p.action == "206003")
             {
                 p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //补卡牌定位口（zmcs 原为 Buff 引用）
-                p.fields.Add(EnumField("prop", "属性",
-                    p.action == "106004"
-                        ? new string[] { "攻击加成", "生命加成", "攻击加成持续", "生命加成持续" }
-                        : new string[] { "攻击加成", "生命加成", "持续回合" },
-                    "攻击加成"));
+                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
+                p.fields.Add(new FieldDef("prop", "属性名", FieldEditType.Input, null, "攻击加成"));   //增益定义里的属性 key（自定义属性名可手填）
             }
             if (p.action == "206003")
                 p.fields.Add(IntField("value", "值", "0"));
@@ -717,6 +888,14 @@ namespace TcgEngine.UI
             bool empty = (graph == null || graph.nodes.Count == 0);
             if (empty && empty_hint == null && canvas_content != null)
             {
+                bool buff_mode = IsBuffMode;
+                string hint = buff_mode
+                    ? "增益效果图：从节点库「增益触发」分类拖入入口事件（添加增益时/后、移除增益时/后、每回合开始/结束），再连动作节点"
+                    : "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                string sample_text = buff_mode
+                    ? "一键生成示例效果：添加增益后 → 抽一张牌"
+                    : "一键生成示例效果：打出时对目标造成 1 点伤害";
+
                 GameObject go = new GameObject("EmptyHint", typeof(RectTransform));
                 go.transform.SetParent(canvas_content, false);
                 RectTransform rt = go.GetComponent<RectTransform>();
@@ -738,12 +917,12 @@ namespace TcgEngine.UI
                 try
                 {
                     text = tgo.AddComponent<TextMeshProUGUI>();
-                    ApplyNodeFont(text, "画布为空：从右侧节点库点选节点，或一键生成示例效果");
+                    ApplyNodeFont(text, hint);
                     text.fontSize = 28;
                     text.color = new Color(1f, 1f, 1f, 0.35f);   //空画布引导属提示性文字，保留半透明；非节点文字
                     text.alignment = TextAlignmentOptions.Center;
                     text.raycastTarget = false;
-                    text.text = "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                    text.text = hint;
                 }
                 catch (System.Exception e)
                 {
@@ -755,10 +934,10 @@ namespace TcgEngine.UI
                     back.color = new Color(1f, 1f, 1f, 0.35f);
                     back.alignment = TextAnchor.MiddleCenter;
                     back.raycastTarget = false;
-                    back.text = "画布为空：从右侧节点库点选节点，或一键生成示例效果";
+                    back.text = hint;
                 }
 
-                //一键示例按钮（下半，规格第6.5节最小可用效果引导）
+                //一键示例按钮（下半）
                 GameObject bgo = new GameObject("SampleBtn", typeof(RectTransform));
                 bgo.transform.SetParent(go.transform, false);
                 RectTransform brt = bgo.GetComponent<RectTransform>();
@@ -772,8 +951,8 @@ namespace TcgEngine.UI
                 btn.targetGraphic = bimg;
                 TMP_Text btext = CreateStretchTextChild(bgo.transform, 20, Color.white);
                 if (btext != null)
-                    btext.text = "一键生成示例效果：打出时对目标造成 1 点伤害";
-                btn.onClick.AddListener(BuildSampleEffect);
+                    btext.text = sample_text;
+                btn.onClick.AddListener(buff_mode ? (UnityEngine.Events.UnityAction)BuildSampleBuffEffect : BuildSampleEffect);
 
                 empty_hint = go;
             }
@@ -782,6 +961,42 @@ namespace TcgEngine.UI
                 Destroy(empty_hint);
                 empty_hint = null;
             }
+        }
+
+        /// <summary>一键生成增益示例：添加增益后 → 抽一张牌（增益效果图新手引导）</summary>
+        private void BuildSampleBuffEffect()
+        {
+            if (graph == null)
+                return;
+            NodePreset p_event = FindPreset(GraphNodeType.Event, "OnBuffAdded");
+            NodePreset p_draw = FindPreset(GraphNodeType.Action, "Draw");
+            if (p_event == null || p_draw == null)
+            {
+                SetStatus("示例效果所需节点缺失（增益触发节点需在节点库可拖入）");
+                return;
+            }
+
+            PushUndo();   //整个示例一次撤销点
+            GraphNode ev = CreateNodeFromPreset(p_event, new Vector2Data(240f, -120f));
+            GraphNode dn = CreateNodeFromPreset(p_draw, new Vector2Data(520f, -120f));
+            if (ev == null || dn == null)
+                return;
+
+            //动作线：添加增益后 → 抽牌（OnBuffAdded.out → Draw.in）
+            GraphLink link = new GraphLink
+            {
+                from_node = ev.id,
+                from_pin = ev.id + "_out",
+                to_node = dn.id,
+                to_pin = dn.id + "_in",
+            };
+            graph.links.Add(link);
+            CreateLinkUI(link);
+
+            SelectNode(dn.id);
+            RefreshEmptyHint();
+            ApplyValidationMarks();
+            SetStatus("已生成增益示例：添加增益后 → 抽一张牌（可从「增益触发」分类拖入更多入口事件，如移除增益后、每回合开始）");
         }
 
         /// <summary>一键生成最小可用效果：打出时 → 对目标造成 1 点伤害（规格第6.5节新手引导）</summary>
@@ -855,6 +1070,7 @@ namespace TcgEngine.UI
         {
             editing_keyword = null;   //退出关键词模式
             editing_rule = null;
+            editing_button_config = null;   //退出按钮模式
             this.pool = pool;
             this.card = card;
             this.save_path = savePath;
@@ -901,6 +1117,7 @@ namespace TcgEngine.UI
             save_path = null;
             editing_keyword = keyword;
             editing_rule = rule;
+            editing_button_config = null;   //退出按钮模式
 
             graph = rule.graph;
             if (graph == null)
@@ -928,6 +1145,91 @@ namespace TcgEngine.UI
 
         /// <summary>是否处于关键词编辑模式</summary>
         public bool IsKeywordMode => editing_keyword != null;
+
+        /// <summary>增益模式：编辑某个增益定义的效果规则图（graph 直接引用 buff.graph，保存时写回 buffs.json）。
+        /// 入口节点为「增益触发」事件（添加增益时/后、移除增益时/后、每回合开始/结束）。
+        /// 属性区（卡名/费用等）在增益模式下不生效，节点库开放全部节点。</summary>
+        public void OpenBuff(BuffData buff)
+        {
+            if (buff == null)
+                return;
+
+            pool = null;
+            card = null;
+            save_path = null;
+            editing_keyword = null;
+            editing_rule = null;
+            editing_buff = buff;
+            editing_button_config = null;   //退出按钮模式
+
+            graph = buff.graph;
+            if (graph == null)
+            {
+                graph = new GraphData();
+                buff.graph = graph;
+            }
+            if (string.IsNullOrEmpty(graph.name))
+                graph.name = "buff_" + buff.id;
+
+            node_index = 0;
+            undo_stack.Clear();
+            redo_stack.Clear();
+            copied_node = null;
+            foreach (GraphNode n in graph.nodes)
+                MigratePins(n);
+            RefreshForm();
+            RefreshPanelArtRow();
+            RebuildCanvas();
+            RefreshNodeLib();
+            ResetView();
+
+            SetStatus("正在编辑增益效果图: " + buff.GetTitle() + "（保存写回 buffs.json，触发入口=增益触发事件）");
+        }
+
+        /// <summary>是否处于增益编辑模式</summary>
+        public bool IsBuffMode => editing_buff != null;
+
+        /// <summary>是否处于按钮编辑模式（全局按钮图：一图多按钮）</summary>
+        public bool IsButtonMode => editing_button_config != null;
+
+        /// <summary>打开按钮编辑模式：编辑全局按钮配置的共享按钮图（一图多按钮）。
+        /// 保存时写回 buttons.json（BattleButtonIO.SaveAll）。</summary>
+        public void OpenButtons(BattleButtonConfig config)
+        {
+            if (config == null)
+                return;
+
+            pool = null;
+            card = null;
+            save_path = null;
+            editing_keyword = null;
+            editing_rule = null;
+            editing_buff = null;
+            editing_button_config = config;
+
+            graph = config.graph;
+            if (graph == null)
+            {
+                graph = new GraphData();
+                config.graph = graph;
+            }
+            if (string.IsNullOrEmpty(graph.name))
+                graph.name = "battle_buttons";
+
+            node_index = 0;
+            undo_stack.Clear();
+            redo_stack.Clear();
+            copied_node = null;
+            foreach (GraphNode n in graph.nodes)
+                MigratePins(n);
+            RefreshForm();
+            RefreshPanelArtRow();
+            RebuildCanvas();
+            RefreshNodeLib();
+            ResetView();
+
+            SetStatus("正在编辑按钮图: " + (graph.name ?? "battle_buttons") + "（一图多按钮，保存写回 buttons.json）");
+        }
 
         /// <summary>关键词资产保存回调：由 Editor 程序集注册（SetDirty+SaveAssets），运行时为空则只改内存</summary>
         public static System.Action<UnityEngine.Object> keyword_asset_saver;
@@ -2571,6 +2873,12 @@ namespace TcgEngine.UI
             bool to_flow = (tp.type == NodeValueType.Flow || tp.type == NodeValueType.None);
             if (from_flow || to_flow)
                 return from_flow && to_flow;
+            //zmcs 的 Object 口是万能多态槽（集合/单卡/单定义/任意元素，运行时按上下文语义解析），
+            //NodeValueRef 口是"表达式回调槽"（111012 筛选条件/212005 循环条件等）——两者都放宽为任意数据类型可连；
+            //数组性(is_array)不参与校验：单值口连集合口由运行时兼容（FirstCard/单定义回退）
+            if (fp.type == NodeValueType.Object || tp.type == NodeValueType.Object
+                || fp.type == NodeValueType.NodeValueRef || tp.type == NodeValueType.NodeValueRef)
+                return true;
             return fp.type == tp.type;
         }
 
@@ -2731,6 +3039,8 @@ namespace TcgEngine.UI
                     case FieldEditType.Dropdown: CreateFieldDropdown(node, fd, current); break;
                     case FieldEditType.Toggle: CreateFieldToggle(node, fd, current); break;
                     case FieldEditType.CardSelect: CreateFieldCardSelect(node, fd, current); break;
+                    case FieldEditType.BuffSelect: CreateFieldBuffSelect(node, fd, current); break;
+                    case FieldEditType.ButtonSelect: CreateFieldButtonSelect(node, fd, current); break;
                 }
             }
         }
@@ -2827,6 +3137,89 @@ namespace TcgEngine.UI
                     ids.Add(c.id);
                     displays.Add((string.IsNullOrEmpty(c.title) ? c.id : c.title) + " (" + c.id + ")");
                 }
+            }
+
+            Dropdown dd = inst.GetComponentInChildren<Dropdown>(true);
+            if (dd == null)
+                return;
+            dd.ClearOptions();
+            dd.AddOptions(displays);
+            int idx = ids.IndexOf(current);
+            dd.value = idx < 0 ? 0 : idx;
+            dd.RefreshShownValue();
+            dd.onValueChanged.AddListener((v) =>
+            {
+                string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
+                SetFieldValue(node, fd.name, val);
+                RefreshNodeSummary(node);
+                RefreshPinValues();
+            });
+        }
+
+        /// <summary>增益定义选择器（BuffDefine 输入口）：下拉列出增益池全部 BuffData（显示「标题 (id)」，存储 id）</summary>
+        private void CreateFieldBuffSelect(GraphNode node, FieldDef fd, string current)
+        {
+            if (node_field_dropdown_template == null)
+                return;
+            GameObject inst = Instantiate(node_field_dropdown_template, node_field_area);
+            inst.name = "Field_" + fd.name;
+            inst.SetActive(true);
+
+            Text label = inst.transform.Find("Label")?.GetComponent<Text>();
+            if (label != null)
+                label.text = fd.display_name;
+
+            //选项动态生成：BuffPoolIO 增益池（字段定义里不预设，随增益编辑器保存的池变化）
+            List<string> ids = new List<string>();
+            List<string> displays = new List<string>();
+            foreach (BuffData b in BuffPoolIO.GetAll())
+            {
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                ids.Add(b.id);
+                displays.Add((string.IsNullOrEmpty(b.title) ? b.id : b.title) + " (" + b.id + ")");
+            }
+
+            Dropdown dd = inst.GetComponentInChildren<Dropdown>(true);
+            if (dd == null)
+                return;
+            dd.ClearOptions();
+            dd.AddOptions(displays);
+            int idx = ids.IndexOf(current);
+            dd.value = idx < 0 ? 0 : idx;
+            dd.RefreshShownValue();
+            dd.onValueChanged.AddListener((v) =>
+            {
+                string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
+                SetFieldValue(node, fd.name, val);
+                RefreshNodeSummary(node);
+                RefreshPinValues();
+            });
+        }
+
+        /// <summary>战斗按钮选择器（button_id 字段）：下拉列出按钮池全部按钮（显示「标题 (id)」，存储 id）。
+        /// 按钮配置随按钮编辑器保存的 buttons.json 变化，每次打开参数区都重新取当前列表。</summary>
+        private void CreateFieldButtonSelect(GraphNode node, FieldDef fd, string current)
+        {
+            if (node_field_dropdown_template == null)
+                return;
+            GameObject inst = Instantiate(node_field_dropdown_template, node_field_area);
+            inst.name = "Field_" + fd.name;
+            inst.SetActive(true);
+
+            Text label = inst.transform.Find("Label")?.GetComponent<Text>();
+            if (label != null)
+                label.text = fd.display_name;
+
+            //选项动态生成：BattleButtonIO 按钮池
+            List<string> ids = new List<string>();
+            List<string> displays = new List<string>();
+            foreach (BattleButtonData b in BattleButtonIO.GetAll())
+            {
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                ids.Add(b.id);
+                displays.Add((string.IsNullOrEmpty(b.title) ? b.id : b.title) + " (" + b.id + ")");
             }
 
             Dropdown dd = inst.GetComponentInChildren<Dropdown>(true);
@@ -3430,6 +3823,41 @@ namespace TcgEngine.UI
                 return;
             }
 
+            if (editing_buff != null)
+            {
+                List<GraphIssue> bissues = ValidateGraph();
+                if (bissues.Count > 0)
+                {
+                    ApplyValidationMarks();
+                    SetStatus("无法保存：规则图有 " + bissues.Count + " 处缺输入，请先补全（红「!」节点）");
+                    return;
+                }
+                editing_buff.graph = graph;
+                if (string.IsNullOrEmpty(graph.name))
+                    graph.name = "buff_" + editing_buff.id;
+                BuffPoolIO.SaveAll();
+                SetStatus("已保存增益效果图: " + editing_buff.GetTitle());
+                return;
+            }
+
+            //按钮模式：校验后直接写回全局按钮配置（一图多按钮，保存写盘 buttons.json）
+            if (editing_button_config != null)
+            {
+                List<GraphIssue> cissues = ValidateGraph();
+                if (cissues.Count > 0)
+                {
+                    ApplyValidationMarks();
+                    SetStatus("无法保存：规则图有 " + cissues.Count + " 处缺输入，请先补全（红「!」节点）");
+                    return;
+                }
+                editing_button_config.graph = graph;
+                if (string.IsNullOrEmpty(graph.name))
+                    graph.name = "battle_buttons";
+                BattleButtonIO.SaveAll();
+                SetStatus("已保存按钮图（写回 buttons.json）");
+                return;
+            }
+
             if (card == null || pool == null)
             {
                 SetStatus("没有可保存的数据");
@@ -3479,6 +3907,12 @@ namespace TcgEngine.UI
             if (editing_keyword != null)
             {
                 SetStatus("关键词不支持单独模拟测试，请把关键词挂到卡牌上后在对局验证");
+                return;
+            }
+
+            if (editing_buff != null)
+            {
+                SetStatus("增益效果图不支持单独模拟测试，请用规则图「添加增益(206001)」挂到卡牌上后在对局验证");
                 return;
             }
 
@@ -3654,6 +4088,32 @@ namespace TcgEngine.UI
         private void OnClose()
         {
             Hide();
+            if (editing_button_config != null)
+            {
+                //按钮模式：返回卡牌编辑器（按钮编辑器内嵌其中），刷新按钮列表
+                CardEditorPanel panel = CardEditorPanel.Get();
+                if (panel == null)
+                    panel = FindObjectOfType<CardEditorPanel>(true);
+                if (panel != null)
+                {
+                    panel.Show();
+                    panel.NotifyButtonGraphClosed();
+                }
+                return;
+            }
+            if (editing_buff != null)
+            {
+                //增益模式：返回增益编辑器（BuffPanel）
+                BuffPanel panel = BuffPanel.Get();
+                if (panel == null)
+                    panel = FindObjectOfType<BuffPanel>(true);
+                if (panel != null)
+                {
+                    panel.Show();
+                    panel.NotifyGraphClosed();
+                }
+                return;
+            }
             CardEditorPanel editor = CardEditorPanel.Get();
             if (editor == null)
                 editor = FindObjectOfType<CardEditorPanel>(true);

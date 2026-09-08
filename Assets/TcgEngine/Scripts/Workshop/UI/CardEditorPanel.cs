@@ -30,6 +30,8 @@ namespace TcgEngine.UI
         public Button btn_copy;              // 复制选中卡
         public Button btn_delete;            // 删除选中卡
         public Text editor_hint;             // 右侧编辑区占位提示
+        public GameObject card_list_root;    // 卡牌列表区根（按钮模式下隐藏）
+        public GameObject editor_area_root;  // 右侧属性编辑区根（按钮模式下隐藏）
         private GameObject card_prefab;      // 卡面预制体（运行时从卡组构筑界面复制）
         private bool update_grid = false;    // 待刷新网格高度
         private float update_grid_timer = 0f;
@@ -48,8 +50,25 @@ namespace TcgEngine.UI
         public Button btn_save;              // 保存
         public Button btn_test;              // 模拟运行测试
         public Button btn_go;                // 进行：进入卡牌规则编辑器（GraphEditorPanel）
+        public Button btn_buff;              // 增益：进入增益编辑器（BuffPanel，增益与卡池平级的全局资源）
+        public Button btn_buttons;           // 按钮：切换进入内嵌的战斗按钮编辑器
         public Button btn_close;             // 关闭（返回卡池管理）
         public Button btn_save2;             // 卡牌列表底部保存按钮
+
+        [Header("按钮编辑器（内嵌）")]
+        public GameObject button_editor_root;    // 按钮编辑区根（默认隐藏，点「按钮」切换显示）
+        public ScrollRect button_list_scroll;    // 按钮列表滚动区
+        public RectTransform button_list_content;// 按钮列表容器
+        public GameObject button_list_template;  // 按钮列表项模板（隐藏）
+        public InputField btn_id_input;          // 按钮 ID（规则图 button_id 匹配用）
+        public InputField btn_title_input;       // 按钮显示文本
+        public InputField btn_desc_input;        // 按钮描述（可选）
+        public Button btn_button_new;            // 新增按钮
+        public Button btn_button_copy;           // 复制按钮
+        public Button btn_button_del;            // 删除按钮
+        public Button btn_button_save;           // 保存按钮（写盘 buttons.json）
+        public Button btn_button_edit_graph;     // 编辑规则图（进入全屏规则编辑器编辑共享按钮图）
+        public Button btn_button_back;           // 返回卡牌编辑模式
 
         private static CardEditorPanel instance;
         private string current_path;         // 当前编辑的本地卡池文件完整路径
@@ -57,6 +76,10 @@ namespace TcgEngine.UI
         private CardCustomData current_card; // 当前选中的卡牌
 
         private readonly List<CardLine> card_lines = new List<CardLine>();   // 卡牌列表行
+
+        private BattleButtonData editing_button;                  // 按钮编辑器：当前编辑的按钮定义
+        private string selected_button_id;                        // 按钮编辑器：列表选中的按钮 id
+        private readonly Dictionary<string, Image> button_row_imgs = new Dictionary<string, Image>();  // 按钮列表项高亮
 
         private CanvasRect canvas;           // 画布容器（放节点，内含节点映射表）
         private readonly float node_h = 40f;
@@ -82,10 +105,214 @@ namespace TcgEngine.UI
             if (btn_save2 != null) btn_save2.onClick.AddListener(OnSave);
             if (btn_test != null) btn_test.onClick.AddListener(OnTest);
             if (btn_go != null) btn_go.onClick.AddListener(OnGo);
+            if (btn_buff != null) btn_buff.onClick.AddListener(OnOpenBuffEditor);
+            if (btn_buttons != null) btn_buttons.onClick.AddListener(OnOpenButtonEditor);
             if (btn_close != null) btn_close.onClick.AddListener(OnClose);
             if (btn_add_card != null) btn_add_card.onClick.AddListener(OnAddCard);
             if (btn_copy != null) btn_copy.onClick.AddListener(OnCopyCard);
             if (btn_delete != null) btn_delete.onClick.AddListener(OnDeleteCard);
+
+            //按钮编辑器（内嵌）
+            if (btn_button_new != null) btn_button_new.onClick.AddListener(OnButtonNew);
+            if (btn_button_copy != null) btn_button_copy.onClick.AddListener(OnButtonCopy);
+            if (btn_button_del != null) btn_button_del.onClick.AddListener(OnButtonDel);
+            if (btn_button_save != null) btn_button_save.onClick.AddListener(OnButtonSave);
+            if (btn_button_edit_graph != null) btn_button_edit_graph.onClick.AddListener(OnButtonEditGraph);
+            if (btn_button_back != null) btn_button_back.onClick.AddListener(OnButtonBack);
+            if (btn_id_input != null) btn_id_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.id = v; });
+            if (btn_title_input != null) btn_title_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.title = v; });
+            if (btn_desc_input != null) btn_desc_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.desc = v; });
+        }
+
+        /// <summary>进入增益编辑器（隐藏本页 + 显示增益页）</summary>
+        private void OnOpenBuffEditor()
+        {
+            Hide();
+            BuffPanel panel = BuffPanel.Get();
+            if (panel != null)
+                panel.Show();
+        }
+
+        /// <summary>切换进入内嵌战斗按钮编辑器：隐藏卡牌编辑内容，显示按钮编辑区。
+        /// 按钮为全局资源（Workshop/buttons.json），一图多按钮分支组织效果。</summary>
+        private void OnOpenButtonEditor()
+        {
+            if (button_editor_root == null)
+            {
+                SetStatus("未找到按钮编辑器，请先运行「TcgEngine → 战斗按钮 → 在卡牌编辑器页面添加按钮编辑器」工具");
+                return;
+            }
+
+            BattleButtonIO.LoadAll();
+            SetCardEditVisible(false);
+            button_editor_root.SetActive(true);
+            RefreshButtonList();
+
+            List<BattleButtonData> all = BattleButtonIO.GetAll();
+            if (all.Count > 0)
+                SelectButton(all[0].id);
+            else
+                SelectButton(null);
+            SetStatus("按钮编辑器：共 " + all.Count + " 个按钮（点击「保存」写回 buttons.json）");
+        }
+
+        /// <summary>隐藏/显示卡牌编辑内容（卡牌列表区 + 右侧属性编辑区）</summary>
+        private void SetCardEditVisible(bool visible)
+        {
+            if (card_list_root != null) card_list_root.SetActive(visible);
+            if (editor_area_root != null) editor_area_root.SetActive(visible);
+        }
+
+        /// <summary>返回卡牌编辑模式</summary>
+        private void OnButtonBack()
+        {
+            if (button_editor_root != null)
+                button_editor_root.SetActive(false);
+            SetCardEditVisible(true);
+            SetStatus("");
+        }
+
+        // ---------------- 按钮编辑器：列表 ----------------
+
+        private void RefreshButtonList()
+        {
+            if (button_list_content == null)
+                return;
+
+            //清除旧列表（保留模板）
+            for (int i = button_list_content.childCount - 1; i >= 0; i--)
+            {
+                Transform child = button_list_content.GetChild(i);
+                if (child != null && child.gameObject != button_list_template)
+                    Destroy(child.gameObject);
+            }
+            button_row_imgs.Clear();
+
+            foreach (BattleButtonData b in BattleButtonIO.GetAll())
+            {
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                CreateButtonRow(b);
+            }
+        }
+
+        private void CreateButtonRow(BattleButtonData b)
+        {
+            if (button_list_template == null)
+                return;
+
+            GameObject line = Instantiate(button_list_template, button_list_content);
+            line.name = "Btn_" + b.id;
+            line.SetActive(true);
+
+            Text txt = line.transform.Find("Text")?.GetComponent<Text>();
+            if (txt != null)
+                txt.text = string.IsNullOrEmpty(b.title) ? b.id : b.title;
+
+            Image img = line.GetComponent<Image>();
+            if (img != null)
+                img.color = new Color(1, 1, 1, 0.08f);
+            button_row_imgs[b.id] = img;
+
+            Button btn = line.GetComponent<Button>();
+            if (btn != null)
+            {
+                string bid = b.id;
+                btn.onClick.AddListener(() => SelectButton(bid));
+            }
+        }
+
+        private void SelectButton(string id)
+        {
+            selected_button_id = id;
+            editing_button = string.IsNullOrEmpty(id) ? null : BattleButtonIO.Get(id);
+
+            foreach (var kv in button_row_imgs)
+            {
+                if (kv.Value == null)
+                    continue;
+                kv.Value.color = kv.Key == id ? new Color(0.4f, 0.7f, 1f, 0.35f) : new Color(1, 1, 1, 0.08f);
+            }
+
+            SetInput(btn_id_input, editing_button != null ? editing_button.id : "");
+            SetInput(btn_title_input, editing_button != null ? editing_button.title : "");
+            SetInput(btn_desc_input, editing_button != null ? editing_button.desc : "");
+        }
+
+        // ---------------- 按钮编辑器：增删改存 ----------------
+
+        private void OnButtonNew()
+        {
+            BattleButtonData b = BattleButtonIO.New();
+            RefreshButtonList();
+            SelectButton(b.id);
+            SetStatus("已新增按钮: " + b.id + "（点击「保存」写回 buttons.json）");
+        }
+
+        private void OnButtonCopy()
+        {
+            if (editing_button == null)
+            {
+                SetStatus("请先选择一个按钮再复制");
+                return;
+            }
+            BattleButtonData copy = BattleButtonIO.Duplicate(editing_button);
+            RefreshButtonList();
+            SelectButton(copy.id);
+            SetStatus("已复制按钮: " + copy.id + "（点击「保存」写回 buttons.json）");
+        }
+
+        private void OnButtonDel()
+        {
+            if (editing_button == null)
+            {
+                SetStatus("请先选择一个按钮再删除");
+                return;
+            }
+            string id = editing_button.id;
+            BattleButtonIO.Remove(editing_button);
+            RefreshButtonList();
+            List<BattleButtonData> all = BattleButtonIO.GetAll();
+            if (all.Count > 0)
+                SelectButton(all[0].id);
+            else
+                SelectButton(null);
+            SetStatus("已删除按钮: " + id + "（点击「保存」写回 buttons.json）");
+        }
+
+        private void OnButtonSave()
+        {
+            BattleButtonIO.SaveAll();
+            SetStatus("已保存按钮配置（buttons.json）");
+        }
+
+        /// <summary>「编辑规则图」：进入全屏规则编辑器编辑全局按钮图（一图多按钮）</summary>
+        private void OnButtonEditGraph()
+        {
+            GraphEditorPanel editor = GraphEditorPanel.Get();
+            if (editor == null)
+                editor = FindObjectOfType<GraphEditorPanel>(true);
+            if (editor == null)
+            {
+                SetStatus("未找到规则编辑器面板，请先运行「生成规则编辑器页面」工具");
+                return;
+            }
+            editor.OpenButtons(BattleButtonIO.GetConfig());
+            editor.Show();
+            Hide();
+        }
+
+        /// <summary>按钮规则图关闭后返回：重新显示按钮编辑器并刷新列表</summary>
+        public void NotifyButtonGraphClosed()
+        {
+            Show();
+            if (button_editor_root != null)
+                button_editor_root.SetActive(true);
+            SetCardEditVisible(false);
+            RefreshButtonList();
+            if (!string.IsNullOrEmpty(selected_button_id))
+                SelectButton(selected_button_id);
+            SetStatus("按钮规则图已更新（点击「保存」写回 buttons.json）");
         }
 
         protected override void Update()

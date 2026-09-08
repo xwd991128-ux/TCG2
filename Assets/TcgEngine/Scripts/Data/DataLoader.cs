@@ -54,6 +54,12 @@ namespace TcgEngine
 
             //加载本地自定义卡池（创意工坊下载/玩家导入的 JSON 卡包）
             CardPoolIO.LoadCustomPools();
+
+            //加载本地自定义增益池（规则编辑器「增益」界面设计，Workshop/buffs.json）
+            BuffPoolIO.LoadAll();
+
+            //加载战斗界面自定义按钮配置（按钮编辑器设计，Workshop/buttons.json）
+            BattleButtonIO.LoadAll();
         }
 
         //Make sure the data is valid

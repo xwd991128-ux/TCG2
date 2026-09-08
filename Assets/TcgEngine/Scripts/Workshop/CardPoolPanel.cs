@@ -161,7 +161,7 @@ namespace TcgEngine.UI
 
         private void OnImport()
         {
-            string[] files = FileDialogTool.OpenFiles("选择要导入的卡池文件", "卡池文件 (*.json)|*.json", true);
+            string[] files = FileDialogTool.OpenFiles("选择要导入的卡池文件", "卡池文件 (*.tcgpool;*.json)|*.tcgpool;*.json", true);
             if (files == null || files.Length == 0)
             {
                 SetStatus("未选择文件，导入已取消");
@@ -169,24 +169,35 @@ namespace TcgEngine.UI
             }
 
             int copied = 0;
+            int packages = 0;
             int total = 0;
             foreach (string file in files)
             {
                 try
                 {
-                    //导入的文件复制到本地卡池目录，保证重启后自动加载（持久化）
-                    string target = file;
-                    string folder = CardPoolIO.SaveFolder;
-                    if (!Path.GetDirectoryName(file).Equals(folder, StringComparison.OrdinalIgnoreCase))
+                    int before = CardData.GetAll().Count;
+
+                    //.tcgpool 卡池包：解包后资源落地本地 Art/Audio 目录，pool.json 落地本地卡池目录并注册
+                    if (Path.GetExtension(file).Equals(PoolPackageIO.PoolExtension, StringComparison.OrdinalIgnoreCase))
                     {
-                        Directory.CreateDirectory(folder);
-                        target = Path.Combine(folder, Path.GetFileName(file));
-                        File.Copy(file, target, true);
-                        copied++;
+                        PoolPackageIO.ImportPoolPackage(file);
+                        packages++;
+                    }
+                    else
+                    {
+                        //.json：复制到本地卡池目录，保证重启后自动加载（持久化）
+                        string target = file;
+                        string folder = CardPoolIO.SaveFolder;
+                        if (!Path.GetDirectoryName(file).Equals(folder, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Directory.CreateDirectory(folder);
+                            target = Path.Combine(folder, Path.GetFileName(file));
+                            File.Copy(file, target, true);
+                            copied++;
+                        }
+                        CardPoolIO.ImportFromFile(target, true); //授予拥有数量，使构筑界面立即可用
                     }
 
-                    int before = CardData.GetAll().Count;
-                    CardPoolIO.ImportFromFile(target, true); //授予拥有数量，使构筑界面立即可用
                     total += CardData.GetAll().Count - before;
                 }
                 catch (Exception e)
@@ -195,7 +206,8 @@ namespace TcgEngine.UI
                     SetStatus("导入失败: " + Path.GetFileName(file) + " " + e.Message);
                 }
             }
-            SetStatus("已导入 " + files.Length + " 个文件，新增 " + total + " 张卡（复制 " + copied + " 个到本地卡池目录）");
+            SetStatus("已导入 " + files.Length + " 个文件，新增 " + total + " 张卡" +
+                (packages > 0 ? "（含 " + packages + " 个卡池包，资源已落地）" : ""));
             RefreshList();
         }
 
@@ -230,7 +242,7 @@ namespace TcgEngine.UI
             SetStatus("已导出 " + count + " 个卡池到: " + folder);
         }
 
-        /// <summary>导出一个卡池到指定目录（内置重新序列化，本地直接复制文件）</summary>
+        /// <summary>导出一个卡池到指定目录（内置重新序列化，本地解析后一并打包资源为 .tcgpool）</summary>
         private bool ExportPool(CardPoolIO.PoolInfo info, string folder)
         {
             try
@@ -239,15 +251,16 @@ namespace TcgEngine.UI
                 {
                     if (info.cards == null || info.cards.Count == 0)
                         return false;
-                    CardPoolIO.ExportToPath(info.cards, info.name, folder);
+                    PoolPackageIO.ExportToPackage(info.cards, info.name, folder);
                 }
                 else
                 {
                     if (string.IsNullOrEmpty(info.file) || !File.Exists(info.file))
                         return false;
-                    Directory.CreateDirectory(folder);
-                    string dest = Path.Combine(folder, info.name + ".json");
-                    File.Copy(info.file, dest, true);
+                    CardPoolData pool = JsonUtility.FromJson<CardPoolData>(File.ReadAllText(info.file));
+                    if (pool == null || pool.cards == null || pool.cards.Count == 0)
+                        return false;
+                    PoolPackageIO.ExportPoolPackage(pool, info.name, folder);
                 }
                 return true;
             }

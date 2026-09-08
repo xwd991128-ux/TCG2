@@ -1,10 +1,11 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TcgEngine.Client;
 using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
+using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
 {
@@ -26,6 +27,10 @@ namespace TcgEngine.UI
         public Button end_turn_button;
         public Animator timeout_animator;
         public AudioClip timeout_audio;
+
+        [Header("Battle Buttons")]
+        public RectTransform battle_btn_container;   // 自定义按钮容器（编辑器工具生成，屏幕右侧）
+        public GameObject battle_btn_template;        // 按钮模板（隐藏，运行时实例化）
 
         private float selector_timer = 0f;
         private float end_turn_timer = 0f;
@@ -55,6 +60,49 @@ namespace TcgEngine.UI
 
             if (quit_btn != null)
                 quit_btn.text = GameClient.game_settings.IsOnlinePlayer() ? "Resign" : "Quit";
+
+            RefreshBattleButtons();
+        }
+
+        /// <summary>根据全局按钮配置（BattleButtonIO）动态生成战斗界面自定义按钮（模板实例化）。
+        /// 每次进入战斗界面重新加载配置，确保按钮编辑器保存的修改立即生效。</summary>
+        private void RefreshBattleButtons()
+        {
+            if (battle_btn_container == null || battle_btn_template == null)
+                return;
+            BattleButtonIO.LoadAll();
+            //清空容器非模板子对象（模板本身保留）
+            for (int i = battle_btn_container.childCount - 1; i >= 0; i--)
+            {
+                GameObject go = battle_btn_container.GetChild(i).gameObject;
+                if (go != battle_btn_template)
+                    Destroy(go);
+            }
+            List<BattleButtonData> list = BattleButtonIO.GetAll();
+            for (int i = 0; i < list.Count; i++)
+            {
+                BattleButtonData b = list[i];
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                GameObject inst = Instantiate(battle_btn_template, battle_btn_container);
+                inst.name = "BattleBtn_" + b.id;
+                inst.SetActive(true);
+                Text t = inst.GetComponentInChildren<Text>(true);
+                if (t != null)
+                    t.text = b.title;
+                Button btn = inst.GetComponent<Button>();
+                if (btn == null)
+                    btn = inst.AddComponent<Button>();
+                string bid = b.id;
+                btn.onClick.AddListener(() => OnClickBattleButton(bid));
+            }
+        }
+
+        /// <summary>点击自定义战斗按钮：走服务器（GameClient.SendBattleButton → 服务端校验并执行按钮图）</summary>
+        private void OnClickBattleButton(string button_id)
+        {
+            if (GameClient.Get() != null && GameClient.Get().IsReady())
+                GameClient.Get().SendBattleButton(button_id);
         }
 
         void Update()

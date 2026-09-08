@@ -1,4 +1,4 @@
-﻿
+
 using Unity.Netcode;
 using UnityEngine.Events;
 
@@ -27,6 +27,7 @@ namespace TcgEngine
         public const ushort CancelSelect = 1039;
         public const ushort EndTurn = 1040;
         public const ushort Resign = 1050;
+        public const ushort BattleButton = 1060;    //战斗界面自定义按钮（全局按钮，客户端→服务器）
         public const ushort ChatMessage = 1090;
 
         public const ushort PlayerSettings = 1100; //After connect, send player data

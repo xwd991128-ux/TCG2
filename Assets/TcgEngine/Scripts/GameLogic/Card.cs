@@ -1,6 +1,7 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TcgEngine.Workshop;
 
 namespace TcgEngine
 {
@@ -36,6 +37,8 @@ namespace TcgEngine
         public List<CardStatus> status = new List<CardStatus>();
         public List<CardStatus> ongoing_status = new List<CardStatus>();
 
+        public List<CardBuff> buffs = new List<CardBuff>();  //增益实例（规则图 206001 施加，BuffData 定义）
+
         public List<string> abilities = new List<string>();
         public List<string> abilities_ongoing = new List<string>();
 
@@ -51,7 +54,7 @@ namespace TcgEngine
 
         public virtual void Clear()
         {
-            ClearOngoing(); Refresh(); damage = 0; status.Clear(); 
+            ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
             SetCard(CardData, VariantData); //Reset to initial stats
             equipped_uid = null;
         }

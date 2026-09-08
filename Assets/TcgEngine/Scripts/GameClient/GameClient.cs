@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
@@ -384,6 +384,13 @@ namespace TcgEngine.Client
         public void EndTurn()
         {
             SendAction(GameAction.EndTurn);
+        }
+
+        public void SendBattleButton(string button_id)
+        {
+            MsgBattleButton mdata = new MsgBattleButton();
+            mdata.button_id = button_id;
+            SendAction(GameAction.BattleButton, mdata);
         }
 
         public void Resign()

@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Profiling;
+using TcgEngine.Workshop;
 
 namespace TcgEngine.Gameplay
 {
@@ -238,6 +239,15 @@ namespace TcgEngine.Gameplay
                 }
             }
 
+            //增益持续回合递减：场上/手牌卡上的 Buff 到期自动移除（含原生状态重建）
+            for (int i = player.cards_board.Count - 1; i >= 0; i--)
+                BuffRuntime.UpdateBuffDurations(this, player.cards_board[i]);
+            for (int i = player.cards_hand.Count - 1; i >= 0; i--)
+                BuffRuntime.UpdateBuffDurations(this, player.cards_hand[i]);
+
+            //增益图「每回合开始」事件：当前回合玩家场上/手牌卡的增益效果图触发
+            BuffRuntime.TriggerTurnBuff(this, player, "OnBuffTurnStart");
+
             //Ongoing Abilities
             UpdateOngoing();
 
@@ -303,6 +313,9 @@ namespace TcgEngine.Gameplay
                         HealCard(card, card.hp);
                 }
             }
+
+            //增益图「每回合结束」事件：当前回合玩家场上/手牌卡的增益效果图触发
+            BuffRuntime.TriggerTurnBuff(this, active_player, "OnBuffTurnEnd");
 
             //Doomed - kill at end of turn (only for active player's cards)
             List<Card> doomed_cards = new List<Card>();
@@ -383,6 +396,26 @@ namespace TcgEngine.Gameplay
             //Add to resolve queue in case its still resolving
             resolve_queue.AddCallback(EndTurn);
             resolve_queue.ResolveAll();
+        }
+
+        /// <summary>玩家点击战斗界面自定义按钮：仅自己回合可点，执行全局按钮图对应按钮分支。
+        /// 由 GameServer.ReceiveBattleButton 调用（走服务器校验，防回合外操作）。</summary>
+        public virtual void PressBattleButton(Player player, string button_id)
+        {
+            if (player == null || string.IsNullOrEmpty(button_id))
+                return;
+            if (game_data.state != GameState.Play)
+                return;
+            if (!game_data.IsPlayerTurn(player))
+                return;   //仅自己回合可点
+            BattleButtonConfig cfg = BattleButtonIO.GetConfig();
+            if (cfg == null || cfg.graph == null)
+                return;
+            Card hero = player.hero;
+            if (hero == null)
+                return;
+            //执行「点击按钮时」→「点击按钮后」两段；效果走 ResolveQueue 结算，由 RefreshAll 同步客户端
+            NodeDocRunner.RunButtonClick(this, cfg.graph, hero, button_id);
         }
 
         //Check if a player is winning the game, if so end the game
