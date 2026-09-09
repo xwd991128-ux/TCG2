@@ -162,6 +162,8 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 > 阶段2 定位从"私房测试"升级为 **UGC 建设期**：规则可改、私房成熟、账号与作品体系落地。
 > 创意工坊（上传/评价/投票/评选）**回退阶段3**。
+>
+> **本章按类型分组 + 优先级排序**：A 节点系统主线（★最高）→ B 玩法功能 → C 跨模块统一规范 → D 工程计划。
 
 ### 7.0 阶段2 目标（一句话）
 
@@ -178,65 +180,13 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 | 战绩/积分 + 个人主页/展示            | 赛事（阶段4）、移动端（阶段5）     |
 | .diycard / .diyrule 导出导入   | —                    |
 
-### 7.2 规则系统：数值 + 回合流程 节点化编辑
+---
 
-* **数值规则**（沿用现有白名单思路，做成节点化修改，而非仅键值表）
+**A. 节点系统主线（★最高优先级）**
 
-  * 可改项：`starting_hp` / `mana_per_turn` / `mana_max` / `cards_start` / `cards_per_turn` / `cards_max` / `deck_size` / `dup_max` / `mulligan` / `second_bonus`
+---
 
-  * 每一项带：允许范围、默认值、校验规则（例如 `starting_hp ∈ [15, 60]`）
-
-* **回合流程**（阶段2 新增开放层，引擎仍官方固定）
-
-  * 可改项（节点化编排 "回合步骤序列"）：每回合抽牌数、能否额外移动/出法、先手后手权、超时秒数、回合内动作顺序
-
-  * 示例：`RoundFlow = [Draw N from serialized deck] -> [Mana+1] -> [PlayerAction] -> [AI_Action]`
-
-  * **守卫**：这些项仍基于官方提供的"回合步骤原子"，玩家只能**重排/增删"官方原子"**，不能发明全新引擎行为
-
-* `.diyrule` 文件：`{ schema, meta{id,author,title}, rules[]，round_flow[] }`
-
-* 平衡：每次改动即时做**系统建议**（强度/时长提示），阶段2 不强制拦截（信任本地），但记录为阶段3 审核输入
-
-### 7.3 私房对战（成熟体验）
-
-* **建房**：选规则(.diyrule/默认) → 提炼为**规则 hash** → 生成房号/share code → 发布到房间列表
-
-* **加入**：房号直连 / 房间列表查找 / 分享码；标签展示（标题/规则说明/人数/房主）
-
-* **房管理（完整）**：房主改房名/规则/开放门票、踢人、设为观战、只允许好友、中途暂停
-
-* **断线/重连**：会话保留 N 秒，断线重连恢复对局；超时由房主或系统接管/判定
-
-* **房内观战**：非玩家可旁观本房（阶段2 简化版，阶段4 做官方直播级观战）
-
-* **房内聊天**：文字聊天、快捷表情、对局内表情
-
-* **DIY 数据流**：双方本地持有 .diycard，仅同步"卡牌ID + 签名 + 规则 hash"；规则 hash 不一致则拒绝开战
-
-### 7.4 账号与云存盘（真实账号）
-
-* 注册/登录（用户名+密码 / 可选第三方）、账号服务端验证 Token
-
-* **云存盘**：作品(.diycard/.diyrule)、战绩/积分、设置，多端同步(为阶段5移动端铺路)
-
-* **战绩/积分**：记录 胜/负/场次/胜率/MMR雏形，私房与单人分别统计
-
-* **个人主页/展示**：昵称、自定义头像/头像框、展示自制作品列表、公开战绩
-
-* 作品归属：每个 .diycard/.diyrule 绑定 account\_id；导出/导入保留作者信息
-
-### 7.5 DIY 作品管理
-
-* **作品/草稿/版本**：本地草稿箱、作品列表、重命名、版本迭代/回滚
-
-* **分享/收藏**：导出分享码/文件、导入他人作品、收藏他人作品到本地
-
-* **作品美化**：卡面封面图/边框/标签选择，美化展示页
-
-* （创意工坊上传/评价/投票/评选 → 阶段3）
-
-### 7.6 节点系统：对标醉梦全集（319 个，阶段2 全部完成）★核心主线
+### 7.2 节点系统：对标醉梦全集（319 个，阶段2 全部完成）★核心主线
 
 > 老板拍板：**卡牌节点全量对标醉梦传说 319 个节点，阶段2 全部完成**。这是阶段2 的头号核心主线，优先级最高。
 
@@ -262,9 +212,9 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 * **定义"完成"**：编辑器能查到并拖出全部 280 个有效节点、连线、按语义执行 → 即完成（非逐一精修，可分批验收）。
 
-* 阶段2 节点能力也包含：节点从 14 → 20 的过渡、读规则值节点 ValueRuleStat、回合流程原子节点（供 7.2 编排）。
+* 阶段2 节点能力也包含：节点从 14 → 20 的过渡、读规则值节点 ValueRuleStat、回合流程原子节点（供 7.5 编排）。
 
-#### 7.6.1 节点编辑器 UI 技术选型（老板已拍板）★
+#### 7.2.1 节点编辑器 UI 技术选型（老板已拍板）★
 
 > **结论：自研 uGUI 运行时节点编辑器**（随成品发布、玩家可直接编辑）。不做内置 GraphView(仅编辑器可用)，不采购 uNode/NodeCanvas(带自家规则引擎易冲突)。市面无现成完美匹配"玩家自制卡+节点编辑"场景。
 
@@ -280,7 +230,70 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 * 工作量集中在组件3（拖拽/连线/缩放手感），组件1/2/4 为常规活。
 
-### 7.7 Tier1 首批节点清单（阶段2 开工第一份清单）
+### 7.3 架构定稿：官方卡池统一到自定义编辑器（老板已拍板：强统一）
+
+> 老板确认：**原系统所有数据统一到自定义体系；官方卡池也会通过卡牌编辑器进行编辑。** 方案强度 = **B 强统一**。
+
+#### 7.3.1 定义（写死，不再摇摆）
+
+* 所有卡（官方 + 玩家）的**效果全部是节点图**，同一份 `.diycard` 数据。
+* **废弃**"官方卡用代码 Ability 实现"的轨道。官方卡与玩家卡在编辑器里**无差别**打开、编辑、复制。
+* 玩法效果只认一个解释器：`NodeGraphRunner`。
+* GameLogic 效果结算**不再 switch 内置 Abilities**，统一走 `NodeGraphRunner` 跑节点图。
+
+#### 7.3.2 强统一的三项硬指标（缺一不可）
+
+1. **319 节点 = 官方全部机制的真实全集**：不是"玩家可用的近似集"，而是官方每张卡的效果都能被这些节点图表达。官方卡迁移时遇到一个节点兜不住的机制，即一次返工。
+2. **官方卡全量迁移**：把现有 `CardData` / Abilities 写死的效果，全部翻译为节点图保存（扫地迁移，一张不能少）。
+3. **效果引擎统一入口**：`GameLogic` 结算只认 `NodeGraphRunner`。
+
+#### 7.3.3 必须保留的逃生阀门：自定义节点（不破坏统一性）
+
+强统一 ≠"绝不允许代码"。保留一个 **「自定义节点」** 作为官方卡的安全阀：
+
+* 在编辑器中它**对外是普通节点图**（有端口、可连、可改参数），**对内可跑一段定义好的代码逻辑**。
+* 关键：数据结构仍统一（都是 `.diycard` 节点图），**只是个别节点的执行体是代码**。玩家看不到代码，只知道这是一个被封装好的复杂效果黑盒。
+* 作用：官方某机制节点画起来太费时，就封装成这个"自定义节点"。**它是兜底，不是退回两条轨道**——99% 用纯节点，1% 卡壳的用阀门顶上。
+
+#### 7.3.4 强统一的推进顺序（专属，别跳步）
+
+1. **先把节点补齐到能表达"官方所有现有卡"**（优先补：集合类型、四则 + 取余、事件触发钩子）。
+2. **官方卡迁移到节点图**，迁移期间保证 319 清单 ⊇ 官方需求。
+3. **GameLogic 结算改统一入口**（只认 `NodeGraphRunner`）。
+4. **编辑器 + 运行时桥接接通**。
+5. 上线后官方加新机制 → 优先纯节点；卡壳就新增一个"自定义节点"。
+
+#### 7.3.5 代价说明（老板需心里有数）
+
+* **初期成本高**：官方卡迁移是纯苦力；且 319 节点的补全（集合/取余/计算）必须在官方卡迁移**之前**具备，否则迁移到一半发现无法表达。
+* **官方丢代码灵活度**：官方想再做复杂机制，最终表达也被限制在节点能力内。这是为"统一、可复用长期架构"付出的代价。
+
+#### 7.3.6 强统一改造清单（逐模块落地依据）
+
+> 引擎现状：官方卡效果 = `AbilityData(能力)` + `EffectData/ConditionData/FilterData(效果/条件/筛选)` ScriptableObject 组合，靠 `AbilityTrigger` 枚举触发 + `GameLogic.TriggerCardAbilityType` 粗粒度分发执行。强统一 = 把这套"代码组合配置"整体替换为"节点图"。**不是小改，是动引擎心脏。**
+
+| # | 模块 | 现有代码 | 强统一改造目标 | 性质 |
+|---|---|---|---|---|
+| 1 | **卡数据** | [CardData.cs](Assets/TcgEngine/Scripts/Data/CardData.cs) `abilities` 字段 | 废弃 `AbilityData[]`，改挂 `CardGraphData` 节点图 | 改造 |
+| 2 | **卡加载** | `CardData.Load()` 走 `Resources.LoadAll<CardData>` | 官方卡改为从 `.diycard` 加载（保留 CardData 壳或直接图） | 改造 |
+| 3 | **能力载体** | [AbilityData.cs](Assets/TcgEngine/Scripts/Data/AbilityData.cs) 整类 | 不再被卡直接引用，仅作"官方自定义节点/关键词"封壳 | 收缩 |
+| 4 | **效果引擎** | Effects/Values/Conditions/Filters 四大目录（约 100+ 文件） | **不删**，转作 `NodeGraphRunner` 的底层 Handler，被节点重新编排 | 保留复用 |
+| 5 | **触发执行** | [GameLogic.cs](Assets/TcgEngine/Scripts/GameLogic/GameLogic.cs) `TriggerCardAbilityType` 35+ 枚举触发点 | 收敛为**一套事件总线**，找带触发器节点图 → 跑 `NodeGraphRunner` | 改造★ |
+| 6 | **运行时卡模** | [Card.cs](Assets/TcgEngine/Scripts/GameLogic/Card.cs)、[Player.cs](Assets/TcgEngine/Scripts/GameLogic/Player.cs) | 节点图实例化效果；`CardTrait` 体系作自定义关键词底座并与节点触发打通 | 扩展 |
+| 7 | **目标选择** | `AbilityTarget` 枚举 + SelectTargetUI/CardSelector/ChoiceSelector | 被节点目标端口替代，或保留作节点的"目标取值节点"后端 | 改造★ |
+| 8 | **出牌 UI** | CardLine/AbilityButton 依赖 trigger/target 枚举判断 | 新增一批"官方只读节点"承接可否打出/有无目标判断 | 改造 |
+| 9 | **网络/存档** | GameAction 同步 CardData id、JsonUtility 存档 | 同步自定义卡效果图签名/hash；存档读 `.diycard` | 改造 |
+| 10 | **开发工具** | Editor/CardBrowserWindow 卡浏览器 | 扩展为官方卡也在节点编辑器编辑，或废弃 | 迁移 |
+
+**改造优先级排序（依赖顺序）**：
+1. 补全节点到能表达官方现有卡（集合 / 四则+取余 / 事件触发钩子）→ 对应 7.3.4-1
+2. 数据层落挂载（#1/#2/#3）→ 卡能挂图、能加载
+3. 事件驱动执行（#5/#6）→ 节点图真能跑成对局效果
+4. 目标选择与出牌 UI（#7/#8）→ 玩家能完整打出 & 选目标
+5. 官方卡全量迁移（扫地，对应 7.3.4-2）
+6. 网络/存档/工具（#9/#10）→ 联机验证与后续运维
+
+### 7.4 Tier1 首批节点清单（阶段2 开工第一份清单）
 
 > 原则：**优先映射现有引擎已具备的能力**，第一批即可拖可用。编号复用 NodeDoc.xml 的 defineId 语义标准；未含的现有能力（如 EffectDamage）也补入，统一到"卡牌节点全集"。
 
@@ -323,7 +336,241 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 > **说明**：第三方 319 全集中含"卡牌快照/事件记录/自由映射"等 Tier3 深度节点，另列分批；Tier1 清单只保证"现有能力→节点"的首批可玩集。全部节点均纳入阶段2 完成范围。
 
-### 7.8 验收标准（阶段2 完成定义）
+---
+
+**B. 玩法功能规格**
+
+---
+
+### 7.5 规则系统：数值 + 回合流程 节点化编辑
+
+* **数值规则**（沿用现有白名单思路，做成节点化修改，而非仅键值表）
+
+  * 可改项：`starting_hp` / `mana_per_turn` / `mana_max` / `cards_start` / `cards_per_turn` / `cards_max` / `deck_size` / `dup_max` / `mulligan` / `second_bonus`
+
+  * 每一项带：允许范围、默认值、校验规则（例如 `starting_hp ∈ [15, 60]`）
+
+* **回合流程**（阶段2 新增开放层，引擎仍官方固定）
+
+  * 可改项（节点化编排 "回合步骤序列"）：每回合抽牌数、能否额外移动/出法、先手后手权、超时秒数、回合内动作顺序
+
+  * 示例：`RoundFlow = [Draw N from serialized deck] -> [Mana+1] -> [PlayerAction] -> [AI_Action]`
+
+  * **守卫**：这些项仍基于官方提供的"回合步骤原子"，玩家只能**重排/增删"官方原子"**，不能发明全新引擎行为
+
+* `.diyrule` 文件：`{ schema, meta{id,author,title}, rules[]，round_flow[] }`
+
+* 平衡：每次改动即时做**系统建议**（强度/时长提示），阶段2 不强制拦截（信任本地），但记录为阶段3 审核输入
+
+### 7.6 私房对战（成熟体验）
+
+* **建房**：选规则(.diyrule/默认) → 提炼为**规则 hash** → 生成房号/share code → 发布到房间列表
+
+* **加入**：房号直连 / 房间列表查找 / 分享码；标签展示（标题/规则说明/人数/房主）
+
+* **房管理（完整）**：房主改房名/规则/开放门票、踢人、设为观战、只允许好友、中途暂停
+
+* **断线/重连**：会话保留 N 秒，断线重连恢复对局；超时由房主或系统接管/判定
+
+* **房内观战**：非玩家可旁观本房（阶段2 简化版，阶段4 做官方直播级观战）
+
+* **房内聊天**：文字聊天、快捷表情、对局内表情
+
+* **DIY 数据流**：双方本地持有 .diycard，仅同步"卡牌ID + 签名 + 规则 hash"；规则 hash 不一致则拒绝开战
+
+### 7.7 账号与云存盘（真实账号）
+
+* 注册/登录（用户名+密码 / 可选第三方）、账号服务端验证 Token
+
+* **云存盘**：作品(.diycard/.diyrule)、战绩/积分、设置，多端同步(为阶段5移动端铺路)
+
+* **战绩/积分**：记录 胜/负/场次/胜率/MMR雏形，私房与单人分别统计
+
+* **个人主页/展示**：昵称、自定义头像/头像框、展示自制作品列表、公开战绩
+
+* 作品归属：每个 .diycard/.diyrule 绑定 account\_id；导出/导入保留作者信息
+
+### 7.8 DIY 作品管理
+
+* **作品/草稿/版本**：本地草稿箱、作品列表、重命名、版本迭代/回滚
+
+* **分享/收藏**：导出分享码/文件、导入他人作品、收藏他人作品到本地
+
+* **作品美化**：卡面封面图/边框/标签选择，美化展示页
+
+* （创意工坊上传/评价/投票/评选 → 阶段3）
+
+### 7.9 可配置战斗按钮（数据驱动，玩家可自定义显示与触发动作）
+
+> 需求：战斗界面增加几个按钮，可自定义**显示内容**和**触发动作**。方案 = 纯数据驱动的外挂按钮系统，不侵入现有 `AbilityButton`（卡上技能按钮）/`GameUI`（写死的出牌/结束回合）逻辑。
+
+#### 7.9.1 数据结构
+
+```csharp
+[CreateAssetMenu(menuName = "TcgEngine/BattleButton")]
+public class BattleButtonData : ScriptableObject
+{
+    public string id;                 // 按钮标识
+    public string label;              // 显示文字
+    public Sprite icon;               // 显示图标
+    public int sort_order;            // 排列顺序
+    public BattleButtonAction action; // 触发动作（见 7.9.2）
+    public bool enabled_on_turn;      // 是否仅自己回合可点
+}
+```
+
+#### 7.9.2 触发动作（两级，与 DIY 打通）
+
+| 层级 | 动作类型 | 例子 | 落点 |
+|---|---|---|---|
+| 引擎内置动作 | `enum` 固定几种 | 结束回合 / 投降 / 打开菜单 / 抽1张 | 复用 `GameClient`（`EndTurn/Resign` 等） |
+| DIY 自定义动作 | `RunNodeGraphAction`（节点图） | `抽3张` / `给全体+1攻` | 丢给 `NodeGraphRunner` → 现有 EffectData → GameLogic |
+
+动作抽象：
+```csharp
+public abstract class BattleButtonAction : ScriptableObject
+{
+    public string label;
+    public abstract void Execute(BattleButtonContext ctx);
+}
+public class BattleButtonContext
+{
+    public Player player;   // 谁的回合
+    public GameUI ui;
+    public GameClient client;
+}
+```
+
+#### 7.9.3 运行时排布（不动核心对局逻辑）
+
+新增 `BattleButtonBar : MonoBehaviour`（挂战斗场景顶层 UI）：
+* 暴露 `List<BattleButtonData> buttons` 配置哪几个。
+* 按 `sort_order` 用 `HorizontalLayoutGroup` 自动排布。
+* 每个槽位创建通用 `BattleButtonUI`，从数据 Fill 文字/图标/可点状态。
+* 点击 → 按 `action` 分发到 `BattleButtonAction.Execute(ctx)`。
+
+#### 7.9.4 与现有引擎对接点
+
+* **显示**：新建独立 `BattleButtonUI`，复用现有按钮样式，不碰 `AbilityButton`。
+* **引擎动作**：复用 `GameClient` 玩家指令（`PlayCard/AttackTarget/Move/CastAbility/EndTurn/Resign`），天然走网络同步，私房对战可用。
+* **DIY 动作**：复用 `ValueSource + EffectData + NodeGraphRunner`，触发后跑绑定的节点图。
+
+#### 7.9.5 建议首期最小闭环
+
+1. `BattleButtonData`（显示 + 动作）。
+2. `BattleButtonBar` + 通用 `BattleButtonUI`。
+3. 预置两动作验证通路：`结束回合`（引擎动作）、`抽3张牌`（DIY 节点图动作）。
+4. 存盘先本地简单的 `.diybutton` 或 SO。
+
+**注意**：本系统是新增独立模块，与 7.3 强统一解耦——先做官方按钮受控、DIY 按钮逐步开放，不影响现有出牌流程。
+
+---
+
+**C. 跨模块统一规范**
+
+---
+
+### 7.10 项目级统一清单（5 项 + 优先级）
+
+> UI 统一只是表象。真正决定 DIY 成败的是**数据来源、事件、规则**三个统一——它们与 7.3 强统一、自定义关键词直接绑定。
+
+#### 7.10.1 数据/加载统一（最高优先级，DIY 地基）
+
+现状：官方卡走 `Resources.LoadAll<CardData>`（SO `.asset`）；玩家卡将走 `persistentDataPath/.diycard`（JSON）——"逻辑上同一张卡"却两套来源，组卡/收藏/对战都要分叉处理。
+
+统一目标：**卡牌仓库接口 `ICardProvider`**，官方卡和玩家卡都从它取；内部两个实现（Resources / persistentDataPath），上层只见一个入口。这是 7.3 强统一的另一半——不只效果统一，**数据来源也统一**。
+
+#### 7.10.2 事件系统统一（最高优先级）
+
+现状：`GameLogic.TriggerCardAbilityType` 35+ 枚举触发点散在各处，UI 更新靠各处硬编码监听；DIY 关键词（受伤时+2攻）、响应时点（延后项）全依赖事件。
+
+统一目标：收敛成**一套事件总线 `GameEvents`**（`OnDamage/OnPlay/OnDeath/OnTurnStart...`），逻辑层广播、表现层订阅。这是 7.3 改造清单 #5 的具体化，自定义关键词绕不开它。
+
+#### 7.10.3 配置/规则统一（高优先级）
+
+现状：`GameSettings` 只管对局开局参数（费用/手牌上限）。要玩家改规则（数值/流程），将来有"官方默认规则""玩家自定义规则""房间规则配置"并存。
+
+统一目标：**一套规则配置结构**，官方默认 = 一份配置，玩家房 = 覆盖配置，序列化同一格式（`INetworkSerializable` 已有）。
+
+#### 7.10.4 表现层统一（中优先级）
+
+现状：`CardUI` 等直接调动画，音效分散；DIY 卡有自己出场/攻击音效，不统一就"官方有动画、玩家卡没动画"。
+
+统一目标：卡牌表现（攻击动画/音效/特效）收敛成 `CardFX` 服务，官方/玩家卡都调它，数据驱动（卡数据配了就用，没配走默认）。
+
+#### 7.10.5 其他低优先级统一
+
+* **本地化**：文案统一（TMP + 本地化表），DIY 卡描述支持多语言时再上。
+* **错误处理**：DIY 卡加载失败（图坏/节点解析错）统一走"降级为白板卡"逻辑，别到处 try/catch。
+
+#### 7.10.6 优先级结论
+
+| 统一项 | 优先级 | 原因 |
+|---|---|---|
+| 数据/加载统一 | ⭐ 最高 | DIY 地基，7.3 的另一半 |
+| 事件系统统一 | ⭐ 最高 | 自定义关键词/响应全依赖它 |
+| 配置/规则统一 | 高 | 自定义规则的核心 |
+| 表现层统一 | 中 | 玩家卡要有表现 |
+| 本地化/错误处理 | 低 | 后期再说 |
+
+### 7.11 UI 统一规范（Text → TMP + 字体统一 + 样式 token）
+
+> 现状：UI 层 30+ 处全部用老 `UnityEngine.UI.Text`，无 TMP。目标：统一成 TMP（富文本/字体切换基础）+ 字体集中管理 + 样式收敛。
+
+#### 7.11.1 统一目标
+
+| 维度 | 现状 | 统一目标 |
+|---|---|---|
+| 文本组件 | 30+ 处 `public Text` 老 UGUI | 全换 `TextMeshProUGUI`（富文本 / 字体切换基础） |
+| 字体 | 各场景各挂字体，无集中管理 | `UIFonts` 管理器集中管，运行时可切 |
+| 样式 | 字号/颜色/边距散落在预制件 | 收敛成字号档位表 + 颜色 token + TMP 默认样式表 |
+| 卡面文字 | `CardUI` 老 Text | TMP + 富文本（玩家卡描述 / 关键词提示要用） |
+
+#### 7.11.2 TMP 迁移策略（渐进，不一次性大改）
+
+* **新功能**（可配置按钮、DIY 编辑器）**直接用 TMP**，示范标准写法。
+* **存量 `Text`** 做哪个换哪个：改声明为 `TextMeshProUGUI` + Inspector 拖 TMP 组件，不搞一次性 30 文件大迁移。
+* **卡面 `CardUI` 优先换**（DIY 核心，最先受益于富文本）。
+
+#### 7.11.3 字体管理器 `UIFonts`（运行时可切换的前提）
+
+```csharp
+public static class UIFonts
+{
+    public static TMP_FontAsset current;              // 当前全局字体
+    public static void Apply(GameObject root)         // 递归给 root 下所有 TMP_Text 设字体
+    {
+        foreach (var t in root.GetComponentsInChildren<TextMeshProUGUI>(true))
+            t.font = current;
+    }
+}
+```
+
+* 内置字体：`Resources/Fonts/` 放几种烘焙好的 `TMP_FontAsset`，`Resources.Load<TMP_FontAsset>("Fonts/xxx")`（与引擎现有 `Resources.LoadAll<CardData>` 同款加载方式）。
+* 切换：设置里换字体 → `UIFonts.current = 新字体` → `UIFonts.Apply(UI根节点)` 全局生效。
+* 玩家上传任意 TTF 运行时换字体 = 进阶项（TMP 运行时烘焙受限），后续阶段再做。
+
+#### 7.11.4 样式规范（收敛成 token）
+
+* **字号档位表**：标题 28 / 正文 22 / 说明 18 / 角标 14，新 UI 照抄。
+* **颜色 token**：主色 / 强调 / 禁用 / 错误 定义成常量（或 `UIPalette` SO），禁止在预制件手填颜色。
+* **TMP 默认样式表（Default Style Sheet）**：用 `<style=...>` 标签 + 样式表资源，统一字号/颜色/字距，一处改全局生效。
+
+#### 7.11.5 落地顺序（5 步，风险从低到高）
+
+1. 引入 TMP（Package 自带）+ 建 `UIFonts` 字体管理器 + 内置字体资源 → 低风险
+2. **新功能**直接用 TMP，示范标准写法 → 低
+3. 卡面 `CardUI` 换 TMP（DIY 核心优先）→ 中
+4. 通用 UI（菜单/弹窗/按钮文字）存量 `Text` 分批换 → 中
+5. 统一样式表 + 字号/颜色规范固化 → 低
+
+---
+
+**D. 工程计划**
+
+---
+
+### 7.12 验收标准（阶段2 完成定义）
 
 1. 能创建一个改"血量+回合流程"的规则，节点化编辑并导出 .diyrule
 2. 私房完整管理（建/加/踢/变换规则）+ 断线重连 + 房内观战 + 房内聊天可用
@@ -332,7 +579,7 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 5. 个人主页展示作品与战绩；作品管理（草稿/版本/收藏/美化）
 6. 官方默认规则对局不受影响
 
-### 7.9 阶段2 落地开工计划（老板确认后按序执行）
+### 7.13 落地开工计划（老板确认后按序执行）
 
 > 依据已有工程铺垫（ValueSource 体系 + amount 效果已就位），把阶段2 拆成 **M0→M5** 里程碑，按依赖顺序推进。**节点系统（M0/M1）为第一优先级**，其余主线并行。
 
@@ -346,7 +593,7 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 **M1 · Tier1 节点首批可拖可用（核心中的核心）**
 
-* [ ] 按 7.7 清单，为每类节点逐个实现 Handler 并登记到 NodeDef 字典
+* [ ] 按 7.4 清单，为每类节点逐个实现 Handler 并登记到 NodeDef 字典
   * A 常量/逻辑：`BooleanConst`→ConditionBool、`IntegerConst`→ValueConstant、`Compare`→ConditionOperator、`Add/Sub/Mul/Div/Mod`→ValueMath
 
   * B 属性读取：`ValueTargetStat/ValueCasterStat`（已建）、状态/牌堆读取
@@ -399,13 +646,13 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 
 * [ ] Tier2/Tier3 节点补齐（集合运算/快照/事件记录/新机制），回查 NodeDoc.xml 全集完成度
 
-* [ ] 对照 7.8 六条验收逐一过；官方默认规则对局回归不受影响
+* [ ] 对照 7.12 六条验收逐一过；官方默认规则对局回归不受影响
 
 * 落点：全量回归 + 验收报告
 
 > ⚠️ 与阶段1 相同：M0/M1 的 C# 均需在 Unity 中编译确认（沙盒无法运行编译器），XML 定义与纯数据部分可在沙盒先行生成校验。
 
-### 7.10 技术落点（阶段2）
+### 7.14 技术落点（阶段2）
 
 | 模块     | 落点（对应现有代码）                                          |
 | ------ | --------------------------------------------------- |
@@ -417,238 +664,13 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 | 作品管理   | DiyProjectStore（草稿/版本/收藏），本地+云                      |
 | 读规则值节点 | ValueRuleStat（ValueSource 子类）                       |
 
-### 7.11 依赖与风险（阶段2）
+### 7.15 依赖与风险（阶段2）
 
 | 项       | 说明                              |
 | ------- | ------------------------------- |
 | 回合流程开放层 | 需新增"回合步骤原子"抽象（官方定义原子集），是关键新增开发量 |
 | 云存盘/账号  | 需要后端基础设施（阶段1完全未涉及），是阶段2最大新增     |
 | 平衡      | 阶段2信任本地+系统建议，正式拦截留给阶段3          |
-
-### 7.12 架构定稿：官方卡池统一到自定义编辑器（老板已拍板：强统一）
-
-> 老板确认：**原系统所有数据统一到自定义体系；官方卡池也会通过卡牌编辑器进行编辑。** 方案强度 = **B 强统一**。
-
-#### 7.12.1 定义（写死，不再摇摆）
-
-* 所有卡（官方 + 玩家）的**效果全部是节点图**，同一份 `.diycard` 数据。
-* **废弃**"官方卡用代码 Ability 实现"的轨道。官方卡与玩家卡在编辑器里**无差别**打开、编辑、复制。
-* 玩法效果只认一个解释器：`NodeGraphRunner`。
-* GameLogic 效果结算**不再 switch 内置 Abilities**，统一走 `NodeGraphRunner` 跑节点图。
-
-#### 7.12.2 强统一的三项硬指标（缺一不可）
-
-1. **319 节点 = 官方全部机制的真实全集**：不是"玩家可用的近似集"，而是官方每张卡的效果都能被这些节点图表达。官方卡迁移时遇到一个节点兜不住的机制，即一次返工。
-2. **官方卡全量迁移**：把现有 `CardData` / Abilities 写死的效果，全部翻译为节点图保存（扫地迁移，一张不能少）。
-3. **效果引擎统一入口**：`GameLogic` 结算只认 `NodeGraphRunner`。
-
-#### 7.12.3 必须保留的逃生阀门：自定义节点（不破坏统一性）
-
-强统一 ≠"绝不允许代码"。保留一个 **「自定义节点」** 作为官方卡的安全阀：
-
-* 在编辑器中它**对外是普通节点图**（有端口、可连、可改参数），**对内可跑一段定义好的代码逻辑**。
-* 关键：数据结构仍统一（都是 `.diycard` 节点图），**只是个别节点的执行体是代码**。玩家看不到代码，只知道这是一个被封装好的复杂效果黑盒。
-* 作用：官方某机制节点画起来太费时，就封装成这个"自定义节点"。**它是兜底，不是退回两条轨道**——99% 用纯节点，1% 卡壳的用阀门顶上。
-
-#### 7.12.4 强统一的推进顺序（专属，别跳步）
-
-1. **先把节点补齐到能表达"官方所有现有卡"**（优先补：集合类型、四则 + 取余、事件触发钩子）。
-2. **官方卡迁移到节点图**，迁移期间保证 319 清单 ⊇ 官方需求。
-3. **GameLogic 结算改统一入口**（只认 `NodeGraphRunner`）。
-4. **编辑器 + 运行时桥接接通**。
-5. 上线后官方加新机制 → 优先纯节点；卡壳就新增一个"自定义节点"。
-
-#### 7.12.5 代价说明（老板需心里有数）
-
-* **初期成本高**：官方卡迁移是纯苦力；且 319 节点的补全（集合/取余/计算）必须在官方卡迁移**之前**具备，否则迁移到一半发现无法表达。
-* **官方丢代码灵活度**：官方想再做复杂机制，最终表达也被限制在节点能力内。这是为"统一、可复用长期架构"付出的代价。
-
-#### 7.12.6 强统一改造清单（逐模块落地依据）
-
-> 引擎现状：官方卡效果 = `AbilityData(能力)` + `EffectData/ConditionData/FilterData(效果/条件/筛选)` ScriptableObject 组合，靠 `AbilityTrigger` 枚举触发 + `GameLogic.TriggerCardAbilityType` 粗粒度分发执行。强统一 = 把这套"代码组合配置"整体替换为"节点图"。**不是小改，是动引擎心脏。**
-
-| # | 模块 | 现有代码 | 强统一改造目标 | 性质 |
-|---|---|---|---|---|
-| 1 | **卡数据** | [CardData.cs](Assets/TcgEngine/Scripts/Data/CardData.cs) `abilities` 字段 | 废弃 `AbilityData[]`，改挂 `CardGraphData` 节点图 | 改造 |
-| 2 | **卡加载** | `CardData.Load()` 走 `Resources.LoadAll<CardData>` | 官方卡改为从 `.diycard` 加载（保留 CardData 壳或直接图） | 改造 |
-| 3 | **能力载体** | [AbilityData.cs](Assets/TcgEngine/Scripts/Data/AbilityData.cs) 整类 | 不再被卡直接引用，仅作"官方自定义节点/关键词"封壳 | 收缩 |
-| 4 | **效果引擎** | Effects/Values/Conditions/Filters 四大目录（约 100+ 文件） | **不删**，转作 `NodeGraphRunner` 的底层 Handler，被节点重新编排 | 保留复用 |
-| 5 | **触发执行** | [GameLogic.cs](Assets/TcgEngine/Scripts/GameLogic/GameLogic.cs) `TriggerCardAbilityType` 35+ 枚举触发点 | 收敛为**一套事件总线**，找带触发器节点图 → 跑 `NodeGraphRunner` | 改造★ |
-| 6 | **运行时卡模** | [Card.cs](Assets/TcgEngine/Scripts/GameLogic/Card.cs)、[Player.cs](Assets/TcgEngine/Scripts/GameLogic/Player.cs) | 节点图实例化效果；`CardTrait` 体系作自定义关键词底座并与节点触发打通 | 扩展 |
-| 7 | **目标选择** | `AbilityTarget` 枚举 + SelectTargetUI/CardSelector/ChoiceSelector | 被节点目标端口替代，或保留作节点的"目标取值节点"后端 | 改造★ |
-| 8 | **出牌 UI** | CardLine/AbilityButton 依赖 trigger/target 枚举判断 | 新增一批"官方只读节点"承接可否打出/有无目标判断 | 改造 |
-| 9 | **网络/存档** | GameAction 同步 CardData id、JsonUtility 存档 | 同步自定义卡效果图签名/hash；存档读 `.diycard` | 改造 |
-| 10 | **开发工具** | Editor/CardBrowserWindow 卡浏览器 | 扩展为官方卡也在节点编辑器编辑，或废弃 | 迁移 |
-
-**改造优先级排序（依赖顺序）**：
-1. 补全节点到能表达官方现有卡（集合 / 四则+取余 / 事件触发钩子）→ 对应 7.12.4-1
-2. 数据层落挂载（#1/#2/#3）→ 卡能挂图、能加载
-3. 事件驱动执行（#5/#6）→ 节点图真能跑成对局效果
-4. 目标选择与出牌 UI（#7/#8）→ 玩家能完整打出 & 选目标
-5. 官方卡全量迁移（扫地，对应 7.12.4-2）
-6. 网络/存档/工具（#9/#10）→ 联机验证与后续运维
-
-### 7.13 可配置战斗按钮（数据驱动，玩家可自定义显示与触发动作）
-
-> 需求：战斗界面增加几个按钮，可自定义**显示内容**和**触发动作**。方案 = 纯数据驱动的外挂按钮系统，不侵入现有 `AbilityButton`（卡上技能按钮）/`GameUI`（写死的出牌/结束回合）逻辑。
-
-#### 7.13.1 数据结构
-
-```csharp
-[CreateAssetMenu(menuName = "TcgEngine/BattleButton")]
-public class BattleButtonData : ScriptableObject
-{
-    public string id;                 // 按钮标识
-    public string label;              // 显示文字
-    public Sprite icon;               // 显示图标
-    public int sort_order;            // 排列顺序
-    public BattleButtonAction action; // 触发动作（见 7.13.2）
-    public bool enabled_on_turn;      // 是否仅自己回合可点
-}
-```
-
-#### 7.13.2 触发动作（两级，与 DIY 打通）
-
-| 层级 | 动作类型 | 例子 | 落点 |
-|---|---|---|---|
-| 引擎内置动作 | `enum` 固定几种 | 结束回合 / 投降 / 打开菜单 / 抽1张 | 复用 `GameClient`（`EndTurn/Resign` 等） |
-| DIY 自定义动作 | `RunNodeGraphAction`（节点图） | `抽3张` / `给全体+1攻` | 丢给 `NodeGraphRunner` → 现有 EffectData → GameLogic |
-
-动作抽象：
-```csharp
-public abstract class BattleButtonAction : ScriptableObject
-{
-    public string label;
-    public abstract void Execute(BattleButtonContext ctx);
-}
-public class BattleButtonContext
-{
-    public Player player;   // 谁的回合
-    public GameUI ui;
-    public GameClient client;
-}
-```
-
-#### 7.13.3 运行时排布（不动核心对局逻辑）
-
-新增 `BattleButtonBar : MonoBehaviour`（挂战斗场景顶层 UI）：
-* 暴露 `List<BattleButtonData> buttons` 配置哪几个。
-* 按 `sort_order` 用 `HorizontalLayoutGroup` 自动排布。
-* 每个槽位创建通用 `BattleButtonUI`，从数据 Fill 文字/图标/可点状态。
-* 点击 → 按 `action` 分发到 `BattleButtonAction.Execute(ctx)`。
-
-#### 7.13.4 与现有引擎对接点
-
-* **显示**：新建独立 `BattleButtonUI`，复用现有按钮样式，不碰 `AbilityButton`。
-* **引擎动作**：复用 `GameClient` 玩家指令（`PlayCard/AttackTarget/Move/CastAbility/EndTurn/Resign`），天然走网络同步，私房对战可用。
-* **DIY 动作**：复用 `ValueSource + EffectData + NodeGraphRunner`，触发后跑绑定的节点图。
-
-#### 7.13.5 建议首期最小闭环
-
-1. `BattleButtonData`（显示 + 动作）。
-2. `BattleButtonBar` + 通用 `BattleButtonUI`。
-3. 预置两动作验证通路：`结束回合`（引擎动作）、`抽3张牌`（DIY 节点图动作）。
-4. 存盘先本地简单的 `.diybutton` 或 SO。
-
-**注意**：本系统是新增独立模块，与 7.12 强统一解耦——先做官方按钮受控、DIY 按钮逐步开放，不影响现有出牌流程。
-
-***
-
-### 7.14 UI 统一规范（Text → TMP + 字体统一 + 样式 token）
-
-> 现状：UI 层 30+ 处全部用老 `UnityEngine.UI.Text`，无 TMP。目标：统一成 TMP（富文本/字体切换基础）+ 字体集中管理 + 样式收敛。
-
-#### 7.14.1 统一目标
-
-| 维度 | 现状 | 统一目标 |
-|---|---|---|
-| 文本组件 | 30+ 处 `public Text` 老 UGUI | 全换 `TextMeshProUGUI`（富文本 / 字体切换基础） |
-| 字体 | 各场景各挂字体，无集中管理 | `UIFonts` 管理器集中管，运行时可切 |
-| 样式 | 字号/颜色/边距散落在预制件 | 收敛成字号档位表 + 颜色 token + TMP 默认样式表 |
-| 卡面文字 | `CardUI` 老 Text | TMP + 富文本（玩家卡描述 / 关键词提示要用） |
-
-#### 7.14.2 TMP 迁移策略（渐进，不一次性大改）
-
-* **新功能**（可配置按钮、DIY 编辑器）**直接用 TMP**，示范标准写法。
-* **存量 `Text`** 做哪个换哪个：改声明为 `TextMeshProUGUI` + Inspector 拖 TMP 组件，不搞一次性 30 文件大迁移。
-* **卡面 `CardUI` 优先换**（DIY 核心，最先受益于富文本）。
-
-#### 7.14.3 字体管理器 `UIFonts`（运行时可切换的前提）
-
-```csharp
-public static class UIFonts
-{
-    public static TMP_FontAsset current;              // 当前全局字体
-    public static void Apply(GameObject root)         // 递归给 root 下所有 TMP_Text 设字体
-    {
-        foreach (var t in root.GetComponentsInChildren<TextMeshProUGUI>(true))
-            t.font = current;
-    }
-}
-```
-
-* 内置字体：`Resources/Fonts/` 放几种烘焙好的 `TMP_FontAsset`，`Resources.Load<TMP_FontAsset>("Fonts/xxx")`（与引擎现有 `Resources.LoadAll<CardData>` 同款加载方式）。
-* 切换：设置里换字体 → `UIFonts.current = 新字体` → `UIFonts.Apply(UI根节点)` 全局生效。
-* 玩家上传任意 TTF 运行时换字体 = 进阶项（TMP 运行时烘焙受限），后续阶段再做。
-
-#### 7.14.4 样式规范（收敛成 token）
-
-* **字号档位表**：标题 28 / 正文 22 / 说明 18 / 角标 14，新 UI 照抄。
-* **颜色 token**：主色 / 强调 / 禁用 / 错误 定义成常量（或 `UIPalette` SO），禁止在预制件手填颜色。
-* **TMP 默认样式表（Default Style Sheet）**：用 `<style=...>` 标签 + 样式表资源，统一字号/颜色/字距，一处改全局生效。
-
-#### 7.14.5 落地顺序（5 步，风险从低到高）
-
-1. 引入 TMP（Package 自带）+ 建 `UIFonts` 字体管理器 + 内置字体资源 → 低风险
-2. **新功能**直接用 TMP，示范标准写法 → 低
-3. 卡面 `CardUI` 换 TMP（DIY 核心优先）→ 中
-4. 通用 UI（菜单/弹窗/按钮文字）存量 `Text` 分批换 → 中
-5. 统一样式表 + 字号/颜色规范固化 → 低
-
-***
-
-### 7.15 项目级统一清单（不止 UI，5 项 + 优先级）
-
-> UI 统一只是表象。真正决定 DIY 成败的是**数据来源、事件、规则**三个统一——它们与 7.12 强统一、自定义关键词直接绑定。
-
-#### 7.15.1 数据/加载统一（最高优先级，DIY 地基）
-
-现状：官方卡走 `Resources.LoadAll<CardData>`（SO `.asset`）；玩家卡将走 `persistentDataPath/.diycard`（JSON）——"逻辑上同一张卡"却两套来源，组卡/收藏/对战都要分叉处理。
-
-统一目标：**卡牌仓库接口 `ICardProvider`**，官方卡和玩家卡都从它取；内部两个实现（Resources / persistentDataPath），上层只见一个入口。这是 7.12 强统一的另一半——不只效果统一，**数据来源也统一**。
-
-#### 7.15.2 事件系统统一（最高优先级）
-
-现状：`GameLogic.TriggerCardAbilityType` 35+ 枚举触发点散在各处，UI 更新靠各处硬编码监听；DIY 关键词（受伤时+2攻）、响应时点（延后项）全依赖事件。
-
-统一目标：收敛成**一套事件总线 `GameEvents`**（`OnDamage/OnPlay/OnDeath/OnTurnStart...`），逻辑层广播、表现层订阅。这是 7.12 改造清单 #5 的具体化，自定义关键词绕不开它。
-
-#### 7.15.3 配置/规则统一（高优先级）
-
-现状：`GameSettings` 只管对局开局参数（费用/手牌上限）。要玩家改规则（数值/流程），将来有"官方默认规则""玩家自定义规则""房间规则配置"并存。
-
-统一目标：**一套规则配置结构**，官方默认 = 一份配置，玩家房 = 覆盖配置，序列化同一格式（`INetworkSerializable` 已有）。
-
-#### 7.15.4 表现层统一（中优先级）
-
-现状：`CardUI` 等直接调动画，音效分散；DIY 卡有自己出场/攻击音效，不统一就"官方有动画、玩家卡没动画"。
-
-统一目标：卡牌表现（攻击动画/音效/特效）收敛成 `CardFX` 服务，官方/玩家卡都调它，数据驱动（卡数据配了就用，没配走默认）。
-
-#### 7.15.5 其他低优先级统一
-
-* **本地化**：文案统一（TMP + 本地化表），DIY 卡描述支持多语言时再上。
-* **错误处理**：DIY 卡加载失败（图坏/节点解析错）统一走"降级为白板卡"逻辑，别到处 try/catch。
-
-#### 7.15.6 优先级结论
-
-| 统一项 | 优先级 | 原因 |
-|---|---|---|
-| 数据/加载统一 | ⭐ 最高 | DIY 地基，7.12 的另一半 |
-| 事件系统统一 | ⭐ 最高 | 自定义关键词/响应全依赖它 |
-| 配置/规则统一 | 高 | 自定义规则的核心 |
-| 表现层统一 | 中 | 玩家卡要有表现 |
-| 本地化/错误处理 | 低 | 后期再说 |
 
 ***
 
@@ -663,4 +685,3 @@ public static class UIFonts
 * [ ] 阶段1 开工：按 3.x + 4 落地（需 Unity 环境编译）
 
 * [ ] 阶段3 细化：官方牌池天梯、创意工坊(上传/评价/投票/评选)、官方存储与完整审核
-
