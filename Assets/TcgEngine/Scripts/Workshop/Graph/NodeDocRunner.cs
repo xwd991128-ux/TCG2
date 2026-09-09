@@ -58,6 +58,8 @@ namespace TcgEngine.Workshop
                 if (!string.IsNullOrEmpty(button_id) &&
                     GraphRuntime.GetFieldString(ev, "button_id", "") != button_id)
                     continue;
+                if (!IsEventConditionMet(logic, graph, ev, caster, target_card, target_player))
+                    continue;   //事件入口「条件」输入口：连线布尔为假则本入口不触发（事件筛选）
 
                 int executed = 0;
                 WalkNode(logic, graph, ev, caster, target_card, target_player, new HashSet<string>(), ref executed);
@@ -84,6 +86,83 @@ namespace TcgEngine.Workshop
             count += Run(logic, graph, hero, null, null, "ButtonClicked", button_id: button_id);
             count += Run(logic, graph, hero, null, null, "ButtonClickedAfter", button_id: button_id);
             return count;
+        }
+
+        /// <summary>
+        /// 执行一次图事件广播下的规则图（由 GameLogic.EmitGraphEvent 对每个匹配宿主调用）。
+        /// 广播期间把 ctx 设为当前事件上下文，供事件入口的 subject/source/value 端口与
+        /// 「阻止本事件」「修改事件值」动作读写；嵌套广播自动保存/恢复外层上下文。</summary>
+        public static int RunEvent(GameLogic logic, GraphData graph, Card host, GraphEventContext ctx)
+        {
+            if (logic == null || graph == null || host == null || ctx == null)
+                return 0;
+            GraphEventContext prev = cur_event;
+            cur_event = ctx;
+            try
+            {
+                return Run(logic, graph, host, ctx.card, ctx.player, ctx.action);
+            }
+            finally
+            {
+                cur_event = prev;
+            }
+        }
+
+        /// <summary>
+        /// 事件入口「条件(cond)」输入口的筛选求值：无连线=放行；连线的布尔源为假=该入口本次不触发。
+        /// 专用求值：卡牌相等/卡牌归属/玩家归属（需事件上下文，读 cur_event/caster 判定"己方/敌方"）；
+        /// 其余布尔源（常量/102032 卡牌类型判断等）走通用条件链。</summary>
+        private static bool IsEventConditionMet(GameLogic logic, GraphData graph, GraphNode ev,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph == null || ev == null)
+                return true;
+            GraphPin pin = graph.GetPinByName(ev.id, "cond");
+            if (pin == null)
+                return true;
+            GraphLink link = graph.GetIncomingLink(ev.id, pin.id);
+            if (link == null)
+                return true;
+            GraphNode src = graph.GetNode(link.from_node);
+            if (src == null)
+                return true;
+            if (string.IsNullOrEmpty(src.category))
+            {
+                if (src.type == GraphNodeType.Value)
+                    return GraphRuntime.EvaluateValue(graph, src) != 0;
+                return true;
+            }
+            switch (src.action)
+            {
+                case "EFCardEquals":   //两张卡是同一张（比较 入口 self/subject 等）
+                {
+                    Card a = ResolveInputCard(logic, graph, src, "cardA", caster, target_card, target_player);
+                    Card b = ResolveInputCard(logic, graph, src, "cardB", caster, target_card, target_player);
+                    return a != null && a == b;
+                }
+                case "EFCardOwner":    //卡牌归属：己方(事件主体玩家侧)/敌方
+                {
+                    Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
+                    if (c == null)
+                        return false;
+                    bool enemy = GraphRuntime.GetFieldString(src, "side", "己方") == "敌方";
+                    Player owner = (cur_event != null && cur_event.player != null) ? cur_event.player : PlayerOf(logic, caster);
+                    bool own = owner != null && c.player_id == owner.player_id;
+                    return enemy ? !own : own;
+                }
+                case "EFPlayerOwner":  //玩家归属：己方(事件主体玩家侧)/敌方
+                {
+                    Player p = ResolveInputPlayer(logic, graph, src, "player", caster, target_player);
+                    if (p == null)
+                        return false;
+                    bool enemy = GraphRuntime.GetFieldString(src, "side", "己方") == "敌方";
+                    Player owner = (cur_event != null && cur_event.player != null) ? cur_event.player : PlayerOf(logic, caster);
+                    bool own = owner != null && p.player_id == owner.player_id;
+                    return enemy ? !own : own;
+                }
+                default:
+                    return EvaluateConditionNode(logic, graph, src, caster, target_card);
+            }
         }
 
         /// <summary>白名单动作（用于旧图类型残留提示）</summary>
@@ -164,6 +243,9 @@ namespace TcgEngine.Workshop
         private static Card ctx_giver;
         private static BuffData ctx_buff;
         private static int ctx_duration;
+
+        /// <summary>当前图事件上下文（RunEvent 广播中非空；事件入口 subject/source/value 端口与 阻止本事件/修改事件值 动作读取）</summary>
+        private static GraphEventContext cur_event;
 
         /// <summary>「触发按钮效果」动作的递归深度计数（防按钮图自环死循环，上限 8 层）</summary>
         private static int trigger_depth;
@@ -367,9 +449,9 @@ namespace TcgEngine.Workshop
         private static int? ResolveNodeInt(GameLogic logic, GraphData graph, GraphNode src,
             Card caster, Card target_card, Player target_player)
         {
-            //增益触发事件节点的 剩余回合(duration) 输出口
+            //事件节点整数输出：图事件广播中=事件数值(value)；增益触发图（无广播）=剩余回合(duration)
             if (src.type == GraphNodeType.Event)
-                return ctx_duration;
+                return cur_event != null ? cur_event.value : ctx_duration;
             switch (src.action)
             {
                 case "111004":
@@ -643,6 +725,12 @@ namespace TcgEngine.Workshop
                                 string out_name = out_pin != null ? out_pin.name : link.from_pin;
                                 if (out_name == "self" || out_name == "card")
                                     return caster;
+                                if (out_name == "subject")
+                                    return cur_event != null ? cur_event.card : null;
+                                if (out_name == "source")
+                                    return cur_event != null ? cur_event.source_card : null;
+                                if (out_name == "value")
+                                    return cur_event != null ? (object)cur_event.value : null;
                                 if (out_name == "target" || out_name == "target_card")
                                     return target_card;
                                 if (out_name == "giver")
@@ -1066,6 +1154,12 @@ namespace TcgEngine.Workshop
                 case "202029":   //变形为卡牌定义：卡牌口 + 卡牌定义（id 字段或定义取值线） + isreset 忽略（v1 不重置）
                 {
                     Card tcard = ResolveInputCard(logic, graph, act, "card", caster, target_card, target_player);
+                    if (tcard == null)
+                    {
+                        //未指定目标卡时默认变自身（"战吼变自己"的常见用法）
+                        Debug.LogWarning("[NodeDoc] 202029 变形：未指定目标卡，默认变形为自身（如要变别人请把「卡牌」口连到目标卡）");
+                        tcard = caster;
+                    }
                     string define_id = GraphRuntime.GetFieldString(act, "define", "");
                     CardData define = !string.IsNullOrEmpty(define_id) ? CardData.Get(define_id) : null;
                     if (define == null)
@@ -1233,6 +1327,27 @@ namespace TcgEngine.Workshop
                     }
                     break;
                 }
+                case "BlockEvent":   //阻止本事件：仅「X 时」广播内有效——取消本次原动作（先到先得，后续监听者不再收到）
+                {
+                    if (cur_event == null)
+                        Debug.LogWarning("[NodeDoc] 阻止本事件：当前不在事件广播中，忽略");
+                    else if (cur_event.phase == GraphEventPhase.After)
+                        Debug.LogWarning("[NodeDoc] 阻止本事件：仅对「X 时」事件有效（「X 后」动作已执行完，无法阻止）");
+                    else
+                        cur_event.cancelled = true;
+                    break;
+                }
+                case "SetEventValue":   //修改事件值：覆盖当前事件数值（如伤害量改 0=免伤）；仅 Before 事件生效
+                {
+                    if (cur_event == null)
+                        Debug.LogWarning("[NodeDoc] 修改事件值：当前不在事件广播中，忽略");
+                    else if (cur_event.phase == GraphEventPhase.After)
+                        Debug.LogWarning("[NodeDoc] 修改事件值：仅对「X 时」事件有效（「X 后」数值已只读）");
+                    else
+                        cur_event.value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
+                            GraphRuntime.GetFieldInt(act, "value", 0));
+                    break;
+                }
                 case "TriggerButtonEffect":   //触发按钮效果：模拟完整点击（先「时」后「后」），递归深度受限防自环
                 {
                     string bid = GraphRuntime.GetFieldString(act, "button_id", "");
@@ -1276,21 +1391,27 @@ namespace TcgEngine.Workshop
                     if (link != null)
                     {
                         GraphNode src = graph.GetNode(link.from_node);
-                        if (src != null && !string.IsNullOrEmpty(src.category))
-                            return ResolveValueCard(logic, graph, src, caster, target_card, target_player);
                         if (src != null && src.type == GraphNodeType.Event)
                         {
-                            //事件环境变量：self/自身→施法卡、target/目标→选中目标（PlayTarget/入场选择）、giver→增益施加者
+                            //事件入口（触发器/增益/按钮/入口/事件分类）输出口：self/card→宿主(施法卡)、target→选中目标、
+                            //subject/source→事件上下文主体/来源、giver→增益施加者。
+                            //注意：事件节点也带 category，必须先于 ResolveValueCard 判定，否则事件输出口一律被当未知取值节点解析为空
                             GraphPin out_pin = graph.GetPin(link.from_node, link.from_pin);
                             string out_name = out_pin != null ? out_pin.name : link.from_pin;
                             if (out_name == "self" || out_name == "card")
                                 return caster;
+                            if (out_name == "subject")
+                                return cur_event != null ? cur_event.card : null;
+                            if (out_name == "source")
+                                return cur_event != null ? cur_event.source_card : null;
                             if (out_name == "target" || out_name == "target_card")
                                 return target_card;
                             if (out_name == "giver")
                                 return ctx_giver;
                             return null;    //玩家口/未知口不是卡牌
                         }
+                        if (src != null && !string.IsNullOrEmpty(src.category))
+                            return ResolveValueCard(logic, graph, src, caster, target_card, target_player);
                         return null;        //其他来源暂不支持
                     }
                 }

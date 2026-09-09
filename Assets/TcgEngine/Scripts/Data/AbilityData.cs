@@ -659,6 +659,16 @@ namespace TcgEngine
         OnDeathOther = 42, //When another dying
 
         OnDraw =50, //when draw card
+
+        //图事件系统（EventContext/EmitEvent 驱动，非引擎自触发；名与 GraphEventContext.action 一致）
+        OnBeforePlay = 60,   //使用卡牌前（全场监听，可阻止/改费用）
+        OnBeforeDamage = 61, //伤害结算前（可阻止/改伤害值）
+        OnAfterDamage = 62,  //伤害结算后
+        OnAfterDraw = 63,    //抽卡后（每抽 1 张一次，事件主体=抽到的卡）
+        OnBeforeHeal = 70,   //治疗前（可阻止/改治疗量）
+        OnAfterHeal = 71,    //治疗后
+        OnBeforeTransform = 72, //变形前（可阻止）
+        OnAfterTransform = 73,  //变形后
     }
 
     public enum AbilityTarget

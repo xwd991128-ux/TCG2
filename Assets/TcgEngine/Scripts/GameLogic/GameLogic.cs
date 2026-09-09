@@ -418,6 +418,184 @@ namespace TcgEngine.Gameplay
             NodeDocRunner.RunButtonClick(this, cfg.graph, hero, button_id);
         }
 
+        // ---------------- 图事件广播（EventContext，全场监听 + 时/后） ----------------
+
+        private const int EVENT_MAX_DEPTH = 16;         //图事件广播递归深度上限（防 伤害后→再伤害→… 死循环）
+        private static int event_depth;                  //跨 GameLogic 实例共享的递归计数（AI 预测实例不广播）
+        private GraphEventContext event_ctx;             //当前广播上下文（保留旧值用于嵌套返回）
+
+        /// <summary>当前图事件上下文（广播中非空；NodeDocRunner 读取用）</summary>
+        public GraphEventContext EventCtx { get { return event_ctx; } }
+
+        /// <summary>
+        /// 广播一次图事件：按固定顺序触发所有"在场图宿主"（额外宿主 extra_host 优先，如被打出的牌自身）。
+        /// Before（「时」）：某宿主图执行「阻止本事件」后立即停止后续广播（先到先得），返回 true；
+        /// After（「后」）：不检查取消，全部宿主广播完返回 false。
+        /// </summary>
+        public bool EmitGraphEvent(GraphEventContext ctx, Card extra_host = null)
+        {
+            if (ctx == null || string.IsNullOrEmpty(ctx.action) || game_data == null)
+                return false;
+            if (is_ai_predict)
+                return false;   //AI 预测只算结果，不广播图事件
+            if (event_depth >= EVENT_MAX_DEPTH)
+            {
+                Debug.LogWarning("[图事件] 广播深度超限，丢弃: " + ctx.action + "（检查图是否存在事件循环）");
+                return false;
+            }
+
+            event_depth++;
+            GraphEventContext prev = event_ctx;
+            event_ctx = ctx;
+            try
+            {
+                //宿主收集：事件主体卡(extra_host，任意牌堆都能响应) 优先，随后双方全部区域卡
+                List<Card> hosts = new List<Card>();
+                if (extra_host != null)
+                    hosts.Add(extra_host);
+                foreach (Player p in game_data.players)
+                {
+                    if (p == null)
+                        continue;
+                    if (p.hero != null && !hosts.Contains(p.hero))
+                        hosts.Add(p.hero);
+                    foreach (Card c in p.cards_board)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                    foreach (Card c in p.cards_equip)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                    foreach (Card c in p.cards_secret)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                    foreach (Card c in p.cards_hand)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                    foreach (Card c in p.cards_deck)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                    foreach (Card c in p.cards_discard)
+                        if (c != null && !hosts.Contains(c))
+                            hosts.Add(c);
+                }
+
+                int extra_count = extra_host != null ? 1 : 0;
+                for (int i = 0; i < hosts.Count; i++)
+                {
+                    FireEventHost(hosts[i], ctx, i < extra_count);
+                    if (ctx.phase == GraphEventPhase.Before && ctx.cancelled)
+                        break;  //先到先得：某宿主阻止后，后续监听者不再收到本事件
+                }
+                return ctx.cancelled;
+            }
+            finally
+            {
+                event_ctx = prev;
+                event_depth--;
+            }
+        }
+
+        /// <summary>触发单个宿主：能力 trigger 匹配且含 EffectRunGraph 的事件图才交给 NodeDocRunner 执行。
+        /// is_extra=事件主体卡（任意牌堆都可响应）；普通宿主按其事件入口「生效牌堆」字段过滤当前所在区域。</summary>
+        private void FireEventHost(Card host, GraphEventContext ctx, bool is_extra)
+        {
+            if (host == null || ctx == null)
+                return;
+            if (host.HasStatus(StatusType.Silenced))
+                return;     //被沉默的卡不响应图事件
+            string zone = GetCardZone(host);   //宿主当前所在牌堆（空=不在任何已知牌堆）
+
+            foreach (AbilityData ab in host.GetAbilities())
+            {
+                if (ab == null || ab.trigger.ToString() != ctx.action)
+                    continue;
+                foreach (EffectData eff in ab.effects)
+                {
+                    EffectRunGraph rg = eff as EffectRunGraph;
+                    if (rg == null || rg.graph == null)
+                        continue;
+                    if (!string.IsNullOrEmpty(rg.trigger_action) && rg.trigger_action != ctx.action)
+                        continue;
+                    if (!is_extra && !EntryZoneAllows(rg.graph, ctx.action, zone))
+                        continue;   //入口「生效牌堆」不含宿主当前所在牌堆 → 该宿主不响应
+                    NodeDocRunner.RunEvent(this, rg.graph, host, ctx);
+                }
+            }
+        }
+
+        /// <summary>卡牌当前所在牌堆（英雄/战场/装备区/奥秘区/手牌/牌库/墓地）；不在任一牌堆返回空</summary>
+        private string GetCardZone(Card c)
+        {
+            if (c == null || game_data == null)
+                return "";
+            foreach (Player p in game_data.players)
+            {
+                if (p == null)
+                    continue;
+                if (p.hero == c)
+                    return "英雄";
+                if (p.cards_board.Contains(c))
+                    return "战场";
+                if (p.cards_equip.Contains(c))
+                    return "装备区";
+                if (p.cards_secret.Contains(c))
+                    return "奥秘区";
+                if (p.cards_hand.Contains(c))
+                    return "手牌";
+                if (p.cards_deck.Contains(c))
+                    return "牌库";
+                if (p.cards_discard.Contains(c))
+                    return "墓地";
+            }
+            return "";
+        }
+
+        /// <summary>事件入口「生效牌堆」字段过滤：字段含「任意」或字段为空（旧图）→ 放行；
+        /// 否则宿主当前所在牌堆必须在勾选列表内才响应</summary>
+        private bool EntryZoneAllows(GraphData graph, string action, string zone)
+        {
+            if (graph == null || graph.nodes == null)
+                return true;
+            foreach (GraphNode ev in graph.nodes)
+            {
+                if (ev == null || ev.type != GraphNodeType.Event || ev.action != action)
+                    continue;
+                string zones = GraphRuntime.GetFieldString(ev, "zones", "");
+                if (string.IsNullOrEmpty(zones))
+                    zones = EventZoneDefault(action);   //旧图无字段：按事件默认
+                if (zones.Contains("任意"))
+                    return true;
+                if (string.IsNullOrEmpty(zone))
+                    return false;
+                foreach (string z in zones.Split(';'))
+                {
+                    if (z == zone)
+                        return true;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>事件默认生效牌堆（入口节点无 zones 字段的旧图；新图由编辑器预设写入默认值）</summary>
+        private static string EventZoneDefault(string action)
+        {
+            switch (action)
+            {
+                case "OnBeforePlay":
+                case "OnBeforeDamage":
+                case "OnAfterDamage":
+                case "OnAfterDraw":
+                case "OnBeforeHeal":
+                case "OnAfterHeal":
+                case "OnBeforeTransform":
+                case "OnAfterTransform":
+                    return "英雄;战场;装备区";
+                default:
+                    return "任意";
+            }
+        }
+
         //Check if a player is winning the game, if so end the game
         //Change or edit this function for a new win condition
         protected virtual void CheckForWinner()
@@ -545,6 +723,20 @@ namespace TcgEngine.Gameplay
             if (game_data.CanPlayCard(card, slot, skip_cost))
             {
                 Player player = game_data.GetPlayer(card.player_id);
+
+                //图事件「使用卡牌时」（全场监听；可阻止=取消本次打出，不扣费、无后续；value=当前费用供读取/修改）
+                if (!skip_cost)
+                {
+                    GraphEventContext pctx = new GraphEventContext();
+                    pctx.action = "OnBeforePlay";
+                    pctx.phase = GraphEventPhase.Before;
+                    pctx.card = card;
+                    pctx.source_card = card;
+                    pctx.player = player;
+                    pctx.value = card.GetMana();
+                    if (EmitGraphEvent(pctx, card))
+                        return;
+                }
 
                 //Cost
                 if (!skip_cost)
@@ -849,6 +1041,18 @@ namespace TcgEngine.Gameplay
                     Card card = player.cards_deck[0];
                     player.cards_deck.RemoveAt(0);
                     player.cards_hand.Add(card);
+
+                    //图事件「抽卡后」（全场监听；主体=抽到的卡）
+                    {
+                        GraphEventContext ectx = new GraphEventContext();
+                        ectx.action = "OnAfterDraw";
+                        ectx.phase = GraphEventPhase.After;
+                        ectx.card = card;
+                        ectx.player = player;
+                        ectx.value = 1;
+                        EmitGraphEvent(ectx);
+                    }
+
                     TriggerPlayerCardsAbilityType(player, AbilityTrigger.OnDraw);
                     UpdateOngoingCards(); 
                 }
@@ -923,9 +1127,35 @@ namespace TcgEngine.Gameplay
         //Transform card into another one
         public virtual Card TransformCard(Card card, CardData transform_to)
         {
+            //图事件「变形时」：全场监听；可阻止本次变形
+            if (card != null)
+            {
+                GraphEventContext tctx = new GraphEventContext();
+                tctx.action = "OnBeforeTransform";
+                tctx.phase = GraphEventPhase.Before;
+                tctx.card = card;
+                tctx.source_card = null;
+                tctx.player = game_data.GetPlayer(card.player_id);
+                tctx.value = 0;
+                if (EmitGraphEvent(tctx))
+                    return card;    //被阻止：保持原卡不变
+            }
+
             card.SetCard(transform_to, card.VariantData);
 
             onCardTransformed?.Invoke(card);
+
+            //图事件「变形后」（主体=变形后的卡）
+            if (card != null)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterTransform";
+                actx.phase = GraphEventPhase.After;
+                actx.card = card;
+                actx.player = game_data.GetPlayer(card.player_id);
+                actx.value = 0;
+                EmitGraphEvent(actx);
+            }
 
             return card;
         }
@@ -977,6 +1207,21 @@ namespace TcgEngine.Gameplay
         //Damage a player
         public virtual void DamagePlayer(Card attacker, Player target, int value)
         {
+            //图事件「伤害时」（对玩家伤害：攻击玩家/法术打玩家）；全场监听，可阻止=本次伤害取消、改值=改写伤害量
+            if (value > 0)
+            {
+                GraphEventContext dctx = new GraphEventContext();
+                dctx.action = "OnBeforeDamage";
+                dctx.phase = GraphEventPhase.Before;
+                dctx.card = null;
+                dctx.source_card = attacker;
+                dctx.player = target;
+                dctx.value = value;
+                if (EmitGraphEvent(dctx))
+                    return;         //被阻止：本次伤害不结算
+                value = Mathf.Max(dctx.value, 0);
+            }
+
             //Damage player
             target.hp -= value;
             target.hp = Mathf.Clamp(target.hp, 0, target.hp_max);
@@ -987,6 +1232,19 @@ namespace TcgEngine.Gameplay
                 aplayer.hp += value;
 
             onPlayerDamaged?.Invoke(target, value);
+
+            //图事件「伤害后」（对玩家伤害；主体=玩家 player、来源=attacker）
+            if (value > 0)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterDamage";
+                actx.phase = GraphEventPhase.After;
+                actx.card = null;
+                actx.source_card = attacker;
+                actx.player = target;
+                actx.value = value;
+                EmitGraphEvent(actx);
+            }
         }
 
         //Heal a card
@@ -998,10 +1256,37 @@ namespace TcgEngine.Gameplay
             if (target.HasStatus(StatusType.Invincibility))
                 return;
 
+            //图事件「治疗时」：全场监听；可阻止本次治疗 / 修改治疗量
+            if (value > 0)
+            {
+                GraphEventContext hctx = new GraphEventContext();
+                hctx.action = "OnBeforeHeal";
+                hctx.phase = GraphEventPhase.Before;
+                hctx.card = target;
+                hctx.source_card = null;
+                hctx.player = game_data.GetPlayer(target.player_id);
+                hctx.value = value;
+                if (EmitGraphEvent(hctx))
+                    return;
+                value = Mathf.Max(hctx.value, 0);
+            }
+
             target.damage -= value;
             target.damage = Mathf.Max(target.damage, 0);
 
             onCardHealed?.Invoke(target, value);
+
+            //图事件「治疗后」（主体=被治疗的卡）
+            if (value > 0)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterHeal";
+                actx.phase = GraphEventPhase.After;
+                actx.card = target;
+                actx.player = game_data.GetPlayer(target.player_id);
+                actx.value = value;
+                EmitGraphEvent(actx);
+            }
         }
 
         public virtual void HealPlayer(Player target, int value)
@@ -1009,10 +1294,37 @@ namespace TcgEngine.Gameplay
             if (target == null)
                 return;
 
+            //图事件「治疗时」（对玩家治疗）；可阻止/改治疗量
+            if (value > 0)
+            {
+                GraphEventContext hctx = new GraphEventContext();
+                hctx.action = "OnBeforeHeal";
+                hctx.phase = GraphEventPhase.Before;
+                hctx.card = null;
+                hctx.source_card = null;
+                hctx.player = target;
+                hctx.value = value;
+                if (EmitGraphEvent(hctx))
+                    return;
+                value = Mathf.Max(hctx.value, 0);
+            }
+
             target.hp += value;
             target.hp = Mathf.Clamp(target.hp, 0, target.hp_max);
 
             onPlayerHealed?.Invoke(target, value);
+
+            //图事件「治疗后」（对玩家治疗；主体=玩家）
+            if (value > 0)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterHeal";
+                actx.phase = GraphEventPhase.After;
+                actx.card = null;
+                actx.player = target;
+                actx.value = value;
+                EmitGraphEvent(actx);
+            }
         }
 
         //Generic damage that doesnt come from another card
@@ -1030,6 +1342,18 @@ namespace TcgEngine.Gameplay
             target.damage += value;
 
             onCardDamaged?.Invoke(target, value);
+
+            //图事件「伤害后」（无来源伤害：毒/燃烧等；主体=受伤卡）
+            if (value > 0)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterDamage";
+                actx.phase = GraphEventPhase.After;
+                actx.card = target;
+                actx.player = game_data.GetPlayer(target.player_id);
+                actx.value = value;
+                EmitGraphEvent(actx);
+            }
 
             if (target.GetHP() <= 0)
                 DiscardCard(target);
@@ -1065,6 +1389,21 @@ namespace TcgEngine.Gameplay
 
 
 
+            //图事件「伤害时」（全场监听；可阻止=取消本次伤害；改值=改写实际伤害量，随后按新值结算）
+            if (value > 0)
+            {
+                GraphEventContext dctx = new GraphEventContext();
+                dctx.action = "OnBeforeDamage";
+                dctx.phase = GraphEventPhase.Before;
+                dctx.card = target;
+                dctx.source_card = attacker;
+                dctx.player = game_data.GetPlayer(target.player_id);
+                dctx.value = value;
+                if (EmitGraphEvent(dctx))
+                    return;         //被阻止：本次伤害不结算
+                value = Mathf.Max(dctx.value, 0);
+            }
+
             //Damage
             int damage_max = Mathf.Min(value, target.GetHP());
             int extra = value - target.GetHP();
@@ -1085,6 +1424,19 @@ namespace TcgEngine.Gameplay
 
             //Callback
             onCardDamaged?.Invoke(target, value);
+
+            //图事件「伤害后」（全场监听；主体=受伤卡、来源=伤害来源、数值=实际伤害）
+            if (value > 0)
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterDamage";
+                actx.phase = GraphEventPhase.After;
+                actx.card = target;
+                actx.source_card = attacker;
+                actx.player = game_data.GetPlayer(target.player_id);
+                actx.value = value;
+                EmitGraphEvent(actx);
+            }
 
             //Deathtouch
             if (value > 0 && attacker.HasStatus(StatusType.Deathtouch) && target.CardData.type == CardType.Character)

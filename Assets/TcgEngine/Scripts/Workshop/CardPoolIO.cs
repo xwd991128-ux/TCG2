@@ -762,6 +762,15 @@ namespace TcgEngine.Workshop
                 case "OnDraw": return AbilityTrigger.OnDraw;
                 case "ActivateEffect": return AbilityTrigger.OnPlay;    //主动效果入口（zmcs）= 打出时触发（炉石战吼/法术）
                 case "AuraEffect": return AbilityTrigger.Ongoing;       //光环效果入口（zmcs）
+                //图事件入口（EventContext 广播）：action 名与 AbilityTrigger 枚举名一致（事件预设 BuildGraphEventPresets）
+                case "OnBeforePlay": return AbilityTrigger.OnBeforePlay;
+                case "OnBeforeDamage": return AbilityTrigger.OnBeforeDamage;
+                case "OnAfterDamage": return AbilityTrigger.OnAfterDamage;
+                case "OnAfterDraw": return AbilityTrigger.OnAfterDraw;
+                case "OnBeforeHeal": return AbilityTrigger.OnBeforeHeal;
+                case "OnAfterHeal": return AbilityTrigger.OnAfterHeal;
+                case "OnBeforeTransform": return AbilityTrigger.OnBeforeTransform;
+                case "OnAfterTransform": return AbilityTrigger.OnAfterTransform;
                 default: return AbilityTrigger.None;
             }
         }

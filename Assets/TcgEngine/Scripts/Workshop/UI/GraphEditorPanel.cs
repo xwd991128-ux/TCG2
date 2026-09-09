@@ -145,7 +145,7 @@ namespace TcgEngine.UI
         // ---------------- 节点库预设 ----------------
 
         /// <summary>字段编辑方式</summary>
-        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect, BuffSelect, ButtonSelect }
+        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect, BuffSelect, ButtonSelect, MultiOptions }
 
         /// <summary>节点字段定义：决定节点参数区用哪种控件编辑（数值输入/枚举下拉/开关）</summary>
         private class FieldDef
@@ -231,13 +231,15 @@ namespace TcgEngine.UI
         private const string CAT_TRIGGER = "触发器";
         private const string CAT_BUFF_TRIGGER = "增益触发";
         private const string CAT_BUTTON = "按钮";
+        private const string CAT_EVENT = "事件";
+        private const string CAT_ENTRY = "入口";
 
         private static List<string> filter_options_cache;
         private static List<string> FilterOptions()
         {
             if (filter_options_cache == null)
             {
-                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV, CAT_TRIGGER, CAT_BUFF_TRIGGER, CAT_BUTTON };
+                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV, CAT_TRIGGER, CAT_BUFF_TRIGGER, CAT_BUTTON, CAT_EVENT, CAT_ENTRY };
                 foreach (string c in NodeDocDb.Categories)
                     filter_options_cache.Add(c);
             }
@@ -265,6 +267,10 @@ namespace TcgEngine.UI
                 all_presets_cache.AddRange(BuildBuffTriggerPresets());
                 //按钮节点（Event/动作）：战斗界面自定义按钮（一图多按钮），点击按钮时/点击按钮后/触发按钮效果
                 all_presets_cache.AddRange(BuildButtonPresets());
+                //图事件节点（Event/动作）：全场监听「X 时/后」事件入口 + 阻止本事件/修改事件值
+                all_presets_cache.AddRange(BuildGraphEventPresets());
+                //zmcs 风格入口节点（分类「入口」）：主动效果(战吼/法术)/光环/被动(亡语)/事件效果
+                all_presets_cache.AddRange(BuildZmcsEntryPresets());
             }
             return all_presets_cache;
         }
@@ -390,6 +396,183 @@ namespace TcgEngine.UI
             return new FieldDef(name, "按钮", FieldEditType.ButtonSelect, new string[] { "（无）" }, "（无）");
         }
 
+        /// <summary>图事件入口与动作节点预设（分类「事件」）：全场监听的「X 时/后」入口 + 「阻止本事件」「修改事件值」。
+        /// action 名与 AbilityTrigger 枚举名 / GameLogic.EmitGraphEvent 广播名一致（OnBeforePlay/OnBeforeDamage/OnAfterDamage/OnAfterDraw）。</summary>
+        private static List<NodePreset> BuildGraphEventPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+            string[][] evs = new string[][]
+            {
+                new string[] { "OnBeforePlay", "使用卡牌时", "任意玩家使用（打出）一张牌之前触发；可阻止该牌打出，value=费用" },
+                new string[] { "OnBeforeDamage", "伤害时", "任意卡牌/玩家受伤害结算前触发；可阻止本次伤害，或把 value 改 0=免伤" },
+                new string[] { "OnAfterDamage", "伤害后", "任意卡牌/玩家受伤害结算后触发（实际伤害=value，来源=source）" },
+                new string[] { "OnAfterDraw", "抽卡后", "任意玩家每次抽到 1 张牌后触发（抽到的牌=subject）" },
+                new string[] { "OnBeforeHeal", "治疗时", "任意卡牌/玩家被治疗结算前触发；可阻止或把 value 改 0=无效治疗" },
+                new string[] { "OnAfterHeal", "治疗后", "任意卡牌/玩家被治疗结算后触发（治疗量=value；卡用 subject，玩家用 player）" },
+                new string[] { "OnBeforeTransform", "变形时", "任意卡牌变形前触发；可阻止本次变形" },
+                new string[] { "OnAfterTransform", "变形后", "任意卡牌变形后触发（变形后的卡=subject）" },
+            };
+            foreach (string[] d in evs)
+            {
+                NodePreset p = new NodePreset();
+                p.type = GraphNodeType.Event;
+                p.action = d[0];
+                p.title = d[1];
+                p.desc = d[2];
+                p.category = CAT_EVENT;
+                p.supported = true;
+                //生效牌堆（多选）：普通宿主须在该牌堆才响应本入口；主体卡作为额外宿主不受限；选「任意」=全部牌堆
+                p.fields.Add(new FieldDef("zones", "生效牌堆", FieldEditType.MultiOptions,
+                    new string[] { "任意", "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" },
+                    "英雄;战场;装备区"));
+                p.pins.Add(new PinDef("cond", "条件", NodeValueType.Boolean, false));    //事件筛选：连线布尔为真才触发（无连线=全部触发）
+                p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+                p.pins.Add(new PinDef("self", "宿主", NodeValueType.Card, true));        //监听此事件的卡（图所在卡）
+                p.pins.Add(new PinDef("subject", "事件主体", NodeValueType.Card, true)); //受伤卡/被使用的牌/抽到的牌（玩家事件为空）
+                p.pins.Add(new PinDef("source", "来源", NodeValueType.Card, true));      //伤害来源等（可为空）
+                p.pins.Add(new PinDef("value", "数值", NodeValueType.Int32, true));      //伤害量/费用/抽卡批次
+                p.pins.Add(new PinDef("player", "主体玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("enemy", "对方玩家", NodeValueType.Player, true));
+                presets.Add(p);
+            }
+
+            NodePreset block = new NodePreset();
+            block.type = GraphNodeType.Action;
+            block.action = "BlockEvent";
+            block.title = "阻止本事件";
+            block.desc = "取消本次「X 时」动作（如阻止打出/阻止伤害）；仅时事件有效，先到先得";
+            block.category = CAT_EVENT;
+            block.supported = true;
+            block.pins.Add(new PinDef("in", "入", NodeValueType.Flow, false));
+            block.pins.Add(new PinDef("out", "出", NodeValueType.Flow, true));
+            presets.Add(block);
+
+            NodePreset setv = new NodePreset();
+            setv.type = GraphNodeType.Action;
+            setv.action = "SetEventValue";
+            setv.title = "修改事件值";
+            setv.desc = "把当前事件数值 value 覆盖为新值（如伤害改成 0=免伤）；仅时事件有效";
+            setv.category = CAT_EVENT;
+            setv.supported = true;
+            setv.fields.Add(IntField("value", "新值", "0"));
+            setv.pins.Add(new PinDef("in", "入", NodeValueType.Flow, false));
+            setv.pins.Add(new PinDef("out", "出", NodeValueType.Flow, true));
+            presets.Add(setv);
+
+            //事件筛选取值（Bool 输出，接到事件入口的「条件」口做连线式筛选）：
+            NodePreset eq = new NodePreset();
+            eq.type = GraphNodeType.Value;
+            eq.action = "EFCardEquals";
+            eq.title = "卡牌相同判断";
+            eq.desc = "两张卡口是同一张运行时卡则为真（常用于比较 宿主self 与 事件主体subject）";
+            eq.category = CAT_EVENT;
+            eq.supported = true;
+            eq.pins.Add(new PinDef("cardA", "卡 A", NodeValueType.Card, false));
+            eq.pins.Add(new PinDef("cardB", "卡 B", NodeValueType.Card, false));
+            eq.pins.Add(new PinDef("out", "结果", NodeValueType.Boolean, true));
+            presets.Add(eq);
+
+            NodePreset oc = new NodePreset();
+            oc.type = GraphNodeType.Value;
+            oc.action = "EFCardOwner";
+            oc.title = "卡牌归属判断";
+            oc.desc = "卡牌属于事件主体方(己方)还是敌方 → 真假（事件条件筛选用，如：只拦自己受伤）";
+            oc.category = CAT_EVENT;
+            oc.supported = true;
+            oc.fields.Add(new FieldDef("side", "归属", FieldEditType.Dropdown, new string[] { "己方", "敌方" }, "己方"));
+            oc.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, false));
+            oc.pins.Add(new PinDef("out", "结果", NodeValueType.Boolean, true));
+            presets.Add(oc);
+
+            NodePreset op = new NodePreset();
+            op.type = GraphNodeType.Value;
+            op.action = "EFPlayerOwner";
+            op.title = "玩家归属判断";
+            op.desc = "玩家属于事件主体方(己方)还是敌方 → 真假（如：是否是我方玩家受伤）";
+            op.category = CAT_EVENT;
+            op.supported = true;
+            op.fields.Add(new FieldDef("side", "归属", FieldEditType.Dropdown, new string[] { "己方", "敌方" }, "己方"));
+            op.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, false));
+            op.pins.Add(new PinDef("out", "结果", NodeValueType.Boolean, true));
+            presets.Add(op);
+            return presets;
+        }
+
+        /// <summary>zmcs 风格入口节点（分类「入口」）：主动效果(战吼/法术)/光环/被动(亡语)/事件效果 四入口。
+        /// action 与 CardPoolIO 编译保持一致（ActivateEffect/PassiveEffect/AuraEffect/EventEffect），
+        /// 拖入后保存卡牌即编译为能力：主动=打出时触发（战吼/法术）、被动=亡语、光环=常驻增益、事件=监听事件。</summary>
+        private static List<NodePreset> BuildZmcsEntryPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+
+            //1) 主动效果入口（战吼/法术打出时触发；字段/端口与 CardPoolIO.ApplyEntryOverrides 对齐）
+            NodePreset act = new NodePreset();
+            act.type = GraphNodeType.Event;
+            act.action = "ActivateEffect";
+            act.title = "主动效果入口";
+            act.desc = "zmcs 主动效果=打出时触发（炉石战吼/法术）。目标类型：无=直接执行 / 角色=弹选目标(含英雄) / 英雄=打脸";
+            act.category = CAT_ENTRY;
+            act.supported = true;
+            act.fields.Add(new FieldDef("target_type", "目标类型", FieldEditType.Dropdown, new string[] { "无", "角色", "英雄" }, "无"));
+            act.fields.Add(new FieldDef("target_side", "目标归属", FieldEditType.Dropdown, new string[] { "任意", "敌方", "友方" }, "任意"));
+            act.pins.Add(new PinDef("targetCondition", "目标1条件", NodeValueType.Boolean, false));
+            act.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+            act.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
+            act.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
+            act.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
+            act.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
+            act.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+            presets.Add(act);
+
+            //2) 光环效果入口（常驻增益；字段与 CardPoolIO.BuildAuraAbility 对齐）
+            NodePreset aura = new NodePreset();
+            aura.type = GraphNodeType.Event;
+            aura.action = "AuraEffect";
+            aura.title = "光环效果入口";
+            aura.desc = "zmcs 光环=常驻增益：给 生效区域 内符合 作用区域 的卡持续施加 增益定义（下游动作线暂不执行）";
+            aura.category = CAT_ENTRY;
+            aura.supported = true;
+            aura.fields.Add(EnumField("buff", "增益定义", StatusTypeOptions(), "AddAttack"));
+            aura.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, new string[] { "场上", "手牌", "全部区域" }, "场上"));
+            aura.fields.Add(new FieldDef("target_area", "作用区域", FieldEditType.Dropdown, new string[] { "双方", "己方", "敌方" }, "双方"));
+            aura.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+            presets.Add(aura);
+
+            //3) 被动效果入口（亡语；生效/失效为预留出口，执行层不驱动）
+            NodePreset pas = new NodePreset();
+            pas.type = GraphNodeType.Event;
+            pas.action = "PassiveEffect";
+            pas.title = "被动效果入口";
+            pas.desc = "zmcs 被动=亡语：本卡死亡时触发，动作从「动作」出口接出（生效/失效出口预留不执行）";
+            pas.category = CAT_ENTRY;
+            pas.supported = true;
+            pas.fields.Add(new FieldDef("tag_list", "标签列表", FieldEditType.Dropdown, new string[] { "亡语" }, "亡语"));
+            pas.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+            pas.pins.Add(new PinDef("enable", "生效动作", NodeValueType.Flow, true));     //预留：不驱动执行
+            pas.pins.Add(new PinDef("disable", "失效动作", NodeValueType.Flow, true));    //预留：不驱动执行
+            pas.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
+            presets.Add(pas);
+
+            //4) 事件效果入口（监听事件下拉；与 CardPoolIO.MapEventName 一致）
+            NodePreset evn = new NodePreset();
+            evn.type = GraphNodeType.Event;
+            evn.action = "EventEffect";
+            evn.title = "事件效果入口";
+            evn.desc = "zmcs 事件效果=监听事件触发（下拉选择监听项：回合/打出牌/攻击/死亡/抽到等），动作从「动作」出口接出";
+            evn.category = CAT_ENTRY;
+            evn.supported = true;
+            evn.fields.Add(new FieldDef("event_name", "监听事件", FieldEditType.Dropdown,
+                new string[] { "回合结束", "回合开始", "打出牌", "攻击时", "死亡时", "抽到时" }, "回合结束"));
+            evn.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+            evn.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
+            evn.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
+            evn.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
+            evn.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
+            evn.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+            presets.Add(evn);
+            return presets;
+        }
+
         /// <summary>已接入执行的 NodeDoc 节点白名单（决定库里 zmcs 节点能否拖入画布；每实现一个节点就加进来，
         /// 并清理同名的旧变体——如 102002 卡牌类型判断被 102032 取代、202008/202009/202010 已标过时）</summary>
         private static readonly HashSet<string> SupportedNodeIds = new HashSet<string>
@@ -398,9 +581,7 @@ namespace TcgEngine.UI
             "202001",   //造成伤害（单目标）
             "202041",   //造成伤害或法伤（多目标/法伤开关，卡池主流）
             "202016",   //消灭
-            "202013",   //治疗目标卡牌
-            "202039",   //治疗（变体，与 202013 同规执行）
-            "202047",   //治疗（变体，与 202013 同规执行）
+            "202013",   //治疗目标卡牌（执行器仍兼容 202039/202047 变体，但库内只放这一个避免同名重复）
             "212001",   //分支动作（真值→动作/否则动作；条件用内置比较/布尔常量节点）
             "212002",   //重复动作（数量→循环执行 动作 口；repeatTime 输出第 n 次迭代供循环体数值口取值）
             "202003",   //创建衍生卡并置入战场（卡牌定义口 v1 填卡牌 id，空位自动选择）
@@ -3041,6 +3222,7 @@ namespace TcgEngine.UI
                     case FieldEditType.CardSelect: CreateFieldCardSelect(node, fd, current); break;
                     case FieldEditType.BuffSelect: CreateFieldBuffSelect(node, fd, current); break;
                     case FieldEditType.ButtonSelect: CreateFieldButtonSelect(node, fd, current); break;
+                    case FieldEditType.MultiOptions: CreateFieldMultiOptions(node, fd, current); break;
                 }
             }
         }
@@ -3261,6 +3443,67 @@ namespace TcgEngine.UI
                 RefreshNodeSummary(node);
                 RefreshPinValues();
             });
+        }
+
+        /// <summary>多选项复选控件：每选项克隆一行开关，值存 分号 分隔（如 "英雄;战场"），全不勾=空。
+        /// 用于事件入口「生效牌堆」等多选字段。</summary>
+        private void CreateFieldMultiOptions(GraphNode node, FieldDef fd, string current)
+        {
+            if (node_field_toggle_template == null || fd.options == null || fd.options.Length == 0)
+                return;
+            string[] cur = SplitMulti(current);
+            foreach (string opt in fd.options)
+            {
+                if (string.IsNullOrEmpty(opt))
+                    continue;
+                GameObject inst = Instantiate(node_field_toggle_template, node_field_area);
+                inst.name = "Field_" + fd.name + "_" + opt;
+                inst.SetActive(true);
+                Text label = inst.transform.Find("Label")?.GetComponent<Text>();
+                if (label != null)
+                    label.text = opt;
+                Toggle tg = inst.GetComponentInChildren<Toggle>(true);
+                if (tg == null)
+                    continue;
+                tg.isOn = Array.IndexOf(cur, opt) >= 0;
+                tg.onValueChanged.AddListener((val) =>
+                {
+                    string joined = CollectMultiField(fd);
+                    SetFieldValue(node, fd.name, joined);
+                    RefreshNodeSummary(node);
+                    RefreshPinValues();
+                });
+            }
+        }
+
+        /// <summary>收集某个复选字段当前勾选的所有选项（按控件命名 Field_字段名_选项 回读）</summary>
+        private string CollectMultiField(FieldDef fd)
+        {
+            if (node_field_area == null)
+                return "";
+            string prefix = "Field_" + fd.name + "_";
+            List<string> sel = new List<string>();
+            for (int i = 0; i < node_field_area.childCount; i++)
+            {
+                GameObject child = node_field_area.GetChild(i).gameObject;
+                if (child == node_field_toggle_template || !child.name.StartsWith(prefix))
+                    continue;
+                Toggle tg = child.GetComponentInChildren<Toggle>(true);
+                if (tg != null && tg.isOn)
+                {
+                    string opt = child.name.Substring(prefix.Length);
+                    if (!string.IsNullOrEmpty(opt) && !sel.Contains(opt))
+                        sel.Add(opt);
+                }
+            }
+            return string.Join(";", sel.ToArray());
+        }
+
+        private static string[] SplitMulti(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return new string[0];
+            return value.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         /// <summary>字段值变化后刷新画布上节点摘要文本（显示最新参数）</summary>
