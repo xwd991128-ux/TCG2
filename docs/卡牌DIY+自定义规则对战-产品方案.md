@@ -293,6 +293,24 @@ connect = { sourceNodeId, sourcePort, destNodeId, destPort }  实线=exec / 虚�
 5. 官方卡全量迁移（扫地，对应 7.3.4-2）
 6. 网络/存档/工具（#9/#10）→ 联机验证与后续运维
 
+#### 7.3.7 GameLogic 统一任务清单（核心兑现点，按收益排序）
+
+> 目标：把 `GameLogic.cs` 里散落的重复逻辑收口为「统一事件总线 + 一套目标/伤害/攻击原子操作」，让节点编辑器可直接复用，且回归到「英雄=卡牌」的统一目标模型（只改逻辑，不搬棋盘）。
+> 统一三支柱：**事件总线 + 英雄=Card 目标统一 + 原子操作收敛**，同时解掉伤害/治疗/攻击三处重复。
+
+| 优先级 | 优化点 | 位置 | 现状 → 建议 | 对节点/事件总线价值 |
+|---|---|---|---|---|
+| 🔴 高 | 事件状态存根收口为事件总线 | `GameLogic.cs` L42-45 | 离散 `onCardDamaged/onPlayerDamaged/onCardHealed/onPlayerHealed` → 统一 `GameEvents` 总线 | 节点"触发时/后"的唯一挂点（呼应 7.10.2） |
+| 🔴 高 | 伤害双链减为一条 | L929-1007 | `DamageCard` 两重载 + `DamagePlayer` → 合并，内部按 `is_hero` 路由 | 伤害=一种原子操作 |
+| 🔴 高 | 治疗双链减为一条 | L904-927 | `HealCard` vs `HealPlayer` → 合并（最简单、收益最高） | 治疗=一种原子操作 |
+| 🔴 高 | 攻击六方法压一组 | L568-645 + L647-703 | `AttackTarget/ResolveAttack/ResolveAttackHit` vs `AttackPlayer/ResolveAttackPlayer/ResolveAttackPlayerHit` → 统一攻击链 | 攻击目标随从/英雄一体 |
+| 🟡 中 | 抽牌/弃牌收敛 | L753-782 + L1031-1070 | `DrawCard/DrawDiscardCard` 与 `DiscardCard` 各自触发 → 收敛为节点原子操作 | 抽牌/弃牌=一种原子操作 |
+| 🟡 中 | 能力触发链统一入口 | L1117-1194 | `TriggerOtherCardsAbilityType/TriggerPlayer.../ResolveCardAbility` → 节点"事件分发器"归宿 | 节点事件分发核心挂点 |
+
+**实施顺位**：① 事件总线根基 → ② 伤害/治疗/攻击重复链合并（靠"英雄=Card"统一目标）→ ③ 抽牌/弃牌/能力触发收敛为节点原子操作。
+
+> 注：本次为梳理记录，暂不落地代码；小步落地从「治疗合并」或「回调→事件总线」这种低风险、高收益项开始。
+
 ### 7.4 Tier1 首批节点清单（阶段2 开工第一份清单）
 
 > 原则：**优先映射现有引擎已具备的能力**，第一批即可拖可用。编号复用 NodeDoc.xml 的 defineId 语义标准；未含的现有能力（如 EffectDamage）也补入，统一到"卡牌节点全集"。
