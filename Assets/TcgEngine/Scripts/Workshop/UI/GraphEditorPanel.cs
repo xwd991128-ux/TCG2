@@ -24,7 +24,7 @@ namespace TcgEngine.UI
     {
         [Header("标题/状态")]
         public TMPro.TMP_Text title_text;    // 页面标题（TMP，支持 <sprite> 富文本标签；场景里用 TMP 文本组件绑定）
-        public Text status_text;             // 底部状态提示
+        public TMP_Text status_text;         // 底部状态提示（TMP，全页统一字体）
 
         [Header("工具栏")]
         public Button btn_save;              // 保存
@@ -46,28 +46,48 @@ namespace TcgEngine.UI
         public GameObject pin_template;      // 引脚模板（隐藏）
 
         [Header("右侧属性区")]
-        public InputField input_name;        // 卡牌名称
+        public TMP_InputField input_name;    // 卡牌名称（TMP）
         public Dropdown dropdown_type;       // 类型
         public Dropdown dropdown_team;       // 阵营
         public Dropdown dropdown_rarity;     // 稀有度
         public Dropdown dropdown_trait;      // 种族（特质）
         public Dropdown dropdown_keyword;    // 关键词（KeywordData，可选控件：场景未绑定则忽略，v1 单选）
-        public InputField input_mana;        // 费用
-        public InputField input_attack;      // 攻击
-        public InputField input_hp;          // 生命
-        public InputField input_text;        // 卡牌文本
-        public InputField input_desc;        // 描述
+
+        // ---- 卡牌属性区扩展控件（运行时创建，兼容生成工具未重建的情况）----
+        private TMP_Text txt_trait_select;      // 种族多选按钮文本（显示已选摘要）
+        private TMP_Text txt_keyword_select;    // 关键词多选按钮文本
+        private TMP_Text txt_type_select;       // 类型选择按钮文本（TMP，替代旧下拉）
+        private TMP_Text txt_team_select;       // 阵营选择按钮文本
+        private TMP_Text txt_rarity_select;     // 稀有度选择按钮文本
+        private bool card_extra_built = false;  // 扩展行是否已构建（每次打开面板构建一次）
+        private const float MAX_AUDIO_SECONDS = 10f;   //导入音效时长上限（秒）
+
+        // ---- 全页字体统一 + 右侧栏 Tab（运行时构建）----
+        private bool tmp_ui_done = false;                        // 旧版 Text → TMP 是否已跑过
+        private bool ui_setup_pending = false;                   // 等面板激活后执行 TMP 迁移/Tab 构建
+        private readonly HashSet<GameObject> tmp_converted = new HashSet<GameObject>();
+        private RectTransform prop_area_rt;                      // 卡牌参数区（占满右列）
+        private RectTransform lib_area_rt;                       // 节点库区（占满右列）
+        private TMP_Text tab_prop_text;                          // 「卡牌参数」Tab 文本
+        private TMP_Text tab_lib_text;                           // 「节点库」Tab 文本
+        private bool right_tabs_built = false;
+        private bool right_tab_prop = false;                     // 当前是否在「卡牌参数」页
+        public TMP_InputField input_mana;    // 费用（TMP）
+        public TMP_InputField input_attack;  // 攻击（TMP）
+        public TMP_InputField input_hp;      // 生命（TMP）
+        public TMP_InputField input_text;    // 卡牌文本（TMP）
+        public TMP_InputField input_desc;    // 描述（TMP）
         public Toggle toggle_deckbuilding;   // 可组卡
-        public InputField input_cost;        // 购买价
+        public TMP_InputField input_cost;    // 购买价（TMP）
         public Image art_preview;            // 卡面图片预览
         public Button btn_pick_art;          // 选择卡面图片
         public RectTransform art_full_row;   // 面板图片行（法术/奥秘隐藏）
         public Image art_full_preview;       // 面板图片预览
         public Button btn_pick_full_art;     // 选择面板图片
-        public InputField input_audio_spawn; // 音效：打出
-        public InputField input_audio_attack;// 音效：攻击
-        public InputField input_audio_death; // 音效：死亡
-        public InputField input_audio_damage;// 音效：受伤
+        public TMP_InputField input_audio_spawn; // 音效：打出（TMP）
+        public TMP_InputField input_audio_attack;// 音效：攻击（TMP）
+        public TMP_InputField input_audio_death; // 音效：死亡（TMP）
+        public TMP_InputField input_audio_damage;// 音效：受伤（TMP）
         public Button btn_audio_spawn;       // 选择音频：打出
         public Button btn_audio_attack;      // 选择音频：攻击
         public Button btn_audio_death;       // 选择音频：死亡
@@ -78,8 +98,8 @@ namespace TcgEngine.UI
         public ScrollRect node_lib_scroll;   // 节点库滚动区
         public RectTransform node_lib_content;// 节点库容器
         public GameObject node_lib_template; // 节点库项模板（隐藏）
-        public Text node_lib_count;          // 数量提示
-        public InputField node_search_input; // 节点库搜索框（按节点名过滤）
+        public TMP_Text node_lib_count;      // 数量提示（TMP）
+        public TMP_InputField node_search_input; // 节点库搜索框（按节点名过滤，TMP）
         public RectTransform node_recent_root;// 最近使用栏（横向按钮容器）
         public TMPro.TMP_Dropdown node_filter_dropdown; // 节点库分类下拉（全部/内置/收藏 + NodeDoc zmcs 分类；场景里用 TMP Dropdown 绑定）
 
@@ -90,7 +110,7 @@ namespace TcgEngine.UI
         public GameObject node_field_toggle_template;    // 参数行模板：开关
         public GameObject node_lib_root;                 // 节点库面板根（与参数面板同位置，互斥切换）
         public GameObject node_field_root;               // 节点参数面板根（与节点库同位置，互斥切换）
-        public Text node_field_hint;                     // 参数编辑区占位提示（已由面板切换代替，保留引用兼容旧场景）
+        public TMP_Text node_field_hint;                 // 参数编辑区占位提示（TMP；面板切换已代替，保留引用兼容旧场景）
 
         // ---------------- 运行时数据 ----------------
         private static GraphEditorPanel instance;
@@ -104,6 +124,9 @@ namespace TcgEngine.UI
         private BattleButtonConfig editing_button_config;   // 按钮模式：当前编辑的全局按钮配置（card/pool/关键词/增益均为空，graph 引用其共享图）
         /// <summary>当前卡的规则图（供 NodePin 等组件读取取值）</summary>
         public GraphData Graph { get { return graph; } }
+
+        private int effect_index = 0;          // 当前效果图 tab 下标（卡模式：一张卡多张效果图）
+        private RectTransform effect_tab_bar;  // 效果图 tab 容器（运行时创建）
 
         private readonly Dictionary<string, RectTransform> node_rows = new Dictionary<string, RectTransform>();
         private readonly List<NodePin> all_pins = new List<NodePin>();
@@ -123,6 +146,8 @@ namespace TcgEngine.UI
         private readonly List<string> redo_stack = new List<string>();
         private const int MAX_UNDO = 50;
         private const string FAV_KEY = "graph_editor_favs";       // 收藏节点 action 持久化 key
+        /// <summary>节点整体视觉缩放（画布节点按此缩放，1=原始尺寸；0.5 → 面积约 1/4）</summary>
+        public const float NodeScale = 0.5f;
         private const string RECENT_KEY = "graph_editor_recent";  // 最近使用节点 action 持久化 key
         private GraphNode copied_node;       // 复制缓冲（Ctrl+C/V）
         private GameObject empty_hint;       // 空画布引导提示
@@ -145,7 +170,7 @@ namespace TcgEngine.UI
         // ---------------- 节点库预设 ----------------
 
         /// <summary>字段编辑方式</summary>
-        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect, BuffSelect, ButtonSelect, MultiOptions }
+        private enum FieldEditType { Input, Dropdown, Toggle, CardSelect, BuffSelect, ButtonSelect, MultiOptions, KeywordSelect }
 
         /// <summary>节点字段定义：决定节点参数区用哪种控件编辑（数值输入/枚举下拉/开关）</summary>
         private class FieldDef
@@ -189,6 +214,7 @@ namespace TcgEngine.UI
             public List<FieldDef> fields = new List<FieldDef>();  // 节点参数（数值/枚举）
             public List<PinDef> pins = new List<PinDef>();
             public bool supported = true;                         // zmcs 节点是否已接入执行（未接入的灰显、不可拖入）
+            public bool hidden = false;                           // 是否从节点库展示中隐藏（过时/内部/同名重复；预设仍保留以兼容旧图）
         }
 
         /// <summary>比较/运算等节点的枚举字段定义辅助</summary>
@@ -228,7 +254,6 @@ namespace TcgEngine.UI
         /// <summary>节点库分类下拉选项（与 filter_index 一一对应）：全部/收藏/触发器/增益触发/按钮 + NodeDoc zmcs 分类（内置节点已移除）</summary>
         private const string CAT_ALL = "全部";
         private const string CAT_FAV = "收藏";
-        private const string CAT_TRIGGER = "触发器";
         private const string CAT_BUFF_TRIGGER = "增益触发";
         private const string CAT_BUTTON = "按钮";
         private const string CAT_EVENT = "事件";
@@ -239,7 +264,7 @@ namespace TcgEngine.UI
         {
             if (filter_options_cache == null)
             {
-                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV, CAT_TRIGGER, CAT_BUFF_TRIGGER, CAT_BUTTON, CAT_EVENT, CAT_ENTRY };
+                filter_options_cache = new List<string> { CAT_ALL, CAT_FAV, CAT_BUFF_TRIGGER, CAT_BUTTON, CAT_EVENT, CAT_ENTRY };
                 foreach (string c in NodeDocDb.Categories)
                     filter_options_cache.Add(c);
             }
@@ -255,14 +280,24 @@ namespace TcgEngine.UI
                 all_presets_cache = new List<NodePreset>();
                 //内置直通节点（原 PRESETS 数组）已整体删除：节点库只保留 NodeDoc(zmcs) 节点；
                 //旧图残留的内置节点仍由 GraphRuntime 按 action 执行（无需预设数据）
+                //隐藏规则：过时(obsoleteMsg)/内部负数 defineId/同名重复（同名只保留支持的那个，避免一屏同名"未接入"噪音）
+                Dictionary<string, string> keep_name = new Dictionary<string, string>();
+                foreach (NodeDocDef d in NodeDocDb.All)
+                {
+                    if (d == null || string.IsNullOrEmpty(d.define_id) || string.IsNullOrEmpty(d.editor_name))
+                        continue;
+                    bool sup = SupportedNodeIds.Contains(d.define_id);
+                    string cur = keep_name.TryGetValue(d.editor_name, out string c) ? c : null;
+                    if (cur == null || (sup && (cur == null || !SupportedNodeIds.Contains(cur))))
+                        keep_name[d.editor_name] = d.define_id;
+                }
                 foreach (NodeDocDef d in NodeDocDb.All)
                 {
                     NodePreset p = NodePresetFromDoc(d);
                     p.supported = SupportedNodeIds.Contains(d.define_id);
+                    p.hidden = ShouldHideNodeDoc(d, keep_name);
                     all_presets_cache.Add(p);
                 }
-                //入口触发器（Event 类型）：新图从节点库拖入，暴露事件环境变量端口（自身/目标/有无目标/己方/敌方玩家）
-                all_presets_cache.AddRange(BuildTriggerPresets());
                 //增益触发（Event 类型）：增益效果图的入口（BuffData.graph），暴露增益上下文变量（自身/施加者/增益定义/双方玩家/剩余回合）
                 all_presets_cache.AddRange(BuildBuffTriggerPresets());
                 //按钮节点（Event/动作）：战斗界面自定义按钮（一图多按钮），点击按钮时/点击按钮后/触发按钮效果
@@ -275,40 +310,19 @@ namespace TcgEngine.UI
             return all_presets_cache;
         }
 
-        /// <summary>入口触发器预设（事件环境变量）：动作线从 out 触发口接入执行链；
-        /// self/target/has_target/player/enemy 数据端口供动作节点取值线读取事件上下文
-        /// （运行时 NodeDocRunner 按口名解析：self→施法卡、target→选中目标、has_target→有无目标、
-        /// player→己方玩家、enemy→敌方玩家）。action 与 CardPoolIO.MapGraphTrigger 保持一致。</summary>
-        private static List<NodePreset> BuildTriggerPresets()
+        /// <summary>是否从节点库展示中隐藏：过时标注 / 内部负数 defineId / 同名重复（同名只保留 keep 里那个）</summary>
+        private static bool ShouldHideNodeDoc(NodeDocDef d, Dictionary<string, string> keep_name)
         {
-            List<NodePreset> presets = new List<NodePreset>();
-            string[][] defs = new string[][]
-            {
-                new string[] { "OnPlay", "打出时", "卡牌打出/入场时触发（法术=打出选中目标后；随从/装备=入场后）" },
-                new string[] { "StartOfTurn", "回合开始", "拥有者回合开始时触发" },
-                new string[] { "EndOfTurn", "回合结束", "拥有者回合结束时触发" },
-                new string[] { "OnDeath", "死亡时", "这张卡死亡时触发（亡语）" },
-                new string[] { "OnAttack", "攻击前", "这张卡发动攻击时触发" },
-                new string[] { "OnDraw", "抽牌时", "这张卡被抽到时触发" },
-            };
-            foreach (string[] d in defs)
-            {
-                NodePreset p = new NodePreset();
-                p.type = GraphNodeType.Event;
-                p.action = d[0];
-                p.title = d[1];
-                p.desc = d[2];
-                p.category = CAT_TRIGGER;
-                p.supported = true;
-                p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
-                p.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
-                p.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
-                p.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
-                p.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
-                p.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
-                presets.Add(p);
-            }
-            return presets;
+            if (d == null || string.IsNullOrEmpty(d.define_id))
+                return true;
+            if (d.define_id.StartsWith("-"))
+                return true;                                   //内部/旧版负数 defineId 节点
+            if (d.obsolete)
+                return true;                                   //zmcs 标注过时
+            if (!string.IsNullOrEmpty(d.editor_name) && keep_name != null
+                && keep_name.TryGetValue(d.editor_name, out string kept))
+                return kept != d.define_id;                    //同名重复，只留保留项（优先支持项）
+            return false;
         }
 
         /// <summary>增益触发入口节点（增益效果图专用，挂在 BuffData.graph）：
@@ -411,6 +425,20 @@ namespace TcgEngine.UI
                 new string[] { "OnAfterHeal", "治疗后", "任意卡牌/玩家被治疗结算后触发（治疗量=value；卡用 subject，玩家用 player）" },
                 new string[] { "OnBeforeTransform", "变形时", "任意卡牌变形前触发；可阻止本次变形" },
                 new string[] { "OnAfterTransform", "变形后", "任意卡牌变形后触发（变形后的卡=subject）" },
+                new string[] { "OnBeforeEquip", "装备道具时", "任意单位/英雄装备道具前触发；可阻止（装备不上）" },
+                new string[] { "OnAfterEquip", "装备道具后", "任意单位/英雄装备道具后触发（佩戴者=subject，装备=source）" },
+                new string[] { "OnBeforeDeath", "死亡时", "任意卡牌死亡（进墓地）前触发；可阻止=免死（卡保持原位）" },
+                new string[] { "OnAfterDeath", "死亡后", "任意卡牌死亡进墓地后触发（亡语本身由引擎触发，这里是通知/连锁时机）" },
+                new string[] { "OnBeforeDiscard", "弃牌时", "任意卡牌被主动弃置进墓地前触发；可阻止" },
+                new string[] { "OnAfterDiscard", "弃牌后", "任意卡牌被弃置进墓地后触发" },
+                new string[] { "OnBeforeGameStart", "对战开始时", "对局初始化前通知（纯通知，不可阻止）" },
+                new string[] { "OnAfterGameStart", "对战开始后", "玩家开战点（mulligan/首回合前）通知（纯通知）" },
+                new string[] { "OnBeforeGameEnd", "游戏结束时", "胜负判定后、对局结束前通知（纯通知）" },
+                new string[] { "OnAfterGameEnd", "游戏结束后", "对局结束收尾后通知（纯通知）" },
+                new string[] { "OnBeforeTurnStart", "回合开始时", "当前回合玩家回合开始处理前通知（纯通知，不可阻止避免锁局）" },
+                new string[] { "OnAfterTurnStart", "回合开始后", "回合开始处理完成后（进入主阶段前）通知" },
+                new string[] { "OnBeforeTurnEnd", "回合结束时", "结束回合结算处理前通知（不可阻止，避免回合永远无法结束）" },
+                new string[] { "OnAfterTurnEnd", "回合结束后", "回合结束收尾后、切换下家前通知" },
             };
             foreach (string[] d in evs)
             {
@@ -422,42 +450,20 @@ namespace TcgEngine.UI
                 p.category = CAT_EVENT;
                 p.supported = true;
                 //生效牌堆（多选）：普通宿主须在该牌堆才响应本入口；主体卡作为额外宿主不受限；选「任意」=全部牌堆
-                p.fields.Add(new FieldDef("zones", "生效牌堆", FieldEditType.MultiOptions,
+                //字段（对齐醉梦传说「XX/触发时」节点）：生效区域/标签列表/优先级/自定义效果属性
+                p.fields.Add(new FieldDef("zones", "生效区域", FieldEditType.MultiOptions,
                     new string[] { "任意", "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" },
                     "英雄;战场;装备区"));
-                p.pins.Add(new PinDef("cond", "条件", NodeValueType.Boolean, false));    //事件筛选：连线布尔为真才触发（无连线=全部触发）
+                p.fields.Add(EnumField("tags", "标签列表", new string[] { "无", "战吼", "亡语" }, "无"));
+                p.fields.Add(IntField("priority", "优先级", "0"));
+                p.fields.Add(new FieldDef("custom_props", "自定义效果属性", FieldEditType.Input, null, ""));   //事件自定义变量（每行 名称:类型[:数组]）
+                p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));   //事件筛选：连线布尔为真才触发（无连线=全部触发）
                 p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
-                p.pins.Add(new PinDef("self", "宿主", NodeValueType.Card, true));        //监听此事件的卡（图所在卡）
-                p.pins.Add(new PinDef("subject", "事件主体", NodeValueType.Card, true)); //受伤卡/被使用的牌/抽到的牌（玩家事件为空）
-                p.pins.Add(new PinDef("source", "来源", NodeValueType.Card, true));      //伤害来源等（可为空）
-                p.pins.Add(new PinDef("value", "数值", NodeValueType.Int32, true));      //伤害量/费用/抽卡批次
-                p.pins.Add(new PinDef("player", "主体玩家", NodeValueType.Player, true));
-                p.pins.Add(new PinDef("enemy", "对方玩家", NodeValueType.Player, true));
+                p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));           //事件主体卡（死亡=死者 / 被打=受伤者 …）
+                p.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));       //事件主体玩家
+                p.pins.Add(new PinDef("pos", "位置", NodeValueType.Int32, true));           //主体所在牌堆中的位置（slot/第几张）
                 presets.Add(p);
             }
-
-            NodePreset block = new NodePreset();
-            block.type = GraphNodeType.Action;
-            block.action = "BlockEvent";
-            block.title = "阻止本事件";
-            block.desc = "取消本次「X 时」动作（如阻止打出/阻止伤害）；仅时事件有效，先到先得";
-            block.category = CAT_EVENT;
-            block.supported = true;
-            block.pins.Add(new PinDef("in", "入", NodeValueType.Flow, false));
-            block.pins.Add(new PinDef("out", "出", NodeValueType.Flow, true));
-            presets.Add(block);
-
-            NodePreset setv = new NodePreset();
-            setv.type = GraphNodeType.Action;
-            setv.action = "SetEventValue";
-            setv.title = "修改事件值";
-            setv.desc = "把当前事件数值 value 覆盖为新值（如伤害改成 0=免伤）；仅时事件有效";
-            setv.category = CAT_EVENT;
-            setv.supported = true;
-            setv.fields.Add(IntField("value", "新值", "0"));
-            setv.pins.Add(new PinDef("in", "入", NodeValueType.Flow, false));
-            setv.pins.Add(new PinDef("out", "出", NodeValueType.Flow, true));
-            presets.Add(setv);
 
             //事件筛选取值（Bool 输出，接到事件入口的「条件」口做连线式筛选）：
             NodePreset eq = new NodePreset();
@@ -517,11 +523,7 @@ namespace TcgEngine.UI
             act.fields.Add(new FieldDef("target_side", "目标归属", FieldEditType.Dropdown, new string[] { "任意", "敌方", "友方" }, "任意"));
             act.pins.Add(new PinDef("targetCondition", "目标1条件", NodeValueType.Boolean, false));
             act.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
-            act.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
-            act.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
-            act.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
-            act.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
-            act.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+            //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
             presets.Add(act);
 
             //2) 光环效果入口（常驻增益；字段与 CardPoolIO.BuildAuraAbility 对齐）
@@ -535,7 +537,10 @@ namespace TcgEngine.UI
             aura.fields.Add(EnumField("buff", "增益定义", StatusTypeOptions(), "AddAttack"));
             aura.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, new string[] { "场上", "手牌", "全部区域" }, "场上"));
             aura.fields.Add(new FieldDef("target_area", "作用区域", FieldEditType.Dropdown, new string[] { "双方", "己方", "敌方" }, "双方"));
+            aura.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, false));          //光环载体（图所在卡）
             aura.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+            aura.pins.Add(new PinDef("target_card", "目标卡牌", NodeValueType.Card, true));
+            aura.pins.Add(new PinDef("target_player", "目标玩家", NodeValueType.Player, true));
             presets.Add(aura);
 
             //3) 被动效果入口（亡语；生效/失效为预留出口，执行层不驱动）
@@ -546,11 +551,14 @@ namespace TcgEngine.UI
             pas.desc = "zmcs 被动=亡语：本卡死亡时触发，动作从「动作」出口接出（生效/失效出口预留不执行）";
             pas.category = CAT_ENTRY;
             pas.supported = true;
-            pas.fields.Add(new FieldDef("tag_list", "标签列表", FieldEditType.Dropdown, new string[] { "亡语" }, "亡语"));
+            pas.fields.Add(new FieldDef("tag_list", "标签列表", FieldEditType.Dropdown, new string[] { "战吼", "亡语" }, "亡语"));
+            pas.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, new string[] { "战场", "手牌", "牌库", "墓地", "装备区", "全部区域" }, "战场"));
+            pas.fields.Add(IntField("priority", "优先级", "0"));
             pas.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
             pas.pins.Add(new PinDef("enable", "生效动作", NodeValueType.Flow, true));     //预留：不驱动执行
             pas.pins.Add(new PinDef("disable", "失效动作", NodeValueType.Flow, true));    //预留：不驱动执行
-            pas.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
+            pas.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
+            pas.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
             presets.Add(pas);
 
             //4) 事件效果入口（监听事件下拉；与 CardPoolIO.MapEventName 一致）
@@ -564,11 +572,7 @@ namespace TcgEngine.UI
             evn.fields.Add(new FieldDef("event_name", "监听事件", FieldEditType.Dropdown,
                 new string[] { "回合结束", "回合开始", "打出牌", "攻击时", "死亡时", "抽到时" }, "回合结束"));
             evn.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
-            evn.pins.Add(new PinDef("self", "自身", NodeValueType.Card, true));
-            evn.pins.Add(new PinDef("target", "目标", NodeValueType.Card, true));
-            evn.pins.Add(new PinDef("has_target", "有无目标", NodeValueType.Boolean, true));
-            evn.pins.Add(new PinDef("player", "己方玩家", NodeValueType.Player, true));
-            evn.pins.Add(new PinDef("enemy", "敌方玩家", NodeValueType.Player, true));
+            //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
             presets.Add(evn);
             return presets;
         }
@@ -582,6 +586,37 @@ namespace TcgEngine.UI
             "202041",   //造成伤害或法伤（多目标/法伤开关，卡池主流）
             "202016",   //消灭
             "202013",   //治疗目标卡牌（执行器仍兼容 202039/202047 变体，但库内只放这一个避免同名重复）
+            //第二批图事件后续补充的已接入节点（第 6 批）
+            "112001",   //布尔常量
+            "112003",   //整数常量
+            "102028",   //卡牌是否是陷阱
+            "102019",   //获取护甲值
+            "202014",   //禁锢（Freezing）
+            "202040",   //封印（Silenced）
+            "202018",   //增加护甲
+            "202019",   //增加固定数量护甲
+            "202020",   //失去护甲
+            "201001",   //设置当前灵力值
+            "201009",   //设置灵力上限
+            "210007",   //卡牌装备到道具栏
+            "202006",   //创建衍生卡并装备到道具栏
+            "101012",   //玩家是否装备道具
+            "200001",   //使玩家获胜（EndGame 收口）
+            "200002",   //使玩家失败（让其余玩家获胜）
+            //卡牌/卡牌定义取值与判断（对齐醉梦传说 102003/102004/103006/103014/103020/103021/103023）
+            "102003",   //卡牌关键词判断（card + 关键词 → 真值）
+            "102004",   //获取属性（card + 属性名 → 值）
+            "103006",   //卡牌定义关键词判断
+            "103014",   //是否为衍生牌（TCG2：非构筑牌）
+            "103020",   //获取卡牌定义属性（攻击/生命/法力费用）
+            "103021",   //卡牌定义是否是陷阱（奥秘）
+            "103023",   //获取卡牌定义的类型（字符串）
+            //事件家族（对齐醉梦传说）：当前事件 → 获取变量/转换类型/设置变量/阻止事件
+            "108001",   //当前事件（事件上下文：广播链/能力触发链均可取）
+            "108002",   //获取变量（事件→变量名→值）
+            "108003",   //转换事件类型
+            "208001",   //设置变量
+            "208002",   //阻止事件
             "212001",   //分支动作（真值→动作/否则动作；条件用内置比较/布尔常量节点）
             "212002",   //重复动作（数量→循环执行 动作 口；repeatTime 输出第 n 次迭代供循环体数值口取值）
             "202003",   //创建衍生卡并置入战场（卡牌定义口 v1 填卡牌 id，空位自动选择）
@@ -779,6 +814,10 @@ namespace TcgEngine.UI
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //102027 获取卡牌属性
                 else if (ip.type == NodeValueType.CardPropertySetterName)
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //202037 设置卡牌属性
+                else if (ip.type == NodeValueType.CardDefinePropertyGetterName)
+                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //103020 获取卡牌定义属性
+                else if (ip.type == NodeValueType.KeywordName)
+                    p.fields.Add(new FieldDef(ip.name, "关键词", FieldEditType.KeywordSelect, null, ""));   //102003/103006 关键词下拉（列游戏自带关键词，存 KeywordData.id）
                 else if (ip.type == NodeValueType.PileName)
                 {
                     //105001/105005 卡牌所在牌堆判断：要能选全部区域（含战场/装备/奥秘，运行时只判真区域）
@@ -835,6 +874,13 @@ namespace TcgEngine.UI
             //103002 获取卡牌定义：DefineReference 引用口的替代表达——卡牌选择下拉（选当前卡池的卡牌）
             if (p.action == "103002")
                 p.fields.Add(new FieldDef("cardRef", "卡牌定义", FieldEditType.CardSelect, null, ""));
+            //事件家族（108002 获取变量 / 208001 设置变量）变量名用下拉；108003 转换事件类型用事件类型下拉
+            if (p.action == "108002" || p.action == "208001")
+                p.fields.Add(EnumField("varName", "变量名",
+                    new string[] { "卡牌", "玩家", "来源", "数值", "目标", "标签" }, "卡牌"));
+            if (p.action == "108003")
+                p.fields.Add(EnumField("eventReference", "事件类型",
+                    new string[] { "打出", "伤害", "治疗", "死亡", "弃牌", "装备", "抽卡", "回合", "游戏" }, "死亡"));
             return p;
         }
 
@@ -939,6 +985,19 @@ namespace TcgEngine.UI
         {
             base.Update();
             HandleShortcuts();
+
+            //面板激活后的第一帧：执行整页 TMP 迁移 + 右侧栏 Tab 构建（未激活时 AddComponent 会失败）
+            if (ui_setup_pending && gameObject.activeInHierarchy)
+            {
+                ui_setup_pending = false;
+                EnsureTmpUI();
+                EnsureRightTabs();
+                if (card != null)
+                {
+                    RefreshForm();             //把当前卡的值填进新换上的 TMP 控件
+                    RefreshCardExtraFields();
+                }
+            }
         }
 
         // ---------------- Tier2：撤销/重做 / 复制粘贴 / 防呆 ----------------
@@ -1110,7 +1169,7 @@ namespace TcgEngine.UI
                     Debug.LogError("空画布提示 TMP 化失败，已回退旧版 Text。原因：\n" + e);
                     text = null;
                     Text back = tgo.AddComponent<Text>();
-                    back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    back.font = LegacyUIFont();
                     back.fontSize = 28;
                     back.color = new Color(1f, 1f, 1f, 0.35f);
                     back.alignment = TextAnchor.MiddleCenter;
@@ -1249,6 +1308,10 @@ namespace TcgEngine.UI
         /// <summary>打开某张卡的规则编辑器（pool/card 为引用，修改后保存时整体写盘）</summary>
         public void Open(CardPoolData pool, CardCustomData card, string savePath)
         {
+            //TMP 迁移 / Tab 构建需要 AddComponent：面板此时可能还未激活（Open 先于 Show），
+            //未激活层级上 AddComponent 会失败，故推迟到激活后的第一帧（见 Update）
+            if (!tmp_ui_done)
+                ui_setup_pending = true;
             editing_keyword = null;   //退出关键词模式
             editing_rule = null;
             editing_button_config = null;   //退出按钮模式
@@ -1256,12 +1319,28 @@ namespace TcgEngine.UI
             this.card = card;
             this.save_path = savePath;
 
-            graph = card != null ? card.graph : null;
+            //效果图：一张卡可有多张效果图（每张一个入口），默认打开第 0 张
+            effect_index = 0;
+            graph = null;
+            if (card != null)
+            {
+                List<CardEffectData> effs = card.EnsureEffects();
+                if (effs.Count > 0 && effs[0] != null)
+                {
+                    if (effs[0].graph == null)
+                        effs[0].graph = new GraphData();
+                    graph = effs[0].graph;
+                }
+            }
             if (graph == null)
             {
                 graph = new GraphData();
                 if (card != null)
+                {
+                    card.EnsureEffects();
+                    card.effects[0].graph = graph;
                     card.graph = graph;
+                }
             }
             if (graph.name == null || graph.name.Length == 0)
                 graph.name = card != null ? card.title : "NewGraph";
@@ -1280,8 +1359,200 @@ namespace TcgEngine.UI
             RebuildCanvas();
             RefreshNodeLib();
             ResetView();
+            RefreshEffectTabs();
 
             SetStatus("正在编辑规则图: " + (card != null && !string.IsNullOrEmpty(card.title) ? card.title : "（未命名卡）"));
+        }
+
+        // ---------------- 效果图 tab（一张卡多张效果图，每张一个入口） ----------------
+
+        /// <summary>当前卡的效果图列表（卡模式）；非卡模式返回 null</summary>
+        private List<CardEffectData> CardEffects()
+        {
+            return card != null ? card.EnsureEffects() : null;
+        }
+
+        /// <summary>把兼容字段 card.graph 同步为第一张效果图（旧工具/旧编译仍读 graph）</summary>
+        private void SyncLegacyGraphField()
+        {
+            if (card != null && card.effects != null && card.effects.Count > 0 && card.effects[0] != null)
+                card.graph = card.effects[0].graph;
+        }
+
+        /// <summary>按入口节点推断效果名（对齐醉梦传说：主动效果/被动效果/光环效果/事件效果）</summary>
+        private static string SuggestedEffectName(GraphData g, int index)
+        {
+            string prefix = "效果";
+            if (g != null)
+            {
+                foreach (GraphNode n in g.nodes)
+                {
+                    if (n == null || n.type != GraphNodeType.Event)
+                        continue;
+                    if (n.action == "ActivateEffect") prefix = "主动效果";
+                    else if (n.action == "PassiveEffect") prefix = "被动效果";
+                    else if (n.action == "AuraEffect") prefix = "光环效果";
+                    else if (n.action == "EventEffect") prefix = "事件效果";
+                    else continue;
+                    break;
+                }
+            }
+            return prefix + (index + 1);
+        }
+
+        /// <summary>切换到第 index 张效果图（切换 graph 引用并重建画布）</summary>
+        private void SelectEffect(int index)
+        {
+            List<CardEffectData> effs = CardEffects();
+            if (effs == null || effs.Count == 0)
+                return;
+            effect_index = Mathf.Clamp(index, 0, effs.Count - 1);
+            CardEffectData e = effs[effect_index];
+            if (e.graph == null)
+                e.graph = new GraphData();
+            graph = e.graph;
+            if (string.IsNullOrEmpty(graph.name))
+                graph.name = (card != null && !string.IsNullOrEmpty(card.title) ? card.title : "NewGraph")
+                    + "_" + (effect_index + 1);
+            SyncLegacyGraphField();
+
+            node_index = 0;
+            undo_stack.Clear();
+            redo_stack.Clear();
+            copied_node = null;
+            foreach (GraphNode n in graph.nodes)
+                MigratePins(n);
+            RebuildCanvas();
+            ResetView();
+            RefreshEffectTabs();
+            SetStatus("当前效果图：" + e.name);
+        }
+
+        private void OnAddEffect()
+        {
+            List<CardEffectData> effs = CardEffects();
+            if (effs == null)
+                return;
+            effs.Add(new CardEffectData { name = "效果" + (effs.Count + 1), graph = new GraphData() });
+            SelectEffect(effs.Count - 1);
+        }
+
+        private void OnDeleteEffect()
+        {
+            List<CardEffectData> effs = CardEffects();
+            if (effs == null)
+                return;
+            if (effs.Count <= 1)
+            {
+                SetStatus("至少保留一张效果图");
+                return;
+            }
+            effs.RemoveAt(effect_index);
+            SyncLegacyGraphField();
+            SelectEffect(Mathf.Min(effect_index, effs.Count - 1));
+        }
+
+        /// <summary>构建/刷新效果图 tab 栏（运行时创建；非卡模式隐藏）</summary>
+        private void RefreshEffectTabs()
+        {
+            List<CardEffectData> effs = CardEffects();
+            if (effs == null || effs.Count == 0)
+            {
+                if (effect_tab_bar != null)
+                    effect_tab_bar.gameObject.SetActive(false);
+                return;
+            }
+            EnsureEffectTabBar();
+            effect_tab_bar.gameObject.SetActive(true);
+
+            for (int i = effect_tab_bar.childCount - 1; i >= 0; i--)
+            {
+                Transform c = effect_tab_bar.GetChild(i);
+                c.SetParent(null, false);
+                Destroy(c.gameObject);
+            }
+
+            Font font = TabFont();
+            float x = 0f;
+            for (int i = 0; i < effs.Count; i++)
+            {
+                CardEffectData e = effs[i];
+                e.name = SuggestedEffectName(e.graph, i);
+                CreateEffectTabButton(e.name, i, i == effect_index, font, x);
+                x += 132f;
+            }
+            CreateEffectTabButton("+ 新效果", -1, false, font, x);
+            CreateEffectTabButton("删除当前", -2, false, font, x + 132f);
+        }
+
+        private void EnsureEffectTabBar()
+        {
+            if (effect_tab_bar != null)
+                return;
+            GameObject go = new GameObject("EffectTabBar", typeof(RectTransform));
+            effect_tab_bar = go.GetComponent<RectTransform>();
+            effect_tab_bar.SetParent(transform, false);
+            effect_tab_bar.anchorMin = new Vector2(0, 1);
+            effect_tab_bar.anchorMax = new Vector2(0, 1);
+            effect_tab_bar.pivot = new Vector2(0, 1);
+            effect_tab_bar.anchoredPosition = new Vector2(30, -64);
+            effect_tab_bar.sizeDelta = new Vector2(1000, 26);
+        }
+
+        private Font TabFont()
+        {
+            return LegacyUIFont();   //状态文本已 TMP 化；残留的旧版 UGUI 控件统一用内置字体
+        }
+
+        /// <summary>旧版 UGUI 控件字体（TMP 迁移后仅少量旧控件仍需 Font）：取内置字体，避免空引用</summary>
+        private static Font LegacyUIFont()
+        {
+            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
+
+        private void CreateEffectTabButton(string label, int index, bool active, Font font, float x)
+        {
+            GameObject go = new GameObject("EffectTab", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(effect_tab_bar, false);
+            rt.anchorMin = new Vector2(0, 0);
+            rt.anchorMax = new Vector2(0, 1);
+            rt.pivot = new Vector2(0, 0.5f);
+            rt.anchoredPosition = new Vector2(x, 0);
+            rt.sizeDelta = new Vector2(124, 0);
+
+            Image img = go.GetComponent<Image>();
+            img.color = active ? new Color(0.2f, 0.55f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.15f);
+
+            Button btn = go.GetComponent<Button>();
+            if (index >= 0)
+            {
+                int captured = index;
+                btn.onClick.AddListener(() => SelectEffect(captured));
+            }
+            else if (index == -1)
+            {
+                btn.onClick.AddListener(OnAddEffect);
+            }
+            else
+            {
+                btn.onClick.AddListener(OnDeleteEffect);
+            }
+
+            GameObject txt_go = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            RectTransform trt = txt_go.GetComponent<RectTransform>();
+            trt.SetParent(rt, false);
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(4, 0);
+            trt.offsetMax = new Vector2(-4, 0);
+            Text t = txt_go.GetComponent<Text>();
+            t.text = label;
+            t.font = font;
+            t.fontSize = 16;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.color = Color.white;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
         }
 
         /// <summary>
@@ -1320,6 +1591,7 @@ namespace TcgEngine.UI
             RebuildCanvas();
             RefreshNodeLib();
             ResetView();
+            RefreshEffectTabs();
 
             SetStatus("正在编辑关键词规则图: " + keyword.title + "（保存写回关键词资产）");
         }
@@ -1363,6 +1635,7 @@ namespace TcgEngine.UI
             RebuildCanvas();
             RefreshNodeLib();
             ResetView();
+            RefreshEffectTabs();
 
             SetStatus("正在编辑增益效果图: " + buff.GetTitle() + "（保存写回 buffs.json，触发入口=增益触发事件）");
         }
@@ -1408,6 +1681,7 @@ namespace TcgEngine.UI
             RebuildCanvas();
             RefreshNodeLib();
             ResetView();
+            RefreshEffectTabs();
 
             SetStatus("正在编辑按钮图: " + (graph.name ?? "battle_buttons") + "（一图多按钮，保存写回 buttons.json）");
         }
@@ -1497,11 +1771,19 @@ namespace TcgEngine.UI
                 toggle_deckbuilding.isOn = card.deckbuilding;
             SetDropdown(dropdown_team, team_ids, card.team);
             SetDropdown(dropdown_rarity, rarity_ids, card.rarity);
-            SetDropdown(dropdown_trait, trait_ids, card.trait);
-            if (dropdown_keyword != null)
-                SetDropdown(dropdown_keyword, keyword_ids, card.keywords.Count > 0 ? card.keywords[0] : "");
+            EnsureCardExtraFields();   //补齐：关键词行（原表单缺失）/ 种族多选 / 音效试听
+            RefreshCardExtraFields();
+            if (!card_extra_built)
+            {
+                SetDropdown(dropdown_trait, trait_ids, card.trait);
+                SetDropdown(dropdown_team, team_ids, card.team);
+                SetDropdown(dropdown_rarity, rarity_ids, card.rarity);
+                if (dropdown_keyword != null)
+                    SetDropdown(dropdown_keyword, keyword_ids,
+                        card.keywords != null && card.keywords.Count > 0 ? card.keywords[0] : "");
+            }
 
-            if (dropdown_type != null)
+            if (dropdown_type != null && !card_extra_built)
             {
                 int idx = IndexOf(TYPE_ENUMS, card.type);
                 if (idx >= 0 && idx < dropdown_type.options.Count)
@@ -1509,6 +1791,784 @@ namespace TcgEngine.UI
             }
             if (title_text != null)
                 title_text.text = "规则编辑 - " + (string.IsNullOrEmpty(card.title) ? "未命名" : card.title);
+        }
+
+        // ---------------- 卡牌属性区扩展：关键词多选 / 种族多选 / 音效试听 ----------------
+
+        /// <summary>补齐属性区控件（运行时创建，无需重跑生成工具）：
+        /// 1) 种族：原单选下拉 → 多选（自带种族多选 + 可自定义）
+        /// 2) 关键词：原表单没有该行 → 复制种族行插入多选按钮
+        /// 3) 音效 4 行：各加一个「▶」试听按钮</summary>
+        private void EnsureCardExtraFields()
+        {
+            if (card_extra_built || dropdown_trait == null)
+                return;
+            RectTransform field = dropdown_trait.transform.parent as RectTransform;
+            RectTransform row = field != null ? field.parent as RectTransform : null;
+            RectTransform content = row != null ? row.parent as RectTransform : null;
+            if (field == null || row == null || content == null)
+                return;
+
+            //1) 种族：隐藏旧单选下拉，同位置换成多选按钮（TMP）
+            dropdown_trait.gameObject.SetActive(false);
+            txt_trait_select = CreateCardSelectButton(field, "TraitSelect", OnClickTraitSelect);
+
+            //1.5) 类型/阵营/稀有度：旧单选下拉 → TMP 选择按钮（统一风格，弹层选择）
+            txt_type_select = ReplaceDropdownWithSelect(dropdown_type, "TypeSelect", OnClickTypeSelect);
+            txt_team_select = ReplaceDropdownWithSelect(dropdown_team, "TeamSelect", OnClickTeamSelect);
+            txt_rarity_select = ReplaceDropdownWithSelect(dropdown_rarity, "RaritySelect", OnClickRaritySelect);
+
+            //2) 关键词：复制种族行（沿用标签/行高/布局），插在种族行下面
+            RectTransform kw_row = Instantiate(row.gameObject, content).GetComponent<RectTransform>();
+            kw_row.name = "PropRowKeyword";
+            kw_row.SetSiblingIndex(row.GetSiblingIndex() + 1);
+            kw_row.gameObject.SetActive(true);
+            SetLabelText(kw_row.Find("PropLabel"), "关键词");
+            RectTransform kw_field = kw_row.Find("Field") as RectTransform;
+            if (kw_field != null)
+            {
+                for (int i = kw_field.childCount - 1; i >= 0; i--)   //清掉复制来的旧控件
+                    Destroy(kw_field.GetChild(i).gameObject);
+                txt_keyword_select = CreateCardSelectButton(kw_field, "KeywordSelect", OnClickKeywordSelect);
+            }
+
+            //3) 音效行：各加「▶ 试听」
+            AddAudioPreviewButton(input_audio_spawn, 0);
+            AddAudioPreviewButton(input_audio_attack, 1);
+            AddAudioPreviewButton(input_audio_death, 2);
+            AddAudioPreviewButton(input_audio_damage, 3);
+
+            //4) 短字段两两一行（长字段保持整行）
+            PackShortPropRows(content);
+
+            card_extra_built = true;
+        }
+
+        /// <summary>短字段两两一行：把相邻短字段行并排（阵营|稀有度、费用|攻击、可组卡|购买价）。
+        /// 运行时重排属性区，无需重跑生成工具；名称/卡牌文本/描述/种族/关键词/图片/音效保持整行。</summary>
+        private void PackShortPropRows(RectTransform content)
+        {
+            if (content == null)
+                return;
+            string[][] pairs = new string[][]
+            {
+                new string[] { "类型", "阵营" },
+                new string[] { "稀有度", "费用" },
+                new string[] { "攻击", "生命" },
+            };
+            foreach (string[] pair in pairs)
+            {
+                RectTransform a = FindPropRow(content, pair[0]);
+                RectTransform b = FindPropRow(content, pair[1]);
+                if (a == null || b == null || a == b)
+                    continue;
+                int idx = a.GetSiblingIndex();
+                RectTransform pack = CreatePackRow(content);
+                MakeFlexible(a);
+                MakeFlexible(b);
+                a.SetParent(pack, false);
+                b.SetParent(pack, false);
+                pack.SetSiblingIndex(Mathf.Clamp(idx, 0, content.childCount - 1));
+            }
+        }
+
+        /// <summary>新建横向「打包行」（两个字段并排，行高与普通属性行一致）</summary>
+        private static RectTransform CreatePackRow(RectTransform content)
+        {
+            GameObject go = new GameObject("PropPackRow", typeof(RectTransform));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(content, false);
+            HorizontalLayoutGroup h = go.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 6f;
+            h.padding = new RectOffset(0, 0, 0, 0);
+            h.childAlignment = TextAnchor.MiddleCenter;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = 40f;
+            le.minHeight = 40f;
+            return rt;
+        }
+
+        /// <summary>打包行内的子行：等宽平分 + 固定行高</summary>
+        private static void MakeFlexible(RectTransform row)
+        {
+            LayoutElement le = row.GetComponent<LayoutElement>();
+            if (le == null)
+                le = row.gameObject.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+            le.preferredWidth = 0f;
+            le.minWidth = 0f;
+            le.preferredHeight = 40f;
+            le.minHeight = 40f;
+        }
+
+        /// <summary>按标签文本找属性行（只查 content 的直接子行；占用行已被打包则查不到，天然幂等）</summary>
+        private static RectTransform FindPropRow(RectTransform content, string label)
+        {
+            if (content == null || string.IsNullOrEmpty(label))
+                return null;
+            for (int i = 0; i < content.childCount; i++)
+            {
+                RectTransform row = content.GetChild(i) as RectTransform;
+                if (row != null && RowLabelOf(row) == label)
+                    return row;
+            }
+            return null;
+        }
+
+        /// <summary>属性行标签文本（兼容旧版 Text 与 TMP）</summary>
+        private static string RowLabelOf(RectTransform row)
+        {
+            Transform lb = row != null ? row.Find("PropLabel") : null;
+            if (lb == null)
+                return "";
+            TMP_Text tmp = lb.GetComponent<TMP_Text>();
+            if (tmp != null)
+                return tmp.text;
+            Text legacy = lb.GetComponent<Text>();
+            return legacy != null ? legacy.text : "";
+        }
+
+        /// <summary>刷新扩展控件显示（种族/关键词多选摘要 + 类型/阵营/稀有度；未注册 id 原样显示）</summary>
+        private void RefreshCardExtraFields()
+        {
+            if (!card_extra_built)
+                return;
+            CardCustomData c = card;
+            if (txt_trait_select != null)
+                txt_trait_select.text = c != null ? MultiSummary(c.EnsureTraits(), TraitTitle, "（选择种族）") : "";
+            if (txt_keyword_select != null)
+                txt_keyword_select.text = c != null ? MultiSummary(c.keywords, KeywordTitle, "（选择关键词）") : "";
+            if (txt_type_select != null)
+                txt_type_select.text = c != null ? TypeNameOf(c.type) : "";
+            if (txt_team_select != null)
+                txt_team_select.text = c != null ? OneSummary(TeamTitle(c.team), "（选择阵营）") : "";
+            if (txt_rarity_select != null)
+                txt_rarity_select.text = c != null ? OneSummary(RarityTitle(c.rarity), "（选择稀有度）") : "";
+        }
+
+        /// <summary>单值摘要：空给占位提示</summary>
+        private static string OneSummary(string value, string placeholder)
+        {
+            return string.IsNullOrEmpty(value) ? placeholder : value;
+        }
+
+        private static string TypeNameOf(string enum_name)
+        {
+            int idx = IndexOf(TYPE_ENUMS, enum_name);
+            return idx >= 0 && idx < TYPE_NAMES.Length ? TYPE_NAMES[idx] : enum_name;
+        }
+
+        private static string TeamTitle(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "";
+            TeamData.Load();
+            TeamData t = TeamData.Get(id);
+            return t != null && !string.IsNullOrEmpty(t.title) ? t.title : id;
+        }
+
+        private static string RarityTitle(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "";
+            RarityData.Load();
+            RarityData r = RarityData.Get(id);
+            return r != null && !string.IsNullOrEmpty(r.title) ? r.title : id;
+        }
+
+        /// <summary>旧单选下拉 → TMP 选择按钮（隐藏下拉、同位置放按钮），返回按钮文本</summary>
+        private TMP_Text ReplaceDropdownWithSelect(Dropdown dd, string name, Action onClick)
+        {
+            if (dd == null)
+                return null;
+            RectTransform field = dd.transform.parent as RectTransform;
+            dd.gameObject.SetActive(false);
+            if (field == null)
+                return null;
+            return CreateCardSelectButton(field, name, onClick);
+        }
+
+        /// <summary>类型选择（单选）：随从/法术/英雄/神器/装备/奥秘</summary>
+        private void OnClickTypeSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            OpenSingleSelectPopup("类型", TypeNameOf(c.type), TYPE_NAMES, TYPE_ENUMS, v =>
+            {
+                c.type = v;
+                CardPoolIO.UpdateCardData(c);
+                RefreshCardExtraFields();
+            });
+        }
+
+        /// <summary>阵营选择（单选）：列出游戏自带阵营；自定义 id 需有对应 TeamData 资产才生效</summary>
+        private void OnClickTeamSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            TeamData.Load();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            foreach (TeamData t in TeamData.GetAll())
+            {
+                if (t == null || string.IsNullOrEmpty(t.title))
+                    continue;
+                titles.Add(t.title);
+                ids.Add(t.id);
+            }
+            OpenSingleSelectPopup("阵营", TeamTitle(c.team), titles.ToArray(), ids.ToArray(), v =>
+            {
+                c.team = v;
+                CardPoolIO.UpdateCardData(c);
+                RefreshCardExtraFields();
+            });
+        }
+
+        /// <summary>稀有度选择（单选）：列出游戏自带稀有度；自定义 id 需有对应 RarityData 资产才生效</summary>
+        private void OnClickRaritySelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            RarityData.Load();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            foreach (RarityData r in RarityData.GetAll())
+            {
+                if (r == null || string.IsNullOrEmpty(r.title))
+                    continue;
+                titles.Add(r.title);
+                ids.Add(r.id);
+            }
+            OpenSingleSelectPopup("稀有度", RarityTitle(c.rarity), titles.ToArray(), ids.ToArray(), v =>
+            {
+                c.rarity = v;
+                CardPoolIO.UpdateCardData(c);
+                RefreshCardExtraFields();
+            });
+        }
+
+        /// <summary>种族多选：列出游戏自带种族（显示标题、存 TraitData.id），也可输入自定义种族</summary>
+        private void OnClickTraitSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            TraitData.Load();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            foreach (TraitData t in TraitData.GetAll())
+            {
+                if (t == null || string.IsNullOrEmpty(t.title))
+                    continue;
+                titles.Add(t.title);
+                ids.Add(t.id);
+            }
+            OpenMultiSelectPopup("种族", c.EnsureTraits(), titles.ToArray(), ids.ToArray(), ApplyTraitSelection);
+        }
+
+        private void ApplyTraitSelection(List<string> list)
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            c.traits = new List<string>(list);
+            c.trait = c.traits.Count > 0 ? c.traits[0] : "";   //兼容旧字段
+            CardPoolIO.UpdateCardData(c);                      //卡面立即反映
+            RefreshCardExtraFields();
+        }
+
+        /// <summary>关键词多选：列出游戏自带关键词（显示标题、存 KeywordData.id），也可输入自定义关键词</summary>
+        private void OnClickKeywordSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            if (c.keywords == null)
+                c.keywords = new List<string>();
+            KeywordData.Load();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            foreach (KeywordData k in KeywordData.GetAll())
+            {
+                if (k == null || string.IsNullOrEmpty(k.title))
+                    continue;
+                titles.Add(k.title);
+                ids.Add(k.id);
+            }
+            OpenMultiSelectPopup("关键词", c.keywords, titles.ToArray(), ids.ToArray(), ApplyKeywordSelection);
+        }
+
+        private void ApplyKeywordSelection(List<string> list)
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            c.keywords = new List<string>(list);
+            CardPoolIO.UpdateCardData(c);
+            RefreshCardExtraFields();
+        }
+
+        /// <summary>属性行：填满父级的 TMP 选择按钮（返回文本组件用于刷新显示）</summary>
+        private TMP_Text CreateCardSelectButton(RectTransform parent, string name, Action onClick)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            SetStretchRect(rt, 0, 0, 0, 0);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.18f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            if (onClick != null)
+                btn.onClick.AddListener(() => onClick());
+            TMP_Text t = MakeNodeTmpText(rt, "Text", "", 14, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 8, 0, 8, 0);
+            t.raycastTarget = false;
+            return t;
+        }
+
+        /// <summary>属性行标签文本（兼容旧版 Text 与 TMP）</summary>
+        private static void SetLabelText(Transform label, string text)
+        {
+            if (label == null)
+                return;
+            TMP_Text tmp = label.GetComponent<TMP_Text>();
+            if (tmp != null)
+            {
+                tmp.text = text;
+                return;
+            }
+            Text legacy = label.GetComponent<Text>();
+            if (legacy != null)
+                legacy.text = text;
+        }
+
+        /// <summary>多选摘要文本："冲锋、风怒"；空则显示占位提示</summary>
+        private static string MultiSummary(List<string> values, Func<string, string> display, string placeholder)
+        {
+            if (values == null || values.Count == 0)
+                return placeholder;
+            List<string> names = new List<string>();
+            foreach (string v in values)
+                names.Add(display(v));
+            return string.Join("、", names.ToArray());
+        }
+
+        private static string TraitTitle(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "";
+            TraitData.Load();
+            TraitData t = TraitData.Get(id);
+            return t != null && !string.IsNullOrEmpty(t.title) ? t.title : id;
+        }
+
+        private static string KeywordTitle(string id)
+        {
+            return KeywordDisplay(id);   //复用节点侧「id → 关键词标题」
+        }
+
+        /// <summary>音效行加「▶」试听按钮（压缩原输入框/选择按钮宽度腾位置）</summary>
+        private void AddAudioPreviewButton(TMP_InputField input, int slot)
+        {
+            if (input == null)
+                return;
+            RectTransform field = input.transform.parent as RectTransform;   //AudioRow
+            if (field == null)
+                return;
+            RectTransform input_rt = input.GetComponent<RectTransform>();
+            if (input_rt != null)
+            {
+                input_rt.anchorMin = new Vector2(0, 0);
+                input_rt.anchorMax = new Vector2(0.52f, 1);
+                input_rt.offsetMin = Vector2.zero;
+                input_rt.offsetMax = Vector2.zero;
+            }
+            RectTransform prt = field.Find("PickAudioBtn") as RectTransform;
+            if (prt != null)
+            {
+                prt.anchorMin = new Vector2(0.55f, 0);
+                prt.anchorMax = new Vector2(0.82f, 1);
+                prt.offsetMin = Vector2.zero;
+                prt.offsetMax = Vector2.zero;
+            }
+
+            GameObject go = new GameObject("PlayAudioBtn_" + slot, typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(field, false);
+            rt.anchorMin = new Vector2(0.85f, 0);
+            rt.anchorMax = new Vector2(1f, 1);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(0.4f, 0.85f, 0.6f, 0.45f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            int captured = slot;
+            btn.onClick.AddListener(() => OnPreviewAudio(captured));
+            TMP_Text t = MakeNodeTmpText(rt, "Text", "▶", 14, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
+            t.raycastTarget = false;
+        }
+
+        /// <summary>试听音效槽（0打出 1攻击 2死亡 3受伤）：优先用输入框当前文件名（未保存也能听）</summary>
+        private void OnPreviewAudio(int slot)
+        {
+            if (card == null)
+                return;
+            TMP_InputField input = AudioInputOf(slot);
+            string fname = input != null ? input.text : "";
+            if (string.IsNullOrEmpty(fname))
+                fname = AudioIdOf(card, slot);
+            if (string.IsNullOrEmpty(fname))
+            {
+                SetStatus("尚未选择音效（先点「选择音频」）");
+                return;
+            }
+            string path = Path.Combine(CardPoolIO.AudioFolder, fname);
+            if (!File.Exists(path))
+            {
+                SetStatus("音频文件不存在: " + fname);
+                return;
+            }
+            CardAudioLoader.Preview(fname);
+            SetStatus("试听: " + fname);
+        }
+
+        private TMP_InputField AudioInputOf(int slot)
+        {
+            switch (slot)
+            {
+                case 0: return input_audio_spawn;
+                case 1: return input_audio_attack;
+                case 2: return input_audio_death;
+                default: return input_audio_damage;
+            }
+        }
+
+        private static string AudioIdOf(CardCustomData c, int slot)
+        {
+            switch (slot)
+            {
+                case 0: return c.spawn_audio_id;
+                case 1: return c.attack_audio_id;
+                case 2: return c.death_audio_id;
+                default: return c.damage_audio_id;
+            }
+        }
+
+        // ---------------- 全页字体统一（旧版 Text → TMP） ----------------
+
+        /// <summary>把面板里残留的旧版 Text 统一迁移为 TMP（中文动态字体、清晰度与节点内一致）。
+        /// 输入框/下拉框内部的 Text 不迁移（由控件自身驱动，迁移会破坏控件）。
+        /// 运行时执行一次，无需重跑生成工具；生成工具已用 TMP 的对象自动跳过。</summary>
+        private void EnsureTmpUI()
+        {
+            if (tmp_ui_done)
+                return;
+            tmp_ui_done = true;
+
+            //1) 面板直接引用的文本：场景里仍是旧版 Text 时先接管（否则引用为空、状态提示会丢）
+            if (status_text == null)
+                status_text = FindOrConvertText(transform, "StatusText");
+            if (node_lib_count == null)
+                node_lib_count = FindOrConvertText(transform.Find("LibArea"), "AreaTitle");
+
+            //2) Toggle 勾选标记（graphic）需要重新绑定到 TMP，否则勾选不再显隐（转换失败则保留原 Text）
+            foreach (Toggle tg in GetComponentsInChildren<Toggle>(true))
+            {
+                if (tg != null && tg.graphic is Text gt)
+                {
+                    TMP_Text converted = ConvertTextToTMP(gt);
+                    if (converted != null)
+                        tg.graphic = converted;
+                }
+            }
+
+            //2.5) 输入框：场景里残留的旧版 InputField → TMP_InputField（内部 Text/Placeholder 一并迁移）。
+            //面板字段已改为 TMP 类型，旧场景里这些引用会是空，所以按「属性行标签」重新定位并回填。
+            input_name = BindInput(input_name, "名称");
+            input_mana = BindInput(input_mana, "费用");
+            input_attack = BindInput(input_attack, "攻击");
+            input_hp = BindInput(input_hp, "生命");
+            input_text = BindInput(input_text, "卡牌文本");
+            input_desc = BindInput(input_desc, "描述");
+            input_cost = BindInput(input_cost, "购买价");
+            input_audio_spawn = BindInput(input_audio_spawn, "打出音效");
+            input_audio_attack = BindInput(input_audio_attack, "攻击音效");
+            input_audio_death = BindInput(input_audio_death, "死亡音效");
+            input_audio_damage = BindInput(input_audio_damage, "受伤音效");
+            if (node_search_input == null)
+            {
+                Transform lib = transform.Find("LibArea");
+                InputField legacy_search = lib != null ? lib.GetComponentInChildren<InputField>(true) : null;
+                if (legacy_search != null)
+                    node_search_input = ConvertInputToTMP(legacy_search);
+            }
+
+            //3) 其余旧版 Text 全量迁移（输入框/下拉内部跳过）
+            Text[] all = GetComponentsInChildren<Text>(true);
+            foreach (Text t in all)
+            {
+                if (t == null)
+                    continue;
+                if (t.GetComponentInParent<InputField>() != null)   //输入框内部文本
+                    continue;
+                if (t.GetComponentInParent<Dropdown>() != null)     //下拉框内部文本
+                    continue;
+                ConvertTextToTMP(t);
+            }
+        }
+
+        /// <summary>旧版 InputField → TMP_InputField（同物体换组件，内部 Text/Placeholder 迁移为 TMP）。
+        /// 调用方负责把返回值回填到面板字段（场景引用指向旧组件，换组件后需重绑）。</summary>
+        private TMP_InputField ConvertInputToTMP(InputField legacy)
+        {
+            if (legacy == null)
+                return null;
+            GameObject go = legacy.gameObject;
+            TMP_InputField tmp = go.GetComponent<TMP_InputField>();
+            if (tmp != null)
+                return tmp;
+            tmp_converted.Add(go);
+
+            TMP_Text text = ConvertTextToTMP(legacy.textComponent as Text);
+            TMP_Text ph = ConvertTextToTMP(legacy.placeholder as Text);
+            string init = legacy.text;
+            bool multiline = legacy.lineType == InputField.LineType.MultiLineNewline;
+            Graphic target = legacy.targetGraphic;
+
+            Destroy(legacy);
+            try
+            {
+                tmp = go.AddComponent<TMP_InputField>();
+                if (tmp == null)
+                {
+                    Debug.LogWarning("[TMP迁移] 无法添加 TMP_InputField（物体未激活？）：" + go.name);
+                    return null;
+                }
+                tmp.targetGraphic = target;
+                if (text != null)
+                {
+                    tmp.textComponent = text;
+                    text.raycastTarget = false;   //文本不挡射线，点击落到输入框上
+                }
+                if (ph != null)
+                {
+                    tmp.placeholder = ph;
+                    ph.raycastTarget = false;
+                }
+                tmp.textViewport = go.transform as RectTransform;   //光标/选区定位用：缺失会导致无法输入
+                tmp.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
+                tmp.text = init;
+                return tmp;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[TMP迁移] 输入框转换失败：" + go.name + "\n" + e);
+                return null;
+            }
+        }
+
+        /// <summary>绑定属性行输入框：按标签找到该行的输入框（旧版则转为 TMP）；找不到时保留现值</summary>
+        private TMP_InputField BindInput(TMP_InputField current, string label)
+        {
+            TMP_InputField found = FindRowInput(label);
+            return found != null ? found : current;
+        }
+
+        /// <summary>按属性行标签找该行的输入框：已是 TMP 直接返回；旧版 InputField 转换后返回；找不到返回 null</summary>
+        private TMP_InputField FindRowInput(string label)
+        {
+            RectTransform row = FindPropRow(PropFormContent(), label);
+            if (row == null)
+                return null;
+            TMP_InputField tmp = row.GetComponentInChildren<TMP_InputField>(true);
+            if (tmp != null)
+                return tmp;
+            return ConvertInputToTMP(row.GetComponentInChildren<InputField>(true));
+        }
+
+        /// <summary>属性表单容器（PropArea/PropScroll/Viewport/Content）</summary>
+        private RectTransform PropFormContent()
+        {
+            Transform prop = transform.Find("PropArea");
+            Transform c = prop != null ? prop.Find("PropScroll/Viewport/Content") : null;
+            return c as RectTransform;
+        }
+
+        /// <summary>统一字号：区块标题 20、状态条 18、行标签/按钮 15，其余 16</summary>
+        private static int NormalizeFontSize(string go_name, int legacy_size)
+        {
+            if (go_name == "AreaTitle")
+                return 20;
+            if (go_name == "StatusText")
+                return 18;
+            if (go_name == "PropLabel" || go_name == "ToggleLabel" || go_name.StartsWith("Btn") || go_name.EndsWith("Btn"))
+                return 15;
+            return 16;
+        }
+
+        /// <summary>按名找文本：已是 TMP 直接返回；旧版 Text 则转换后返回；找不到返回 null</summary>
+        private TMP_Text FindOrConvertText(Transform root, string name)
+        {
+            Transform t = root != null ? root.Find(name) : null;
+            if (t == null)
+                return null;
+            TMP_Text tmp = t.GetComponent<TMP_Text>();
+            if (tmp != null)
+                return tmp;
+            return ConvertTextToTMP(t.GetComponent<Text>());
+        }
+
+        /// <summary>旧版 Text → TMP（保留文本/字号/颜色/对齐/换行/射线），同物体换组件并统一字体</summary>
+        private TMP_Text ConvertTextToTMP(Text legacy)
+        {
+            if (legacy == null)
+                return null;
+            GameObject go = legacy.gameObject;
+            if (tmp_converted.Contains(go))
+                return go.GetComponent<TMP_Text>();
+            tmp_converted.Add(go);   //标记后不再重试（失败也跳过，避免每次打开都试一遍）
+
+            string text = legacy.text;
+            int size = NormalizeFontSize(go.name, legacy.fontSize);   //统一字号（不再沿用旧版杂乱字号）
+            Color color = legacy.color;
+            TextAlignmentOptions align = ToTmpAlignment(legacy.alignment);
+            bool raycast = legacy.raycastTarget;
+            bool wrap = legacy.horizontalOverflow == HorizontalWrapMode.Wrap;
+            bool bestfit = legacy.resizeTextForBestFit;
+
+            try
+            {
+                //先创建并配置 TMP，全部成功后才移除旧组件（失败则保留旧 Text，页面不受影响）
+                TextMeshProUGUI tmp = go.GetComponent<TextMeshProUGUI>();
+                if (tmp == null)
+                    tmp = go.AddComponent<TextMeshProUGUI>();
+                if (tmp == null)
+                {
+                    Debug.LogWarning("[TMP迁移] 无法添加 TMP 组件，保留旧版 Text：" + go.name);
+                    return null;
+                }
+                ApplyNodeFont(tmp, string.IsNullOrEmpty(text) ? FontProbe : text + FontProbe);
+                tmp.text = text;
+                tmp.fontSize = size;
+                tmp.color = color;
+                tmp.alignment = align;
+                tmp.raycastTarget = raycast;
+                tmp.enableWordWrapping = wrap;
+                tmp.overflowMode = TextOverflowModes.Ellipsis;
+                if (bestfit)
+                    tmp.enableAutoSizing = true;
+                Destroy(legacy);
+                return tmp;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[TMP迁移] 转换失败，保留旧版 Text：" + go.name + "\n" + e);
+                TextMeshProUGUI bad = go.GetComponent<TextMeshProUGUI>();   //半成品组件销毁，避免与旧 Text 叠影
+                if (bad != null)
+                    Destroy(bad);
+                return null;
+            }
+        }
+
+        // ---------------- 右侧栏 Tab：卡牌参数 / 节点库（各占满一整列） ----------------
+
+        /// <summary>把「卡牌参数」与「节点库」从上下各半改为整列互斥 + Tab 切换（显示内容翻倍）。
+        /// 运行时构建，无需重跑生成工具。</summary>
+        private void EnsureRightTabs()
+        {
+            if (right_tabs_built)
+                return;
+            prop_area_rt = transform.Find("PropArea") as RectTransform;
+            lib_area_rt = transform.Find("LibArea") as RectTransform;
+            if (prop_area_rt == null || lib_area_rt == null)
+                return;
+            right_tabs_built = true;
+
+            SetRightColumn(prop_area_rt);
+            SetRightColumn(lib_area_rt);
+            if (node_field_root != null)
+                SetRightColumn(node_field_root.transform as RectTransform);
+
+            RectTransform bar = new GameObject("RightTabBar", typeof(RectTransform)).GetComponent<RectTransform>();
+            bar.SetParent(transform, false);
+            bar.anchorMin = new Vector2(0.77f, 0.855f);
+            bar.anchorMax = new Vector2(0.99f, 0.895f);
+            bar.offsetMin = Vector2.zero;
+            bar.offsetMax = Vector2.zero;
+            HorizontalLayoutGroup h = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 6f;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+
+            tab_prop_text = MakeRightTab(bar, "卡牌参数", () => SelectRightTab(true));
+            tab_lib_text = MakeRightTab(bar, "节点库", () => SelectRightTab(false));
+            bar.SetAsLastSibling();   //保证 Tab 在属性/库面板之上可点
+
+            SelectRightTab(false);    //默认节点库（与旧行为一致）
+        }
+
+        /// <summary>右侧栏面板统一矩形：占满整列（内容区在 Tab 栏下方）</summary>
+        private static void SetRightColumn(RectTransform rt)
+        {
+            if (rt == null)
+                return;
+            rt.anchorMin = new Vector2(0.77f, 0.04f);
+            rt.anchorMax = new Vector2(0.99f, 0.85f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        private TMP_Text MakeRightTab(RectTransform bar, string label, Action onClick)
+        {
+            GameObject go = new GameObject("Tab_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(bar, false);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.12f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            if (onClick != null)
+                btn.onClick.AddListener(() => onClick());
+            TMP_Text t = MakeNodeTmpText(rt, "Text", label, 18, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 4, 0, 4, 0);
+            t.raycastTarget = false;
+            return t;
+        }
+
+        /// <summary>切换右侧栏页：true=卡牌参数，false=节点库</summary>
+        public void SelectRightTab(bool prop)
+        {
+            right_tab_prop = prop;
+            if (prop_area_rt != null)
+                prop_area_rt.gameObject.SetActive(prop);
+            if (lib_area_rt != null)
+                lib_area_rt.gameObject.SetActive(!prop);
+            if (prop && node_field_root != null)
+                node_field_root.SetActive(false);
+            SetTabStyle(tab_prop_text, right_tab_prop);
+            SetTabStyle(tab_lib_text, !right_tab_prop);
+        }
+
+        private static void SetTabStyle(TMP_Text t, bool active)
+        {
+            if (t == null)
+                return;
+            Image img = t.transform.parent != null ? t.transform.parent.GetComponent<Image>() : null;
+            if (img != null)
+                img.color = active ? new Color(0.2f, 0.55f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.12f);
+            t.color = active ? Color.white : new Color(1f, 1f, 1f, 0.7f);
         }
 
         private void ReadForm()
@@ -1529,18 +2589,23 @@ namespace TcgEngine.UI
 
             if (toggle_deckbuilding != null)
                 card.deckbuilding = toggle_deckbuilding.isOn;
-            card.team = GetDropdown(dropdown_team, team_ids, card.team);
-            card.rarity = GetDropdown(dropdown_rarity, rarity_ids, card.rarity);
-            card.trait = GetDropdown(dropdown_trait, trait_ids, card.trait);
-            if (dropdown_keyword != null)
+            if (!card_extra_built)   //扩展行（种族/关键词多选）生效时，以多选控件写入的值为准
             {
-                string kw = GetDropdown(dropdown_keyword, keyword_ids, null);
-                card.keywords.Clear();
-                if (!string.IsNullOrEmpty(kw))
-                    card.keywords.Add(kw);
+                card.trait = GetDropdown(dropdown_trait, trait_ids, card.trait);
+                if (dropdown_keyword != null)
+                {
+                    string kw = GetDropdown(dropdown_keyword, keyword_ids, null);
+                    card.keywords.Clear();
+                    if (!string.IsNullOrEmpty(kw))
+                        card.keywords.Add(kw);
+                }
+            }
+            else
+            {
+                card.EnsureTraits();   //保持旧字段 trait = traits[0]
             }
 
-            if (dropdown_type != null && dropdown_type.value >= 0 && dropdown_type.value < TYPE_ENUMS.Length)
+            if (!card_extra_built && dropdown_type != null && dropdown_type.value >= 0 && dropdown_type.value < TYPE_ENUMS.Length)
                 card.type = TYPE_ENUMS[dropdown_type.value];
         }
 
@@ -1638,7 +2703,7 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>选择音频文件（slot：0打出 1攻击 2死亡 3受伤），复制到 AudioFolder 并写入对应字段</summary>
+        /// <summary>选择音频文件（slot：0打出 1攻击 2死亡 3受伤）：先校验时长（≤10 秒），再复制进 AudioFolder</summary>
         private void OnPickAudio(int slot)
         {
             if (card == null)
@@ -1649,9 +2714,28 @@ namespace TcgEngine.UI
                 SetStatus("未选择音频");
                 return;
             }
+            string src = files[0];
+            SetStatus("正在检查音频长度（上限 " + MAX_AUDIO_SECONDS + " 秒）…");
+            CardAudioLoader.ValidateLength(src, MAX_AUDIO_SECONDS, (ok, len) =>
+            {
+                if (!ok)
+                {
+                    SetStatus(len > 0f
+                        ? string.Format("音频过长（{0:0.0} 秒 > {1:0} 秒），已取消导入", len, MAX_AUDIO_SECONDS)
+                        : "无法读取该音频文件（格式不支持或文件损坏），已取消导入");
+                    return;
+                }
+                ImportAudio(src, slot);
+            });
+        }
+
+        /// <summary>把选中的音频复制到 Workshop/Audio 并写入对应音效槽</summary>
+        private void ImportAudio(string src, int slot)
+        {
+            if (card == null || string.IsNullOrEmpty(src))
+                return;
             try
             {
-                string src = files[0];
                 string ext = Path.GetExtension(src);
                 if (string.IsNullOrEmpty(ext))
                     ext = ".wav";
@@ -1920,7 +3004,7 @@ namespace TcgEngine.UI
                 if (t.GetComponent<Text>() == null)
                 {
                     Text back = t.gameObject.AddComponent<Text>();
-                    back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    back.font = LegacyUIFont();
                     back.fontSize = size;
                     back.color = Opaque(c);
                     back.alignment = anchor;
@@ -1958,6 +3042,8 @@ namespace TcgEngine.UI
             for (int i = 0; i < source.Count; i++)
             {
                 NodePreset p = source[i];
+                if (p.hidden)
+                    continue;   //过时/内部/同名重复节点不展示（旧图仍兼容）
                 //筛选：分类 + 搜索关键词（规格第1节）
                 if (use_dropdown)
                 {
@@ -2570,6 +3656,171 @@ namespace TcgEngine.UI
             }
         }
 
+        /// <summary>给节点加一圈分类色边框（替代左上角色条）：上下左右四条 3px 边条，随节点尺寸自适应</summary>
+        private static void ApplyNodeRing(RectTransform node_rect, Color color)
+        {
+            if (node_rect == null)
+                return;
+            MakeRingEdge(node_rect, "RingL", new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(0, 0), new Vector2(1.5f, 0), color);
+            MakeRingEdge(node_rect, "RingR", new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(0, 0), new Vector2(1.5f, 0), color);
+            MakeRingEdge(node_rect, "RingT", new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, 0), new Vector2(0, 1.5f), color);
+            MakeRingEdge(node_rect, "RingB", new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(0, 1.5f), color);
+        }
+
+        private static void MakeRingEdge(RectTransform parent, string name, Vector2 amin, Vector2 amax,
+            Vector2 pivot, Vector2 pos, Vector2 size, Color color)
+        {
+            Transform t = parent.Find(name);
+            GameObject go = t != null ? t.gameObject : new GameObject(name, typeof(RectTransform), typeof(Image));
+            if (t == null)
+                go.transform.SetParent(parent, false);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = amin;
+            rt.anchorMax = amax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            Image img = go.GetComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+            go.transform.SetAsLastSibling();   //显示在节点内容之上
+        }
+
+        // ---------------- 节点帮助「?」按钮 + 使用方法弹窗 ----------------
+
+        private GameObject node_help_popup;
+        private TMP_Text node_help_title;
+        private TMP_Text node_help_body;
+
+        /// <summary>节点头部「?」按钮（右上角按钮组最左侧）：点击弹出该节点使用方法</summary>
+        private void EnsureNodeHelpButton(Transform header, GraphNode node)
+        {
+            if (header == null || node == null)
+                return;
+            Transform t = header.Find("BtnHelp");
+            GameObject go = t != null ? t.gameObject : new GameObject("BtnHelp", typeof(RectTransform), typeof(Image), typeof(Button));
+            if (t == null)
+                go.transform.SetParent(header, false);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1, 1);
+            rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(1, 1);
+            rt.anchoredPosition = new Vector2(-53f, -7f);
+            rt.sizeDelta = new Vector2(18f, 18f);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(0.28f, 0.55f, 0.85f, 0.9f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.RemoveAllListeners();
+            string nid = node.id;
+            btn.onClick.AddListener(() => ShowNodeHelp(nid));
+
+            TMP_Text txt = go.GetComponentInChildren<TMP_Text>(true);
+            if (txt == null)
+            {
+                txt = MakeText("Text", rt, "?", 14, TextAnchor.MiddleCenter, TabFont());
+                SetStretchRect(txt.rectTransform, 0, 0, 0, 0);
+            }
+            txt.text = "?";
+            txt.fontSize = 14;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+        }
+
+        private void ShowNodeHelp(string node_id)
+        {
+            GraphNode node = graph != null ? graph.GetNode(node_id) : null;
+            if (node == null)
+                return;
+            EnsureNodeHelpPopup();
+            string help = NodeHelp(node);
+            if (string.IsNullOrEmpty(help))
+                help = "该节点暂无使用说明。";
+            node_help_title.text = string.IsNullOrEmpty(node.title) ? node.action : node.title;
+            node_help_body.text = help;
+            node_help_popup.SetActive(true);
+            node_help_popup.transform.SetAsLastSibling();
+        }
+
+        private void CloseNodeHelpPopup()
+        {
+            if (node_help_popup != null)
+                node_help_popup.SetActive(false);
+        }
+
+        private void EnsureNodeHelpPopup()
+        {
+            if (node_help_popup != null)
+                return;
+            Font font = TabFont();
+
+            node_help_popup = new GameObject("NodeHelpPopup", typeof(RectTransform));
+            RectTransform root = node_help_popup.GetComponent<RectTransform>();
+            root.SetParent(transform, false);
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+            Image back = node_help_popup.AddComponent<Image>();
+            back.color = new Color(0, 0, 0, 0.55f);
+            Button bbtn = node_help_popup.AddComponent<Button>();
+            bbtn.targetGraphic = back;
+            bbtn.onClick.AddListener(CloseNodeHelpPopup);
+
+            GameObject panel = new GameObject("Panel", typeof(RectTransform));
+            RectTransform prt = panel.GetComponent<RectTransform>();
+            prt.SetParent(root, false);
+            prt.anchorMin = new Vector2(0.5f, 0.5f);
+            prt.anchorMax = new Vector2(0.5f, 0.5f);
+            prt.pivot = new Vector2(0.5f, 0.5f);
+            prt.anchoredPosition = Vector2.zero;
+            prt.sizeDelta = new Vector2(560, 380);
+            Image pimg = panel.AddComponent<Image>();
+            pimg.color = new Color(0.12f, 0.12f, 0.15f, 1f);
+            Button pbtn = panel.AddComponent<Button>();   //吞掉点击，避免穿透到遮罩
+            pbtn.targetGraphic = pimg;
+
+            node_help_title = MakeText("Title", prt, "节点说明", 24, TextAnchor.MiddleLeft, font);
+            RectTransform trt = node_help_title.rectTransform;
+            trt.anchorMin = new Vector2(0, 1);
+            trt.anchorMax = new Vector2(1, 1);
+            trt.pivot = new Vector2(0.5f, 1);
+            trt.anchoredPosition = new Vector2(0, -10);
+            trt.sizeDelta = new Vector2(-70, 34);
+
+            RectTransform close = MakeButton("Close", prt, "✕", font, CloseNodeHelpPopup);
+            close.anchorMin = new Vector2(1, 1);
+            close.anchorMax = new Vector2(1, 1);
+            close.pivot = new Vector2(1, 1);
+            close.anchoredPosition = new Vector2(-8, -8);
+            close.sizeDelta = new Vector2(34, 34);
+
+            node_help_body = MakeText("Body", prt, "", 20, TextAnchor.UpperLeft, font);
+            RectTransform brt = node_help_body.rectTransform;
+            brt.anchorMin = new Vector2(0, 0);
+            brt.anchorMax = new Vector2(1, 1);
+            brt.offsetMin = new Vector2(20, 20);
+            brt.offsetMax = new Vector2(-20, -52);
+            node_help_body.enableWordWrapping = true;
+            node_help_body.overflowMode = TextOverflowModes.Overflow;
+            node_help_body.lineSpacing = 1.15f;
+
+            node_help_popup.SetActive(false);
+        }
+
+        /// <summary>节点画布底部说明：显示该节点的介绍/使用方法（预设 desc），无则留空（高度 0）。
+        /// 旧图内已有节点也按 action 反查预设拿说明。</summary>
+        private static string NodeHelp(GraphNode node)
+        {
+            if (node == null)
+                return "";
+            NodePreset p = FindPreset(node.type, node.action);
+            if (p != null && !string.IsNullOrEmpty(p.desc))
+                return p.desc;
+            return "";
+        }
+
         /// <summary>端口概要（节点库/节点显示用）</summary>
         private static string PortSummary(NodePreset preset)
         {
@@ -2597,6 +3848,7 @@ namespace TcgEngine.UI
 
             ClearRunHighlight();   //重建前清理执行走线高亮，避免残留被销毁的引用
             ClearValidationMarks(); //重建前清理缺输入角标（节点将整体重建）
+            CloseNodeHelpPopup();   //重建前关闭节点说明弹窗
 
             //清除旧节点/连线/临时线（保留模板与空画布引导）
             for (int i = canvas_content.childCount - 1; i >= 0; i--)
@@ -2652,9 +3904,11 @@ namespace TcgEngine.UI
             Transform header = inst.transform.Find("Header");
             if (header != null)
             {
+                //分类色改为「整节点一圈同色边框」：隐藏原左上角色条
                 Image cat = header.Find("CatBar")?.GetComponent<Image>();
                 if (cat != null)
-                    cat.color = CategoryColor(node.type);
+                    cat.gameObject.SetActive(false);
+                ApplyNodeRing(rect, CategoryColor(node.type));
                 TMP_Text type = EnsureTmpText(header, "TypeText");
                 if (type != null)
                 {
@@ -2670,13 +3924,10 @@ namespace TcgEngine.UI
                 title.text = node.title;
                 title.color = Opaque(title.color);
             }
+            //底部说明行已移除：节点介绍/使用方法改为右上角「?」按钮弹窗展示
             TMP_Text desc = EnsureTmpText(inst.transform, "DescText");
             if (desc != null)
-            {
-                desc.text = NodeSummary(node);
-                desc.color = Opaque(desc.color);   //说明文字不再半透明
-                desc.gameObject.SetActive(!string.IsNullOrEmpty(desc.text));   //无说明则高度 0
-            }
+                desc.gameObject.SetActive(false);
 
             //节点宽/高自适应：宽度取「标题 TMP 实测宽度(preferredWidth)+边距」与端口标签估算的最宽者
             //（TMP 实测精确到字形，中文/英文混排不再偏窄）；高度按 Header+端口行数+说明区（规格第3节），
@@ -2688,16 +3939,30 @@ namespace TcgEngine.UI
                 catch (System.Exception) { title_w = 0f; }   //字体/材质异常时退回估算宽度，不让排版崩掉整个画布
             }
             float node_w = Mathf.Max(EstimateNodeWidth(node), title_w);
-            rect.sizeDelta = new Vector2(Mathf.Clamp(node_w, 190f, 460f), EstimateNodeHeight(node));
+            rect.sizeDelta = new Vector2(Mathf.Clamp(node_w, 176f, 720f), EstimateNodeHeight(node));
+            rect.localScale = new Vector3(NodeScale, NodeScale, 1f);   //整体缩小（面积≈原来的 1/4）
 
             //收起/删除按钮（每个节点自带，规格第4节）
             string nid = node.id;
             Button btn_del = inst.transform.Find("Header/BtnDel")?.GetComponent<Button>();
             if (btn_del != null)
+            {
                 btn_del.onClick.AddListener(() => OnDeleteNodeId(nid));
+                //锚点/pivot 显式重设 + 内缩：红叉绝不超出节点外框（场景物体可能与源码不一致）
+                //红叉放到原「–」缩小的位置
+                RectTransform dr = btn_del.GetComponent<RectTransform>();
+                dr.anchorMin = new Vector2(1, 1);
+                dr.anchorMax = new Vector2(1, 1);
+                dr.pivot = new Vector2(1, 1);
+                dr.anchoredPosition = new Vector2(-30f, -7f);
+                dr.sizeDelta = new Vector2(18f, 18f);
+            }
+            //取消右上角「–」缩小按钮（红叉已占用其位置）
             Button btn_min = inst.transform.Find("Header/BtnMin")?.GetComponent<Button>();
             if (btn_min != null)
-                btn_min.onClick.AddListener(() => ToggleCollapse(nid));
+                btn_min.gameObject.SetActive(false);
+            //「?」帮助按钮：放在右上角按钮组最左侧，点击弹出该节点的使用方法
+            EnsureNodeHelpButton(inst.transform.Find("Header"), node);
 
             //引脚
             Transform pins_root = inst.transform.Find("Pins");
@@ -2706,6 +3971,9 @@ namespace TcgEngine.UI
                 foreach (GraphPin pin in node.pins)
                     CreatePinUI(node, pin, pins_root, rect);
             }
+
+            //节点内联参数：把预设字段直接画在节点底部，方便在画布上直接改（对齐醉梦传说）
+            CreateNodeInlineFields(inst.transform, node, rect);
 
             //拖拽
             NodeDragger dragger = inst.GetComponent<NodeDragger>();
@@ -2730,6 +3998,12 @@ namespace TcgEngine.UI
                 Transform d2 = inst.transform.Find("DescText");
                 if (d2 != null)
                     d2.gameObject.SetActive(false);
+                for (int ci = 0; ci < inst.transform.childCount; ci++)
+                {
+                    Transform ch = inst.transform.GetChild(ci);
+                    if (ch != null && ch.name.StartsWith("InlineField_"))
+                        ch.gameObject.SetActive(false);   //收起：内联参数隐藏
+                }
                 foreach (NodePin p in all_pins)
                 {
                     if (p.node_id == node.id)
@@ -2744,6 +4018,320 @@ namespace TcgEngine.UI
             ApplySelectHighlight(node.id);
         }
 
+        // ---------------- 节点内联参数（把预设字段直接画在节点上，对齐醉梦传说） ----------------
+
+        /// <summary>把节点预设字段直接画在节点底部（每行 26px），方便在画布上直接改参数</summary>
+        private void CreateNodeInlineFields(Transform node_root, GraphNode node, RectTransform node_rect)
+        {
+            NodePreset preset = FindPreset(node.type, node.action);
+            if (preset == null || preset.fields == null || preset.fields.Count == 0)
+                return;
+            int rows = preset.fields.Count;
+            //输入口占用左列前若干行：字段紧接其后，同属左列、左对齐
+            int in_c = 0;
+            if (node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                    if (!p.is_output) in_c++;
+            }
+            float h = node_rect != null ? node_rect.sizeDelta.y : 0f;
+            float node_w = node_rect != null ? node_rect.sizeDelta.x : 440f;
+
+            //右侧输出口占位：圆点内缩12 + 输出口名标签宽度 + 间距 → 字段控件不得越过这条线（否则盖住输出口，线都连不了）
+            float out_need = 0f;
+            if (node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                {
+                    if (!p.is_output)
+                        continue;
+                    string nm = string.IsNullOrEmpty(p.display_name) ? p.name : p.display_name;
+                    out_need = Mathf.Max(out_need, EstimateTextWidth(nm, 12) + 18f);
+                }
+            }
+            float right_reserve = out_need > 0f ? out_need + 20f : 10f;
+
+            int next_row = in_c;   //无同名输入口的字段：接在输入口下方依次排
+            for (int i = 0; i < rows; i++)
+            {
+                FieldDef fd = preset.fields[i];
+                if (fd == null || string.IsNullOrEmpty(fd.name))
+                    continue;
+                GraphPin pin = FindInputPin(node, fd.name);
+                int row;
+                float x0 = 20f;
+                bool with_label = true;
+                if (pin != null)
+                {
+                    //与输入口同名：常量控件直接画在该端口行右侧（端口名由端口标签显示）
+                    if (graph != null && graph.GetIncomingLink(node.id, pin.id) != null)
+                        continue;   //有连线：值由连线提供，隐藏常量控件
+                    row = InputPinRow(node, pin.name);
+                    x0 = PinFieldX(node, pin.name, 12f);
+                    with_label = false;
+                }
+                else
+                {
+                    row = next_row;
+                    next_row++;
+                }
+                //行中心与端口行一致：y = H-45-row*24；字段行高 20，故行底 = 行中心-10
+                float y = h - 45f - row * 24f - 10f;
+                CreateInlineFieldRow(node_root, node, fd, GetFieldValue(node, fd.name, fd.def ?? ""), y, node_w, right_reserve, x0, with_label);
+            }
+            RefreshPinFieldVisibility();
+        }
+
+        /// <summary>新建 TMP 文本并应用节点字体（与节点内其他文字同字体/同渲染，避免样式和清晰度不一致）</summary>
+        private TMP_Text MakeNodeTmpText(Transform parent, string name, string text, int size, TextAlignmentOptions align)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
+            ApplyNodeFont(t, string.IsNullOrEmpty(text) ? FontProbe : text + FontProbe);
+            t.text = text;
+            t.fontSize = size;
+            t.alignment = align;
+            t.color = Color.white;
+            t.enableWordWrapping = false;
+            t.overflowMode = TextOverflowModes.Ellipsis;
+            t.raycastTarget = false;
+            return t;
+        }
+
+        /// <summary>控件里显示的文本（下拉/多选显示选中项，其余显示原值）</summary>
+        private static string InlineFieldText(FieldDef fd, string value)
+        {
+            if (fd != null && (fd.edit == FieldEditType.Dropdown || fd.edit == FieldEditType.MultiOptions))
+                return SelectDisplay(fd, value);
+            if (fd != null && fd.edit == FieldEditType.KeywordSelect)
+                return KeywordSelectText(value);   //存 id、显示标题
+            return value;
+        }
+
+        /// <summary>关键词下拉当前显示文本（未选择时给占位提示）</summary>
+        private static string KeywordSelectText(string keyword_id)
+        {
+            string s = KeywordDisplay(keyword_id);
+            return string.IsNullOrEmpty(s) ? "（选择关键词）" : s;
+        }
+
+        /// <summary>关键词 id → 标题（下拉显示用；未注册/为空则原样返回，便于回看自定义值）</summary>
+        private static string KeywordDisplay(string keyword_id)
+        {
+            if (string.IsNullOrEmpty(keyword_id))
+                return "";
+            KeywordData.Load();
+            KeywordData kd = KeywordData.Get(keyword_id);
+            return kd != null && !string.IsNullOrEmpty(kd.title) ? kd.title : keyword_id;
+        }
+
+        /// <summary>游戏自带关键词：下拉显示名（标题）</summary>
+        private static string[] KeywordSelectOptions()
+        {
+            KeywordData.Load();
+            List<string> opts = new List<string>();
+            foreach (KeywordData k in KeywordData.GetAll())
+            {
+                if (k != null && !string.IsNullOrEmpty(k.title))
+                    opts.Add(k.title);
+            }
+            return opts.ToArray();
+        }
+
+        /// <summary>游戏自带关键词：与显示名一一对应的实际值（KeywordData.id）</summary>
+        private static string[] KeywordSelectValues()
+        {
+            KeywordData.Load();
+            List<string> vals = new List<string>();
+            foreach (KeywordData k in KeywordData.GetAll())
+            {
+                if (k != null && !string.IsNullOrEmpty(k.title))
+                    vals.Add(k.id);
+            }
+            return vals.ToArray();
+        }
+
+        /// <summary>内联控件宽度：默认 6 个字符；内容更长时按内容加宽（节点宽度随之自适应）</summary>
+        private static float InlineControlWidth(string value)
+        {
+            float base_w = EstimateTextWidth("测测测测测测", 12);   //6 个全角字符
+            float text_w = EstimateTextWidth(value, 12) + 18f;
+            return Mathf.Max(base_w, text_w);
+        }
+
+        /// <summary>内联字段「字段名」列宽：按文字实测宽度（长字段名不压到控件）</summary>
+        private static float InlineLabelWidth(FieldDef fd)
+        {
+            return Mathf.Max(88f, EstimateTextWidth(fd != null ? fd.display_name : "", 12) + 10f);
+        }
+
+        private void CreateInlineFieldRow(Transform parent, GraphNode node, FieldDef fd, string current, float y,
+            float node_w, float right_reserve, float x0 = 20f, bool with_label = true)
+        {
+            GameObject row = new GameObject("InlineField_" + fd.name, typeof(RectTransform));
+            RectTransform rt = row.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(0, 0);
+            rt.anchorMax = new Vector2(0, 0);
+            rt.pivot = new Vector2(0, 0);
+            rt.anchoredPosition = new Vector2(x0, y);    //左列：与输入口文字同一起点，左对齐（端口行内控件由调用方给 x0）
+            rt.sizeDelta = new Vector2(1f, 20f);         //行容器不限宽（子控件绝对定位）
+
+            //字段名：TMP + 节点字体（与节点内其他文字同一渲染），宽度按文字实测，避免与控件文字重叠
+            //（字段画在端口行时端口名已由端口标签显示，with_label=false 跳过）
+            float lw = 0f;
+            if (with_label)
+            {
+                lw = InlineLabelWidth(fd);
+                TMP_Text lb = MakeNodeTmpText(rt, "Label", fd.display_name, 12, TextAlignmentOptions.Left);
+                RectTransform lrt = lb.rectTransform;
+                lrt.anchorMin = new Vector2(0, 0);
+                lrt.anchorMax = new Vector2(0, 1);
+                lrt.pivot = new Vector2(0, 0.5f);
+                lrt.anchoredPosition = new Vector2(0f, 0);
+                lrt.sizeDelta = new Vector2(lw, 0);
+                lb.color = new Color(1f, 1f, 1f, 0.75f);
+                lb.raycastTarget = false;
+                lw += 4f;
+            }
+
+            GameObject ctl_go = new GameObject("Ctl", typeof(RectTransform));
+            RectTransform ctl = ctl_go.GetComponent<RectTransform>();
+            ctl.SetParent(rt, false);
+            ctl.anchorMin = new Vector2(0, 0);
+            ctl.anchorMax = new Vector2(0, 1);
+            ctl.pivot = new Vector2(0, 0.5f);
+            //控件宽度：默认6字、内容长则加宽；但不得超过「节点宽 − 左侧起点 − 字段名 − 右侧输出口占位」
+            //（超出部分由 TMP 省略号截断：既不压住右侧输出口，也不冲出节点）
+            float avail = node_w - x0 - lw - 4f - right_reserve;
+            float cw = Mathf.Min(InlineControlWidth(InlineFieldText(fd, current)), Mathf.Max(60f, avail));
+            ctl.anchoredPosition = new Vector2(lw, 0);
+            ctl.sizeDelta = new Vector2(cw, -2f);
+
+            if (fd.edit == FieldEditType.Toggle)
+                CreateInlineToggle(ctl, node, fd, current);
+            else if (fd.edit == FieldEditType.KeywordSelect)
+                CreateInlineKeywordSelect(ctl, node, fd, current);
+            else if (fd.edit == FieldEditType.Dropdown || fd.edit == FieldEditType.MultiOptions)
+                CreateInlineSelect(ctl, node, fd, current, fd.edit == FieldEditType.MultiOptions);
+            else
+                CreateInlineInput(ctl, node, fd, current);
+        }
+
+        private void CreateInlineInput(RectTransform parent, GraphNode node, FieldDef fd, string current)
+        {
+            GameObject go = new GameObject("Input", typeof(RectTransform), typeof(Image), typeof(TMPro.TMP_InputField));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.14f);
+            TMPro.TMP_InputField inp = go.GetComponent<TMPro.TMP_InputField>();
+            inp.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", current, 12, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 5, 0, 5, 0);
+            inp.textComponent = t;
+            inp.text = current;
+            inp.onValueChanged.AddListener((v) =>
+            {
+                SetFieldValue(node, fd.name, v);
+                RefreshNodeSummary(node);
+                RefreshPinValues();
+            });
+            //结束编辑（回车/失焦）后重排：内容变长则输入框与节点一起撑大（只触发一次，避免销毁时回调重入）
+            bool relayout_done = false;
+            inp.onEndEdit.AddListener((v) =>
+            {
+                if (relayout_done)
+                    return;
+                relayout_done = true;
+                RebuildCanvas();
+            });
+        }
+
+        private void CreateInlineToggle(RectTransform parent, GraphNode node, FieldDef fd, string current)
+        {
+            GameObject go = new GameObject("Toggle", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", "✔", 12, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
+
+            bool on = string.Equals(current, "true", StringComparison.OrdinalIgnoreCase);
+            img.color = on ? new Color(0.25f, 0.6f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.15f);
+            t.text = on ? "✔" : "";
+            btn.onClick.AddListener(() =>
+            {
+                bool cur = string.Equals(GetFieldValue(node, fd.name, fd.def ?? ""), "true", StringComparison.OrdinalIgnoreCase);
+                bool nv = !cur;
+                SetFieldValue(node, fd.name, nv ? "true" : "false");
+                img.color = nv ? new Color(0.25f, 0.6f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.15f);
+                t.text = nv ? "✔" : "";
+                RefreshNodeSummary(node);
+                RefreshPinValues();
+                RebuildCanvas();   //切换后重排（宽度随内容）
+            });
+        }
+
+        private void CreateInlineSelect(RectTransform parent, GraphNode node, FieldDef fd, string current, bool multi)
+        {
+            GameObject go = new GameObject("Select", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", SelectDisplay(fd, current), 12, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 5, 0, 5, 0);
+            TMP_Text captured_t = t;
+            btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, multi,
+                () => { if (captured_t != null) captured_t.text = SelectDisplay(fd, GetFieldValue(node, fd.name, fd.def ?? "")); }));
+        }
+
+        /// <summary>内联关键词下拉：显示关键词标题、存储 KeywordData.id（列出游戏自带全部关键词）。
+        /// 后续关键词支持自定义设计后，这里换成自定义关键词池即可，节点语义不变。</summary>
+        private void CreateInlineKeywordSelect(RectTransform parent, GraphNode node, FieldDef fd, string current)
+        {
+            GameObject go = new GameObject("Select", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", KeywordSelectText(current), 12, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 5, 0, 5, 0);
+            TMP_Text captured_t = t;
+            btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, false,
+                () => { if (captured_t != null) captured_t.text = KeywordSelectText(GetFieldValue(node, fd.name, fd.def ?? "")); },
+                KeywordSelectOptions(), KeywordSelectValues()));
+        }
+
         /// <summary>估算节点高度：Header(33含分割线) + max(输入,输出)端口行×28 + 说明区 + 底部留白（规格第3节）</summary>
         private static float EstimateNodeHeight(GraphNode node)
         {
@@ -2755,27 +4343,79 @@ namespace TcgEngine.UI
                     if (p.is_output) out_c++; else in_c++;
                 }
             }
-            int rows = Mathf.Max(in_c, out_c);
-            bool has_desc = !string.IsNullOrEmpty(NodeSummary(node));
-            return 33f + rows * 28f + (has_desc ? 26f : 0f) + 6f;
+            int field_rows = 0;
+            NodePreset preset = FindPreset(node.type, node.action);
+            if (preset != null && preset.fields != null)
+            {
+                //与输入口同名的字段直接画在该端口行右侧（不额外占行）；其余字段各占一行
+                foreach (FieldDef fd in preset.fields)
+                {
+                    if (fd != null && !string.IsNullOrEmpty(fd.name) && !FieldHasInputPin(node, fd.name))
+                        field_rows++;
+                }
+            }
+            //字段接在左侧输入口下方（同属左列），故左列行数 = 输入口 + 字段；取左右列较大者
+            int rows = Mathf.Max(in_c + field_rows, out_c);
+            return 33f + rows * 24f + 8f;
         }
 
         /// <summary>估算节点宽度：取标题/端口标签/内联值框中最宽一行（中文全角按字号、ASCII半角按0.55字号估算；
         /// 画布实例化时会用标题 TMP preferredWidth 实测值取更宽者，min190/max460，规格第3节）</summary>
         private static float EstimateNodeWidth(GraphNode node)
         {
+            NodePreset preset = FindPreset(node.type, node.action);
             float w = EstimateTextWidth(node.title, 20) + 24;
             if (node.pins != null)
             {
                 foreach (GraphPin p in node.pins)
                 {
                     string name = string.IsNullOrEmpty(p.display_name) ? p.name : p.display_name;
-                    if (!p.is_output)
+                    //有同名字段的输入口：值由行内控件承载，宽度按下方「端口行 + 控件」单独估算
+                    if (!p.is_output && !HasPresetField(node, p.name))
                         name += " = 10";   //内联值框追加估算
                     w = Mathf.Max(w, EstimateTextWidth(name, 12) + 44);
                 }
             }
-            return Mathf.Clamp(w, 190f, 460f);
+            //同一行同时有输入口(名+值框约120px)与输出口名：留足总宽，避免左右文字叠在一起
+            float out_name_w = 0f;
+            bool has_in = false, has_out = false;
+            if (node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                {
+                    string nm = string.IsNullOrEmpty(p.display_name) ? p.name : p.display_name;
+                    if (p.is_output)
+                    {
+                        has_out = true;
+                        out_name_w = Mathf.Max(out_name_w, EstimateTextWidth(nm, 12) + 18f);
+                    }
+                    else
+                    {
+                        has_in = true;
+                    }
+                }
+            }
+            //左列占用：输入口(名+值框) 与 内联字段(左边距12 + 字段名 + 4 + 控件110)
+            float left_need = has_in ? 152f : 0f;
+            if (preset != null && preset.fields != null)
+            {
+                foreach (FieldDef fd in preset.fields)
+                {
+                    if (fd == null || string.IsNullOrEmpty(fd.name))
+                        continue;
+                    float cw = InlineControlWidth(InlineFieldText(fd, GetFieldValue(node, fd.name, fd.def ?? "")));
+                    if (FieldHasInputPin(node, fd.name))
+                    {
+                        //端口行右侧的常量控件：圆点12 + 点间隙14 + 端口名 + 6 + 控件 + 10
+                        left_need = Mathf.Max(left_need, PinFieldX(node, fd.name, 12f) + cw + 10f);
+                        continue;
+                    }
+                    left_need = Mathf.Max(left_need, 20f + InlineLabelWidth(fd) + 4f + cw + 10f);
+                }
+            }
+            //左列 + 右列输出口名 的总宽（避免左右文字叠在一起）；无输出口时只保证左列放得下
+            w = Mathf.Max(w, left_need + (has_out ? out_name_w + 20f : 16f));
+            return Mathf.Clamp(w, 176f, 720f);   //长内容可把节点撑宽一些，右上限后由控件省略号截断
         }
 
         /// <summary>估算一行文字宽度（px）：中文/全角按字号，ASCII/半角按 0.55 字号</summary>
@@ -2815,8 +4455,8 @@ namespace TcgEngine.UI
                 }
                 if (p.is_output) out_i++; else in_i++;
             }
-            float y = node_rect.sizeDelta.y - 47f - row * 28f;
-            float x = pin.is_output ? Mathf.Max(0f, node_rect.sizeDelta.x - 6f) : 6f;
+            float y = node_rect.sizeDelta.y - 45f - row * 24f;   //端口行高 24（原 28），节点更紧凑
+            float x = pin.is_output ? Mathf.Max(0f, node_rect.sizeDelta.x - 12f) : 12f;   //内缩，避开边框与文字
             RectTransform prt = inst.GetComponent<RectTransform>();
             prt.anchorMin = Vector2.zero;   //锚定节点左下角
             prt.anchorMax = Vector2.zero;
@@ -2841,7 +4481,8 @@ namespace TcgEngine.UI
             //- 数据输入口：值框显示「端口名 = 固定值 / ← 来源」（规格第5节）
             if (!pin.is_output)
             {
-                if (pin.type == NodeValueType.Flow)
+                //数据输入口若有同名字段：端口名照常显示，常量控件由 CreateNodeInlineFields 画在本行右侧
+                if (pin.type == NodeValueType.Flow || HasPresetField(node, pin.name))
                     CreatePinNameLabel(inst.transform, pin, false);
                 else
                 {
@@ -2864,10 +4505,13 @@ namespace TcgEngine.UI
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            //约束在节点框内：左侧输入口标签贴在圆点右侧（向框内）、右侧输出口标签贴在圆点左侧（向框内），
-            //中心偏移 72px（= 点中心 6px + 半宽 65px + 1px 间隙），文字与圆点完全错开、左右不超节点框
-            rt.anchoredPosition = new Vector2(is_output ? -72f : 72f, 0f);
-            rt.sizeDelta = new Vector2(130f, 18f);
+            //标签框贴合文字宽度（原来固定 130 会向左伸出很远，挤占字段控件的可用宽度）
+            string nm0 = string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name;
+            float name_w = EstimateTextWidth(nm0, 12) + 18f;
+            //输入口标签贴圆点右侧、输出口贴圆点左侧（均向框内），中心偏移 = 圆点半径6 + 间隙8 + 半宽
+            float off = 6f + 8f + name_w * 0.5f;
+            rt.anchoredPosition = new Vector2(is_output ? -off : off, 0f);
+            rt.sizeDelta = new Vector2(name_w, 18f);
 
             TextMeshProUGUI txt;
             try
@@ -2880,14 +4524,14 @@ namespace TcgEngine.UI
                 txt.text = string.IsNullOrEmpty(pin.display_name) ? pin.name : pin.display_name;
                 txt.raycastTarget = false;
                 txt.enableWordWrapping = false;
-                txt.overflowMode = TextOverflowModes.Overflow;
+                txt.overflowMode = TextOverflowModes.Ellipsis;   //超出框内截断，避免文字溢出节点
             }
             catch (System.Exception e)
             {
                 //TMP 环境异常：回退旧版 Text，端口标签照常显示
                 Debug.LogError("端口标签 TMP 化失败，已回退旧版 Text。原因：\n" + e);
                 Text back = go.AddComponent<Text>();
-                back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                back.font = LegacyUIFont();
                 back.fontSize = 12;
                 back.alignment = is_output ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
                 back.color = Opaque(PinColor(pin));
@@ -2905,7 +4549,7 @@ namespace TcgEngine.UI
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(62f, 0f);   //圆点右侧向框内延伸（点中心 6px + 半宽 60px → 框内），避免文字出框
+            rt.anchoredPosition = new Vector2(68f, 0f);   //文字起点与端口名标签/字段名对齐（圆点右侧留空）
             rt.sizeDelta = new Vector2(120f, 18f);
 
             try
@@ -2917,14 +4561,14 @@ namespace TcgEngine.UI
                 txt.color = new Color(0.357f, 0.616f, 1f, 1f);
                 txt.raycastTarget = true;
                 txt.enableWordWrapping = false;
-                txt.overflowMode = TextOverflowModes.Overflow;
+                txt.overflowMode = TextOverflowModes.Ellipsis;   //值框超出宽度截断，避免溢出节点
                 return txt;
             }
             catch (System.Exception e)
             {
                 Debug.LogError("端口值框 TMP 化失败，已回退旧版 Text。原因：\n" + e);
                 Text back = go.AddComponent<Text>();
-                back.font = status_text != null ? status_text.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                back.font = LegacyUIFont();
                 back.fontSize = 12;
                 back.alignment = TextAnchor.MiddleLeft;
                 back.color = new Color(0.357f, 0.616f, 1f, 1f);
@@ -2941,6 +4585,103 @@ namespace TcgEngine.UI
                 if (np != null)
                     np.RefreshValueLabel();
             }
+            RefreshPinFieldVisibility();
+        }
+
+        /// <summary>端口同名字段控件显隐：输入口有连线时隐藏（值走连线），无连线时显示（可编辑常量）</summary>
+        private void RefreshPinFieldVisibility()
+        {
+            if (graph == null)
+                return;
+            foreach (KeyValuePair<string, RectTransform> kv in node_rows)
+            {
+                RectTransform root = kv.Value;
+                GraphNode node = graph.GetNode(kv.Key);
+                if (root == null || node == null || node.pins == null)
+                    continue;
+                for (int i = 0; i < root.childCount; i++)
+                {
+                    Transform ch = root.GetChild(i);
+                    if (ch == null || !ch.name.StartsWith("InlineField_"))
+                        continue;
+                    string fname = ch.name.Substring("InlineField_".Length);
+                    GraphPin pin = FindInputPin(node, fname);
+                    bool hide = false;
+                    if (pin != null)
+                        hide = graph.GetIncomingLink(node.id, pin.id) != null;
+                    ch.gameObject.SetActive(!hide && !node.collapsed);
+                }
+            }
+        }
+
+        /// <summary>节点上同名的输入口（无则 null）；用于「端口行内常量控件 ↔ 连线取值」互斥</summary>
+        private static GraphPin FindInputPin(GraphNode node, string pin_name)
+        {
+            if (node == null || node.pins == null || string.IsNullOrEmpty(pin_name))
+                return null;
+            foreach (GraphPin p in node.pins)
+            {
+                if (!p.is_output && p.name == pin_name)
+                    return p;
+            }
+            return null;
+        }
+
+        /// <summary>输入口在输入序列中的行号（找不到返回 -1）</summary>
+        private static int InputPinRow(GraphNode node, string pin_name)
+        {
+            int r = 0;
+            if (node == null || node.pins == null)
+                return -1;
+            foreach (GraphPin p in node.pins)
+            {
+                if (p.is_output)
+                    continue;
+                if (p.name == pin_name)
+                    return r;
+                r++;
+            }
+            return -1;
+        }
+
+        /// <summary>端口行内常量控件的横向起点：圆点(12) + 点半径间隙(6+8) + 端口名标签 + 间距(6)</summary>
+        private static float PinFieldX(GraphNode node, string pin_name, float dot_x)
+        {
+            float nm_w = 0f;
+            if (node != null && node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                {
+                    if (!p.is_output && p.name == pin_name)
+                    {
+                        nm_w = EstimateTextWidth(string.IsNullOrEmpty(p.display_name) ? p.name : p.display_name, 12) + 18f;
+                        break;
+                    }
+                }
+            }
+            return dot_x + 6f + 8f + nm_w + 6f;
+        }
+
+        /// <summary>节点是否有同名输入口（字段是否该画到端口行内）</summary>
+        private static bool FieldHasInputPin(GraphNode node, string field_name)
+        {
+            return FindInputPin(node, field_name) != null;
+        }
+
+        /// <summary>预设里是否有同名字段（输入口是否该画成「端口名 + 行内控件」）</summary>
+        private static bool HasPresetField(GraphNode node, string pin_name)
+        {
+            if (node == null || string.IsNullOrEmpty(pin_name))
+                return false;
+            NodePreset preset = FindPreset(node.type, node.action);
+            if (preset == null || preset.fields == null)
+                return false;
+            foreach (FieldDef fd in preset.fields)
+            {
+                if (fd != null && fd.name == pin_name)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>引脚颜色（方案：执行=紫 #7c5cff / 整数=蓝 #5b9dff / 卡牌=红 #e5484d / 布尔/玩家=灰 #8a8fa3 / 文本=绿 #35c28a）</summary>
@@ -2973,7 +4714,7 @@ namespace TcgEngine.UI
             GameObject inst = Instantiate(link_template, canvas_content);
             inst.name = "Link_" + link.from_node + "->" + link.to_node;
             inst.SetActive(true);
-            inst.transform.SetAsFirstSibling(); //置底，避免遮挡节点
+            inst.transform.SetAsLastSibling(); //连线绘制在节点上层（高度在节点上方），避免被节点遮挡看不清
 
             NodeLink nl = inst.GetComponent<NodeLink>();
             if (nl == null)
@@ -3199,43 +4940,32 @@ namespace TcgEngine.UI
                     Destroy(child);
             }
 
-            NodePreset preset = (node != null) ? FindPreset(node.type, node.action) : null;
-            bool has_fields = (preset != null && preset.fields.Count > 0);
-            ShowFieldPanel(has_fields);
-            if (!has_fields)
-                return;
+            //参数面板已移除：参数一律在节点上直接编辑，这里只保证右下角恒显示节点库
+            ShowFieldPanel(false);
 
-            //缺失字段补默认值（旧图/手改 JSON 可能缺字段），保证控件有值
-            foreach (FieldDef fd in preset.fields)
+            //旧图/手改 JSON 可能缺字段：补齐默认值，保证节点内联控件有值
+            if (node != null)
             {
-                if (!HasField(node, fd.name))
-                    node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
-            }
-            foreach (FieldDef fd in preset.fields)
-            {
-                string current = GetFieldValue(node, fd.name, fd.def ?? "");
-                switch (fd.edit)
+                NodePreset preset = FindPreset(node.type, node.action);
+                if (preset != null && preset.fields != null)
                 {
-                    case FieldEditType.Input: CreateFieldInput(node, fd, current); break;
-                    case FieldEditType.Dropdown: CreateFieldDropdown(node, fd, current); break;
-                    case FieldEditType.Toggle: CreateFieldToggle(node, fd, current); break;
-                    case FieldEditType.CardSelect: CreateFieldCardSelect(node, fd, current); break;
-                    case FieldEditType.BuffSelect: CreateFieldBuffSelect(node, fd, current); break;
-                    case FieldEditType.ButtonSelect: CreateFieldButtonSelect(node, fd, current); break;
-                    case FieldEditType.MultiOptions: CreateFieldMultiOptions(node, fd, current); break;
+                    foreach (FieldDef fd in preset.fields)
+                    {
+                        if (!HasField(node, fd.name))
+                            node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
+                    }
                 }
             }
         }
 
-        /// <summary>节点参数面板与节点库面板在右下角同一位置互斥切换</summary>
+        /// <summary>节点参数面板已移除（参数都在节点上直接改）：右列由 Tab 决定显示内容，这里只保证参数面板不弹</summary>
         private void ShowFieldPanel(bool show)
         {
+            CloseFieldSelectPopup();   //切换节点时关闭可能残留的下拉弹层
             if (node_field_root != null)
-                node_field_root.SetActive(show);
-            if (node_lib_root != null)
-                node_lib_root.SetActive(!show);
+                node_field_root.SetActive(false);
             if (node_field_hint != null)
-                node_field_hint.gameObject.SetActive(false);   //占位提示由面板切换代替，不再显示
+                node_field_hint.gameObject.SetActive(false);
         }
 
         private void CreateFieldInput(GraphNode node, FieldDef fd, string current)
@@ -3264,7 +4994,30 @@ namespace TcgEngine.UI
             });
         }
 
-        private void CreateFieldDropdown(GraphNode node, FieldDef fd, string current)
+        // ---------------- 统一字段下拉：单选/多选 + 自定义输入（自绘弹层，避免 UGUI Dropdown 底部裁切） ----------------
+
+        private GameObject field_select_popup;      // 复用的弹出面板
+        private RectTransform field_select_list;    // 选项行容器（ScrollRect Content）
+        private TMP_Text field_select_title;
+        private TMPro.TMP_InputField field_select_custom;
+        private GraphNode field_select_node;
+        private FieldDef field_select_fd;
+        private bool field_select_multi;
+        private Action field_select_refresh;
+        private string[] field_select_options;   // 弹层选项显示名（null=用字段预设 options）
+        private string[] field_select_values;    // 与显示名一一对应的实际值（null=显示名即实际值）
+        private List<string> field_select_pending;         // 通用多选（卡牌关键词/种族等）：当前选中值
+        private Action<List<string>> field_select_commit;  // 通用多选：点选即回调；非空时弹层走"卡牌字段"模式（不写 node.fields）
+        private bool relayout_pending;    //字段内容变化 → 延迟重建画布，让节点宽高随内容自适应
+
+        private static string SelectDisplay(FieldDef fd, string value)
+        {
+            if (string.IsNullOrEmpty(value) && fd != null && fd.options != null && fd.options.Length > 0)
+                return fd.options[0];
+            return value;
+        }
+
+        private void CreateFieldSelect(GraphNode node, FieldDef fd, string current, bool multi)
         {
             if (node_field_dropdown_template == null)
                 return;
@@ -3276,22 +5029,492 @@ namespace TcgEngine.UI
             if (label != null)
                 label.text = fd.display_name;
 
-            Dropdown dd = inst.GetComponentInChildren<Dropdown>(true);
-            if (dd == null)
+            RectTransform field = inst.transform.Find("Field") as RectTransform;
+            if (field == null)
                 return;
-            dd.ClearOptions();
-            if (fd.options != null)
-                dd.AddOptions(new List<string>(fd.options));
-            int idx = fd.options != null ? Array.IndexOf(fd.options, current) : -1;
-            dd.value = idx < 0 ? 0 : idx;
-            dd.RefreshShownValue();
-            dd.onValueChanged.AddListener((v) =>
+            // 去掉模板自带的 UGUI Dropdown（底部会被裁切、且不支持多选），换成自绘按钮
+            Dropdown old_dd = field.GetComponent<Dropdown>();
+            if (old_dd != null)
+                Destroy(old_dd);
+            for (int i = field.childCount - 1; i >= 0; i--)
+                Destroy(field.GetChild(i).gameObject);
+
+            Image fimg = field.GetComponent<Image>();
+            if (fimg == null)
+                fimg = field.gameObject.AddComponent<Image>();
+            fimg.color = new Color(1f, 1f, 1f, 0.18f);
+            Button btn = field.GetComponent<Button>();
+            if (btn == null)
+                btn = field.gameObject.AddComponent<Button>();
+            btn.targetGraphic = fimg;
+
+            TMP_Text val_txt = MakeText("Value", field, SelectDisplay(fd, current), 18, TextAnchor.MiddleLeft, TabFont());
+            SetStretchRect(val_txt.rectTransform, 10, 0, 10, 0);
+            val_txt.raycastTarget = false;
+            TMP_Text captured = val_txt;
+            btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, multi,
+                () => captured.text = SelectDisplay(fd, GetFieldValue(node, fd.name, fd.def ?? ""))));
+        }
+
+        private void OpenFieldSelectPopup(GraphNode node, FieldDef fd, bool multi, Action refresh)
+        {
+            OpenFieldSelectPopup(node, fd, multi, refresh, null, null);
+        }
+
+        /// <summary>打开选择弹层；options/values 非空时按「显示名 ↔ 实际值」映射（如关键词：显示标题、存 id）</summary>
+        private void OpenFieldSelectPopup(GraphNode node, FieldDef fd, bool multi, Action refresh, string[] options, string[] values)
+        {
+            EnsureFieldSelectPopup();
+            field_select_options = options;
+            field_select_values = values;
+            field_select_node = node;
+            field_select_fd = fd;
+            field_select_multi = multi;
+            field_select_refresh = refresh;
+            field_select_popup.SetActive(true);
+            field_select_popup.transform.SetAsLastSibling();
+            if (field_select_title != null)
+                field_select_title.text = (multi ? "多选：" : "选择：") + fd.display_name;
+            if (field_select_custom != null)
+                field_select_custom.text = "";
+            RebuildFieldSelectList();
+        }
+
+        /// <summary>通用多选弹层（卡牌关键词/种族等）：显示名 ↔ 值映射 + 自定义输入；点选即回调提交。
+        /// 复用节点字段那套弹层 UI（多选勾选 + 自定义输入），避免重复造控件。</summary>
+        private void OpenMultiSelectPopup(string title, List<string> selected, string[] options, string[] values,
+            Action<List<string>> on_commit)
+        {
+            EnsureFieldSelectPopup();
+            field_select_commit = on_commit;
+            field_select_pending = selected != null ? new List<string>(selected) : new List<string>();
+            field_select_options = options;
+            field_select_values = values;
+            field_select_node = null;
+            field_select_fd = null;
+            field_select_multi = true;
+            field_select_refresh = null;
+            field_select_popup.SetActive(true);
+            field_select_popup.transform.SetAsLastSibling();
+            if (field_select_title != null)
             {
-                string val = (fd.options != null && v >= 0 && v < fd.options.Length) ? fd.options[v] : "";
-                SetFieldValue(node, fd.name, val);
-                RefreshNodeSummary(node);
-                RefreshPinValues();
-            });
+                field_select_title.text = "多选：" + title;
+                SetFieldSelectTitleFont(field_select_title);
+            }
+            if (field_select_custom != null)
+                field_select_custom.text = "";
+            RebuildFieldSelectList();
+        }
+
+        /// <summary>通用单选弹层（卡牌类型/阵营/稀有度等）：显示名 ↔ 值映射；选中即回调并关闭</summary>
+        private void OpenSingleSelectPopup(string title, string current, string[] options, string[] values,
+            Action<string> on_pick)
+        {
+            EnsureFieldSelectPopup();
+            field_select_commit = list => { if (on_pick != null) on_pick(list != null && list.Count > 0 ? list[0] : ""); };
+            field_select_pending = string.IsNullOrEmpty(current) ? new List<string>() : new List<string> { current };
+            field_select_options = options;
+            field_select_values = values;
+            field_select_node = null;
+            field_select_fd = null;
+            field_select_multi = false;
+            field_select_refresh = null;
+            field_select_popup.SetActive(true);
+            field_select_popup.transform.SetAsLastSibling();
+            if (field_select_title != null)
+                field_select_title.text = "选择：" + title;
+            if (field_select_custom != null)
+                field_select_custom.text = "";
+            RebuildFieldSelectList();
+        }
+
+        /// <summary>弹层标题统一 TMP 字体（与节点内文字一致）</summary>
+        private void SetFieldSelectTitleFont(TMP_Text t)
+        {
+            if (t != null)
+                ApplyNodeFont(t, "多选关键词");
+        }
+
+        private void CloseFieldSelectPopup()
+        {
+            if (field_select_popup != null)
+                field_select_popup.SetActive(false);
+            field_select_commit = null;
+            field_select_pending = null;
+            if (relayout_pending)
+            {
+                relayout_pending = false;
+                RebuildCanvas();   //内容变化后重排节点（宽高/端口/字段位置随之自适应）
+            }
+        }
+
+        private void RebuildFieldSelectList()
+        {
+            if (field_select_list == null)
+                return;
+            bool commit_mode = field_select_commit != null;   //卡牌字段多选：选中集来自 pending，不读 node.fields
+            if (!commit_mode && (field_select_fd == null || field_select_node == null))
+                return;
+            for (int i = field_select_list.childCount - 1; i >= 0; i--)
+            {
+                Transform c = field_select_list.GetChild(i);
+                c.SetParent(null, false);
+                Destroy(c.gameObject);
+            }
+            FieldDef fd = field_select_fd;
+            string cur = commit_mode ? "" : GetFieldValue(field_select_node, fd.name, fd.def ?? "");
+            string[] sel = commit_mode
+                ? (field_select_pending != null ? field_select_pending.ToArray() : new string[0])
+                : SplitMulti(cur);
+            string[] opts = field_select_options ?? (fd != null ? fd.options : null);   //运行时选项优先（关键词/种族等）
+            if (opts != null)
+            {
+                for (int i = 0; i < opts.Length; i++)
+                {
+                    string label = opts[i];
+                    if (string.IsNullOrEmpty(label))
+                        continue;
+                    string val = SelectValueAt(i, label);
+                    bool on = (field_select_multi || commit_mode) ? Array.IndexOf(sel, val) >= 0 : cur == val;
+                    CreateSelectOptionRow(label, val, on);
+                }
+            }
+            // 不在预设里的自定义值也列出来，便于回看/取消
+            foreach (string raw in sel)
+            {
+                if (string.IsNullOrEmpty(raw) || SelectHasValue(opts, raw))
+                    continue;
+                CreateSelectOptionRow(raw, raw, true);
+            }
+        }
+
+        /// <summary>第 i 个选项显示名对应的实际值（无映射时显示名即值）</summary>
+        private string SelectValueAt(int index, string label)
+        {
+            if (field_select_values != null && index < field_select_values.Length)
+                return field_select_values[index];
+            return label;
+        }
+
+        /// <summary>选项里是否已包含该实际值（用于补列自定义值，避免重复行）</summary>
+        private bool SelectHasValue(string[] opts, string value)
+        {
+            if (opts == null)
+                return false;
+            for (int i = 0; i < opts.Length; i++)
+            {
+                if (SelectValueAt(i, opts[i]) == value)
+                    return true;
+            }
+            return false;
+        }
+
+        private void CreateSelectOptionRow(string label, string value, bool on)
+        {
+            GameObject row = new GameObject("Opt", typeof(RectTransform));
+            RectTransform rt = row.GetComponent<RectTransform>();
+            rt.SetParent(field_select_list, false);
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.preferredHeight = 30;
+            le.minHeight = 30;
+            Image bg = row.AddComponent<Image>();
+            bg.color = on ? new Color(0.2f, 0.55f, 0.85f, 0.95f) : new Color(1f, 1f, 1f, 0.08f);
+            Button btn = row.AddComponent<Button>();
+            btn.targetGraphic = bg;
+
+            TMP_Text t = MakeText("Label", rt, (field_select_multi ? (on ? "☑ " : "☐ ") : "") + label,
+                18, TextAnchor.MiddleLeft, TabFont());
+            SetStretchRect(t.rectTransform, 12, 0, 12, 0);
+            t.raycastTarget = false;
+
+            string captured = value;   //写回实际值（如关键词 id），显示仍用 label
+            btn.onClick.AddListener(() => OnFieldSelectOption(captured));
+        }
+
+        private void OnFieldSelectOption(string opt)
+        {
+            if (field_select_commit != null)
+            {
+                //卡牌字段（单选/多选）：单选=选中即回调并关弹层；多选=切换选中并保持弹层
+                if (field_select_multi)
+                {
+                    if (field_select_pending == null)
+                        field_select_pending = new List<string>();
+                    if (field_select_pending.Contains(opt))
+                        field_select_pending.Remove(opt);
+                    else
+                        field_select_pending.Add(opt);
+                    field_select_commit(new List<string>(field_select_pending));
+                    RebuildFieldSelectList();
+                }
+                else
+                {
+                    field_select_commit(new List<string> { opt });
+                    CloseFieldSelectPopup();
+                }
+                return;
+            }
+            FieldDef fd = field_select_fd;
+            GraphNode node = field_select_node;
+            if (fd == null || node == null)
+                return;
+            string cur = GetFieldValue(node, fd.name, fd.def ?? "");
+            string val;
+            if (field_select_multi)
+            {
+                List<string> sel = new List<string>(SplitMulti(cur));
+                if (sel.Contains(opt)) sel.RemoveAll(s => s == opt);
+                else sel.Add(opt);
+                val = string.Join(";", sel.ToArray());
+            }
+            else
+            {
+                val = opt;
+            }
+            SetFieldValue(node, fd.name, val);
+            relayout_pending = true;
+            RefreshNodeSummary(node);
+            RefreshPinValues();
+            if (field_select_refresh != null)
+                field_select_refresh();
+            if (field_select_multi)
+                RebuildFieldSelectList();
+            else
+                CloseFieldSelectPopup();
+        }
+
+        /// <summary>自定义输入：单击字段=直接使用该值；多选字段=追加一个自定义项</summary>
+        private void OnFieldSelectUseCustom()
+        {
+            if (field_select_custom == null)
+                return;
+            string v = field_select_custom.text;
+            if (string.IsNullOrEmpty(v))
+                return;
+            if (field_select_commit != null)
+            {
+                //卡牌字段多选：自定义项加入选中集合并回调（如自建种族/关键词）
+                if (field_select_pending == null)
+                    field_select_pending = new List<string>();
+                if (!field_select_pending.Contains(v))
+                    field_select_pending.Add(v);
+                field_select_commit(new List<string>(field_select_pending));
+                field_select_custom.text = "";
+                RebuildFieldSelectList();
+                return;
+            }
+            if (field_select_fd == null || field_select_node == null)
+                return;
+            FieldDef fd = field_select_fd;
+            GraphNode node = field_select_node;
+            if (field_select_multi)
+            {
+                List<string> sel = new List<string>(SplitMulti(GetFieldValue(node, fd.name, fd.def ?? "")));
+                if (!sel.Contains(v)) sel.Add(v);
+                SetFieldValue(node, fd.name, string.Join(";", sel.ToArray()));
+                field_select_custom.text = "";
+            }
+            else
+            {
+                SetFieldValue(node, fd.name, v);
+            }
+            relayout_pending = true;
+            RefreshNodeSummary(node);
+            RefreshPinValues();
+            if (field_select_refresh != null)
+                field_select_refresh();
+            if (field_select_multi)
+                RebuildFieldSelectList();
+            else
+                CloseFieldSelectPopup();
+        }
+
+        private void EnsureFieldSelectPopup()
+        {
+            if (field_select_popup != null)
+                return;
+            Font font = TabFont();
+
+            field_select_popup = new GameObject("FieldSelectPopup", typeof(RectTransform));
+            RectTransform root = field_select_popup.GetComponent<RectTransform>();
+            root.SetParent(transform, false);
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+            Image back = field_select_popup.AddComponent<Image>();
+            back.color = new Color(0, 0, 0, 0.55f);
+            Button back_btn = field_select_popup.AddComponent<Button>();
+            back_btn.targetGraphic = back;
+            back_btn.onClick.AddListener(CloseFieldSelectPopup);
+
+            GameObject panel = new GameObject("Panel", typeof(RectTransform));
+            RectTransform prt = panel.GetComponent<RectTransform>();
+            prt.SetParent(root, false);
+            prt.anchorMin = new Vector2(0.5f, 0.5f);
+            prt.anchorMax = new Vector2(0.5f, 0.5f);
+            prt.pivot = new Vector2(0.5f, 0.5f);
+            prt.anchoredPosition = Vector2.zero;
+            prt.sizeDelta = new Vector2(440, 520);
+            Image pimg = panel.AddComponent<Image>();
+            pimg.color = new Color(0.12f, 0.12f, 0.15f, 1f);
+            Button pbtn = panel.AddComponent<Button>();   // 吞掉点击，避免穿透到遮罩关闭
+            pbtn.targetGraphic = pimg;
+
+            field_select_title = MakeText("Title", prt, "选择", 22, TextAnchor.MiddleLeft, font);
+            RectTransform trt = field_select_title.rectTransform;
+            trt.anchorMin = new Vector2(0, 1);
+            trt.anchorMax = new Vector2(1, 1);
+            trt.pivot = new Vector2(0.5f, 1);
+            trt.anchoredPosition = new Vector2(0, -6);
+            trt.sizeDelta = new Vector2(-60, 34);
+
+            RectTransform close = MakeButton("Close", prt, "✕", font, CloseFieldSelectPopup);
+            close.anchorMin = new Vector2(1, 1);
+            close.anchorMax = new Vector2(1, 1);
+            close.pivot = new Vector2(1, 1);
+            close.anchoredPosition = new Vector2(-6, -6);
+            close.sizeDelta = new Vector2(34, 34);
+
+            GameObject scroll_go = new GameObject("Scroll", typeof(RectTransform));
+            RectTransform srt = scroll_go.GetComponent<RectTransform>();
+            srt.SetParent(prt, false);
+            srt.anchorMin = Vector2.zero;
+            srt.anchorMax = Vector2.one;
+            srt.offsetMin = new Vector2(12, 60);
+            srt.offsetMax = new Vector2(-12, -46);
+            ScrollRect scroll = scroll_go.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 25f;
+
+            GameObject view_go = new GameObject("Viewport", typeof(RectTransform));
+            RectTransform vrt = view_go.GetComponent<RectTransform>();
+            vrt.SetParent(srt, false);
+            vrt.anchorMin = Vector2.zero;
+            vrt.anchorMax = Vector2.one;
+            vrt.offsetMin = Vector2.zero;
+            vrt.offsetMax = Vector2.zero;
+            view_go.AddComponent<RectMask2D>();
+            scroll.viewport = vrt;
+
+            GameObject content_go = new GameObject("Content", typeof(RectTransform));
+            RectTransform crt = content_go.GetComponent<RectTransform>();
+            crt.SetParent(vrt, false);
+            crt.anchorMin = new Vector2(0, 1);
+            crt.anchorMax = new Vector2(1, 1);
+            crt.pivot = new Vector2(0.5f, 1);
+            crt.anchoredPosition = Vector2.zero;
+            crt.sizeDelta = new Vector2(0, 0);
+            VerticalLayoutGroup vlg = content_go.AddComponent<VerticalLayoutGroup>();
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.spacing = 3;
+            vlg.padding = new RectOffset(4, 4, 4, 4);
+            ContentSizeFitter csf = content_go.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = crt;
+            field_select_list = crt;
+
+            GameObject input_go = new GameObject("CustomInput", typeof(RectTransform), typeof(Image), typeof(TMPro.TMP_InputField));
+            RectTransform irt = input_go.GetComponent<RectTransform>();
+            irt.SetParent(prt, false);
+            irt.anchorMin = new Vector2(0, 0);
+            irt.anchorMax = new Vector2(1, 0);
+            irt.pivot = new Vector2(0.5f, 0);
+            irt.anchoredPosition = new Vector2(-44, 14);
+            irt.sizeDelta = new Vector2(-104, 34);
+            input_go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.15f);
+            TMPro.TMP_InputField inp = input_go.GetComponent<TMPro.TMP_InputField>();
+            inp.targetGraphic = input_go.GetComponent<Image>();
+            TMP_Text itxt = MakeText("Text", irt, "", 18, TextAnchor.MiddleLeft, font);
+            SetStretchRect(itxt.rectTransform, 10, 0, 10, 0);
+            itxt.richText = false;
+            itxt.raycastTarget = false;
+            inp.textComponent = itxt;
+            TMP_Text ph = MakeText("Placeholder", irt, "自定义值…", 18, TextAnchor.MiddleLeft, font);
+            SetStretchRect(ph.rectTransform, 10, 0, 10, 0);
+            ph.color = new Color(1f, 1f, 1f, 0.4f);
+            ph.raycastTarget = false;
+            inp.placeholder = ph;
+            field_select_custom = inp;
+
+            RectTransform use = MakeButton("Use", prt, "使用", font, OnFieldSelectUseCustom);
+            use.anchorMin = new Vector2(1, 0);
+            use.anchorMax = new Vector2(1, 0);
+            use.pivot = new Vector2(1, 0);
+            use.anchoredPosition = new Vector2(-14, 14);
+            use.sizeDelta = new Vector2(76, 34);
+
+            field_select_popup.SetActive(false);
+        }
+
+        /// <summary>新建文本：统一用 TMP（旧版 UGUI Text 太糊），自动应用节点字体</summary>
+        private TMP_Text MakeText(string name, Transform parent, string txt, int size, TextAnchor anchor, Font font)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
+            ApplyNodeFont(t, string.IsNullOrEmpty(txt) ? FontProbe : txt + FontProbe);
+            t.text = txt;
+            t.fontSize = size;
+            t.alignment = ToTmpAlignment(anchor);
+            t.color = Color.white;
+            t.enableWordWrapping = false;
+            t.overflowMode = TextOverflowModes.Ellipsis;
+            return t;
+        }
+
+        private RectTransform MakeButton(string name, Transform parent, string txt, Font font, Action onClick)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.18f);
+            Button btn = go.GetComponent<Button>();
+            if (onClick != null)
+                btn.onClick.AddListener(() => onClick());
+            TMP_Text t = MakeText("Text", rt, txt, 18, TextAnchor.MiddleCenter, font);
+            t.raycastTarget = false;
+            return rt;
+        }
+
+        /// <summary>修正 UGUI Dropdown 展开模板：按选项数撑开 Content 与模板高度（避免底部被裁切、可滚动到底）</summary>
+        private static void FixDropdownTemplate(Dropdown dd)
+        {
+            if (dd == null || dd.template == null)
+                return;
+            RectTransform tpl = dd.template;
+            RectTransform content = tpl.Find("Viewport/Content") as RectTransform;
+            if (content == null)
+                return;
+            RectTransform item = content.Find("Item") as RectTransform;
+            float item_h = (item != null && item.rect.height > 1f) ? item.rect.height : 28f;
+            int n = dd.options != null ? dd.options.Count : 0;
+            float content_h = item_h * n + 8f;
+            content.sizeDelta = new Vector2(content.sizeDelta.x, content_h);
+            content.anchoredPosition = new Vector2(content.anchoredPosition.x, 0f);
+            tpl.sizeDelta = new Vector2(tpl.sizeDelta.x, Mathf.Min(content_h + 8f, 360f));
+            ScrollRect sr = tpl.GetComponent<ScrollRect>();
+            if (sr != null)
+                sr.verticalNormalizedPosition = 1f;
+        }
+
+        private static void SetStretchRect(RectTransform rt, float left, float bottom, float right, float top)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(left, bottom);
+            rt.offsetMax = new Vector2(-right, -top);
         }
 
         /// <summary>卡牌定义选择器（CardDefine 输入口）：下拉列出当前卡池的所有卡牌（显示「标题 (id)」，存储 id）</summary>
@@ -3329,6 +5552,7 @@ namespace TcgEngine.UI
             int idx = ids.IndexOf(current);
             dd.value = idx < 0 ? 0 : idx;
             dd.RefreshShownValue();
+            FixDropdownTemplate(dd);
             dd.onValueChanged.AddListener((v) =>
             {
                 string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
@@ -3370,6 +5594,7 @@ namespace TcgEngine.UI
             int idx = ids.IndexOf(current);
             dd.value = idx < 0 ? 0 : idx;
             dd.RefreshShownValue();
+            FixDropdownTemplate(dd);
             dd.onValueChanged.AddListener((v) =>
             {
                 string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
@@ -3412,6 +5637,7 @@ namespace TcgEngine.UI
             int idx = ids.IndexOf(current);
             dd.value = idx < 0 ? 0 : idx;
             dd.RefreshShownValue();
+            FixDropdownTemplate(dd);
             dd.onValueChanged.AddListener((v) =>
             {
                 string val = (v >= 0 && v < ids.Count) ? ids[v] : "";
@@ -3445,60 +5671,6 @@ namespace TcgEngine.UI
             });
         }
 
-        /// <summary>多选项复选控件：每选项克隆一行开关，值存 分号 分隔（如 "英雄;战场"），全不勾=空。
-        /// 用于事件入口「生效牌堆」等多选字段。</summary>
-        private void CreateFieldMultiOptions(GraphNode node, FieldDef fd, string current)
-        {
-            if (node_field_toggle_template == null || fd.options == null || fd.options.Length == 0)
-                return;
-            string[] cur = SplitMulti(current);
-            foreach (string opt in fd.options)
-            {
-                if (string.IsNullOrEmpty(opt))
-                    continue;
-                GameObject inst = Instantiate(node_field_toggle_template, node_field_area);
-                inst.name = "Field_" + fd.name + "_" + opt;
-                inst.SetActive(true);
-                Text label = inst.transform.Find("Label")?.GetComponent<Text>();
-                if (label != null)
-                    label.text = opt;
-                Toggle tg = inst.GetComponentInChildren<Toggle>(true);
-                if (tg == null)
-                    continue;
-                tg.isOn = Array.IndexOf(cur, opt) >= 0;
-                tg.onValueChanged.AddListener((val) =>
-                {
-                    string joined = CollectMultiField(fd);
-                    SetFieldValue(node, fd.name, joined);
-                    RefreshNodeSummary(node);
-                    RefreshPinValues();
-                });
-            }
-        }
-
-        /// <summary>收集某个复选字段当前勾选的所有选项（按控件命名 Field_字段名_选项 回读）</summary>
-        private string CollectMultiField(FieldDef fd)
-        {
-            if (node_field_area == null)
-                return "";
-            string prefix = "Field_" + fd.name + "_";
-            List<string> sel = new List<string>();
-            for (int i = 0; i < node_field_area.childCount; i++)
-            {
-                GameObject child = node_field_area.GetChild(i).gameObject;
-                if (child == node_field_toggle_template || !child.name.StartsWith(prefix))
-                    continue;
-                Toggle tg = child.GetComponentInChildren<Toggle>(true);
-                if (tg != null && tg.isOn)
-                {
-                    string opt = child.name.Substring(prefix.Length);
-                    if (!string.IsNullOrEmpty(opt) && !sel.Contains(opt))
-                        sel.Add(opt);
-                }
-            }
-            return string.Join(";", sel.ToArray());
-        }
-
         private static string[] SplitMulti(string value)
         {
             if (string.IsNullOrEmpty(value))
@@ -3515,10 +5687,7 @@ namespace TcgEngine.UI
             {
                 TMP_Text desc = rect.Find("DescText")?.GetComponent<TMP_Text>();
                 if (desc != null)
-                {
-                    desc.text = NodeSummary(node);
-                    desc.gameObject.SetActive(!string.IsNullOrEmpty(desc.text));
-                }
+                    desc.gameObject.SetActive(false);   //说明行已移除（改为节点「?」弹窗）
             }
         }
 
@@ -3616,7 +5785,9 @@ namespace TcgEngine.UI
             if (pins != null)
                 pins.gameObject.SetActive(!collapsed);
             if (desc != null)
-                desc.gameObject.SetActive(!collapsed);
+                desc.gameObject.SetActive(false);   //说明行已移除（改为节点「?」弹窗）
+            //内联参数随收起/展开显隐（端口同名字段：有连线时仍保持隐藏）
+            RefreshPinFieldVisibility();
             if (header != null)
             {
                 Transform btn_min = header.Find("BtnMin");
@@ -3977,7 +6148,7 @@ namespace TcgEngine.UI
             GameObject inst = Instantiate(link_template, canvas_content);
             inst.name = "TempLink";
             inst.SetActive(true);
-            inst.transform.SetAsFirstSibling();
+            inst.transform.SetAsLastSibling();
             NodeLink nl = inst.GetComponent<NodeLink>();
             if (nl == null)
                 nl = inst.AddComponent<NodeLink>();
@@ -3988,16 +6159,9 @@ namespace TcgEngine.UI
 
         private void DrawTempLink(Vector2 a, Vector2 b)
         {
-            if (temp_link == null || temp_link.line == null)
+            if (temp_link == null)
                 return;
-            Vector2 delta = b - a;
-            float len = delta.magnitude;
-            if (len < 1f)
-                len = 1f;
-            float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
-            temp_link.line.anchoredPosition = a;
-            temp_link.line.sizeDelta = new Vector2(len, 2.5f);
-            temp_link.line.localRotation = Quaternion.Euler(0f, 0f, angle);
+            temp_link.Draw(a, b);   //拖拽中同样走贝塞尔曲线
         }
 
         private void HideTempLink()
@@ -4039,7 +6203,15 @@ namespace TcgEngine.UI
             if (canvas_content != null)
             {
                 canvas_content.anchoredPosition = Vector2.zero;
-                canvas_content.localScale = Vector3.one;
+                //默认视图按 1/NodeScale 显示：节点内部虽缩小，但进来时的观感与原来一致
+                float s = NodeScale > 0.01f ? 1f / NodeScale : 1f;
+                canvas_content.localScale = new Vector3(s, s, 1f);
+            }
+            //放宽缩放范围（场景里的 zoom_max 可能偏小，导致"放大都放不大"）
+            if (graph_canvas != null)
+            {
+                graph_canvas.zoom_min = 0.2f;
+                graph_canvas.zoom_max = 5f;
             }
         }
 
@@ -4118,7 +6290,7 @@ namespace TcgEngine.UI
 
             ReadForm();
             graph.name = string.IsNullOrEmpty(card.title) ? "NewGraph" : card.title;
-            card.graph = graph;
+            SyncLegacyGraphField();
 
             //同步运行时自定义卡数据，使卡牌构筑/编辑器卡面立即反映最新属性
             CardPoolIO.UpdateCardData(card);
@@ -4177,7 +6349,7 @@ namespace TcgEngine.UI
                 }
                 ReadForm();
                 graph.name = string.IsNullOrEmpty(card.title) ? "NewGraph" : card.title;
-                card.graph = graph;
+                SyncLegacyGraphField();
             }
 
             //确保该卡运行时数据已注册且为最新（含规则图编译的能力）
@@ -4416,20 +6588,20 @@ namespace TcgEngine.UI
             return -1;
         }
 
-        private static void SetInput(InputField field, string val)
+        private static void SetInput(TMP_InputField field, string val)
         {
             if (field != null)
                 field.text = val ?? "";
         }
 
-        private static string GetInput(InputField field, string def)
+        private static string GetInput(TMP_InputField field, string def)
         {
             if (field == null)
                 return def;
             return string.IsNullOrEmpty(field.text) ? def : field.text;
         }
 
-        private static int GetInputInt(InputField field, int def)
+        private static int GetInputInt(TMP_InputField field, int def)
         {
             if (field == null)
                 return def;

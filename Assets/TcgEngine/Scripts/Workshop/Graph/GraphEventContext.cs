@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TcgEngine.Gameplay;
 
 namespace TcgEngine.Workshop
@@ -23,6 +24,9 @@ namespace TcgEngine.Workshop
         public Card source_card;       // 来源卡（伤害来源等），可为空
         public Player player;          // 主体玩家（抽牌玩家等），可为空
         public int value;              // 事件数值（伤害量 / 抽卡批次等；Before 事件下可被「修改事件值」改写并生效）
+        public int slot = -1;          // 事件主体卡所在牌堆中的位置（slot/第几张；无则 -1）
+        public string tags;            // 入口「标签列表」（战吼/亡语等自定义标签，供判断）
         public bool cancelled;         // 已被「阻止本事件」置位（仅 Before 事件有效）
+        public Dictionary<string, object> vars;   // 自定义效果属性（事件自定义变量：入口「自定义效果属性」声明，获取/设置变量按名读写）
     }
 }

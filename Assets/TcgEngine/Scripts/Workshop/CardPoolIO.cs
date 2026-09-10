@@ -291,7 +291,16 @@ namespace TcgEngine.Workshop
             data.type = card.type.ToString();
             data.team = card.team != null ? card.team.id : "";
             data.rarity = card.rarity != null ? card.rarity.id : "";
-            data.trait = card.traits != null && card.traits.Length > 0 && card.traits[0] != null ? card.traits[0].id : "";
+            data.traits = new List<string>();   //种族多选：全部写入列表，trait 保留首项兼容旧工具
+            if (card.traits != null)
+            {
+                foreach (TraitData t in card.traits)
+                {
+                    if (t != null && !string.IsNullOrEmpty(t.id))
+                        data.traits.Add(t.id);
+                }
+            }
+            data.trait = data.traits.Count > 0 ? data.traits[0] : "";
             data.mana = card.mana;
             data.attack = card.attack;
             data.hp = card.hp;
@@ -318,6 +327,34 @@ namespace TcgEngine.Workshop
                 }
             }
             return data;
+        }
+
+        /// <summary>种族写回 CardData：优先 traits 列表（多选 + 自定义），为空时回退旧单字段 trait；
+        /// 未注册的自定义种族 id 直接跳过（TCG2 的 TraitData 为资产池，自定义种族需先建资产）。</summary>
+        private static void ApplyTraits(CardData card, CardCustomData data)
+        {
+            if (card == null)
+                return;
+            TraitData.Load();
+            List<TraitData> list = new List<TraitData>();
+            if (data != null && data.traits != null)
+            {
+                foreach (string id in data.traits)
+                {
+                    if (string.IsNullOrEmpty(id))
+                        continue;
+                    TraitData t = TraitData.Get(id);
+                    if (t != null && !list.Contains(t))
+                        list.Add(t);
+                }
+            }
+            if (list.Count == 0 && data != null && !string.IsNullOrEmpty(data.trait))
+            {
+                TraitData t = TraitData.Get(data.trait);   //旧数据：单种族字段
+                if (t != null)
+                    list.Add(t);
+            }
+            card.traits = list.ToArray();
         }
 
         /// <summary>关键词 id 列表 → KeywordData 数组（未注册/缺失的 id 跳过并警告）</summary>
@@ -474,13 +511,7 @@ namespace TcgEngine.Workshop
             card.type = ParseEnum(data.type, CardType.None);
             card.team = string.IsNullOrEmpty(data.team) ? GetFirstTeam() : TeamData.Get(data.team);
             card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
-            if (string.IsNullOrEmpty(data.trait))
-                card.traits = new TraitData[0];
-            else
-            {
-                TraitData trait = TraitData.Get(data.trait);
-                card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
-            }
+            ApplyTraits(card, data);   //种族支持多选（traits 列表），并兼容旧单字段 trait
             card.keywords = ResolveKeywords(data.keywords);
             card.mana = data.mana;
             card.attack = data.attack;
@@ -534,13 +565,7 @@ namespace TcgEngine.Workshop
             card.type = ParseEnum(data.type, CardType.None);
             card.team = string.IsNullOrEmpty(data.team) ? GetFirstTeam() : TeamData.Get(data.team);
             card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
-            if (string.IsNullOrEmpty(data.trait))
-                card.traits = new TraitData[0];
-            else
-            {
-                TraitData trait = TraitData.Get(data.trait);
-                card.traits = trait != null ? new TraitData[] { trait } : new TraitData[0];
-            }
+            ApplyTraits(card, data);   //种族支持多选（traits 列表），并兼容旧单字段 trait
             card.keywords = ResolveKeywords(data.keywords);
             card.mana = data.mana;
             card.attack = data.attack;
@@ -577,10 +602,22 @@ namespace TcgEngine.Workshop
         private static List<AbilityData> CompileGraphAbilities(CardCustomData data)
         {
             List<AbilityData> result = new List<AbilityData>();
-            if (data == null || data.graph == null)
+            if (data == null)
                 return result;
 
-            GraphData graph = data.graph;
+            //多效果图：一张卡可有多张效果图（战吼/亡语/光环/事件…），逐张编译为独立能力
+            foreach (CardEffectData eff in data.EnsureEffects())
+            {
+                if (eff == null || eff.graph == null)
+                    continue;
+                CompileOneGraphAbilities(data, eff.graph, result);
+            }
+            return result;
+        }
+
+        /// <summary>编译单张效果图为能力并追加进 result</summary>
+        private static void CompileOneGraphAbilities(CardCustomData data, GraphData graph, List<AbilityData> result)
+        {
             //控制节点(212001 分支 / 212002 重复)下游若接了内置直通动作：内置动作按无条件触发编译（不走分支/循环），提醒改用 NodeDoc 动作
             foreach (GraphNode bn in graph.nodes)
             {
@@ -746,7 +783,6 @@ namespace TcgEngine.Workshop
                     result.Add(ability);
                 }
             }
-            return result;
         }
 
         /// <summary>事件节点 action → AbilityTrigger 映射（未支持返回 None）</summary>
@@ -771,6 +807,20 @@ namespace TcgEngine.Workshop
                 case "OnAfterHeal": return AbilityTrigger.OnAfterHeal;
                 case "OnBeforeTransform": return AbilityTrigger.OnBeforeTransform;
                 case "OnAfterTransform": return AbilityTrigger.OnAfterTransform;
+                case "OnBeforeEquip": return AbilityTrigger.OnBeforeEquip;
+                case "OnAfterEquip": return AbilityTrigger.OnAfterEquip;
+                case "OnBeforeDeath": return AbilityTrigger.OnBeforeDeath;
+                case "OnAfterDeath": return AbilityTrigger.OnAfterDeath;
+                case "OnBeforeDiscard": return AbilityTrigger.OnBeforeDiscard;
+                case "OnAfterDiscard": return AbilityTrigger.OnAfterDiscard;
+                case "OnBeforeGameStart": return AbilityTrigger.OnBeforeGameStart;
+                case "OnAfterGameStart": return AbilityTrigger.OnAfterGameStart;
+                case "OnBeforeGameEnd": return AbilityTrigger.OnBeforeGameEnd;
+                case "OnAfterGameEnd": return AbilityTrigger.OnAfterGameEnd;
+                case "OnBeforeTurnStart": return AbilityTrigger.OnBeforeTurnStart;
+                case "OnAfterTurnStart": return AbilityTrigger.OnAfterTurnStart;
+                case "OnBeforeTurnEnd": return AbilityTrigger.OnBeforeTurnEnd;
+                case "OnAfterTurnEnd": return AbilityTrigger.OnAfterTurnEnd;
                 default: return AbilityTrigger.None;
             }
         }

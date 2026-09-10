@@ -39,6 +39,70 @@ namespace TcgEngine.Workshop
             LoadSlot(data.damage_audio_id, clip => { if (card != null) card.damage_audio = clip; });
         }
 
+        /// <summary>编辑器试听：把 Workshop/Audio 下的音频解码后播放一次（找不到文件/解码失败则静默）。
+        /// 返回 false 表示文件名无效（调用方据此提示）。</summary>
+        public static void Preview(string fname)
+        {
+            if (string.IsNullOrEmpty(fname))
+                return;
+            LoadSlot(fname, clip => { if (clip != null) PlayPreview(clip); });
+        }
+
+        /// <summary>当前是否已缓存该音频（试听前判断，避免重复请求）</summary>
+        public static bool IsCached(string fname)
+        {
+            return !string.IsNullOrEmpty(fname) && cache.ContainsKey(fname);
+        }
+
+        /// <summary>校验任意音频文件的时长（编辑器导入用，读绝对路径）：≤ max_seconds 回调 ok=true。
+        /// 走 file:// 请求读时长，不进播放缓存。</summary>
+        public static void ValidateLength(string full_path, float max_seconds, Action<bool, float> onResult)
+        {
+            if (string.IsNullOrEmpty(full_path) || !File.Exists(full_path))
+            {
+                if (onResult != null)
+                    onResult(false, 0f);
+                return;
+            }
+            Ensure();
+            instance.StartCoroutine(instance.Validate(full_path, max_seconds, onResult));
+        }
+
+        private IEnumerator Validate(string full_path, float max_seconds, Action<bool, float> onResult)
+        {
+            string url = new Uri(full_path).AbsoluteUri;
+            using (UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(url, GetAudioType(full_path)))
+            {
+                yield return req.SendWebRequest();
+                float len = 0f;
+                bool ok = false;
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    AudioClip clip = DownloadHandlerAudioClip.GetContent(req);
+                    if (clip != null)
+                    {
+                        len = clip.length;
+                        ok = len <= max_seconds;
+                        Destroy(clip);
+                    }
+                }
+                if (onResult != null)
+                    onResult(ok, len);
+            }
+        }
+
+        private static void PlayPreview(AudioClip clip)
+        {
+            Ensure();
+            AudioSource src = instance.GetComponent<AudioSource>();
+            if (src == null)
+                src = instance.gameObject.AddComponent<AudioSource>();
+            src.playOnAwake = false;
+            src.Stop();
+            src.clip = clip;
+            src.Play();
+        }
+
         private static void LoadSlot(string fname, Action<AudioClip> apply)
         {
             if (string.IsNullOrEmpty(fname))

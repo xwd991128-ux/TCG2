@@ -669,6 +669,21 @@ namespace TcgEngine
         OnAfterHeal = 71,    //治疗后
         OnBeforeTransform = 72, //变形前（可阻止）
         OnAfterTransform = 73,  //变形后
+        OnBeforeEquip = 74,     //装备道具前（可阻止，阻止则不装备上）
+        OnAfterEquip = 75,      //装备道具后
+        OnBeforeDeath = 76,     //死亡前（可阻止=免死，卡不进墓地）
+        OnAfterDeath = 77,      //死亡后（亡语由引擎 OnDeath 另走）
+        OnBeforeDiscard = 78,   //弃牌前（非死亡进墓地前，可阻止）
+        OnAfterDiscard = 79,    //弃牌后（非死亡进墓地后）
+        //对局/回合类通知事件（EmitNotify 广播，不可被阻止，避免永久锁局）
+        OnBeforeGameStart = 80,  //对战开始前
+        OnAfterGameStart = 81,   //对战开始后（玩家开战点）
+        OnBeforeGameEnd = 82,    //游戏结束前
+        OnAfterGameEnd = 83,     //游戏结束后
+        OnBeforeTurnStart = 84,  //回合开始前
+        OnAfterTurnStart = 85,   //回合开始后
+        OnBeforeTurnEnd = 86,    //回合结束前
+        OnAfterTurnEnd = 87,     //回合结束后
     }
 
     public enum AbilityTarget

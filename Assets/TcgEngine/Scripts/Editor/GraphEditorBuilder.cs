@@ -145,14 +145,17 @@ namespace TcgEngine.UI
             if (topbar != null)
                 topbar.SetAsLastSibling();
 
-            //底部状态
-            Text status = CreateText("StatusText", root, "", _font, 20, new Color(1, 0.85f, 0.6f, 1f), TextAnchor.MiddleRight);
+            //底部状态（TMP，全页统一字体）
+            TMP_Text status = CreateTMPText("StatusText", root, "", 20, new Color(1, 0.85f, 0.6f, 1f), TextAlignmentOptions.Right);
             status.rectTransform.anchorMin = new Vector2(1, 0);
             status.rectTransform.anchorMax = new Vector2(1, 0);
             status.rectTransform.pivot = new Vector2(1, 0.5f);   //右对齐，确保提示条完整在屏幕内
             status.rectTransform.anchoredPosition = new Vector2(-24, 24);
             status.rectTransform.sizeDelta = new Vector2(520, 36);
             panel.status_text = status;
+
+            //整页字体统一：把页面里残留的旧版 Text / InputField 迁移为 TMP（含字号统一）
+            TmpifyPage(root.gameObject);
 
             //与项目其他面板一致：SetActive(true) 存储，运行时由 UIPanel 生命周期隐藏
             root.gameObject.SetActive(true);
@@ -630,40 +633,43 @@ namespace TcgEngine.UI
             return field;
         }
 
-        /// <summary>在指定控件区创建输入框（填充该区域）</summary>
-        private static InputField CreateInputIn(RectTransform field, string placeholder, bool multiline = false)
+        /// <summary>在指定控件区创建 TMP 输入框（填充该区域，全页统一字体）</summary>
+        private static TMP_InputField CreateInputIn(RectTransform field, string placeholder, bool multiline = false)
         {
             RectTransform rt = CreateRect("PropInput", field);
             SetStretch(rt);
+            rt.gameObject.AddComponent<RectMask2D>();   //长文本裁剪
 
             Image bg = rt.gameObject.AddComponent<Image>();
             bg.color = new Color(1, 1, 1, 0.25f);
 
-            Text placeholder_txt = CreateText("Placeholder", rt, placeholder, _font, 16,
-                new Color(1, 1, 1, 0.5f), TextAnchor.UpperLeft);
+            TMP_Text placeholder_txt = CreateTMPText("Placeholder", rt, placeholder, 16,
+                new Color(1, 1, 1, 0.5f), TextAlignmentOptions.TopLeft);
             RectTransform ph_rt = placeholder_txt.rectTransform;
             ph_rt.anchorMin = Vector2.zero;
             ph_rt.anchorMax = Vector2.one;
             ph_rt.offsetMin = new Vector2(10, 4);
             ph_rt.offsetMax = Vector2.zero;
 
-            Text display = CreateText("Text", rt, "", _font, 16, Color.white, TextAnchor.UpperLeft);
+            TMP_Text display = CreateTMPText("Text", rt, "", 16, Color.white, TextAlignmentOptions.TopLeft);
             RectTransform d_rt = display.rectTransform;
             d_rt.anchorMin = Vector2.zero;
             d_rt.anchorMax = Vector2.one;
             d_rt.offsetMin = new Vector2(10, 4);
             d_rt.offsetMax = Vector2.zero;
 
-            InputField input = rt.gameObject.AddComponent<InputField>();
+            TMP_InputField input = rt.gameObject.AddComponent<TMP_InputField>();
             input.targetGraphic = bg;
             input.textComponent = display;
             input.placeholder = placeholder_txt;
+            input.textViewport = rt;                 //光标/选区定位用：缺失会导致无法输入
+            placeholder_txt.raycastTarget = false;   //文本不挡射线
+            display.raycastTarget = false;
+            input.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
             if (multiline)
             {
-                input.lineType = InputField.LineType.MultiLineNewline;
-                display.alignment = TextAnchor.UpperLeft;
-                display.horizontalOverflow = HorizontalWrapMode.Wrap;
-                display.verticalOverflow = VerticalWrapMode.Truncate;
+                display.enableWordWrapping = true;
+                display.overflowMode = TextOverflowModes.Overflow;
             }
             return input;
         }
@@ -712,9 +718,9 @@ namespace TcgEngine.UI
             return toggle;
         }
 
-        /// <summary>音效行：标签 + 文件名输入框 + 「选择音频」按钮（弹出系统文件对话框）</summary>
+        /// <summary>音效行：标签 + 文件名输入框（TMP）+ 「选择音频」按钮（弹出系统文件对话框）</summary>
         private static void CreateAudioRow(Transform parent, GraphEditorPanel panel, string label,
-            ref InputField input_ref, ref Button btn_ref)
+            ref TMP_InputField input_ref, ref Button btn_ref)
         {
             RectTransform row = CreateFieldRow(parent, label, 40);
             row.name = "AudioRow";
@@ -724,29 +730,33 @@ namespace TcgEngine.UI
             input_rt.anchorMax = new Vector2(0.68f, 1);
             input_rt.offsetMin = Vector2.zero;
             input_rt.offsetMax = Vector2.zero;
+            input_rt.gameObject.AddComponent<RectMask2D>();
 
             Image bg = input_rt.gameObject.AddComponent<Image>();
             bg.color = new Color(1, 1, 1, 0.25f);
 
-            Text placeholder_txt = CreateText("Placeholder", input_rt, "音频文件名", _font, 16,
-                new Color(1, 1, 1, 0.5f), TextAnchor.UpperLeft);
+            TMP_Text placeholder_txt = CreateTMPText("Placeholder", input_rt, "音频文件名", 16,
+                new Color(1, 1, 1, 0.5f), TextAlignmentOptions.Left);
             RectTransform ph_rt = placeholder_txt.rectTransform;
             ph_rt.anchorMin = Vector2.zero;
             ph_rt.anchorMax = Vector2.one;
             ph_rt.offsetMin = new Vector2(10, 4);
             ph_rt.offsetMax = Vector2.zero;
 
-            Text display = CreateText("Text", input_rt, "", _font, 16, Color.white, TextAnchor.UpperLeft);
+            TMP_Text display = CreateTMPText("Text", input_rt, "", 16, Color.white, TextAlignmentOptions.Left);
             RectTransform d_rt = display.rectTransform;
             d_rt.anchorMin = Vector2.zero;
             d_rt.anchorMax = Vector2.one;
             d_rt.offsetMin = new Vector2(10, 4);
             d_rt.offsetMax = Vector2.zero;
 
-            InputField input = input_rt.gameObject.AddComponent<InputField>();
+            TMP_InputField input = input_rt.gameObject.AddComponent<TMP_InputField>();
             input.targetGraphic = bg;
             input.textComponent = display;
             input.placeholder = placeholder_txt;
+            input.textViewport = input_rt;           //光标/选区定位用
+            placeholder_txt.raycastTarget = false;
+            display.raycastTarget = false;
             input_ref = input;
 
             btn_ref = CreateButton("PickAudioBtn", row, "选择音频", _font, 15,
@@ -839,9 +849,9 @@ namespace TcgEngine.UI
             label.rectTransform.offsetMin = new Vector2(14, label.rectTransform.offsetMin.y);
             label.rectTransform.sizeDelta = new Vector2(0, 40);
 
-            //占位提示：未选中节点时覆盖整区居中显示
-            Text hint = CreateText("Hint", area, "点击画布中的节点，可在此编辑其参数（数值 / 符号 / 开关）", _font, 16,
-                new Color(1, 1, 1, 0.55f), TextAnchor.MiddleCenter);
+            //占位提示：未选中节点时覆盖整区居中显示（TMP）
+            TMP_Text hint = CreateTMPText("Hint", area, "点击画布中的节点，可在此编辑其参数（数值 / 符号 / 开关）", 16,
+                new Color(1, 1, 1, 0.55f), TextAlignmentOptions.Center);
             SetStretch(hint.rectTransform);
             hint.rectTransform.offsetMin = new Vector2(16, 40);
             hint.rectTransform.offsetMax = new Vector2(-16, -40);
@@ -1013,9 +1023,9 @@ namespace TcgEngine.UI
             Image bg = area.gameObject.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.35f);
 
-            //标题 + 数量（规格第1节：节点列表 = 搜索 + 分类 + 最近 + 收藏）
-            Text label = CreateText("AreaTitle", area, "节点库", _font, 24,
-                new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
+            //标题 + 数量（规格第1节：节点列表 = 搜索 + 分类 + 最近 + 收藏）（TMP）
+            TMP_Text label = CreateTMPText("AreaTitle", area, "节点库", 24,
+                new Color(0.76f, 1f, 0.99f, 1f), TextAlignmentOptions.Left);
             label.rectTransform.anchorMin = new Vector2(0, 1);
             label.rectTransform.anchorMax = new Vector2(1, 1);
             label.rectTransform.pivot = new Vector2(0.5f, 1);
@@ -1261,6 +1271,123 @@ namespace TcgEngine.UI
             txt.horizontalOverflow = HorizontalWrapMode.Overflow;
             txt.verticalOverflow = VerticalWrapMode.Overflow;
             return txt;
+        }
+
+        // ---------------- 整页 TMP 统一（生成时执行一次，页面里不再有旧版字体） ----------------
+
+        /// <summary>统一字号：区块标题 20、行标签/按钮 15，其余 16</summary>
+        private static int NormalizeSize(string go_name, int legacy_size)
+        {
+            if (go_name == "AreaTitle")
+                return 20;
+            if (go_name == "PropLabel" || go_name == "ToggleLabel" || go_name.StartsWith("Btn") || go_name.EndsWith("Btn"))
+                return 15;
+            return 16;
+        }
+
+        private static TextAlignmentOptions ToTmpAlign(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
+                case TextAnchor.UpperCenter: return TextAlignmentOptions.Top;
+                case TextAnchor.UpperRight: return TextAlignmentOptions.TopRight;
+                case TextAnchor.MiddleLeft: return TextAlignmentOptions.Left;
+                case TextAnchor.MiddleCenter: return TextAlignmentOptions.Center;
+                case TextAnchor.MiddleRight: return TextAlignmentOptions.Right;
+                case TextAnchor.LowerLeft: return TextAlignmentOptions.BottomLeft;
+                case TextAnchor.LowerCenter: return TextAlignmentOptions.Bottom;
+                default: return TextAlignmentOptions.BottomRight;
+            }
+        }
+
+        /// <summary>整页字体统一：残留旧版 Text → TMP、旧版 InputField → TMP_InputField（含 textViewport，保证可输入）</summary>
+        private static void TmpifyPage(GameObject root)
+        {
+            //输入框先迁（内部 Text/Placeholder 随之转 TMP）
+            foreach (InputField inp in root.GetComponentsInChildren<InputField>(true))
+                ConvertInputToTmpEditor(inp);
+            //Toggle 勾选标记重绑
+            foreach (Toggle tg in root.GetComponentsInChildren<Toggle>(true))
+            {
+                if (tg != null && tg.graphic is Text gt)
+                {
+                    TextMeshProUGUI c = ConvertTextToTmpEditor(gt);
+                    if (c != null)
+                        tg.graphic = c;
+                }
+            }
+            //其余旧版 Text（旧下拉内部文本跳过：运行时已被选择按钮替代）
+            foreach (Text t in root.GetComponentsInChildren<Text>(true))
+            {
+                if (t == null)
+                    continue;
+                if (t.GetComponentInParent<Dropdown>() != null)
+                    continue;
+                ConvertTextToTmpEditor(t);
+            }
+        }
+
+        private static TextMeshProUGUI ConvertTextToTmpEditor(Text legacy)
+        {
+            if (legacy == null)
+                return null;
+            GameObject go = legacy.gameObject;
+            TextMeshProUGUI tmp = go.GetComponent<TextMeshProUGUI>();
+            if (tmp != null)
+                return tmp;
+            string text = legacy.text;
+            int size = NormalizeSize(go.name, legacy.fontSize);
+            Color color = legacy.color;
+            TextAlignmentOptions align = ToTmpAlign(legacy.alignment);
+            bool raycast = legacy.raycastTarget;
+            bool wrap = legacy.horizontalOverflow == HorizontalWrapMode.Wrap;
+            bool bestfit = legacy.resizeTextForBestFit;
+            Object.DestroyImmediate(legacy);
+            tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.font = GetTmpFont();
+            tmp.text = text;
+            tmp.fontSize = size;
+            tmp.color = color;
+            tmp.alignment = align;
+            tmp.raycastTarget = raycast;
+            tmp.enableWordWrapping = wrap;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            if (bestfit)
+                tmp.enableAutoSizing = true;
+            return tmp;
+        }
+
+        private static TMP_InputField ConvertInputToTmpEditor(InputField legacy)
+        {
+            if (legacy == null)
+                return null;
+            GameObject go = legacy.gameObject;
+            TMP_InputField tmp = go.GetComponent<TMP_InputField>();
+            if (tmp != null)
+                return tmp;
+            TMP_Text text = ConvertTextToTmpEditor(legacy.textComponent as Text);
+            TMP_Text ph = ConvertTextToTmpEditor(legacy.placeholder as Text);
+            string init = legacy.text;
+            bool multiline = legacy.lineType == InputField.LineType.MultiLineNewline;
+            Graphic target = legacy.targetGraphic;
+            Object.DestroyImmediate(legacy);
+            tmp = go.AddComponent<TMP_InputField>();
+            tmp.targetGraphic = target;
+            if (text != null)
+            {
+                tmp.textComponent = text;
+                text.raycastTarget = false;
+            }
+            if (ph != null)
+            {
+                tmp.placeholder = ph;
+                ph.raycastTarget = false;
+            }
+            tmp.textViewport = go.GetComponent<RectTransform>();   //光标/选区定位用
+            tmp.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
+            tmp.text = init;
+            return tmp;
         }
 
         /// <summary>创建 TMP 纯文字（TextMeshProUGUI），用 SimHei 动态 TMP 字体。供全页 TMP 迁移使用。</summary>

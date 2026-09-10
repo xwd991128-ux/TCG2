@@ -15,6 +15,7 @@ namespace TcgEngine.Workshop
         public string category;       // 主题分类（卡牌/玩家/集合运算/…）
         public string summary;        // 功能说明（可能含 <br> 等 html）
         public string example;        // 示例说明
+        public bool obsolete;         // 是否已标注过时（obsoleteMsg 非空），库内不展示但保留预设兼容旧图
         public List<NodeDocPort> inputs = new List<NodeDocPort>();
         public List<NodeDocPort> outputs = new List<NodeDocPort>();
 
@@ -129,6 +130,7 @@ namespace TcgEngine.Workshop
             def.category = Text(node, "category") ?? "其他";
             def.summary = Inner(node, "summary");
             def.example = Inner(node, "example");
+            def.obsolete = !string.IsNullOrEmpty(Inner(node, "obsoleteMsg"));
             foreach (XmlNode p in node.SelectNodes("inputs/ActionParameterComment"))
             {
                 NodeDocPort port = ParsePort(p);

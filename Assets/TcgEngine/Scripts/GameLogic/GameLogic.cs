@@ -94,6 +94,9 @@ namespace TcgEngine.Gameplay
             if (game_data.state == GameState.GameEnded)
                 return;
 
+            //图事件通知「对战开始时」
+            EmitNotify("OnBeforeGameStart", null, null);
+
             //Choose first player
             game_data.state = GameState.Play;
             game_data.first_player = random.NextDouble() < 0.5 ? 0 : 1;
@@ -144,6 +147,9 @@ namespace TcgEngine.Gameplay
             RefreshData();
             onGameStart?.Invoke();
 
+            //图事件通知「对战开始后」（玩家开战点：mulligan / 首回合前）
+            EmitNotify("OnAfterGameStart", null, null);
+
             if(should_mulligan)
                 GoToMulligan();
             else
@@ -161,6 +167,9 @@ namespace TcgEngine.Gameplay
             onTurnStart?.Invoke();
 
             Player player = game_data.GetActivePlayer();
+
+            //图事件通知「回合开始时」
+            EmitNotify("OnBeforeTurnStart", null, player);
 
             
 
@@ -255,6 +264,9 @@ namespace TcgEngine.Gameplay
             TriggerPlayerCardsAbilityType(player, AbilityTrigger.StartOfTurn);
             TriggerPlayerSecrets(player, AbilityTrigger.StartOfTurn);
 
+            //图事件通知「回合开始后」（本回合处理完成，进入主阶段前）
+            EmitNotify("OnAfterTurnStart", null, player);
+
             resolve_queue.AddCallback(StartMainPhase);
             resolve_queue.ResolveAll(0.2f);
         }
@@ -296,6 +308,9 @@ namespace TcgEngine.Gameplay
             game_data.phase = GamePhase.EndTurn;
 
             Player active_player = game_data.GetActivePlayer();
+
+            //图事件通知「回合结束时」（开始处理结束结算前；不可阻止，避免回合永远无法结束）
+            EmitNotify("OnBeforeTurnEnd", null, active_player);
 
             //Reduce status effects with duration
             foreach (Player aplayer in game_data.players)
@@ -359,6 +374,9 @@ namespace TcgEngine.Gameplay
             onTurnEnd?.Invoke();
             RefreshData();
 
+            //图事件通知「回合结束后」
+            EmitNotify("OnAfterTurnEnd", null, active_player);
+
             resolve_queue.AddCallback(StartNextTurn);
             resolve_queue.ResolveAll(0.2f);
         }
@@ -368,14 +386,21 @@ namespace TcgEngine.Gameplay
         {
             if (game_data.state != GameState.GameEnded)
             {
+                Player winner_player = game_data.GetPlayer(winner);
+
+                //图事件通知「游戏结束时」
+                EmitNotify("OnBeforeGameEnd", null, winner_player);
+
                 game_data.state = GameState.GameEnded;
                 game_data.phase = GamePhase.None;
                 game_data.selector = SelectorType.None;
                 game_data.current_player = winner; //Winner player
                 resolve_queue.Clear();
-                Player player = game_data.GetPlayer(winner);
-                onGameEnd?.Invoke(player);
+                onGameEnd?.Invoke(winner_player);
                 RefreshData();
+
+                //图事件通知「游戏结束后」
+                EmitNotify("OnAfterGameEnd", null, winner_player);
             }
         }
 
@@ -480,6 +505,14 @@ namespace TcgEngine.Gameplay
                 }
 
                 int extra_count = extra_host != null ? 1 : 0;
+                //同事件多宿主：按入口「优先级」降序触发（额外宿主=事件主体卡固定最先）；同优先级保持收集顺序
+                if (hosts.Count > extra_count + 1)
+                {
+                    List<Card> rest = hosts.GetRange(extra_count, hosts.Count - extra_count);
+                    rest.Sort((a, b) => HostEventPriority(b, ctx.action).CompareTo(HostEventPriority(a, ctx.action)));
+                    hosts.RemoveRange(extra_count, hosts.Count - extra_count);
+                    hosts.AddRange(rest);
+                }
                 for (int i = 0; i < hosts.Count; i++)
                 {
                     FireEventHost(hosts[i], ctx, i < extra_count);
@@ -493,6 +526,49 @@ namespace TcgEngine.Gameplay
                 event_ctx = prev;
                 event_depth--;
             }
+        }
+
+        /// <summary>纯通知事件（回合/对局类：对战开始结束、回合开始结束）。发出即广播，返回值/阻止被忽略——
+        /// 这类事件不可被「阻止本事件」取消（否则会造成对局永久锁死）。</summary>
+        private void EmitNotify(string action, Card card, Player player)
+        {
+            if (string.IsNullOrEmpty(action) || game_data == null)
+                return;
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = GraphEventPhase.Before;
+            ctx.card = card;
+            ctx.player = player;
+            ctx.value = 0;
+            EmitGraphEvent(ctx);
+        }
+
+        /// <summary>宿主对某事件入口的优先级：读该宿主匹配事件入口节点的 priority 字段，取最高值（无则 int.MinValue）</summary>
+        private int HostEventPriority(Card host, string event_action)
+        {
+            int best = int.MinValue;
+            if (host == null || string.IsNullOrEmpty(event_action))
+                return best;
+            foreach (AbilityData ab in host.GetAbilities())
+            {
+                if (ab == null || ab.trigger.ToString() != event_action)
+                    continue;
+                foreach (EffectData eff in ab.effects)
+                {
+                    EffectRunGraph rg = eff as EffectRunGraph;
+                    if (rg == null || rg.graph == null || rg.graph.nodes == null)
+                        continue;
+                    foreach (GraphNode ev in rg.graph.nodes)
+                    {
+                        if (ev == null || ev.type != GraphNodeType.Event || ev.action != event_action)
+                            continue;
+                        int pr = GraphRuntime.GetFieldInt(ev, "priority", 0);
+                        if (pr > best)
+                            best = pr;
+                    }
+                }
+            }
+            return best;
         }
 
         /// <summary>触发单个宿主：能力 trigger 匹配且含 EffectRunGraph 的事件图才交给 NodeDocRunner 执行。
@@ -518,6 +594,18 @@ namespace TcgEngine.Gameplay
                         continue;
                     if (!is_extra && !EntryZoneAllows(rg.graph, ctx.action, zone))
                         continue;   //入口「生效牌堆」不含宿主当前所在牌堆 → 该宿主不响应
+                    //入口「标签列表」写入事件上下文（战吼/亡语等自定义标签，供图内判断）
+                    foreach (GraphNode gn in rg.graph.nodes)
+                    {
+                        if (gn != null && gn.type == GraphNodeType.Event && gn.action == ctx.action)
+                        {
+                            string tags = GraphRuntime.GetFieldString(gn, "tags", "");
+                            if (string.IsNullOrEmpty(tags))
+                                tags = GraphRuntime.GetFieldString(gn, "tag_list", "");
+                            ctx.tags = tags;
+                            break;
+                        }
+                    }
                     NodeDocRunner.RunEvent(this, rg.graph, host, ctx);
                 }
             }
@@ -590,6 +678,20 @@ namespace TcgEngine.Gameplay
                 case "OnAfterHeal":
                 case "OnBeforeTransform":
                 case "OnAfterTransform":
+                case "OnBeforeEquip":
+                case "OnAfterEquip":
+                case "OnBeforeDeath":
+                case "OnAfterDeath":
+                case "OnBeforeDiscard":
+                case "OnAfterDiscard":
+                case "OnBeforeGameStart":
+                case "OnAfterGameStart":
+                case "OnBeforeGameEnd":
+                case "OnAfterGameEnd":
+                case "OnBeforeTurnStart":
+                case "OnAfterTurnStart":
+                case "OnBeforeTurnEnd":
+                case "OnAfterTurnEnd":
                     return "英雄;战场;装备区";
                 default:
                     return "任意";
@@ -1162,18 +1264,42 @@ namespace TcgEngine.Gameplay
 
         public virtual void EquipCard(Card card, Card equipment)
         {
-            if (card != null && equipment != null && card.player_id == equipment.player_id)
-            {
-                if (!card.CardData.IsEquipment() && equipment.CardData.IsEquipment())
-                {
-                    UnequipAll(card); //Unequip previous cards, only 1 equip at a time
+            if (card == null || equipment == null || card.player_id != equipment.player_id)
+                return;
+            if (card.CardData.IsEquipment() || !equipment.CardData.IsEquipment())
+                return;
 
-                    Player player = game_data.GetPlayer(card.player_id);
-                    player.RemoveCardFromAllGroups(equipment);
-                    player.cards_equip.Add(equipment);
-                    card.equipped_uid = equipment.uid;
-                    equipment.slot = card.slot;
-                }
+            //图事件「装备道具时」：全场监听；可阻止=装备不上（卡留在原位）
+            {
+                GraphEventContext ectx = new GraphEventContext();
+                ectx.action = "OnBeforeEquip";
+                ectx.phase = GraphEventPhase.Before;
+                ectx.card = card;               //佩戴者（英雄/随从）
+                ectx.source_card = equipment;   //被装上的装备
+                ectx.player = game_data.GetPlayer(card.player_id);
+                ectx.value = 0;
+                if (EmitGraphEvent(ectx))
+                    return;
+            }
+
+            UnequipAll(card); //Unequip previous cards, only 1 equip at a time
+
+            Player player = game_data.GetPlayer(card.player_id);
+            player.RemoveCardFromAllGroups(equipment);
+            player.cards_equip.Add(equipment);
+            card.equipped_uid = equipment.uid;
+            equipment.slot = card.slot;
+
+            //图事件「装备道具后」（主体=佩戴者，来源=装备）
+            {
+                GraphEventContext actx = new GraphEventContext();
+                actx.action = "OnAfterEquip";
+                actx.phase = GraphEventPhase.After;
+                actx.card = card;
+                actx.source_card = equipment;
+                actx.player = game_data.GetPlayer(card.player_id);
+                actx.value = 0;
+                EmitGraphEvent(actx);
             }
         }
 
@@ -1356,7 +1482,7 @@ namespace TcgEngine.Gameplay
             }
 
             if (target.GetHP() <= 0)
-                DiscardCard(target);
+                DiscardCard(target, CardDiscardReason.Death);   //无来源致死（毒/燃烧等）按死亡处理
         }
 
         //Damage a card with attacker/caster
@@ -1464,13 +1590,20 @@ namespace TcgEngine.Gameplay
             Player pattacker = game_data.GetPlayer(attacker.player_id);
             if (attacker.player_id != target.player_id)
                 pattacker.kill_count++;
-                DiscardCard(target);
+                DiscardCard(target, CardDiscardReason.Death);
 
             TriggerCardAbilityType(AbilityTrigger.OnKill, attacker, target);
         }
 
-        //Send card into discard
+        //Send card into discard（reason 区分 死亡/弃置，用于图事件 弃牌时/后、死亡时/后）
+        public enum CardDiscardReason { Discard = 0, Death = 1 }
+
         public virtual void DiscardCard(Card card)
+        {
+            DiscardCard(card, CardDiscardReason.Discard);
+        }
+
+        public virtual void DiscardCard(Card card, CardDiscardReason reason)
         {
             if (card == null)
                 return;
@@ -1481,6 +1614,18 @@ namespace TcgEngine.Gameplay
             CardData icard = card.CardData;
             Player player = game_data.GetPlayer(card.player_id);
             bool was_on_board = game_data.IsOnBoard(card) || game_data.IsEquipped(card);
+            bool is_death = reason == CardDiscardReason.Death;
+
+            //图事件「时」（死亡时/弃牌时）：全场监听；可阻止=本次不进墓地（卡保持原位）。卡自身作为额外宿主，任意牌堆都能响应。
+            GraphEventContext pre = new GraphEventContext();
+            pre.action = is_death ? "OnBeforeDeath" : "OnBeforeDiscard";
+            pre.phase = GraphEventPhase.Before;
+            pre.card = card;
+            pre.source_card = null;
+            pre.player = player;
+            pre.value = 0;
+            if (EmitGraphEvent(pre, card))
+                return;
 
             //Unequip card
             UnequipAll(card);
@@ -1499,7 +1644,7 @@ namespace TcgEngine.Gameplay
 
             if (was_on_board)
             {
-                //Trigger on death abilities
+                //Trigger on death abilities（引擎亡语语义不变）
                 TriggerCardAbilityType(AbilityTrigger.OnDeath, card);
                 TriggerOtherCardsAbilityType(AbilityTrigger.OnDeathOther, card);
                 TriggerSecrets(AbilityTrigger.OnDeathOther, card);
@@ -1508,6 +1653,16 @@ namespace TcgEngine.Gameplay
 
             cards_to_clear.Add(card); //Will be Clear() in the next UpdateOngoing, so that simultaneous damage effects work
             onCardDiscarded?.Invoke(card);
+
+            //图事件「后」（死亡后/弃牌后；主体=进墓地的卡，并作为额外宿主使其自身图能响应）
+            GraphEventContext actx = new GraphEventContext();
+            actx.action = is_death ? "OnAfterDeath" : "OnAfterDiscard";
+            actx.phase = GraphEventPhase.After;
+            actx.card = card;
+            actx.source_card = null;
+            actx.player = player;
+            actx.value = 0;
+            EmitGraphEvent(actx, card);
         }
 
         public int RollRandomValue(int dice)

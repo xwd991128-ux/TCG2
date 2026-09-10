@@ -80,12 +80,13 @@ namespace TcgEngine.UI
                 rt.anchoredPosition = off;
         }
 
-        /// <summary>引脚在画布局部坐标（content 原点为基准）</summary>
+        /// <summary>引脚在画布局部坐标（content 原点为基准）。节点整体带缩放时，引脚局部偏移需按缩放换算。</summary>
         public Vector2 GetCanvasPos()
         {
             if (node_rect == null)
                 return Vector2.zero;
-            return node_rect.anchoredPosition + offset;
+            float s = node_rect.localScale.x > 0.001f ? node_rect.localScale.x : 1f;
+            return node_rect.anchoredPosition + offset * s;
         }
 
         public void OnBeginDrag(PointerEventData eventData)

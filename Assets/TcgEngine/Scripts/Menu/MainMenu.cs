@@ -67,10 +67,11 @@ namespace TcgEngine.UI
 
             GameClientMatchmaker matchmaker = GameClientMatchmaker.Get();
             bool matchmaking = matchmaker != null && matchmaker.IsMatchmaking();
-            if (loader.activeSelf != matchmaking)
+            if (loader != null && loader.activeSelf != matchmaking)
                 loader.SetActive(matchmaking);
-            if (MatchmakingPanel.Get().IsVisible() != matchmaking)
-                MatchmakingPanel.Get().SetVisible(matchmaking);
+            MatchmakingPanel mm_panel = MatchmakingPanel.Get();
+            if (mm_panel != null && mm_panel.IsVisible() != matchmaking)
+                mm_panel.SetVisible(matchmaking);
         }
 
         private async void RefreshLogin()
