@@ -63,6 +63,10 @@ namespace TcgEngine.Gameplay
         private ListSwap<CardData> card_data_array = new ListSwap<CardData>();
         private List<Card> cards_to_clear = new List<Card>();
 
+        /// <summary>顺序逐槽多目标的选择结果：图槽号 → 选中的卡（结算期间有效；槽被跳过=null）。
+        /// 由 FinishMultiTarget 写入、EffectRunGraph 读取，交给 NodeDocRunner 供入口「目标卡牌N」输出口取值。</summary>
+        private Dictionary<int, Card> multi_target_results;
+
         public GameLogic(bool is_ai)
         {
             //is_instant ignores all gameplay delays and process everything immediately, needed for AI prediction
@@ -448,9 +452,39 @@ namespace TcgEngine.Gameplay
         private const int EVENT_MAX_DEPTH = 16;         //图事件广播递归深度上限（防 伤害后→再伤害→… 死循环）
         private static int event_depth;                  //跨 GameLogic 实例共享的递归计数（AI 预测实例不广播）
         private GraphEventContext event_ctx;             //当前广播上下文（保留旧值用于嵌套返回）
+        private readonly List<GraphEventContext> event_log = new List<GraphEventContext>();   //事件日志（108005~108016 / 109xxx 查询用）
+        private const int EVENT_LOG_MAX = 512;           //日志上限：超出丢弃最旧（避免长对局无限增长）
 
         /// <summary>当前图事件上下文（广播中非空；NodeDocRunner 读取用）</summary>
         public GraphEventContext EventCtx { get { return event_ctx; } }
+
+        // ---- 事件日志查询（事件家族 108005~108016 / 事件记录家族 109xxx） ----
+
+        /// <summary>本局已发生的事件日志（按广播先后顺序；含父/子链、回合、重复次数）</summary>
+        public List<GraphEventContext> GetEventLog() { return event_log; }
+
+        /// <summary>指定回合发生的事件</summary>
+        public List<GraphEventContext> GetTurnEvents(int turn)
+        {
+            List<GraphEventContext> result = new List<GraphEventContext>();
+            foreach (GraphEventContext e in event_log)
+                if (e.turn == turn)
+                    result.Add(e);
+            return result;
+        }
+
+        /// <summary>按日志索引区间 [from, to] 取事件（闭区间；自动裁剪越界）</summary>
+        public List<GraphEventContext> GetRangeEvents(int from, int to)
+        {
+            List<GraphEventContext> result = new List<GraphEventContext>();
+            if (event_log.Count == 0)
+                return result;
+            int a = from < 0 ? 0 : from;
+            int b = to >= event_log.Count ? event_log.Count - 1 : to;
+            for (int i = a; i <= b; i++)
+                result.Add(event_log[i]);
+            return result;
+        }
 
         /// <summary>
         /// 广播一次图事件：按固定顺序触发所有"在场图宿主"（额外宿主 extra_host 优先，如被打出的牌自身）。
@@ -472,6 +506,18 @@ namespace TcgEngine.Gameplay
             event_depth++;
             GraphEventContext prev = event_ctx;
             event_ctx = ctx;
+            //事件日志与父子链（108005~108016 / 109xxx）：父=外层广播上下文；回合=当前回合；
+            //主体卡「广播前」快照（108008 用 Card.CloneNew 深克隆）
+            ctx.parent = prev;
+            if (ctx.turn <= 0)
+                ctx.turn = game_data.turn_count;
+            if (prev != null)
+                prev.children.Add(ctx);
+            if (ctx.card != null)
+                ctx.card_before = Card.CloneNew(ctx.card);
+            event_log.Add(ctx);
+            if (event_log.Count > EVENT_LOG_MAX)
+                event_log.RemoveRange(0, event_log.Count - EVENT_LOG_MAX);
             try
             {
                 //宿主收集：事件主体卡(extra_host，任意牌堆都能响应) 优先，随后双方全部区域卡
@@ -519,6 +565,9 @@ namespace TcgEngine.Gameplay
                     if (ctx.phase == GraphEventPhase.Before && ctx.cancelled)
                         break;  //先到先得：某宿主阻止后，后续监听者不再收到本事件
                 }
+                //主体卡「广播后」快照（108009 用）
+                if (ctx.card != null)
+                    ctx.card_after = Card.CloneNew(ctx.card);
                 return ctx.cancelled;
             }
             finally
@@ -726,6 +775,10 @@ namespace TcgEngine.Gameplay
         protected virtual void ClearTurnData()
         {
             game_data.selector = SelectorType.None;
+            game_data.selector_slot_index = 0;
+            game_data.selector_slot_nodes = null;
+            game_data.selector_selected_uids = null;
+            multi_target_results = null;
             resolve_queue.Clear();
             card_array.Clear();
             player_array.Clear();
@@ -906,6 +959,45 @@ namespace TcgEngine.Gameplay
                 onCardPlayed?.Invoke(card, slot);
                 resolve_queue.ResolveAll(0.3f);
             }
+        }
+
+        /// <summary>把任意牌堆（牌库/墓地/手牌/自定义堆）里的一张卡直接置入战场：
+        /// 不要求在手牌、不扣费，走与 PlayCard 相同的入场触发（入场/战吼、OnPlayOther）。
+        /// 返回是否成功（非法目标/格子被占/非战场卡返回 false）。供「卡牌置入战场(210002)」等节点使用。</summary>
+        public virtual bool PlaceCardOnBoard(Card card, Slot slot)
+        {
+            if (!game_data.CanPlaceCardOnBoard(card, slot))
+                return false;
+
+            Player player = game_data.GetPlayer(card.player_id);
+
+            //从当前所在牌堆摘除（RemoveCardFromAllGroups 覆盖 手牌/牌库/墓地/装备/奥秘/暂存/战场）
+            player.RemoveCardFromAllGroups(card);
+
+            //Add to board
+            player.cards_board.Add(card);
+            card.slot = slot;
+            card.AddStatus(StatusType.SummonDisorder, 0, 1);   //与 PlayCard 一致：当回合行动限制
+
+            //History
+            if (!is_ai_predict)
+                player.AddHistory(GameAction.PlayCard, card);
+            game_data.last_summoned = card.uid;
+
+            //Update ongoing effects
+            UpdateOngoing();
+
+            //Trigger abilities（与 PlayCard 的入场触发段保持一致）
+            TriggerSecrets(AbilityTrigger.OnPlayOther, card);
+            TriggerCardAbilityType(AbilityTrigger.OnPlay, card);
+            TriggerOtherCardsAbilityType(AbilityTrigger.OnPlayOther, card);
+
+            //Re-check ongoing effects after all abilities are triggered
+            UpdateOngoing();
+            RefreshData();
+
+            onCardSummoned?.Invoke(card, slot);
+            return true;
         }
 
         public virtual void MoveCard(Card card, Slot slot, bool skip_cost = false)
@@ -1330,6 +1422,23 @@ namespace TcgEngine.Gameplay
             }
         }
 
+        //统一伤害入口：按命中对象路由（Card=仆从/英雄卡，Player=玩家）。
+        //英雄=卡牌 最小路由：CardType.Hero 的卡在 DamageCard 入口转调 DamagePlayer，结算落回玩家 hp，
+        //节点编辑器（NodeDoc/规则图）只需调用本入口即可同时命中 仆从/英雄/玩家。
+        public virtual void DealDamage(Card source, object target, int value, bool spell_damage = false)
+        {
+            if (target is Player tplayer)
+            {
+                DamagePlayer(source, tplayer, value);
+                return;
+            }
+            if (target is Card tcard)
+            {
+                DamageCard(source, tcard, value, spell_damage);
+                return;
+            }
+        }
+
         //Damage a player
         public virtual void DamagePlayer(Card attacker, Player target, int value)
         {
@@ -1352,10 +1461,12 @@ namespace TcgEngine.Gameplay
             target.hp -= value;
             target.hp = Mathf.Clamp(target.hp, 0, target.hp_max);
 
-            //Lifesteal
-            Player aplayer = game_data.GetPlayer(attacker.player_id);
-            if (attacker.HasStatus(StatusType.LifeSteal))
+            //Lifesteal（attacker 可为 null：无来源伤害经英雄路由落到这里）
+            if (attacker != null && attacker.HasStatus(StatusType.LifeSteal))
+            {
+                Player aplayer = game_data.GetPlayer(attacker.player_id);
                 aplayer.hp += value;
+            }
 
             onPlayerDamaged?.Invoke(target, value);
 
@@ -1453,11 +1564,26 @@ namespace TcgEngine.Gameplay
             }
         }
 
+        //英雄=卡牌：CardType.Hero 的卡（存于 Player.hero，不占棋盘格）
+        private bool IsHeroCard(Card card)
+        {
+            return card != null && card.CardData != null && card.CardData.type == CardType.Hero;
+        }
+
         //Generic damage that doesnt come from another card
         public virtual void DamageCard(Card target, int value)
         {
             if (target == null)
                 return;
+
+            //英雄=卡牌 最小路由：英雄卡伤害落回玩家 hp（无来源，attacker 传 null）
+            if (IsHeroCard(target))
+            {
+                Player hero_player = game_data.GetPlayer(target.player_id);
+                if (hero_player != null)
+                    DamagePlayer(null, hero_player, value);
+                return;
+            }
 
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Invincible
@@ -1490,6 +1616,16 @@ namespace TcgEngine.Gameplay
         {
             if (attacker == null || target == null)
                 return;
+
+            //英雄=卡牌 最小路由：命中 CardType.Hero 的卡时转调玩家版，伤害落回玩家 hp
+            //（否则 damage 累加在英雄卡对象上不可见、且英雄不在 board 上永远不会被结算死亡——"打英雄有的行有的不行"的根因）
+            if (IsHeroCard(target))
+            {
+                Player hero_player = game_data.GetPlayer(target.player_id);
+                if (hero_player != null)
+                    DamagePlayer(attacker, hero_player, value);
+                return;
+            }
 
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Invincible
@@ -2598,6 +2734,17 @@ namespace TcgEngine.Gameplay
 
             if (game_data.selector == SelectorType.SelectTarget)
             {
+                //多目标（顺序逐槽）：本槽校验 → 记录结果 → 推进下一槽（不立即结算）
+                if (ability.HasTargetSlots())
+                {
+                    int node_slot = CurrentSelectSlotNode();
+                    if (!CanSelectForSlot(ability, caster, target, node_slot))
+                        return;
+                    StoreCurrentSlotResult(target.uid);
+                    Debug.Log("[多目标] 目标" + node_slot + " 选中 " + target.CardData?.id);
+                    return;
+                }
+
                 if (!ability.CanTarget(game_data, caster, target))
                     return; //Can't target that target
 
@@ -2638,6 +2785,18 @@ namespace TcgEngine.Gameplay
 
             if (game_data.selector == SelectorType.SelectTarget)
             {
+                //多目标：英雄格代表该玩家的英雄卡（与图条件用英雄卡代入的约定一致）
+                if (ability.HasTargetSlots())
+                {
+                    Card hero = target != null ? target.hero : null;
+                    int node_slot = CurrentSelectSlotNode();
+                    if (hero == null || !CanSelectForSlot(ability, caster, hero, node_slot))
+                        return;
+                    StoreCurrentSlotResult(hero.uid);
+                    Debug.Log("[多目标] 目标" + node_slot + " 选中英雄 p" + target.player_id);
+                    return;
+                }
+
                 if (!ability.CanTarget(game_data, caster, target))
                     return; //Can't target that target
 
@@ -2665,6 +2824,23 @@ namespace TcgEngine.Gameplay
 
             if (game_data.selector == SelectorType.SelectTarget)
             {
+                //多目标：格子候选 → 格内卡；英雄格 → 该玩家英雄卡（结算时按卡处理）
+                if (ability.HasTargetSlots())
+                {
+                    Card slot_card = game_data.GetSlotCard(target);
+                    if (slot_card == null && target.IsPlayerSlot())
+                    {
+                        Player sp = game_data.GetPlayer(target.p);
+                        slot_card = sp != null ? sp.hero : null;
+                    }
+                    int node_slot = CurrentSelectSlotNode();
+                    if (slot_card == null || !CanSelectForSlot(ability, caster, slot_card, node_slot))
+                        return;
+                    StoreCurrentSlotResult(slot_card.uid);
+                    Debug.Log("[多目标] 目标" + node_slot + " 选中 " + slot_card.CardData?.id + " @" + target);
+                    return;
+                }
+
                 if (!ability.CanTarget(game_data, caster, target))
                     return; //Conditions not met
 
@@ -2742,8 +2918,12 @@ namespace TcgEngine.Gameplay
                 if (game_data.selector == SelectorType.SelectorCost)
                     CancelPlayCard();
 
-                //End selection
+                //End selection（多目标：连同槽计划一起清掉）
                 game_data.selector = SelectorType.None;
+                game_data.selector_slot_index = 0;
+                game_data.selector_slot_nodes = null;
+                game_data.selector_selected_uids = null;
+                multi_target_results = null;
                 RefreshData();
             }
         }
@@ -2807,7 +2987,183 @@ namespace TcgEngine.Gameplay
             game_data.selector_player_id = caster.player_id;
             game_data.selector_ability_id = iability.id;
             game_data.selector_caster_uid = caster.uid;
+
+            //顺序逐槽多目标：建立槽计划（图槽号，可空洞），游标归零，然后自动跳过"无合法候选"的槽
+            if (iability.HasTargetSlots())
+            {
+                List<int> nodes = iability.GetSelectableSlotNodes();
+                game_data.selector_slot_nodes = nodes.ToArray();
+                game_data.selector_selected_uids = new string[nodes.Count];
+                game_data.selector_slot_index = 0;
+                RefreshData();
+                AdvanceSelectSlot(iability, caster);
+                return;
+            }
+
+            game_data.selector_slot_index = 0;
+            game_data.selector_slot_nodes = null;
+            game_data.selector_selected_uids = null;
             RefreshData();
+        }
+
+        //-----多目标（顺序逐槽选择）-----
+
+        /// <summary>顺序逐槽多目标的选择结果：图槽号 → 选中的卡（仅结算期间有效，供 EffectRunGraph 读取）</summary>
+        public Dictionary<int, Card> GetMultiTargetResults()
+        {
+            return multi_target_results;
+        }
+
+        /// <summary>当前正在选择的图槽号（非多目标选择态返回 0）</summary>
+        public int CurrentSelectSlotNode()
+        {
+            return game_data.CurrentSelectSlotNode();
+        }
+
+        /// <summary>该 uid 是否已被前面的槽选走（多目标：同一张卡不可被两个槽选中）</summary>
+        private bool IsAlreadySelected(string uid)
+        {
+            return game_data.IsSlotTargetSelected(uid);
+        }
+
+        /// <summary>目标能否被指定槽选中：全局条件 + 槽私有条件 +（开启"目标去重"时）未被前面的槽选过</summary>
+        public bool CanSelectForSlot(AbilityData ability, Card caster, Card target, int node_slot)
+        {
+            if (ability == null || caster == null || target == null)
+                return false;
+            if (!ability.CanTarget(game_data, caster, target))
+                return false;
+            if (!ability.AreSlotConditionsMet(game_data, caster, target, node_slot))
+                return false;
+            if (ability.UseTargetDedupe() && IsAlreadySelected(target.uid))
+                return false;
+            return true;
+        }
+
+        /// <summary>当前多目标槽的合法候选卡（AI 决策 / UI 高亮用；非多目标返回空列表）</summary>
+        public List<Card> GetCurrentSlotCandidates(AbilityData ability, Card caster)
+        {
+            List<Card> list = new List<Card>();
+            int node_slot = CurrentSelectSlotNode();
+            if (node_slot <= 0 || ability == null || caster == null)
+                return list;
+            foreach (Player p in game_data.players)
+            {
+                if (p == null || p.cards_board == null)
+                    continue;
+                foreach (Card c in p.cards_board)
+                {
+                    if (c != null && CanSelectForSlot(ability, caster, c, node_slot))
+                        list.Add(c);
+                }
+            }
+            return list;
+        }
+
+        /// <summary>某槽是否至少有一张合法候选（用于自动跳过）。候选范围=双方场上卡 + 英雄（SelectTarget 通道）。</summary>
+        private bool SlotHasCandidate(AbilityData ability, Card caster, int node_slot)
+        {
+            foreach (Player p in game_data.players)
+            {
+                if (p == null)
+                    continue;
+                if (p.cards_board != null)
+                {
+                    foreach (Card c in p.cards_board)
+                    {
+                        if (c != null && CanSelectForSlot(ability, caster, c, node_slot))
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>记录当前槽的选择结果并推进：跳过的槽留 null（§决策：无合法目标=跳过该槽，不拦截结算）</summary>
+        private void StoreCurrentSlotResult(string uid)
+        {
+            game_data.selector_selected_uids[game_data.selector_slot_index] = uid;
+            game_data.selector_slot_index++;
+            Card caster = game_data.GetCard(game_data.selector_caster_uid);
+            AbilityData ability = AbilityData.Get(game_data.selector_ability_id);
+            if (caster != null && ability != null)
+                AdvanceSelectSlot(ability, caster);
+        }
+
+        /// <summary>推进到下一个"有合法候选"的槽；无候选的槽记为跳过并提示其 error 文案；全部处理完则统一结算。</summary>
+        private void AdvanceSelectSlot(AbilityData ability, Card caster)
+        {
+            if (game_data.selector_slot_nodes == null || game_data.selector_selected_uids == null)
+                return;
+            while (game_data.selector_slot_index < game_data.selector_slot_nodes.Length)
+            {
+                int node_slot = game_data.selector_slot_nodes[game_data.selector_slot_index];
+                if (SlotHasCandidate(ability, caster, node_slot))
+                {
+                    RefreshData();
+                    return;     //停在该槽等玩家选
+                }
+                AbilityTargetSlot spec = ability.GetTargetSlot(node_slot);
+                string err = spec != null ? spec.error : "";
+                Debug.Log("[多目标] 目标" + node_slot + " 无合法目标，已跳过" + (string.IsNullOrEmpty(err) ? "" : "（" + err + "）"));
+                game_data.selector_selected_uids[game_data.selector_slot_index] = null;
+                game_data.selector_slot_index++;
+            }
+            FinishMultiTarget(ability, caster);
+        }
+
+        /// <summary>玩家/ AI 主动跳过当前槽（UI「跳过此目标」按钮）</summary>
+        public virtual void SkipCurrentSelectSlot()
+        {
+            if (game_data.selector != SelectorType.SelectTarget || game_data.selector_slot_nodes == null)
+                return;
+            Card caster = game_data.GetCard(game_data.selector_caster_uid);
+            AbilityData ability = AbilityData.Get(game_data.selector_ability_id);
+            if (caster == null || ability == null)
+                return;
+            if (game_data.selector_slot_index < 0 || game_data.selector_slot_index >= game_data.selector_selected_uids.Length)
+                return;
+            int node_slot = game_data.selector_slot_nodes[game_data.selector_slot_index];
+            Debug.Log("[多目标] 目标" + node_slot + " 被跳过");
+            game_data.selector_selected_uids[game_data.selector_slot_index] = null;
+            game_data.selector_slot_index++;
+            AdvanceSelectSlot(ability, caster);
+        }
+
+        /// <summary>全部槽处理完：关掉选择态 → 槽号→卡 映射交给 EffectRunGraph → 效果只结算一次。</summary>
+        private void FinishMultiTarget(AbilityData ability, Card caster)
+        {
+            game_data.selector = SelectorType.None;
+
+            Dictionary<int, Card> results = new Dictionary<int, Card>();
+            if (game_data.selector_slot_nodes != null && game_data.selector_selected_uids != null)
+            {
+                for (int i = 0; i < game_data.selector_slot_nodes.Length && i < game_data.selector_selected_uids.Length; i++)
+                {
+                    string uid = game_data.selector_selected_uids[i];
+                    Card c = string.IsNullOrEmpty(uid) ? null : game_data.GetCard(uid);
+                    results[game_data.selector_slot_nodes[i]] = c;   //null=该槽被跳过/留空
+                }
+            }
+            game_data.selector_slot_index = 0;
+            game_data.selector_slot_nodes = null;
+            game_data.selector_selected_uids = null;
+
+            Player player = game_data.GetPlayer(caster.player_id);
+            if (!is_ai_predict && player != null)
+                player.AddHistory(GameAction.CastAbility, caster, ability);   //多目标只记一条历史（不逐槽刷屏）
+
+            multi_target_results = results;
+            try
+            {
+                ability.DoEffects(this, caster);   //无目标重载：EffectRunGraph 读多目标映射，整张图只跑一次
+                AfterAbilityResolved(ability, caster);
+                resolve_queue.ResolveAll();
+            }
+            finally
+            {
+                multi_target_results = null;
+            }
         }
 
         protected virtual void GoToSelectorCard(AbilityData iability, Card caster)
