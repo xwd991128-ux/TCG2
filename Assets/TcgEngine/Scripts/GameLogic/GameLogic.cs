@@ -1484,11 +1484,36 @@ namespace TcgEngine.Gameplay
             }
         }
 
+        //统一治疗入口：按命中对象路由（Card=仆从/英雄卡，Player=玩家）。
+        //英雄=卡牌 最小路由：CardType.Hero 的卡在 HealCard 入口转调 HealPlayer，治疗落回玩家 hp。
+        public virtual void Heal(object source, object target, int value)
+        {
+            if (target is Player tplayer)
+            {
+                HealPlayer(tplayer, value);
+                return;
+            }
+            if (target is Card tcard)
+            {
+                HealCard(tcard, value);
+                return;
+            }
+        }
+
         //Heal a card
         public virtual void HealCard(Card target, int value)
         {
             if (target == null)
                 return;
+
+            //英雄=卡牌 最小路由：英雄卡治疗落回玩家 hp（治疗量 clamp 由 HealPlayer 内部处理，行为不变）
+            if (IsHeroCard(target))
+            {
+                Player hero_player = game_data.GetPlayer(target.player_id);
+                if (hero_player != null)
+                    HealPlayer(hero_player, value);
+                return;
+            }
 
             if (target.HasStatus(StatusType.Invincibility))
                 return;
