@@ -1040,123 +1040,153 @@ namespace TcgEngine.Gameplay
             }
         }
 
-        public virtual void AttackTarget(Card attacker, Card target, bool skip_cost = false)
+        //----- 攻击（统一骨架：仆从/英雄/玩家 共用一条链，差异仅命中落点与回调组） -----
+        //英雄=卡牌 最小路由：命中 CardType.Hero 的卡时走 DamagePlayer（不发生英雄反击），
+        //旧入口 AttackTarget/AttackPlayer 及 Resolve* 链全部保留为转发，回调时点与参数不变。
+
+        //统一攻击入口：按命中对象路由（Card=仆从/英雄卡，Player=玩家），供节点编辑器等统一调用
+        public virtual void Attack(Card attacker, object target, bool skip_cost = false)
         {
-            if (game_data.CanAttackTarget(attacker, target, skip_cost))
+            if (target is Player tplayer)
             {
-                Player player = game_data.GetPlayer(attacker.player_id);
-                if (!is_ai_predict)
-                    player.AddHistory(GameAction.Attack, attacker, target);
-
-                game_data.last_target = target.uid;
-
-                //Trigger before attack abilities
-                TriggerCardAbilityType(AbilityTrigger.OnBeforeAttack, attacker, target);
-                TriggerCardAbilityType(AbilityTrigger.OnBeforeDefend, target, attacker);
-                TriggerSecrets(AbilityTrigger.OnBeforeAttack, attacker);
-                TriggerSecrets(AbilityTrigger.OnBeforeDefend, target);
-
-                //Resolve attack
-                resolve_queue.AddAttack(attacker, target, ResolveAttack, skip_cost);
-                resolve_queue.ResolveAll();
-
-
-                //Debug.Log(attacker.GetStatus(StatusType.Haste));
-                //Debug.Log(attacker.GetStatus(StatusType.Fury));
+                AttackPlayer(attacker, tplayer, skip_cost);
+                return;
+            }
+            if (target is Card tcard)
+            {
+                AttackTarget(attacker, tcard, skip_cost);
+                return;
             }
         }
 
-        protected virtual void ResolveAttack(Card attacker, Card target, bool skip_cost)
+        //攻击场上卡牌（旧入口保留：转发统一骨架）
+        public virtual void AttackTarget(Card attacker, Card target, bool skip_cost = false)
         {
-            if (!game_data.IsOnBoard(attacker) || !game_data.IsOnBoard(target))
-                return;
-
-            onAttackStart?.Invoke(attacker, target);
-
-            attacker.RemoveStatus(StatusType.Stealth);
-            UpdateOngoing();
-
-            resolve_queue.AddAttack(attacker, target, ResolveAttackHit, skip_cost);
-            resolve_queue.ResolveAll(0.3f);
+            StartAttack(attacker, target, null, skip_cost, false);
         }
 
-        protected virtual void ResolveAttackHit(Card attacker, Card target, bool skip_cost)
-        {
-            //Count attack damage
-            int datt1 = attacker.GetAttack();
-            int datt2 = target.GetAttack();
-
-            //Damage Cards
-            DamageCard(attacker, target, datt1);
-
-            //Counter Damage
-            if (!attacker.HasStatus(StatusType.FirstStrike))
-                DamageCard(target, attacker, datt2);
-
-            //Save attack and exhaust
-            if (!skip_cost)
-                ExhaustBattle(attacker);
-
-            //Recalculate bonus
-            UpdateOngoing();
-
-            //Abilities
-            bool att_board = game_data.IsOnBoard(attacker);
-            bool def_board = game_data.IsOnBoard(target);
-            if (att_board)
-                TriggerCardAbilityType(AbilityTrigger.OnAfterAttack, attacker, target);
-            if (def_board)
-                TriggerCardAbilityType(AbilityTrigger.OnAfterDefend, target, attacker);
-            if (att_board)
-                TriggerSecrets(AbilityTrigger.OnAfterAttack, attacker);
-            if (def_board)
-                TriggerSecrets(AbilityTrigger.OnAfterDefend, target);
-
-            onAttackEnd?.Invoke(attacker, target);
-            RefreshData();
-            CheckForWinner();
-
-            resolve_queue.ResolveAll(0.2f);
-        }
-
+        //攻击玩家（旧入口保留：转发统一骨架）
         public virtual void AttackPlayer(Card attacker, Player target, bool skip_cost = false)
         {
-            if (attacker == null || target == null)
+            StartAttack(attacker, null, target, skip_cost, true);
+        }
+
+        //统一攻击入口段：合法性/历史/战前能力与秘术（两组触发顺序与旧实现逐条一致）
+        private void StartAttack(Card attacker, Card target_card, Player target_player, bool skip_cost, bool vs_player)
+        {
+            if (attacker == null || (vs_player && target_player == null) || (!vs_player && target_card == null))
                 return;
 
-            if (!game_data.CanAttackTarget(attacker, target, skip_cost))
+            bool can_attack = vs_player
+                ? game_data.CanAttackTarget(attacker, target_player, skip_cost)
+                : game_data.CanAttackTarget(attacker, target_card, skip_cost);
+            if (!can_attack)
                 return;
 
             Player player = game_data.GetPlayer(attacker.player_id);
             if (!is_ai_predict)
-                player.AddHistory(GameAction.AttackPlayer, attacker, target);
+            {
+                if (vs_player)
+                    player.AddHistory(GameAction.AttackPlayer, attacker, target_player);
+                else
+                    player.AddHistory(GameAction.Attack, attacker, target_card);
+            }
 
-            //Resolve abilities
-            TriggerSecrets(AbilityTrigger.OnBeforeAttack, attacker);
-            TriggerCardAbilityType(AbilityTrigger.OnBeforeAttack, attacker, target);
+            //旧 AttackPlayer 不写 last_target，保持一致
+            if (!vs_player)
+                game_data.last_target = target_card.uid;
+
+            //Trigger before attack abilities（打卡：能力先/秘术后；打玩家：秘术先/能力后——与旧实现一致）
+            if (vs_player)
+            {
+                TriggerSecrets(AbilityTrigger.OnBeforeAttack, attacker);
+                TriggerCardAbilityType(AbilityTrigger.OnBeforeAttack, attacker, target_player);
+            }
+            else
+            {
+                TriggerCardAbilityType(AbilityTrigger.OnBeforeAttack, attacker, target_card);
+                TriggerCardAbilityType(AbilityTrigger.OnBeforeDefend, target_card, attacker);
+                TriggerSecrets(AbilityTrigger.OnBeforeAttack, attacker);
+                TriggerSecrets(AbilityTrigger.OnBeforeDefend, target_card);
+            }
 
             //Resolve attack
-            resolve_queue.AddAttack(attacker, target, ResolveAttackPlayer, skip_cost);
+            if (vs_player)
+                resolve_queue.AddAttack(attacker, target_player, ResolveAttackPlayer, skip_cost);
+            else
+                resolve_queue.AddAttack(attacker, target_card, ResolveAttack, skip_cost);
             resolve_queue.ResolveAll();
+        }
+
+        //攻击结算第一段（旧签名保留：转发统一链；RedirectAttack 仍引用本方法）
+        protected virtual void ResolveAttack(Card attacker, Card target, bool skip_cost)
+        {
+            ResolveAttackStart(attacker, target, null, skip_cost, false);
         }
 
         protected virtual void ResolveAttackPlayer(Card attacker, Player target, bool skip_cost)
         {
+            ResolveAttackStart(attacker, null, target, skip_cost, true);
+        }
+
+        //统一攻击结算第一段：隐去/秘术准备，入队命中段
+        private void ResolveAttackStart(Card attacker, Card target_card, Player target_player, bool skip_cost, bool vs_player)
+        {
             if (!game_data.IsOnBoard(attacker))
                 return;
+            if (!vs_player && (target_card == null || !game_data.IsOnBoard(target_card)))
+                return;
 
-            onAttackPlayerStart?.Invoke(attacker, target);
+            if (vs_player)
+                onAttackPlayerStart?.Invoke(attacker, target_player);
+            else
+                onAttackStart?.Invoke(attacker, target_card);
 
             attacker.RemoveStatus(StatusType.Stealth);
             UpdateOngoing();
 
-            resolve_queue.AddAttack(attacker, target, ResolveAttackPlayerHit, skip_cost);
+            if (vs_player)
+                resolve_queue.AddAttack(attacker, target_player, ResolveAttackPlayerHit, skip_cost);
+            else
+                resolve_queue.AddAttack(attacker, target_card, ResolveAttackHit, skip_cost);
             resolve_queue.ResolveAll(0.3f);
+        }
+
+        //攻击结算命中段（旧签名保留：转发统一链）
+        protected virtual void ResolveAttackHit(Card attacker, Card target, bool skip_cost)
+        {
+            ResolveAttackHitCore(attacker, target, null, skip_cost, false);
         }
 
         protected virtual void ResolveAttackPlayerHit(Card attacker, Player target, bool skip_cost)
         {
-            DamagePlayer(attacker, target, attacker.GetAttack());
+            ResolveAttackHitCore(attacker, null, target, skip_cost, true);
+        }
+
+        //统一命中段：差异仅命中落点（Player 直接 DamagePlayer；Card 为英雄时经最小路由调 DamagePlayer，
+        //英雄不参与反击伤害；仆从保留 反击/先攻/护甲/免疫/践踏/吸血/致死 的原伤害链）
+        private void ResolveAttackHitCore(Card attacker, Card target_card, Player target_player, bool skip_cost, bool vs_player)
+        {
+            if (vs_player)
+            {
+                DamagePlayer(attacker, target_player, attacker.GetAttack());
+            }
+            else
+            {
+                if (target_card == null)
+                    return;
+
+                //Count attack damage
+                int datt1 = attacker.GetAttack();
+                int datt2 = target_card.GetAttack();
+
+                //Damage Cards（英雄卡在 DamageCard 入口路由为 DamagePlayer，落回玩家 hp）
+                DamageCard(attacker, target_card, datt1);
+
+                //Counter Damage（英雄不反击：英雄命中已在上方路由，走不到这里）
+                if (!attacker.HasStatus(StatusType.FirstStrike))
+                    DamageCard(target_card, attacker, datt2);
+            }
 
             //Save attack and exhaust
             if (!skip_cost)
@@ -1165,12 +1195,32 @@ namespace TcgEngine.Gameplay
             //Recalculate bonus
             UpdateOngoing();
 
-            if (game_data.IsOnBoard(attacker))
-                TriggerCardAbilityType(AbilityTrigger.OnAfterAttack, attacker, target);
+            //Abilities（打玩家：无 OnAfterDefend；秘术仅在攻击者存活时触发——与旧实现一致）
+            bool att_board = game_data.IsOnBoard(attacker);
+            if (vs_player)
+            {
+                if (att_board)
+                    TriggerCardAbilityType(AbilityTrigger.OnAfterAttack, attacker, target_player);
+                TriggerSecrets(AbilityTrigger.OnAfterAttack, attacker);
+            }
+            else
+            {
+                bool def_board = game_data.IsOnBoard(target_card);
+                if (att_board)
+                    TriggerCardAbilityType(AbilityTrigger.OnAfterAttack, attacker, target_card);
+                if (def_board)
+                    TriggerCardAbilityType(AbilityTrigger.OnAfterDefend, target_card, attacker);
+                if (att_board)
+                    TriggerSecrets(AbilityTrigger.OnAfterAttack, attacker);
+                if (def_board)
+                    TriggerSecrets(AbilityTrigger.OnAfterDefend, target_card);
+            }
 
-            TriggerSecrets(AbilityTrigger.OnAfterAttack, attacker);
+            if (vs_player)
+                onAttackPlayerEnd?.Invoke(attacker, target_player);
+            else
+                onAttackEnd?.Invoke(attacker, target_card);
 
-            onAttackPlayerEnd?.Invoke(attacker, target);
             RefreshData();
             CheckForWinner();
 
