@@ -61,6 +61,8 @@ namespace TcgEngine.UI
             active = true;
             if (ui_panel != null)
                 ui_panel.Show();
+            else
+                Debug.LogWarning("TabButton「" + gameObject.name + "」未绑定 ui_panel：点击后其它页面被隐藏，但没有任何页面显示（表现为黑屏）。请重新运行对应的生成工具修复绑定。");
         }
 
         public void Deactivate()

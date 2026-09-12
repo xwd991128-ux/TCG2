@@ -57,6 +57,22 @@ namespace TcgEngine.Workshop
         private static List<string> categories;
         private static bool tried;
 
+        /// <summary>
+        /// 英文命名节点 → 中文名（信达雅）：
+        /// 文档里 112001~112006 六条节点沿用了英文标识（BooleanConst/Compare/IntegerConst/
+        /// IntegerOperation/LogicOperation/StringConst），此处统一译名，库内/画布/运行日志一律显示中文。
+        /// 译名兼顾 zmcs 术语习惯：「常量」对 Const，「运算」对 Operation，「比较」对 Compare。
+        /// </summary>
+        private static readonly Dictionary<string, string> CnNames = new Dictionary<string, string>
+        {
+            { "112001", "布尔常量" },   // BooleanConst
+            { "112002", "比较" },       // Compare
+            { "112003", "整数常量" },   // IntegerConst
+            { "112004", "整数运算" },   // IntegerOperation
+            { "112005", "逻辑运算" },   // LogicOperation
+            { "112006", "字符串常量" }, // StringConst
+        };
+
         /// <summary>zmcs 主题分类的稳定展示顺序（NodeDoc.xml 中出现顺序）</summary>
         public static IReadOnlyList<string> Categories
         {
@@ -126,7 +142,10 @@ namespace TcgEngine.Workshop
                 return null;
             NodeDocDef def = new NodeDocDef();
             def.define_id = id;
-            def.editor_name = Text(node, "editorName") ?? id;
+            string raw_name = Text(node, "editorName");
+            //英文命名节点优先取中文译名（信达雅），其余节点用文档原名
+            def.editor_name = (raw_name != null && CnNames.TryGetValue(id, out string cn)) ? cn
+                : (raw_name ?? id);
             def.category = Text(node, "category") ?? "其他";
             def.summary = Inner(node, "summary");
             def.example = Inner(node, "example");

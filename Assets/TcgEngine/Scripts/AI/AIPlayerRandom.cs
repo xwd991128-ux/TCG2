@@ -130,9 +130,14 @@ namespace TcgEngine.AI
 
             SelectTarget();
 
-            yield return new WaitForSeconds(0.5f);
-
-            CancelSelect();
+            //多目标：选择态必须保持打开推进下一个槽，不能 CancelSelect（那会取消整次施法）
+            Game game_data = gameplay.GetGameData();
+            AbilityData ability = AbilityData.Get(game_data != null ? game_data.selector_ability_id : null);
+            if (ability == null || !ability.HasTargetSlots())
+            {
+                yield return new WaitForSeconds(0.5f);
+                CancelSelect();
+            }
             is_selecting = false;
         }
 
@@ -255,8 +260,21 @@ namespace TcgEngine.AI
             Game game_data = gameplay.GetGameData();
             if (game_data.selector != SelectorType.None)
             {
-                int target_player = player_id;
                 AbilityData ability = AbilityData.Get(game_data.selector_ability_id);
+
+                //多目标（顺序逐槽）：按"当前槽"的合法候选随机选一张；无候选则跳过该槽（不取消整次施法）
+                if (ability != null && ability.HasTargetSlots())
+                {
+                    Card caster = game_data.GetCard(game_data.selector_caster_uid);
+                    List<Card> cands = gameplay.GetCurrentSlotCandidates(ability, caster);
+                    if (cands.Count > 0)
+                        gameplay.SelectCard(cands[rand.Next(0, cands.Count)]);
+                    else
+                        gameplay.SkipCurrentSelectSlot();
+                    return;
+                }
+
+                int target_player = player_id;
                 if (ability != null && ability.target == AbilityTarget.SelectTarget)
                     target_player = (player_id == 0 ? 1 : 0);
 

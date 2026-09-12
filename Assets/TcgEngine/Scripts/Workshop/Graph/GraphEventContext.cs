@@ -28,5 +28,13 @@ namespace TcgEngine.Workshop
         public string tags;            // 入口「标签列表」（战吼/亡语等自定义标签，供判断）
         public bool cancelled;         // 已被「阻止本事件」置位（仅 Before 事件有效）
         public Dictionary<string, object> vars;   // 自定义效果属性（事件自定义变量：入口「自定义效果属性」声明，获取/设置变量按名读写）
+
+        // ---- 事件日志/事件家族（108xxx/208009）用元数据；不序列化，仅运行期存在 ----
+        public int turn;               // 事件发生的回合数（EmitGraphEvent 落日志时填 game_data.turn_count）
+        public int repeat = 1;         // 事件重复次数（默认 1；208009 可改，供 108010 读）
+        public GraphEventContext parent;   // 父事件（广播嵌套：外层事件）
+        public List<GraphEventContext> children = new List<GraphEventContext>();   // 直接子事件
+        public Card card_before;       // 事件主体卡在广播前/后的快照（108008/108009 用；Card.CloneNew 深克隆）
+        public Card card_after;
     }
 }

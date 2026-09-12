@@ -21,9 +21,10 @@ namespace TcgEngine.UI
         private const string MENU = "TcgEngine/卡池管理/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
         //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
-        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
-        private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
+        //资源路径统一登记在 UITheme（全项目只定义一次）
+        private const string FONT_PATH = UITheme.FontPath;
+        private const string FONT_FALLBACK_PATH = UITheme.FontFallbackPath;
+        private const string EXIT_ICON_PATH = UITheme.ExitIconPath;
 
         private static Font _font;
 
@@ -120,7 +121,7 @@ namespace TcgEngine.UI
 
         private static Button BuildFilterButton(Transform parent)
         {
-            Button btn = CreateButton("FilterButton", parent, "筛选", _font, 26, new Color(0.5f, 0.78f, 1f, 0.35f));
+            Button btn = CreateButton("FilterButton", parent, "筛选", _font, UITheme.FontButton, new Color(0.5f, 0.78f, 1f, 0.35f));
             RectTransform rt = btn.GetComponent<RectTransform>();
             //锚定全屏左上角；TopBar 覆盖屏幕顶部约 145px，按钮放到其下方留白区（网格顶部 20% 处）
             rt.anchorMin = new Vector2(0f, 1f);
@@ -149,7 +150,7 @@ namespace TcgEngine.UI
             RectTransform mask = CreateRect("FilterMask", root);
             SetStretch(mask);
             Image mask_img = mask.gameObject.AddComponent<Image>();
-            mask_img.color = new Color(0, 0, 0, 0.6f);
+            mask_img.color = UITheme.MaskPopup;   //弹层遮罩统一令牌（原 0.6，P3 收口到 0.55）
             Button mask_btn = mask.gameObject.AddComponent<Button>();
             mask_btn.targetGraphic = mask_img;
             mask_btn.onClick.AddListener(() => panel.Hide());
@@ -164,8 +165,8 @@ namespace TcgEngine.UI
             Image dock_img = dock.gameObject.AddComponent<Image>();
             dock_img.color = new Color(0.06f, 0.07f, 0.09f, 0.98f);
 
-            //标题
-            Text title = CreateText("FilterTitle", dock, "筛选", _font, 34, new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
+            //标题：字号/颜色统一走 UITheme 令牌（P3）
+            Text title = CreateText("FilterTitle", dock, "筛选", _font, UITheme.FontPageTitle, UITheme.TextTitle, TextAnchor.MiddleLeft);
             RectTransform title_rt = title.rectTransform;
             title_rt.anchorMin = new Vector2(0, 1);
             title_rt.anchorMax = new Vector2(1, 1);
@@ -175,7 +176,7 @@ namespace TcgEngine.UI
             title_rt.offsetMin = new Vector2(24, title_rt.offsetMin.y);
 
             //关闭按钮
-            Button close = CreateButton("FilterCloseBtn", dock, "X", _font, 28, new Color(1, 1, 1, 0.2f));
+            Button close = CreateButton("FilterCloseBtn", dock, "X", _font, UITheme.FontButton, new Color(1, 1, 1, 0.2f));
             RectTransform close_rt = close.GetComponent<RectTransform>();
             close_rt.anchorMin = new Vector2(1, 1);
             close_rt.anchorMax = new Vector2(1, 1);
@@ -212,7 +213,7 @@ namespace TcgEngine.UI
             content.sizeDelta = new Vector2(0, 400);
 
             VerticalLayoutGroup layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 6f;
+            layout.spacing = UITheme.GapSm;
             layout.padding = new RectOffset(20, 20, 12, 12);
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
@@ -297,7 +298,7 @@ namespace TcgEngine.UI
                 RectTransform row = CreateRect("CostRow", content);
                 row.sizeDelta = new Vector2(0, 40);
                 HorizontalLayoutGroup hlayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-                hlayout.spacing = 12f;
+                hlayout.spacing = UITheme.GapLg;
                 hlayout.childControlWidth = true;
                 hlayout.childControlHeight = false;
                 hlayout.childForceExpandWidth = true;
@@ -312,29 +313,9 @@ namespace TcgEngine.UI
         private static void BuildSectionSearch(Transform content)
         {
             CreateLabel(content, "牌名搜索");
-            RectTransform input_rt = CreateRect("FilterSearchInput", content);
-            input_rt.sizeDelta = new Vector2(0, 44);
-            Image input_bg = input_rt.gameObject.AddComponent<Image>();
-            input_bg.color = new Color(1, 1, 1, 0.25f);
-            InputField input = input_rt.gameObject.AddComponent<InputField>();
-
-            Text placeholder = CreateText("Placeholder", input_rt, "输入卡牌名称（模糊匹配）", _font, 20, new Color(1, 1, 1, 0.5f), TextAnchor.MiddleLeft);
-            RectTransform ph_rt = placeholder.rectTransform;
-            ph_rt.anchorMin = Vector2.zero;
-            ph_rt.anchorMax = Vector2.one;
-            ph_rt.offsetMin = new Vector2(12, 0);
-            ph_rt.offsetMax = Vector2.zero;
-
-            Text display = CreateText("Text", input_rt, "", _font, 20, Color.white, TextAnchor.MiddleLeft);
-            RectTransform d_rt = display.rectTransform;
-            d_rt.anchorMin = Vector2.zero;
-            d_rt.anchorMax = Vector2.one;
-            d_rt.offsetMin = new Vector2(12, 0);
-            d_rt.offsetMax = Vector2.zero;
-
-            input.targetGraphic = input_bg;
-            input.textComponent = display;
-            input.placeholder = placeholder;
+            //输入框统一走 UIFactory（底色/占位色/字号取 UITheme 令牌）
+            InputField input = UIFactory.CreateLegacyInputField("FilterSearchInput", content, "输入卡牌名称（模糊匹配）", _font);
+            input.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 44);
         }
 
         private static void BuildSectionFoil(Transform content)
@@ -361,7 +342,7 @@ namespace TcgEngine.UI
 
         private static Text CreateLabel(Transform parent, string text)
         {
-            Text t = CreateText("SectionLabel", parent, text, _font, 24, new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
+            Text t = CreateText("SectionLabel", parent, text, _font, UITheme.FontSection, UITheme.TextTitle, TextAnchor.MiddleLeft);
             t.rectTransform.sizeDelta = new Vector2(0, 40);
             return t;
         }
@@ -414,12 +395,12 @@ namespace TcgEngine.UI
             rt.sizeDelta = new Vector2(0, 44);
 
             Image img = go.GetComponent<Image>();
-            img.color = new Color(1, 1, 1, 0.25f);
+            img.color = UITheme.FieldBg;   //下拉框底统一走令牌（P3）
 
             Dropdown dd = go.GetComponent<Dropdown>();
             dd.targetGraphic = img;
 
-            Text caption = CreateText("Label", go.transform, options.Length > 0 ? options[0] : "", _font, 22, Color.white, TextAnchor.MiddleLeft);
+            Text caption = CreateText("Label", go.transform, options.Length > 0 ? options[0] : "", _font, UITheme.FontBody, UITheme.TextBody, TextAnchor.MiddleLeft);
             RectTransform caption_rt = caption.rectTransform;
             caption_rt.anchorMin = Vector2.zero;
             caption_rt.anchorMax = Vector2.one;
@@ -486,7 +467,7 @@ namespace TcgEngine.UI
             RectTransform item_bg = CreateRect("Item Background", item);
             SetStretch(item_bg);
             Image item_bg_img = item_bg.gameObject.AddComponent<Image>();
-            item_bg_img.color = new Color(1, 1, 1, 0.1f);
+            item_bg_img.color = UITheme.CtrlWeak;
             item_bg_img.raycastTarget = false; //视觉层，不拦截射线
 
             Toggle item_toggle = item.gameObject.AddComponent<Toggle>();
@@ -509,8 +490,8 @@ namespace TcgEngine.UI
             item_label.offsetMax = new Vector2(-10, 0);
             Text item_text = item_label.gameObject.AddComponent<Text>();
             item_text.font = _font;
-            item_text.fontSize = 20;
-            item_text.color = Color.white;
+            item_text.fontSize = UITheme.FontBody;
+            item_text.color = UITheme.TextBody;
             item_text.alignment = TextAnchor.MiddleLeft;
 
             scroll.viewport = viewport;
@@ -528,73 +509,18 @@ namespace TcgEngine.UI
                 Object.DestroyImmediate(go);
         }
 
+        // ---------------- 通用控件工厂：统一转发到 UIFactory（等价搬迁，调用点零改动） ----------------
+
         private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            return rt;
-        }
+            => UIFactory.CreateRect(name, parent);
 
         private static void SetStretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
+            => UIFactory.SetStretch(rt);
 
         private static Text CreateText(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            Text txt = go.GetComponent<Text>();
-            txt.text = text;
-            txt.font = font;
-            txt.fontSize = size;
-            txt.fontStyle = FontStyle.Normal;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            txt.verticalOverflow = VerticalWrapMode.Overflow;
-            return txt;
-        }
+            => UIFactory.CreateText(name, parent, text, font, size, color, align);
 
         private static Button CreateButton(string name, Transform parent, string label, Font font, int size, Color bg_color)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = bg_color;
-            Button btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-
-            ColorBlock colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.fadeDuration = 0.1f;
-            btn.colors = colors;
-
-            // 取消/关闭/返回按钮：用 exit.png 图标替换文字
-            if (name.Contains("CloseBtn") || name.Contains("ReturnBtn") || name.Contains("ExitBtn"))
-            {
-                Sprite exit_sprite = AssetDatabase.LoadAssetAtPath<Sprite>(EXIT_ICON_PATH);
-                if (exit_sprite != null)
-                {
-                    img.sprite = exit_sprite;
-                    img.type = Image.Type.Simple;
-                    img.color = Color.white;
-                    img.raycastTarget = true;
-                }
-            }
-            else
-            {
-                Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-                SetStretch(txt.rectTransform);
-            }
-            return btn;
-        }
+            => UIFactory.CreateButton(name, parent, label, font, size, bg_color);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TcgEngine.Gameplay;
@@ -22,6 +23,20 @@ namespace TcgEngine
         public AbilityTarget target;               //WHO is targeted?
         public ConditionData[] conditions_target;  //Condition checked on the target to know if its a valid taget
         public FilterData[] filters_target;  //Condition checked on the target to know if its a valid taget
+
+        //多目标（zmcs「目标1..N」）：顺序逐槽选择。槽号来自图节点字段，允许空洞（删中间槽不重排编号）。
+        //multi_target 为 false 时 target_slots 不参与运行，保持旧的单目标行为。
+        [Header("Target Slots (顺序逐槽多目标)")]
+        public bool multi_target;
+        public AbilityTargetSlot[] target_slots;
+        [Tooltip("true=同一张卡只能被一个槽选中（目标去重）；false=允许多个槽选同一张")]
+        public bool unique_targets;
+
+        /// <summary>目标去重是否生效：仅配置了 ≥2 个可选目标槽时才有意义（单目标不存在"重复"）</summary>
+        public bool UseTargetDedupe()
+        {
+            return unique_targets && target_slots != null && target_slots.Length >= 2;
+        }
 
         [Header("Effect")]
         public EffectData[] effects;              //WHAT this does?
@@ -619,6 +634,91 @@ namespace TcgEngine
             return target == AbilityTarget.SelectTarget || target == AbilityTarget.CardSelector || target == AbilityTarget.ChoiceSelector;
         }
 
+        // ---------------- 多目标槽（zmcs 目标1..N） ----------------
+
+        /// <summary>是否配置了多目标槽（顺序逐槽选择）</summary>
+        public bool HasTargetSlots()
+        {
+            return multi_target && target_slots != null && target_slots.Length > 0;
+        }
+
+        /// <summary>取图槽号对应的槽定义；无则 null</summary>
+        public AbilityTargetSlot GetTargetSlot(int node_slot)
+        {
+            if (target_slots == null)
+                return null;
+            foreach (AbilityTargetSlot slot in target_slots)
+            {
+                if (slot != null && slot.node_slot == node_slot)
+                    return slot;
+            }
+            return null;
+        }
+
+        /// <summary>该槽是否参与选择（类型字段为"无"的槽直接跳过，不弹选）</summary>
+        public bool IsSlotSelectable(int node_slot)
+        {
+            AbilityTargetSlot slot = GetTargetSlot(node_slot);
+            return slot != null && !string.IsNullOrEmpty(slot.label) && slot.label != "无";
+        }
+
+        /// <summary>槽私有条件是否满足（槽未定义条件时恒真）。与全局 conditions_target 相互独立。</summary>
+        public bool AreSlotConditionsMet(Game data, Card caster, Card target, int node_slot)
+        {
+            AbilityTargetSlot slot = GetTargetSlot(node_slot);
+            if (slot == null || slot.conditions == null)
+                return true;
+            foreach (ConditionData cond in slot.conditions)
+            {
+                if (cond != null && !cond.IsTargetConditionMet(data, this, caster, target))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>槽私有条件是否满足（玩家目标版，英雄格用）</summary>
+        public bool AreSlotConditionsMet(Game data, Card caster, Player target, int node_slot)
+        {
+            AbilityTargetSlot slot = GetTargetSlot(node_slot);
+            if (slot == null || slot.conditions == null)
+                return true;
+            foreach (ConditionData cond in slot.conditions)
+            {
+                if (cond != null && !cond.IsTargetConditionMet(data, this, caster, target))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>槽私有条件是否满足（格子候选版，UI 高亮用）</summary>
+        public bool AreSlotConditionsMet(Game data, Card caster, Slot target, int node_slot)
+        {
+            AbilityTargetSlot slot = GetTargetSlot(node_slot);
+            if (slot == null || slot.conditions == null)
+                return true;
+            foreach (ConditionData cond in slot.conditions)
+            {
+                if (cond != null && !cond.IsTargetConditionMet(data, this, caster, target))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>按槽号升序返回"参与选择"的槽号列表（槽号可空洞，不要按 1..count 遍历）</summary>
+        public List<int> GetSelectableSlotNodes()
+        {
+            List<int> list = new List<int>();
+            if (target_slots == null)
+                return list;
+            foreach (AbilityTargetSlot slot in target_slots)
+            {
+                if (slot != null && IsSlotSelectable(slot.node_slot))
+                    list.Add(slot.node_slot);
+            }
+            list.Sort();
+            return list;
+        }
+
         public static AbilityData Get(string id)
         {
             if (id == null)
@@ -684,6 +784,21 @@ namespace TcgEngine
         OnAfterTurnStart = 85,   //回合开始后
         OnBeforeTurnEnd = 86,    //回合结束前
         OnAfterTurnEnd = 87,     //回合结束后
+    }
+
+    /// <summary>
+    /// 多目标入口的一个目标槽（zmcs「目标N」）：
+    /// 顺序逐槽选择时，每个槽有自己的类型/归属/提示文案与私有条件链；
+    /// node_slot 与图节点上的 目标N条件(输入口)/目标卡牌N(输出口) 一一对应，允许空洞（删中间槽不重排编号，避免连线失效）。
+    /// </summary>
+    [Serializable]
+    public class AbilityTargetSlot
+    {
+        public int node_slot;                                       //图槽号（1 基，允许空洞）
+        public string label = "角色";                                //目标类型：角色/英雄（"无"=该槽不参与选择）
+        public string side = "任意";                                 //目标归属：任意/敌方/友方
+        public string error = "";                                   //无合法目标被自动跳过时的提示文案（不拦截结算）
+        public ConditionData[] conditions = new ConditionData[0];   //该槽私有条件链（与全局 conditions_target 独立）
     }
 
     public enum AbilityTarget

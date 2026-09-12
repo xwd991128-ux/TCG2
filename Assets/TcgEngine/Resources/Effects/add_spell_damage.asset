@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b77611b0961c0b418cc7d0bc67a574b, type: 3}
   m_Name: add_spell_damage
   m_EditorClassIdentifier: 
-  trait: {fileID: 11400000, guid: 50116f133bd899842ab1d2a5b71412ee, type: 2}
+  trait: {fileID: 11400000, guid: b7e4c1a2d9f3405681ca2be5f0d39c74, type: 2}

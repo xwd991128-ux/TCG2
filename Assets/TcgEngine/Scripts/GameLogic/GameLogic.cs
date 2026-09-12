@@ -851,13 +851,22 @@ namespace TcgEngine.Gameplay
                 VariantData hvariant = VariantData.Get(deck.hero.variant);
                 if (hdata != null && hvariant != null)
                     player.hero = Card.Create(hdata, hvariant, player);
+                else
+                    Debug.LogWarning("[Game] 卡组英雄解析失败：tid=" + deck.hero.tid + " → 玩家 p" + player.player_id
+                        + " 将没有英雄卡（「获取玩家英雄」类节点与英雄伤害/治疗都会失效）");
             }
 
             foreach (UserCardData card in deck.cards)
             {
                 CardData icard = CardData.Get(card.tid);
                 VariantData variant = VariantData.Get(card.variant);
-                if (icard != null && variant != null)
+                if (icard == null || variant == null)
+                {
+                    //静默跳过会导致「整副卡组为空 → 开局即判负」，这里必须留痕便于排查
+                    Debug.LogWarning("[Game] 组卡跳过无效卡：tid=" + card.tid + " variant=" + card.variant +
+                        "（卡牌数据未注册/已删除，或变体不存在）→ 玩家 p" + player.player_id);
+                    continue;
+                }
                 {
                     for (int i = 0; i < card.quantity; i++)
                     {
@@ -869,6 +878,10 @@ namespace TcgEngine.Gameplay
 
             //Shuffle deck
             ShuffleDeck(player.cards_deck);
+
+            //空卡组会在开局按「手牌/战场/牌库全空=死亡」立即判负（Player.IsDead），这里显式报出来
+            if (player.cards_deck.Count == 0)
+                Debug.LogError("[Game] 玩家 p" + player.player_id + " 卡组为空（卡组没配卡或全部卡牌无效）→ 开局将立即判负");
         }
 
         //---- Gameplay Actions --------------
@@ -2073,7 +2086,7 @@ namespace TcgEngine.Gameplay
 
         protected virtual void ResolveCardAbilityPlayTarget(AbilityData iability, Card caster)
         {
-            Debug.Log($"ResolveCardAbilityPlayTarget called: iability={iability?.id}, caster={caster?.CardData.id}");
+            Debug.Log($"ResolveCardAbilityPlayTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target={iability?.target}, multi={iability?.multi_target}");
             
             if (iability.target == AbilityTarget.PlayTarget)
             {

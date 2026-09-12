@@ -49,6 +49,7 @@ namespace TcgEngine.Client
 
         private bool back_to_hand;
         private Vector3 back_to_hand_target;
+        private bool warned_no_art;   //缺卡面图的警告只打一次
 
         private static List<BoardCard> card_list = new List<BoardCard>();
 
@@ -132,16 +133,36 @@ namespace TcgEngine.Client
             armor_icon.enabled = armor_val > 0;
 
             //Update card image
+            // 卡面图可能为空（本地自定义卡只设了「面板图」art_full 时 art_board 为 null）：
+            // 此时必须跳过取 .bounds，否则每帧 NullReferenceException 会让整个 Update 中断，
+            // 后面的卡框/状态/技能按钮全部不刷新，卡牌就停在预制体的空白底板上
             Sprite sprite = card.CardData.GetBoardArt(card.VariantData);
-            if (sprite != card_sprite.sprite)
+            if (sprite == null)
             {
-                card_sprite.sprite = sprite;
-                
-                //自适应大小 - 根据sprite实际尺寸调整显示大小
-                float targetHeight = 2f;
-                float spriteHeight = sprite.bounds.size.y;
-                float scale = targetHeight / spriteHeight;
-                card_sprite.transform.localScale = new Vector3(scale, scale, 1f);
+                if (!warned_no_art)
+                {
+                    warned_no_art = true;   //每张卡只提示一次，避免每帧刷日志
+                    Debug.LogWarning("[BoardCard] 卡「" + card.CardData.id + "」没有卡面图（art_board 为空），"
+                        + "战场只会显示阵营底板。请在规则编辑器点「卡面图」设置新图（只设了「面板图」不会出现在战场）。");
+                }
+                if (card_sprite.enabled)
+                    card_sprite.enabled = false;   //隐藏贴图层，露出阵营底板，不刷错误
+            }
+            else
+            {
+                if (!card_sprite.enabled)
+                    card_sprite.enabled = true;
+
+                if (sprite != card_sprite.sprite)
+                {
+                    card_sprite.sprite = sprite;
+
+                    //自适应大小 - 根据sprite实际尺寸调整显示大小
+                    float targetHeight = 2f;
+                    float spriteHeight = sprite.bounds.size.y;
+                    float scale = spriteHeight > 0.0001f ? targetHeight / spriteHeight : 1f;
+                    card_sprite.transform.localScale = new Vector3(scale, scale, 1f);
+                }
             }
 
             //Update frame image

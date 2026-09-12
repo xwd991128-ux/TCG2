@@ -71,9 +71,15 @@ namespace TcgEngine.Client
             {
                 Card caster = gdata.GetCard(gdata.selector_caster_uid);
                 AbilityData ability = AbilityData.Get(gdata.selector_ability_id);
-                if(ability != null && slot_card == null && ability.CanTarget(gdata, caster, slot))
+                //多目标（顺序逐槽）：只按「当前槽」的条件高亮；已被前面槽选走的目标不再高亮
+                bool multi = ability != null && ability.HasTargetSlots();
+                int slot_node = multi ? gdata.CurrentSelectSlotNode() : 0;
+                if(ability != null && slot_card == null && ability.CanTarget(gdata, caster, slot)
+                    && (!multi || ability.AreSlotConditionsMet(gdata, caster, slot, slot_node)))
                     target_alpha = 1f; //Highlight when selecting a target and slot are valid
-                if (ability != null && slot_card != null && ability.CanTarget(gdata, caster, slot_card))
+                if (ability != null && slot_card != null && ability.CanTarget(gdata, caster, slot_card)
+                    && (!multi || !ability.UseTargetDedupe() || !gdata.IsSlotTargetSelected(slot_card.uid))
+                    && (!multi || ability.AreSlotConditionsMet(gdata, caster, slot_card, slot_node)))
                     target_alpha = 1f; //Highlight when selecting a target and cards are valid
             }
 

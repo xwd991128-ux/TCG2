@@ -49,11 +49,18 @@ namespace TcgEngine.UI
         [Header("工具栏")]
         public Button btn_save;              // 保存
         public Button btn_test;              // 模拟运行测试
-        public Button btn_go;                // 进行：进入卡牌规则编辑器（GraphEditorPanel）
+        public Button btn_go;                // （已废弃）原「进行」：功能并入左下角「编辑」，生成工具不再创建，仅兼容旧场景时会被隐藏
         public Button btn_buff;              // 增益：进入增益编辑器（BuffPanel，增益与卡池平级的全局资源）
         public Button btn_buttons;           // 按钮：切换进入内嵌的战斗按钮编辑器
         public Button btn_close;             // 关闭（返回卡池管理）
         public Button btn_save2;             // 卡牌列表底部保存按钮
+
+        [Header("布局（运行时归位：左下操作栏 + 右侧变量配置列）")]
+        public Button btn_edit_card;         // 编辑（重命名选中卡）——缺省时运行时创建
+        public Button btn_trait;             // 种族——缺省时运行时创建
+        public Button btn_keyword;           // 关键词——缺省时运行时创建
+        public RectTransform bottom_action_bar;   // 左下角操作栏（运行时创建）
+        public RectTransform side_config_bar;     // 右侧变量配置列（运行时创建）
 
         [Header("按钮编辑器（内嵌）")]
         public GameObject button_editor_root;    // 按钮编辑区根（默认隐藏，点「按钮」切换显示）
@@ -122,6 +129,8 @@ namespace TcgEngine.UI
             if (btn_id_input != null) btn_id_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.id = v; });
             if (btn_title_input != null) btn_title_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.title = v; });
             if (btn_desc_input != null) btn_desc_input.onValueChanged.AddListener(v => { if (editing_button != null) editing_button.desc = v; });
+
+            ApplyEditorLayout();   //把散落的按钮归位成「左下操作栏 + 右侧变量配置列」
         }
 
         /// <summary>进入增益编辑器（隐藏本页 + 显示增益页）</summary>
@@ -537,11 +546,309 @@ namespace TcgEngine.UI
             if (editor_hint != null)
             {
                 if (card == null)
-                    editor_hint.text = "属性编辑区\n（暂无卡牌，点击「新增卡」添加）";
+                    editor_hint.text = "（暂无卡牌，点左下「新增卡」添加）";
                 else
-                    editor_hint.text = "已选中: " + (string.IsNullOrEmpty(card.title) ? "（未命名）" : card.title)
-                        + "\n右侧属性编辑将在后续版本提供";
+                    editor_hint.text = "已选中：" + (string.IsNullOrEmpty(card.title) ? "（未命名）" : card.title);
             }
+        }
+
+        // ================= 布局归位：左下操作栏 + 右侧变量配置列 =================
+
+        private bool layout_applied;
+
+        //与 CardEditorBuilder 一致的按钮配色：取值来自 UITheme 分类色（全项目只定义一次）
+        private static readonly Color ColBlue = UITheme.CatBlue;
+        private static readonly Color ColGreen = UITheme.CatGreen;
+        private static readonly Color ColRed = UITheme.CatRed;
+        private static readonly Color ColGold = UITheme.CatGold;
+        private static readonly Color ColPurple = UITheme.CatPurple;
+        private static readonly Color ColPink = UITheme.CatPink;
+
+        /// <summary>
+        /// 把原先散落在标题栏 / 卡牌列表区 / 其它生成工具里的按钮统一归位成两个稳定区域：
+        ///   左下角：复制 / 删除 / 保存 / 新增 / 编辑（进入规则编辑器） / 模拟测试
+        ///   右侧列：变量配置（增益 / 种族 / 关键词 / 按钮），纵向排列，后续追加只需往列表里加一行
+        ///
+        /// 为什么放在运行时归位、而不是逐个改生成工具：本页的控件由 CardEditorBuilder、
+        /// BattleButtonBuilder、BuffPanelBuilder 等多处生成，运行时按引用收集最稳，
+        /// 也不会因为以后重跑某一个工具又被打散；重复调用有 layout_applied 保护。
+        /// </summary>
+        private void ApplyEditorLayout()
+        {
+            if (layout_applied)
+                return;
+            layout_applied = true;
+
+            Font font = UiFont();
+
+            //1) 列表区底边上移，给左下角操作栏让位
+            if (card_list_root != null)
+            {
+                RectTransform list_area = card_list_root.GetComponent<RectTransform>();
+                if (list_area != null)
+                {
+                    Vector2 min = list_area.anchorMin;
+                    list_area.anchorMin = new Vector2(min.x, Mathf.Max(min.y, 0.155f));
+                }
+            }
+
+            //2) 原「列表底部操作栏」（复制/删除/保存）内容已搬走，隐藏空壳
+            Transform old_ops = card_list_root != null ? card_list_root.transform.Find("CardListOps") : null;
+            if (old_ops == null)
+                old_ops = FindDeep(transform, "CardListOps");
+            if (old_ops != null)
+                old_ops.gameObject.SetActive(false);
+
+            //3) 左下角操作栏（横向等距）
+            Button b_copy = btn_copy != null ? btn_copy : FindButtonDeep("CopyCardBtn");
+            Button b_del = btn_delete != null ? btn_delete : FindButtonDeep("DeleteCardBtn");
+            Button b_add = btn_add_card != null ? btn_add_card : FindButtonDeep("AddCardBtn");
+            Button b_test = btn_test != null ? btn_test : FindButtonDeep("TestBtn");
+            Button b_save = btn_save2 != null ? btn_save2 : btn_save;
+
+            bottom_action_bar = CreateBar("BottomActionBar", transform, true, 12f);
+            bottom_action_bar.anchorMin = new Vector2(0f, 0f);
+            bottom_action_bar.anchorMax = new Vector2(0f, 0f);
+            bottom_action_bar.pivot = new Vector2(0f, 0f);
+            bottom_action_bar.anchoredPosition = new Vector2(24f, 58f);
+            bottom_action_bar.sizeDelta = new Vector2(760f, 52f);
+
+            MoveToBar(bottom_action_bar, b_copy, new Vector2(110f, 46f));
+            MoveToBar(bottom_action_bar, b_del, new Vector2(110f, 46f));
+            MoveToBar(bottom_action_bar, b_save, new Vector2(110f, 46f));
+            MoveToBar(bottom_action_bar, b_add, new Vector2(110f, 46f));
+
+            if (btn_edit_card == null)
+            {
+                btn_edit_card = CreateLayoutButton("EditCardBtn", "编辑", ColGold, font, 22);
+                btn_edit_card.onClick.AddListener(OnGo);   //「编辑」= 原「进行」：进入规则编辑器做详细编辑（含改名）
+            }
+            MoveToBar(bottom_action_bar, btn_edit_card, new Vector2(110f, 46f));
+            MoveToBar(bottom_action_bar, b_test, new Vector2(130f, 46f));
+
+            //保存已统一到左下角，隐藏标题栏里的重复按钮（标题栏只保留「返回」）
+            if (btn_save != null && btn_save != b_save)
+                btn_save.gameObject.SetActive(false);
+
+            //「进行」的功能已并入「编辑」，按钮不再保留（场景里若还有旧按钮则一并隐藏）
+            if (btn_go != null)
+                btn_go.gameObject.SetActive(false);
+
+            //4) 右侧变量配置列
+            EnsureEditorArea();
+            Transform side_parent = editor_area_root != null ? editor_area_root.transform : transform;
+
+            Text caption = CreateTextNode("SideCaption", side_parent, "变量配置", font, 24, new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
+            RectTransform crt = caption.rectTransform;
+            crt.anchorMin = new Vector2(0f, 1f);
+            crt.anchorMax = new Vector2(1f, 1f);
+            crt.pivot = new Vector2(0.5f, 1f);
+            crt.offsetMin = new Vector2(16f, crt.offsetMin.y);
+            crt.offsetMax = new Vector2(-16f, crt.offsetMax.y);
+            crt.sizeDelta = new Vector2(-32f, 40f);
+            crt.anchoredPosition = new Vector2(0f, -10f);
+
+            side_config_bar = CreateBar("SideConfigBar", side_parent, false, 10f);
+            side_config_bar.anchorMin = new Vector2(0f, 1f);
+            side_config_bar.anchorMax = new Vector2(1f, 1f);
+            side_config_bar.pivot = new Vector2(0.5f, 1f);
+            side_config_bar.offsetMin = new Vector2(16f, side_config_bar.offsetMin.y);
+            side_config_bar.offsetMax = new Vector2(-16f, side_config_bar.offsetMax.y);
+            side_config_bar.sizeDelta = new Vector2(-32f, 10f);
+            side_config_bar.anchoredPosition = new Vector2(0f, -56f);
+
+            if (btn_buff == null)
+            {
+                btn_buff = CreateLayoutButton("BuffBtn", "增益", ColPurple, font, 22);
+                btn_buff.onClick.AddListener(OnOpenBuffEditor);
+            }
+            if (btn_trait == null)
+            {
+                btn_trait = CreateLayoutButton("TraitBtn", "种族", ColGreen, font, 22);
+                btn_trait.onClick.AddListener(OnOpenTraitEditor);
+            }
+            if (btn_keyword == null)
+            {
+                btn_keyword = CreateLayoutButton("KeywordBtn", "关键词", ColBlue, font, 22);
+                btn_keyword.onClick.AddListener(OnOpenKeywordEditor);
+            }
+            if (btn_buttons == null)
+            {
+                btn_buttons = CreateLayoutButton("ButtonsBtn", "按钮", ColPink, font, 22);
+                btn_buttons.onClick.AddListener(OnOpenButtonEditor);
+            }
+
+            MoveToBar(side_config_bar, btn_buff, new Vector2(0f, 46f));
+            MoveToBar(side_config_bar, btn_trait, new Vector2(0f, 46f));
+            MoveToBar(side_config_bar, btn_keyword, new Vector2(0f, 46f));
+            MoveToBar(side_config_bar, btn_buttons, new Vector2(0f, 46f));
+
+            //5) 选中提示移到右列底部，避免和配置按钮抢位置
+            if (editor_hint != null)
+            {
+                RectTransform hrt = editor_hint.rectTransform;
+                hrt.anchorMin = new Vector2(0f, 0f);
+                hrt.anchorMax = new Vector2(1f, 0f);
+                hrt.pivot = new Vector2(0.5f, 0f);
+                hrt.offsetMin = new Vector2(16f, 14f);
+                hrt.offsetMax = new Vector2(-16f, 14f);
+                hrt.sizeDelta = new Vector2(-32f, 80f);
+                hrt.anchoredPosition = new Vector2(0f, 14f);
+                editor_hint.fontSize = 20;
+                editor_hint.alignment = TextAnchor.LowerLeft;
+                editor_hint.color = new Color(1f, 1f, 1f, 0.65f);
+            }
+        }
+
+        /// <summary>确保右侧编辑区存在（BattleButtonBuilder 未跑过时兜底创建）</summary>
+        private void EnsureEditorArea()
+        {
+            if (editor_area_root != null)
+                return;
+
+            RectTransform area = CreateRectNode("EditorArea", transform);
+            area.anchorMin = new Vector2(0.845f, 0.155f);
+            area.anchorMax = new Vector2(0.995f, 0.9f);
+            area.offsetMin = Vector2.zero;
+            area.offsetMax = Vector2.zero;
+            area.sizeDelta = Vector2.zero;
+
+            Image bg = area.gameObject.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.25f);
+            bg.raycastTarget = false;
+            editor_area_root = area.gameObject;
+        }
+
+        // ---------------- 配置入口 ----------------
+
+        /// <summary>「种族」：项目目前没有独立的种族页（种族在规则编辑器里以多选弹层编辑），
+        /// 这里给出统一入口与明确提示，后续做出种族页（继承 UIPanel 的 TraitPanel）后在此接上即可。</summary>
+        private void OnOpenTraitEditor()
+        {
+            if (trait_editor_opener != null)
+            {
+                trait_editor_opener.Invoke();
+                return;
+            }
+            SetStatus("种族配置页尚未创建：种族目前是 Resources 资产（TraitData），可在规则编辑器里点「种族」多选增减");
+        }
+
+        /// <summary>种族页打开钩子：后续新增 TraitPanel 时注册进来即可，不需要改本页布局代码</summary>
+        public static System.Action trait_editor_opener;
+
+        /// <summary>「关键词」：打开关键词管理页（KeywordPanel）</summary>
+        private void OnOpenKeywordEditor()
+        {
+            KeywordPanel panel = KeywordPanel.Get();
+            if (panel == null)
+                panel = FindObjectOfType<KeywordPanel>(true);
+            if (panel == null)
+            {
+                SetStatus("未找到关键词管理页，请先运行「TcgEngine/卡牌编辑器/生成关键词管理页面到主菜单场景」");
+                return;
+            }
+            Hide();
+            panel.Show();
+        }
+
+        // ---------------- 布局/控件小工具 ----------------
+
+        private Font UiFont()
+        {
+            if (title_text != null && title_text.font != null)
+                return title_text.font;
+            if (status_text != null && status_text.font != null)
+                return status_text.font;
+            try { return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); }
+            catch (System.Exception) { return null; }
+        }
+
+        /// <summary>操作栏容器：横向用 HorizontalLayoutGroup，纵向用 VerticalLayoutGroup，间距统一</summary>
+        private static RectTransform CreateBar(string name, Transform parent, bool horizontal, float spacing)
+        {
+            RectTransform rt = CreateRectNode(name, parent);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+
+            if (horizontal)
+            {
+                HorizontalLayoutGroup g = rt.gameObject.AddComponent<HorizontalLayoutGroup>();
+                g.spacing = spacing;
+                g.padding = new RectOffset(0, 0, 0, 0);
+                g.childAlignment = TextAnchor.MiddleLeft;
+                g.childControlWidth = false;
+                g.childControlHeight = false;
+                g.childForceExpandWidth = false;
+                g.childForceExpandHeight = false;
+            }
+            else
+            {
+                VerticalLayoutGroup g = rt.gameObject.AddComponent<VerticalLayoutGroup>();
+                g.spacing = spacing;
+                g.padding = new RectOffset(0, 0, 0, 0);
+                g.childAlignment = TextAnchor.UpperCenter;
+                g.childControlWidth = true;
+                g.childControlHeight = false;
+                g.childForceExpandWidth = true;
+                g.childForceExpandHeight = false;
+            }
+            return rt;
+        }
+
+        /// <summary>把按钮搬到操作栏里：清掉旧锚点/位置，交给 LayoutGroup 排布，尺寸由 sizeDelta 决定</summary>
+        private static void MoveToBar(RectTransform bar, Button btn, Vector2 size)
+        {
+            if (bar == null || btn == null)
+                return;
+            RectTransform rt = btn.GetComponent<RectTransform>();
+            rt.SetParent(bar, false);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = size;
+            if (!btn.gameObject.activeSelf)
+                btn.gameObject.SetActive(true);
+        }
+
+        /// <summary>与生成工具同款的按钮样式（半透明底色 + 白色文字 + 悬停/按下过渡）——样式统一走 UIFactory</summary>
+        private Button CreateLayoutButton(string name, string label, Color bg, Font font, int size)
+        {
+            return UIFactory.CreateButton(name, transform, label, font, size, bg);
+        }
+
+        private static Text CreateTextNode(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
+        {
+            Text txt = UIFactory.CreateText(name, parent, text, font, size, color, align);
+            UIFactory.SetStretch(txt.rectTransform);   //与本页既有行为一致：文字自动铺满父级
+            return txt;
+        }
+
+        private static RectTransform CreateRectNode(string name, Transform parent)
+            => UIFactory.CreateRect(name, parent);
+
+        private static void StretchNode(RectTransform rt)
+            => UIFactory.SetStretch(rt);
+
+        private static Transform FindDeep(Transform root, string name)
+        {
+            foreach (Transform child in root)
+            {
+                if (child.name == name)
+                    return child;
+                Transform deep = FindDeep(child, name);
+                if (deep != null)
+                    return deep;
+            }
+            return null;
+        }
+
+        private Button FindButtonDeep(string name)
+        {
+            Transform t = FindDeep(transform, name);
+            return t != null ? t.GetComponent<Button>() : null;
         }
 
         /// <summary>按 id 选中卡牌（来自 CollectionCard 点击）</summary>
@@ -902,6 +1209,15 @@ namespace TcgEngine.UI
                 return;
             }
             UserDeckData ai_deck = new UserDeckData(ai_data);
+            //校验 AI 卡池引用的卡牌在运行时注册表中都能解析（被删除/未注册的自定义卡会导致 AI 开局空卡组直接判负）
+            foreach (UserCardData uc in ai_deck.cards)
+            {
+                if (CardData.Get(uc.tid) == null)
+                {
+                    SetStatus("无法测试：AI 初始卡池「" + ai_data.title + "」引用了无效卡牌 " + uc.tid + "（已删除或未注册），请修正 GameplayData.ai_decks");
+                    return;
+                }
+            }
 
             //设置对战参数并跳转人机战斗
             GameClient.player_settings.deck = test_deck;
@@ -920,6 +1236,7 @@ namespace TcgEngine.UI
                 if (c.type == CardType.Hero)
                     return new UserCardData(c, VariantData.GetDefault());
             }
+            Debug.LogWarning("[模拟测试] 卡池中不存在「英雄」类型卡牌 → 测试双方将没有英雄（「获取玩家英雄」类节点与英雄伤害/治疗都会失效）");
             return new UserCardData();
         }
 

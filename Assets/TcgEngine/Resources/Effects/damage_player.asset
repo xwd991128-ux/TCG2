@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31aa9b0b846e37e47bb7896cc026a560, type: 3}
   m_Name: damage_player
   m_EditorClassIdentifier: 
-  bonus_damage: {fileID: 11400000, guid: 50116f133bd899842ab1d2a5b71412ee, type: 2}
+  bonus_damage: {fileID: 11400000, guid: b7e4c1a2d9f3405681ca2be5f0d39c74, type: 2}

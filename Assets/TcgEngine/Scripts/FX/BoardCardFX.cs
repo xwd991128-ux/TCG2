@@ -20,6 +20,7 @@ namespace TcgEngine.FX
         private BoardCard bcard;
 
         private ParticleSystem exhausted_fx = null;
+        private bool warned_kill_mat = false;   //溶解材质不可用的警告只打一次
 
         private Dictionary<StatusType, GameObject> status_fx_list = new Dictionary<StatusType, GameObject>();
 
@@ -111,13 +112,19 @@ namespace TcgEngine.FX
             FXTool.DoFX(spawn_fx, transform.position);
 
             //Spawn dissolve fx
-            if (GameTool.IsURP())
+            // 注意：换材质前必须校验。kill_mat 的 shader 若缺失/不被当前渲染管线支持，
+            // SpriteRenderer 会用品红（错误 shader）渲染整张卡面，表现就是"战场上卡图全是紫色"。
+            if (GameTool.IsURP() && CanUseKillMat())
             {
                 SpriteRenderer render = bcard.card_sprite;
                 render.material = kill_mat;
 
                 FadeSetVal(bcard.card_sprite, 0f);
                 FadeKill(bcard.card_sprite, 1f, 0.5f);
+            }
+            else if (GameTool.IsURP())
+            {
+                WarnKillMatOnce();
             }
 
             //Exhausted fx
@@ -159,14 +166,54 @@ namespace TcgEngine.FX
             AudioTool.Get().PlaySFX("card_spawn", audio);
 
             //Death dissolve fx
-            if (GameTool.IsURP())
+            if (GameTool.IsURP() && CanUseKillMat())
             {
                 FadeKill(bcard.card_sprite, 0f, 0.5f);
             }
         }
-		
-		private void FadeSetVal(SpriteRenderer render, float val)
+
+        /// <summary>
+        /// 溶解材质是否可用：null、shader 缺失/编译失败（Unity 会回退成 InternalErrorShader）、
+        /// 当前渲染管线不支持（isSupported=false）、或缺少 noise_fade 属性时都不能换上——
+        /// 一旦换上错误的 shader，SpriteRenderer 会整张渲染成品红。
+        /// </summary>
+        private bool CanUseKillMat()
         {
+            if (kill_mat == null)
+                return false;
+
+            Shader sh = kill_mat.shader;
+            if (sh == null)
+                return false;
+            if (sh.name == "Hidden/InternalErrorShader")
+                return false;
+            try
+            {
+                if (!sh.isSupported)
+                    return false;
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+            return kill_mat.HasProperty(kill_mat_fade);
+        }
+
+        private void WarnKillMatOnce()
+        {
+            if (warned_kill_mat)
+                return;
+            warned_kill_mat = true;
+            string mat_name = kill_mat != null ? kill_mat.name : "None";
+            Debug.LogWarning("[BoardCardFX] 溶解材质「" + mat_name + "」不可用，已跳过战场卡牌的溶解效果（卡面图按默认精灵材质正常显示）。\n"
+                + "请检查 Assets/TcgEngine/Materials/Shader/KillDissolveFX.mat：其 Shader（ShaderDissolve.shadergraph）"
+                + "需要针对当前渲染管线（URP）编译通过；若暂不修复，把 BoardCard 预制体上 BoardCardFX 的 Kill Mat 设为 None 即可彻底关闭该效果。");
+        }
+
+        private void FadeSetVal(SpriteRenderer render, float val)
+        {
+            if (render == null || !CanUseKillMat())
+                return;
             render.material = kill_mat;
             render.material.SetFloat(kill_mat_fade, val);
         }

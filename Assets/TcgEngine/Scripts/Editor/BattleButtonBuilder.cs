@@ -23,8 +23,9 @@ namespace TcgEngine.UI
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
         private const string GAMEUI_PREFAB = "Assets/TcgEngine/Prefabs/GameUI.prefab";
         //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
-        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
+        //资源路径统一登记在 UITheme（全项目只定义一次）
+        private const string FONT_PATH = UITheme.FontPath;
+        private const string FONT_FALLBACK_PATH = UITheme.FontFallbackPath;
 
         private static Font _font;
 
@@ -396,7 +397,7 @@ namespace TcgEngine.UI
             Transform bar = panel.transform.Find("TopBar");
             Transform parent = bar != null ? bar : panel.transform;
 
-            Button btn = CreateButton("ButtonsBtn", parent, "按钮", _font, 24,
+            Button btn = CreateButton("ButtonsBtn", parent, "按钮", _font, UITheme.FontButton,
                 new Color(0.75f, 0.6f, 1f, 0.4f));   //紫色，与增益按钮区分
             RectTransform rt = btn.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -419,7 +420,7 @@ namespace TcgEngine.UI
 
         private static Button CreateToolbarButton(RectTransform bar, string name, string label, float x, Color? color = null)
         {
-            Button btn = CreateButton(name, bar, label, _font, 24, color ?? new Color(1, 1, 1, 0.25f));
+            Button btn = CreateButton(name, bar, label, _font, UITheme.FontButton, color ?? new Color(1, 1, 1, 0.25f));
             RectTransform rt = btn.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -429,65 +430,22 @@ namespace TcgEngine.UI
             return btn;
         }
 
+        // ---------------- 通用控件工厂：统一转发到 UIFactory（等价搬迁，调用点零改动） ----------------
+
         private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            return rt;
-        }
+            => UIFactory.CreateRect(name, parent);
 
         private static void SetStretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
+            => UIFactory.SetStretch(rt);
 
         private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = color;
-            return img;
-        }
+            => UIFactory.CreateImage(name, parent, color);
 
         private static Text CreateText(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            Text txt = go.GetComponent<Text>();
-            txt.text = text;
-            txt.font = font;
-            txt.fontSize = size;
-            txt.fontStyle = FontStyle.Normal;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            txt.verticalOverflow = VerticalWrapMode.Overflow;
-            return txt;
-        }
+            => UIFactory.CreateText(name, parent, text, font, size, color, align);
 
         private static Button CreateButton(string name, Transform parent, string label, Font font, int size, Color bg_color)
-        {
-            Image img = CreateImage(name, parent, bg_color);
-            Button btn = img.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
-
-            ColorBlock colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.fadeDuration = 0.1f;
-            btn.colors = colors;
-
-            Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-            SetStretch(txt.rectTransform);
-            return btn;
-        }
+            => UIFactory.CreateButton(name, parent, label, font, size, bg_color);
 
         /// <summary>字段行：左侧标签 + 右侧控件区（加入 VerticalLayoutGroup 自动排版）</summary>
         private static RectTransform CreateFieldRow(Transform parent, string label, float height)

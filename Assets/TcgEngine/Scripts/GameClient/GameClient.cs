@@ -373,6 +373,12 @@ namespace TcgEngine.Client
             SendAction(GameAction.CancelSelect);
         }
 
+        /// <summary>多目标（顺序逐槽）：跳过当前目标槽（该槽留空，继续下一槽；与取消整次施法不同）</summary>
+        public void SkipTarget()
+        {
+            SendAction(GameAction.SkipTarget);
+        }
+
         public void SendChatMsg(string msg)
         {
             MsgChat chat = new MsgChat();

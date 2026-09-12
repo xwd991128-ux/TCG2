@@ -14,10 +14,11 @@ namespace TcgEngine
         [Header("规则图条件")]
         public GraphData graph;         //规则图
         public string entry_node_id;    //入口节点 id（其「目标1条件」口连着条件链）
+        public int slot_index;          //多目标：目标槽号（读「目标N条件」口；0=旧的单一「目标1条件」口）
 
         public override bool IsTargetConditionMet(Game data, AbilityData ability, Card caster, Card target)
         {
-            return NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, caster, target);
+            return NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, slot_index, caster, target);
         }
 
         public override bool IsTargetConditionMet(Game data, AbilityData ability, Card caster, Player target)
@@ -25,7 +26,7 @@ namespace TcgEngine
             //玩家目标（点英雄走这条分支）：用该玩家的英雄卡代入图条件（如 卡牌类型判断=随从 会排除英雄）
             if (target == null || target.hero == null)
                 return false;
-            return NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, caster, target.hero);
+            return NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, slot_index, caster, target.hero);
         }
 
         public override bool IsTargetConditionMet(Game data, AbilityData ability, Card caster, Slot target)
@@ -34,7 +35,7 @@ namespace TcgEngine
             if (target == null)
                 return false;
             Card slot_card = data.GetSlotCard(target);
-            return slot_card != null && NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, caster, slot_card);
+            return slot_card != null && NodeDocRunner.EvaluateTargetCondition(graph, entry_node_id, slot_index, caster, slot_card);
         }
     }
 }

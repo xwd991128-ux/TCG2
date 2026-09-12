@@ -21,7 +21,10 @@ namespace TcgEngine.UI
         [Header("右侧属性")]
         public InputField input_title;
         public InputField input_desc;
-        public Dropdown dropdown_status;     // 原生机制状态（StatusType 枚举名）
+        public Dropdown dropdown_status;     // 原生机制状态（旧下拉；运行时停用并换成弹出单选按钮）
+
+        private TMPro.TMP_Text status_select_text;   // 状态弹出单选按钮的文本（运行时创建）
+        private int status_index;                    // 当前选中的 STATUS_VALUES 下标
 
         [Header("规则图列表")]
         public RectTransform rules_content;
@@ -51,6 +54,8 @@ namespace TcgEngine.UI
         protected override void Start()
         {
             base.Start();
+            //「原生机制」旧下拉 → 弹出单选按钮（与规则编辑器的类型/阵营/稀有度同款交互）
+            status_select_text = UISelectPopup.AttachToDropdown(dropdown_status, OnClickStatusSelect);
             if (btn_new != null) btn_new.onClick.AddListener(OnClickNew);
             if (btn_save != null) btn_save.onClick.AddListener(OnClickSave);
             if (btn_close != null) btn_close.onClick.AddListener(() => Hide());
@@ -109,13 +114,15 @@ namespace TcgEngine.UI
         {
             if (input_title != null) input_title.text = kw != null ? kw.title : "";
             if (input_desc != null) input_desc.text = kw != null ? kw.desc : "";
+            int status_value = kw != null ? (int)kw.status_type : (int)StatusType.None;
+            int status_idx = STATUS_VALUES.IndexOf(status_value);
+            status_index = status_idx < 0 ? 0 : status_idx;
             if (dropdown_status != null)
             {
-                int value = kw != null ? (int)kw.status_type : 0;
-                int idx = STATUS_VALUES.IndexOf(value);
                 dropdown_status.interactable = kw != null;
-                dropdown_status.SetValueWithoutNotify(idx < 0 ? 0 : idx);
+                dropdown_status.SetValueWithoutNotify(status_index);
             }
+            RefreshStatusSelect();
             RefreshRules(kw);
         }
 
@@ -210,11 +217,7 @@ namespace TcgEngine.UI
             }
             if (input_title != null) kw.title = input_title.text;
             if (input_desc != null) kw.desc = input_desc.text;
-            if (dropdown_status != null && dropdown_status.options.Count > 0)
-            {
-                int idx = Mathf.Clamp(dropdown_status.value, 0, STATUS_VALUES.Count - 1);
-                kw.status_type = (StatusType)STATUS_VALUES[idx];
-            }
+            kw.status_type = (StatusType)STATUS_VALUES[Mathf.Clamp(status_index, 0, STATUS_VALUES.Count - 1)];
             Workshop.KeywordAssetIO.SaveAsset(kw);
             RefreshList();
             SetStatus("已保存: " + kw.title);
@@ -252,6 +255,45 @@ namespace TcgEngine.UI
             foreach (int v in STATUS_VALUES)
                 names.Add(((StatusType)v).ToString());
             return names;
+        }
+
+        /// <summary>点击状态按钮：弹出单选列表（显示枚举名，写回对应 int 值）</summary>
+        private void OnClickStatusSelect()
+        {
+            if (Current == null)
+            {
+                SetStatus("请先选择一个关键词");
+                return;
+            }
+
+            List<string> names = GetStatusOptionNames();
+            List<string> values = new List<string>();
+            for (int i = 0; i < STATUS_VALUES.Count; i++)
+                values.Add(STATUS_VALUES[i].ToString());
+
+            int idx = Mathf.Clamp(status_index, 0, STATUS_VALUES.Count - 1);
+            UISelectPopup.OpenSingle(transform, "原生机制", names, values, STATUS_VALUES[idx].ToString(), OnStatusPicked);
+        }
+
+        private void OnStatusPicked(string value)
+        {
+            int parsed;
+            if (!int.TryParse(value, out parsed))
+                return;
+            int idx = STATUS_VALUES.IndexOf(parsed);
+            status_index = idx < 0 ? 0 : idx;
+            RefreshStatusSelect();
+        }
+
+        /// <summary>刷新状态按钮文本（未选中关键词时清空占位）</summary>
+        private void RefreshStatusSelect()
+        {
+            if (status_select_text == null)
+                return;
+            bool has = Current != null;
+            int idx = Mathf.Clamp(status_index, 0, STATUS_VALUES.Count - 1);
+            status_select_text.text = has ? ((StatusType)STATUS_VALUES[idx]).ToString() : "";
+            status_select_text.color = has ? UITheme.TextBody : UITheme.Placeholder;
         }
 
         /// <summary>确保 rows 列表有 needed 个实例（不足则用模板复制）</summary>

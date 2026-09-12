@@ -30,6 +30,47 @@ namespace TcgEngine.Workshop
     /// </summary>
     public static class GraphRuntime
     {
+        // ---------------- 线程安全随机源 ----------------
+        // AI 推演跑在独立线程（AILogic 的 ai_thread），而 UnityEngine.Random 只能在主线程调用，
+        // 否则抛异常 "RandomRangeInt can only be called from the main thread"（InitState 也无法让它跨线程可用）。
+        // 因此图执行/求值里的随机一律走这里：自持 System.Random + 锁，主线程与 AI 线程都安全。
+        private static readonly System.Random rng = new System.Random();
+        private static readonly object rng_lock = new object();
+
+        /// <summary>线程安全随机整数：[minInclusive, maxExclusive)。max&lt;=min 时返回 min（不抛异常）。</summary>
+        public static int RandInt(int minInclusive, int maxExclusive)
+        {
+            if (maxExclusive <= minInclusive)
+                return minInclusive;
+            lock (rng_lock)
+            {
+                return rng.Next(minInclusive, maxExclusive);
+            }
+        }
+
+        /// <summary>线程安全随机整数：含两端（等价 UnityEngine.Random.Range(int,int) 的语义，自动纠正逆序区间）</summary>
+        public static int RandRange(int minInclusive, int maxInclusive)
+        {
+            if (maxInclusive < minInclusive)
+            {
+                int t = minInclusive;
+                minInclusive = maxInclusive;
+                maxInclusive = t;
+            }
+            return maxInclusive == int.MaxValue
+                ? RandInt(minInclusive, int.MaxValue)
+                : RandInt(minInclusive, maxInclusive + 1);
+        }
+
+        /// <summary>线程安全随机 [0,1)</summary>
+        public static float RandValue()
+        {
+            lock (rng_lock)
+            {
+                return (float)rng.NextDouble();
+            }
+        }
+
         public class ExecutionResult
         {
             public bool success = true;
@@ -221,7 +262,7 @@ namespace TcgEngine.Workshop
                     return Operate(a, b, GetFieldString(node, "op", "+"));
                 }
                 case "Random":
-                    return UnityEngine.Random.Range(0, Mathf.Max(1, GetInputInt(graph, node, "max", GetFieldInt(node, "value", 10))));
+                    return RandInt(0, Mathf.Max(1, GetInputInt(graph, node, "max", GetFieldInt(node, "value", 10))));
                 default:
                     return 0; //Health/Mana/Attack 等需要真实对局上下文
             }
@@ -237,7 +278,7 @@ namespace TcgEngine.Workshop
                 case "IfRandom":
                 {
                     int chance = GetInputInt(graph, node, "chance", GetFieldInt(node, "value", 50));
-                    return UnityEngine.Random.Range(0, 100) < chance;
+                    return RandInt(0, 100) < chance;
                 }
                 case "IfMana":
                 {

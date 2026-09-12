@@ -143,6 +143,11 @@ namespace TcgEngine.AI
                 CancelSelect();
             }
 
+            if (action.type == GameAction.SkipTarget)
+            {
+                SkipTarget();
+            }
+
             if (action.type == GameAction.EndTurn)
             {
                 EndTurn();
@@ -250,6 +255,15 @@ namespace TcgEngine.AI
             if (CanPlay())
             {
                 gameplay.CancelSelection();
+            }
+        }
+
+        /// <summary>多目标：跳过当前目标槽（不取消整次施法）</summary>
+        private void SkipTarget()
+        {
+            if (CanPlay())
+            {
+                gameplay.SkipCurrentSelectSlot();
             }
         }
 

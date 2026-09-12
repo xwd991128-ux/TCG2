@@ -59,18 +59,31 @@ namespace TcgEngine.UI
         private TMP_Text txt_type_select;       // 类型选择按钮文本（TMP，替代旧下拉）
         private TMP_Text txt_team_select;       // 阵营选择按钮文本
         private TMP_Text txt_rarity_select;     // 稀有度选择按钮文本
+        private TMP_Text txt_filter_select;     // 节点库分类选择按钮文本（替代 TMP 下拉）
+        private int filter_select_value = 0;    // 节点库分类当前下标（与 filter_index 同步）
+
+        // ---- 富文本编辑弹层（卡牌文本/描述；弹框为场景组件，由生成工具绑定）----
+        public RichTextPopupUI rich_text_popup;       // 富文本编辑弹框（场景组件，生成工具绑定）
+
+        // ---- 卡图裁切（点击预览图 → 裁切弹框；弹框运行时自建，无需场景绑定）----
+        // 注意两行的字段对应关系（按项目约定）：
+        //   「卡牌图片」行 = 卡牌正面（手牌/收藏/回合历史） → art_full_path / art_full，显示区 250×350
+        //   「面板图片」行 = 战场面板                       → art_path / art_board，显示区 8.56×8.36
+        private ImageClipEditorUI art_clip_card;      // 「卡牌图片」行入口（art_full_path）
+        private ImageClipEditorUI art_clip_panel;     // 「面板图片」行入口（art_path）
         private bool card_extra_built = false;  // 扩展行是否已构建（每次打开面板构建一次）
         private const float MAX_AUDIO_SECONDS = 10f;   //导入音效时长上限（秒）
 
-        // ---- 全页字体统一 + 右侧栏 Tab（运行时构建）----
+        // ---- 全页字体统一 + 右侧栏 Tab（布局由生成工具 GraphEditorBuilder 直接生成，运行时只做显隐切换）----
         private bool tmp_ui_done = false;                        // 旧版 Text → TMP 是否已跑过
-        private bool ui_setup_pending = false;                   // 等面板激活后执行 TMP 迁移/Tab 构建
+        private bool ui_setup_pending = false;                   // 等面板激活后执行 TMP 迁移
         private readonly HashSet<GameObject> tmp_converted = new HashSet<GameObject>();
         private RectTransform prop_area_rt;                      // 卡牌参数区（占满右列）
         private RectTransform lib_area_rt;                       // 节点库区（占满右列）
-        private TMP_Text tab_prop_text;                          // 「卡牌参数」Tab 文本
-        private TMP_Text tab_lib_text;                           // 「节点库」Tab 文本
-        private bool right_tabs_built = false;
+        public TMP_Text tab_prop_text;                           // 「卡牌参数」Tab 文本（生成工具绑定）
+        public TMP_Text tab_lib_text;                            // 「节点库」Tab 文本（生成工具绑定）
+        public Button btn_tab_prop;                              // 「卡牌参数」Tab 按钮（生成工具绑定）
+        public Button btn_tab_lib;                               // 「节点库」Tab 按钮（生成工具绑定）
         private bool right_tab_prop = false;                     // 当前是否在「卡牌参数」页
         public TMP_InputField input_mana;    // 费用（TMP）
         public TMP_InputField input_attack;  // 攻击（TMP）
@@ -79,11 +92,11 @@ namespace TcgEngine.UI
         public TMP_InputField input_desc;    // 描述（TMP）
         public Toggle toggle_deckbuilding;   // 可组卡
         public TMP_InputField input_cost;    // 购买价（TMP）
-        public Image art_preview;            // 卡面图片预览
-        public Button btn_pick_art;          // 选择卡面图片
-        public RectTransform art_full_row;   // 面板图片行（法术/奥秘隐藏）
-        public Image art_full_preview;       // 面板图片预览
-        public Button btn_pick_full_art;     // 选择面板图片
+        public Image art_preview;            //「卡牌图片」预览（卡牌正面：手牌/收藏）→ art_full_path
+        public Button btn_pick_art;          //「卡牌图片」选图按钮
+        public RectTransform art_full_row;   //「面板（全图）图片」行（战场面板）→ art_path；法术/奥秘隐藏
+        public Image art_full_preview;       //「面板图片」预览
+        public Button btn_pick_full_art;     //「面板图片」选图按钮
         public TMP_InputField input_audio_spawn; // 音效：打出（TMP）
         public TMP_InputField input_audio_attack;// 音效：攻击（TMP）
         public TMP_InputField input_audio_death; // 音效：死亡（TMP）
@@ -519,11 +532,17 @@ namespace TcgEngine.UI
             act.desc = "zmcs 主动效果=打出时触发（炉石战吼/法术）。目标类型：无=直接执行 / 角色=弹选目标(含英雄) / 英雄=打脸";
             act.category = CAT_ENTRY;
             act.supported = true;
-            act.fields.Add(new FieldDef("target_type", "目标类型", FieldEditType.Dropdown, new string[] { "无", "角色", "英雄" }, "无"));
-            act.fields.Add(new FieldDef("target_side", "目标归属", FieldEditType.Dropdown, new string[] { "任意", "敌方", "友方" }, "任意"));
-            act.pins.Add(new PinDef("targetCondition", "目标1条件", NodeValueType.Boolean, false));
+            //事件筛选与标签（与图事件入口一致；cond 连线布尔为真才触发，tags 写入当前事件上下文）
+            act.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            act.fields.Add(new FieldDef("tags", "标签列表", FieldEditType.Dropdown, new string[] { "无", "战吼", "亡语" }, "无"));
+            act.fields.Add(IntField("priority", "优先级", "0"));
+            act.fields.Add(BoolField("unique_targets", "目标去重", "false"));   //true=同一张卡只能被一个目标槽选中；默认关闭=允许多槽选同一张
+            //目标槽默认为空：点「＋ 新增目标」才生成「目标N条件」输入口与「目标卡牌N」输出口
+            //（目标归属不在入口内配置：需要"敌方/友方"限制时，在「目标N条件」链里用「卡牌归属」节点判断）
             act.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
-            //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
+            //数据输出：玩家=施法者所属玩家 / 卡牌=本卡自身 / 目标卡牌N=第N个目标槽选中的卡（按槽动态添加）
+            act.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
+            act.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
             presets.Add(act);
 
             //2) 光环效果入口（常驻增益；字段与 CardPoolIO.BuildAuraAbility 对齐）
@@ -587,8 +606,11 @@ namespace TcgEngine.UI
             "202016",   //消灭
             "202013",   //治疗目标卡牌（执行器仍兼容 202039/202047 变体，但库内只放这一个避免同名重复）
             //第二批图事件后续补充的已接入节点（第 6 批）
-            "112001",   //布尔常量
-            "112003",   //整数常量
+            "112001",   //布尔常量（BooleanConst）
+            "112002",   //比较（Compare：运算符 + A/B → 真值）
+            "112003",   //整数常量（IntegerConst）
+            "112004",   //整数运算（IntegerOperation：运算符 + 多整数 → 整数）
+            "112006",   //字符串常量（StringConst）
             "102028",   //卡牌是否是陷阱
             "102019",   //获取护甲值
             "202014",   //禁锢（Freezing）
@@ -730,6 +752,131 @@ namespace TcgEngine.UI
             "111019",   //获取并集
             "111020",   //获取交集
             "111027",   //获取集合内前X个元素之外的元素
+            //第二批：只读查询/集合合并（数据模型已具备）
+            "102020",   //获取相邻卡牌（战场上同侧左右相邻）
+            "101013",   //获取玩家暂存区（cards_temp）
+            "101011",   //获取玩家道具（装备区首件）
+            "103007",   //获取目标卡牌的定义列表（Card[] → CardDefine[]）
+            "111035",   //合并多个集合（多个集合并成一个）
+            //法术伤害家族（对齐 TCG2 EffectDamage.bonus_damage：法术伤害加成=卡牌/玩家身上的 TraitData 特性值）
+            "101016",   //获取法术伤害（玩家加成 + 基础值 + 法术牌自身加成）
+            "102011",   //获取卡牌法术伤害（该卡自身的法术伤害特性值）
+            "103013",   //获取卡牌定义法术伤害（该定义属性表里的法术伤害特性值）
+            //第三批：数据缺口近似映射（延迟区→奥秘区 / 道具→装备区 / 技能→英雄 / 疲劳→玩家特性 / 标签→关键词·特性）
+            "101009",   //获取玩家延迟区（≈cards_secret）
+            "210006",   //卡牌置入延迟区（≈cards_secret）
+            "202045",   //创建衍生卡并置入延迟区（≈cards_secret）
+            "201007",   //摧毁道具（≈移除装备）
+            "101010",   //获取玩家技能（≈玩家英雄卡）
+            "201006",   //复原技能（≈清除英雄已行动状态）
+            "103015",   //获取英雄牌技能（≈返回英雄定义自身）
+            "101021",   //获取疲劳层数（Player「疲劳层数」特性）
+            "201013",   //设置疲劳层数
+            "201014",   //增加疲劳层数
+            "201015",   //受到疲劳伤害（伤害=疲劳层数）
+            "102033",   //卡牌拥有标签（≈关键词或特性）
+            "103004",   //卡牌定义是否具有标签（≈关键词或特性）
+            "102034",   //获取卡牌标签列表（String[]：≈关键词/特性 id）
+            "103019",   //获取卡牌定义的标签列表（String[]）
+            "106031",   //卡牌是否可见（Card vis 特性，只存不发）
+            "106030",   //卡牌属性是否可见（Card vis 特性，只存不发）
+            "202049",   //设置卡牌可见性（只存不发）
+            "202048",   //设置卡牌属性可见性（只存不发）
+            //第四批：效果家族（Effect≈TCG2 AbilityData；当前效果由 Run 上下文带入）
+            "107001",   //该效果（当前运行的能力）
+            "107004",   //获取卡牌的所有效果（运行时 abilities）
+            "107005",   //获取增益的所有效果（TCG2 增益无独立效果列表→空）
+            "107006",   //获取卡牌定义的所有效果（CardData.abilities）
+            "107003",   //获取效果属性（编号/名称/数值/持续/目标/触发/法力）
+            "107007",   //获取效果的合法使用目标（按能力目标条件/过滤器筛选全场角色）
+            "107009",   //获取效果所属卡牌定义或增益定义（多输出：cardDefine/isCardDefine 生效，buffDefine 空）
+            "207001",   //发动效果（执行该能力的 EffectData 组件）
+            //第六批：映射（GraphMap = Dictionary<string,object>；113001 创建 → 213001/213002 读写 → 113002~113005 查询）
+            "113001",   //创建映射集合
+            "113002",   //是否存在映射
+            "113003",   //获取映射值
+            "113004",   //获取映射的所有键
+            "113005",   //获取映射的所有值
+            "213001",   //设置映射
+            "213002",   //移除映射
+            //第七批 T1：Pile 值通道（编码 "玩家id|区域名"；区域=手牌/牌库/墓地/战场/装备/奥秘/暂存区）
+            "102029",   //获取卡牌所在牌堆（Card→Pile）
+            "105002",   //获取牌堆中的牌（Pile→Card[]）
+            "105003",   //获取牌堆名（Pile→String）
+            "105004",   //获取牌堆所属玩家（Pile→Player）
+            "200004",   //创建牌堆（TCG2 无自定义牌堆 → 近似=固定区域句柄）
+            "200005",   //删除牌堆（近似=清空该固定区域）
+            "200006",   //从牌堆将卡牌移动到目标牌堆（仅数据型区域：手牌/牌库/墓地/奥秘/暂存区）
+            "202046",   //创建衍生卡并置入牌堆（战场自动空位；未提供牌堆→暂存区）
+            //第七批 T2：事件日志 + 卡牌快照基础设施（事件家族 108xxx + 事件重复次数 208009）
+            "108004",   //事件类型判断（事件口 + 事件类型 → Boolean）
+            "108005",   //获取本局游戏事件（按事件类型筛选 → EventArg[]）
+            "108006",   //获取本回合事件（→ EventArg[]）
+            "108007",   //获取前X-Y回合内的事件（farther/nearer → EventArg[]）
+            "108008",   //获取卡牌在某事件前的快照（Card + EventArg → CardSnapshot）
+            "108009",   //获取卡牌在某事件后的快照
+            "108010",   //获取事件重复次数（→ Int32）
+            "108011",   //获取事件发生的回合（→ Int32）
+            "108012",   //获取事件的父事件（→ EventArg）
+            "108013",   //获取事件的子事件（→ EventArg[]）
+            "108014",   //获取事件发生的事件链（父→祖父… → EventArg[]）
+            "108015",   //获取事件发生时引发的事件（Before 子事件）
+            "108016",   //获取事件发生后引发的事件（After 子事件）
+            "208009",   //设置事件重复次数（EventArg + times）
+            //第七批 T2：卡牌快照家族 104xxx（快照=Card.CloneNew 深克隆；104003 已过时，不放出）
+            "104001",   //获取卡牌快照对应卡牌（→ Card）
+            "104002",   //获取卡牌快照卡牌定义（→ CardDefine）
+            "104004",   //卡牌快照关键词判断
+            "104005",   //获取卡牌快照属性（Object）
+            "104006",   //获取卡牌快照花费
+            "104007",   //获取卡牌快照攻击力
+            "104008",   //获取卡牌快照最大生命值
+            "104009",   //获取卡牌快照当前生命值
+            "104010",   //获取卡牌快照拥有者（→ Player）
+            "104011",   //获取卡牌快照护甲值
+            "104014",   //卡牌快照具有宣言
+            "104015",   //卡牌快照具有遗言
+            "104016",   //卡牌快照是否是陷阱
+            "104017",   //卡牌快照类型判断
+            "104018",   //卡牌快照拥有标签
+            "104019",   //获取卡牌快照标签列表
+            //第七批 T2：增益家族补全（Buff 值通道=BuffRef{实例+所属卡}；106002 已过时，不放出）
+            "106001",   //该增益（当前增益图上下文 → Buff）
+            "106002",   //获取增益定义（BuffSelect 字段 → BuffDefine）
+            "106003",   //是否具有增益（卡牌 + buff_id 下拉 → Boolean）
+            "106005",   //获取单个增益的定义（Buff → BuffDefine）
+            "106006",   //获取卡牌上的所有增益（Card → Buff[]）
+            "106007",   //增益属性是否可见（Buff + 属性名 + 玩家 → Boolean，只存不发）
+            "206004",   //设置增益属性可见性（只存不发）
+            //第七批 T3-a：玩家查询/动作
+            "101020",   //获取所有玩家（Player[]；单消费者取首个）
+            "101022",   //获取某个回合的玩家（近似=当前回合玩家）
+            "201002",   //设置玩家属性（生命/最大生命/灵力/灵力上限/击杀数）
+            //第七批 T3-b：选择类（复用入口「目标1条件」选目标通道）
+            "201004",   //从一定数量的卡牌中选择一张（返回玩家已选目标；同名 201016 为变体）
+            "201005",   //从一定数量的卡牌定义中选择一张（同名 201017 为变体）
+            "201016",   //从一定数量的卡牌中选择一张（带玩家口版）
+            "201017",   //从一定数量的卡牌定义中选择一张（带玩家口版）
+            //第七批 T3-c：卡牌动作 / 多目标伤害 / 杂项
+            "202011",   //造成法术伤害（damage + targets）
+            "202012",   //造成固定法术伤害并分配给随机目标（近似：逐点随机）
+            "202017",   //强制更新游戏状态（RefreshData）
+            "202021",   //触发卡牌宣言（≈OnPlay 能力）
+            "202022",   //触发卡牌遗言（≈OnDeath 能力）
+            "202023",   //触发法术或技能卡牌效果（近似：OnPlay 能力）
+            "202024",   //重置卡牌（Card.Clear）
+            "202025",   //强制攻击目标（AttackTarget/AttackPlayer）
+            "202026",   //本回合攻击次数增加一次（清一次已攻击记录）
+            "202027",   //揭示卡牌（奥秘区→墓地）
+            "210008",   //卡牌移动到暂存区（cards_temp）
+            "202035",   //造成伤害或法伤并分配给目标（近似：均分）
+            "202042",   //同名变体（参数顺序不同）
+            "202036",   //对固定数量的随机目标造成伤害或法伤
+            "202043",   //同名变体（参数顺序不同）
+            //第七批 T3-d：部分查询
+            "102009",   //获取唯一属性名（v1 原样输出）
+            "102035",   //获取卡牌属性名（属性取值器 → 中文名）
+            "103003",   //获取卡牌定义列表（近似=全部定义）
         };
 
         /// <summary>NodeDoc 定义 → 面板预设：端口 1:1 照搬；Int32/Boolean/String 输入转为右侧可编辑常量字段</summary>
@@ -751,11 +898,10 @@ namespace TcgEngine.UI
                 //改用下方 攻击加成/生命加成/持续回合 三个数值字段表达增益
                 if (p.action == "206001" && ip.type == NodeValueType.BuffDefine)
                     continue;
-                //增益家族 v1（206002/106003/106004/206003/106005/106006）：Buff 引用口不生成（v1 无 Buff 值通道，
-                //以 buff_id 下拉字段引用增益定义）；106004/206003 没有 card 口，下方补一个；
-                //106005/106006 的 Buff 口跳过（取定义/取集合留待 Buff 值通道落地后实现）
-                if ((p.action == "206002" || p.action == "106004" || p.action == "206003" || p.action == "106003"
-                        || p.action == "106005" || p.action == "106006")
+                //增益家族（206002/106004/206003/106003）：Buff/BuffDefine 引用口不生成，改用 buff_id 下拉字段
+                //引用增益定义；106004/206003 没有 card 口，下方补一个。
+                //106005 获取增益定义 / 106007 / 206004 保留 Buff 引用口（Buff 值通道已落地）
+                if ((p.action == "206002" || p.action == "106004" || p.action == "206003" || p.action == "106003")
                     && (ip.type == NodeValueType.Buff || ip.type == NodeValueType.BuffDefine))
                     continue;
                 if ((p.action == "106004" || p.action == "206003") && ip.name == "propName")
@@ -767,13 +913,18 @@ namespace TcgEngine.UI
                 //103002 获取卡牌定义：DefineReference 引用口不生成，换成卡牌选择字段（下方字段区）
                 if (p.action == "103002" && ip.type == NodeValueType.DefineReference)
                     continue;
+                //106002 获取增益定义：DefineReference 引用口不生成，换成增益选择字段（下方字段区）
+                if (p.action == "106002" && ip.type == NodeValueType.DefineReference)
+                    continue;
                 //ActionNode 型"输入"实为分支/循环的动作出口（zmcs 控制流节点规范）→ 转成执行流输出口
                 if (ip.type == NodeValueType.ActionNode)
                 {
                     p.pins.Add(new PinDef(ip.name, ip.display_name, NodeValueType.Flow, true));
                     continue;
                 }
-                p.pins.Add(new PinDef(ip.name, ip.display_name, ip.type, false, ip.is_array));
+                //isParams=true 是"参数列表"口（如 112004 整数运算/112005 逻辑运算的 值 口）：
+                //允许多条取值线接入，运行时逐线求值（ResolveAllIntArgs），否则只能算 1 个数
+                p.pins.Add(new PinDef(ip.name, ip.display_name, ip.type, false, ip.is_array || ip.is_params));
             }
             foreach (NodeDocPort op in d.outputs)
             {
@@ -828,6 +979,19 @@ namespace TcgEngine.UI
                     else
                         p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "牌库", "手牌", "墓地" }, "牌库"));
                 }
+                else if (ip.type == NodeValueType.Pile)
+                {
+                    //Pile 型输入口（Pile 值通道 "玩家id|区域名"）：有连线时以线为准；无连线用下拉选区域，
+                    //玩家取「选中玩家 / 施法卡所属玩家」
+                    p.fields.Add(EnumField(ip.name, ip.display_name,
+                        new string[] { "手牌", "牌库", "墓地", "战场", "装备", "奥秘", "暂存区" }, "牌库"));
+                }
+                else if (ip.type == NodeValueType.EventReference)
+                {
+                    //事件类型（108004 事件类型判断 / 108005 获取本局游戏事件）：中文下拉 → 匹配 ctx.action 子串
+                    p.fields.Add(EnumField(ip.name, ip.display_name,
+                        new string[] { "打出", "伤害", "治疗", "死亡", "弃牌", "装备", "抽卡", "回合", "游戏" }, "伤害"));
+                }
                 else if (p.action == "202037" && ip.name == "value" && ip.type == NodeValueType.Object)
                     p.fields.Add(IntField(ip.name, ip.display_name, "0"));   //设置属性的无连线默认值（有取值线时以线为准）
                 else if (ip.type == NodeValueType.CompareOperator)
@@ -874,6 +1038,12 @@ namespace TcgEngine.UI
             //103002 获取卡牌定义：DefineReference 引用口的替代表达——卡牌选择下拉（选当前卡池的卡牌）
             if (p.action == "103002")
                 p.fields.Add(new FieldDef("cardRef", "卡牌定义", FieldEditType.CardSelect, null, ""));
+            //106002 获取增益定义：DefineReference 引用口的替代表达——增益选择下拉（选增益池定义）
+            if (p.action == "106002")
+                p.fields.Add(new FieldDef("buffDefine", "增益定义", FieldEditType.BuffSelect, null, ""));
+            //201002 设置玩家属性：Object 型「值」口的无连线默认值（有取值线时以线为准）
+            if (p.action == "201002")
+                p.fields.Add(IntField("value", "值", "0"));
             //事件家族（108002 获取变量 / 208001 设置变量）变量名用下拉；108003 转换事件类型用事件类型下拉
             if (p.action == "108002" || p.action == "208001")
                 p.fields.Add(EnumField("varName", "变量名",
@@ -881,6 +1051,27 @@ namespace TcgEngine.UI
             if (p.action == "108003")
                 p.fields.Add(EnumField("eventReference", "事件类型",
                     new string[] { "打出", "伤害", "治疗", "死亡", "弃牌", "装备", "抽卡", "回合", "游戏" }, "死亡"));
+            //112002 比较：zmcs 的 A/B 是 Object 万能槽（常数或取值线），无连线时用文本字段填固定值
+            if (p.action == "112002")
+            {
+                p.fields.Add(new FieldDef("A", "值A", FieldEditType.Input, null, "0"));
+                p.fields.Add(new FieldDef("B", "值B", FieldEditType.Input, null, "0"));
+            }
+            //112004 整数运算：arg 是 isParams 多值口；无取值线时用该字段作起始值（连线时以线为准）
+            if (p.action == "112004")
+                p.fields.Add(IntField("arg", "值", "0"));
+            //法术伤害家族：法术伤害加成在 TCG2 里由卡牌/玩家身上的 TraitData 特性承载（EffectDamage.bonus_damage 同源），
+            //用 trait_id 指定该特性（与 Resources/Effects/add_spell_damage 的命名一致）
+            if (p.action == "101016" || p.action == "102011" || p.action == "103013")
+                p.fields.Add(new FieldDef("trait_id", "法术伤害特性", FieldEditType.Input, null, "spell_damage"));
+            //标签家族（102033/103004/104018）：zmcs 的 CardTagName 口在 TCG2 用文本标签（关键词/特性 id 或标题）
+            if (p.action == "102033" || p.action == "103004" || p.action == "104018")
+                p.fields.Add(new FieldDef("tag", "标签", FieldEditType.Input, null, ""));
+            //映射家族：Object 型 键/值 口在 TCG2 用文本字段填固定值（可连取值线覆盖）
+            if (p.action == "113002" || p.action == "113003" || p.action == "213001" || p.action == "213002")
+                p.fields.Add(new FieldDef("key", "键", FieldEditType.Input, null, ""));
+            if (p.action == "213001")
+                p.fields.Add(new FieldDef("value", "值", FieldEditType.Input, null, ""));
             return p;
         }
 
@@ -929,6 +1120,12 @@ namespace TcgEngine.UI
             if (btn_audio_damage != null) btn_audio_damage.onClick.AddListener(() => OnPickAudio(3));
             if (dropdown_type != null) dropdown_type.onValueChanged.AddListener((v) => RefreshPanelArtRow());
             SetupMetaDropdowns();
+
+            //右侧栏 Tab：生成工具在编辑器里 AddListener 的回调不会存进场景，运行时统一重挂
+            if (btn_tab_prop != null)
+                btn_tab_prop.onClick.AddListener(() => SelectRightTab(true));
+            if (btn_tab_lib != null)
+                btn_tab_lib.onClick.AddListener(() => SelectRightTab(false));
 
             //分类下拉（新 UI）：全部/内置/收藏/NodeDoc zmcs 分类；存在下拉时隐藏旧按钮（兼容旧场景）
             if (node_filter_dropdown != null)
@@ -986,17 +1183,22 @@ namespace TcgEngine.UI
             base.Update();
             HandleShortcuts();
 
-            //面板激活后的第一帧：执行整页 TMP 迁移 + 右侧栏 Tab 构建（未激活时 AddComponent 会失败）
+            //面板激活后的第一帧：执行整页 TMP 迁移（布局 Tab 已由生成工具直接生成，运行时不再重建）
             if (ui_setup_pending && gameObject.activeInHierarchy)
             {
                 ui_setup_pending = false;
                 EnsureTmpUI();
-                EnsureRightTabs();
                 if (card != null)
                 {
                     RefreshForm();             //把当前卡的值填进新换上的 TMP 控件
                     RefreshCardExtraFields();
                 }
+                ReplaceFilterDropdown();       //分类过滤：下拉 → 选择按钮+弹层（旧下拉会渲染出空白方块）
+                HideLibTitle();                //节点库标题与 Tab 上的「节点库」重复，隐藏
+                RewireAudioPreviewButtons();   //试听按钮重挂监听（编辑器加的监听不存场景）
+                SetupRichTextRow("卡牌文本", input_text, "RichTextText");    //多行文本框 → 富文本编辑弹层
+                SetupRichTextRow("描述", input_desc, "RichTextDesc");
+                SetupArtClipRows();            //卡面图/面板图：点击预览图 → 卡图裁切弹框（支持本地文件导入）
             }
         }
 
@@ -1352,7 +1554,10 @@ namespace TcgEngine.UI
             copied_node = null;
             //旧图端口迁移：旧引脚无类型（type=None），按预设重建端口（id 命名不变，连线保持有效）
             foreach (GraphNode n in graph.nodes)
+            {
+                MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+            }
             RefreshForm();
             RefreshPanelArtRow();
             RefreshArt();
@@ -1421,7 +1626,10 @@ namespace TcgEngine.UI
             redo_stack.Clear();
             copied_node = null;
             foreach (GraphNode n in graph.nodes)
+            {
+                MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+            }
             RebuildCanvas();
             ResetView();
             RefreshEffectTabs();
@@ -1585,7 +1793,10 @@ namespace TcgEngine.UI
             redo_stack.Clear();
             copied_node = null;
             foreach (GraphNode n in graph.nodes)
+            {
+                MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+            }
             RefreshForm();
             RefreshPanelArtRow();
             RebuildCanvas();
@@ -1629,7 +1840,10 @@ namespace TcgEngine.UI
             redo_stack.Clear();
             copied_node = null;
             foreach (GraphNode n in graph.nodes)
+            {
+                MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+            }
             RefreshForm();
             RefreshPanelArtRow();
             RebuildCanvas();
@@ -1675,7 +1889,10 @@ namespace TcgEngine.UI
             redo_stack.Clear();
             copied_node = null;
             foreach (GraphNode n in graph.nodes)
+            {
+                MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+            }
             RefreshForm();
             RefreshPanelArtRow();
             RebuildCanvas();
@@ -1809,8 +2026,11 @@ namespace TcgEngine.UI
             if (field == null || row == null || content == null)
                 return;
 
-            //1) 种族：隐藏旧单选下拉，同位置换成多选按钮（TMP）
+            //1) 种族：隐藏旧单选下拉，同位置换成多选按钮（TMP）；先清同名残留（场景保存过运行时对象时防重复）
             dropdown_trait.gameObject.SetActive(false);
+            Transform stale_sel = field.Find("TraitSelect");
+            if (stale_sel != null)
+                Destroy(stale_sel.gameObject);
             txt_trait_select = CreateCardSelectButton(field, "TraitSelect", OnClickTraitSelect);
 
             //1.5) 类型/阵营/稀有度：旧单选下拉 → TMP 选择按钮（统一风格，弹层选择）
@@ -1818,7 +2038,10 @@ namespace TcgEngine.UI
             txt_team_select = ReplaceDropdownWithSelect(dropdown_team, "TeamSelect", OnClickTeamSelect);
             txt_rarity_select = ReplaceDropdownWithSelect(dropdown_rarity, "RaritySelect", OnClickRaritySelect);
 
-            //2) 关键词：复制种族行（沿用标签/行高/布局），插在种族行下面
+            //2) 关键词：复制种族行（沿用标签/行高/布局），插在种族行下面；先清同名残留防重复
+            Transform stale_kw = content.Find("PropRowKeyword");
+            if (stale_kw != null)
+                Destroy(stale_kw.gameObject);
             RectTransform kw_row = Instantiate(row.gameObject, content).GetComponent<RectTransform>();
             kw_row.name = "PropRowKeyword";
             kw_row.SetSiblingIndex(row.GetSiblingIndex() + 1);
@@ -1832,77 +2055,9 @@ namespace TcgEngine.UI
                 txt_keyword_select = CreateCardSelectButton(kw_field, "KeywordSelect", OnClickKeywordSelect);
             }
 
-            //3) 音效行：各加「▶ 试听」
-            AddAudioPreviewButton(input_audio_spawn, 0);
-            AddAudioPreviewButton(input_audio_attack, 1);
-            AddAudioPreviewButton(input_audio_death, 2);
-            AddAudioPreviewButton(input_audio_damage, 3);
-
-            //4) 短字段两两一行（长字段保持整行）
-            PackShortPropRows(content);
+            //3) 音效行试听「▶」与短字段凑行已在生成工具中直接生成，此处不再运行时重排
 
             card_extra_built = true;
-        }
-
-        /// <summary>短字段两两一行：把相邻短字段行并排（阵营|稀有度、费用|攻击、可组卡|购买价）。
-        /// 运行时重排属性区，无需重跑生成工具；名称/卡牌文本/描述/种族/关键词/图片/音效保持整行。</summary>
-        private void PackShortPropRows(RectTransform content)
-        {
-            if (content == null)
-                return;
-            string[][] pairs = new string[][]
-            {
-                new string[] { "类型", "阵营" },
-                new string[] { "稀有度", "费用" },
-                new string[] { "攻击", "生命" },
-            };
-            foreach (string[] pair in pairs)
-            {
-                RectTransform a = FindPropRow(content, pair[0]);
-                RectTransform b = FindPropRow(content, pair[1]);
-                if (a == null || b == null || a == b)
-                    continue;
-                int idx = a.GetSiblingIndex();
-                RectTransform pack = CreatePackRow(content);
-                MakeFlexible(a);
-                MakeFlexible(b);
-                a.SetParent(pack, false);
-                b.SetParent(pack, false);
-                pack.SetSiblingIndex(Mathf.Clamp(idx, 0, content.childCount - 1));
-            }
-        }
-
-        /// <summary>新建横向「打包行」（两个字段并排，行高与普通属性行一致）</summary>
-        private static RectTransform CreatePackRow(RectTransform content)
-        {
-            GameObject go = new GameObject("PropPackRow", typeof(RectTransform));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(content, false);
-            HorizontalLayoutGroup h = go.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 6f;
-            h.padding = new RectOffset(0, 0, 0, 0);
-            h.childAlignment = TextAnchor.MiddleCenter;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = true;
-            h.childForceExpandHeight = true;
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 40f;
-            le.minHeight = 40f;
-            return rt;
-        }
-
-        /// <summary>打包行内的子行：等宽平分 + 固定行高</summary>
-        private static void MakeFlexible(RectTransform row)
-        {
-            LayoutElement le = row.GetComponent<LayoutElement>();
-            if (le == null)
-                le = row.gameObject.AddComponent<LayoutElement>();
-            le.flexibleWidth = 1f;
-            le.preferredWidth = 0f;
-            le.minWidth = 0f;
-            le.preferredHeight = 40f;
-            le.minHeight = 40f;
         }
 
         /// <summary>按标签文本找属性行（只查 content 的直接子行；占用行已被打包则查不到，天然幂等）</summary>
@@ -2134,6 +2289,22 @@ namespace TcgEngine.UI
             return t;
         }
 
+        /// <summary>设置按钮文字（兼容 TMP 与旧版 Text）：用于把模板里的装饰字符统一成字体必有的字形</summary>
+        private static void SetButtonText(Transform btn, string text)
+        {
+            if (btn == null)
+                return;
+            TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>(true);
+            if (tmp != null)
+            {
+                tmp.text = text;
+                return;
+            }
+            Text legacy = btn.GetComponentInChildren<Text>(true);
+            if (legacy != null)
+                legacy.text = text;
+        }
+
         /// <summary>属性行标签文本（兼容旧版 Text 与 TMP）</summary>
         private static void SetLabelText(Transform label, string text)
         {
@@ -2175,51 +2346,8 @@ namespace TcgEngine.UI
             return KeywordDisplay(id);   //复用节点侧「id → 关键词标题」
         }
 
-        /// <summary>音效行加「▶」试听按钮（压缩原输入框/选择按钮宽度腾位置）</summary>
-        private void AddAudioPreviewButton(TMP_InputField input, int slot)
-        {
-            if (input == null)
-                return;
-            RectTransform field = input.transform.parent as RectTransform;   //AudioRow
-            if (field == null)
-                return;
-            RectTransform input_rt = input.GetComponent<RectTransform>();
-            if (input_rt != null)
-            {
-                input_rt.anchorMin = new Vector2(0, 0);
-                input_rt.anchorMax = new Vector2(0.52f, 1);
-                input_rt.offsetMin = Vector2.zero;
-                input_rt.offsetMax = Vector2.zero;
-            }
-            RectTransform prt = field.Find("PickAudioBtn") as RectTransform;
-            if (prt != null)
-            {
-                prt.anchorMin = new Vector2(0.55f, 0);
-                prt.anchorMax = new Vector2(0.82f, 1);
-                prt.offsetMin = Vector2.zero;
-                prt.offsetMax = Vector2.zero;
-            }
-
-            GameObject go = new GameObject("PlayAudioBtn_" + slot, typeof(RectTransform), typeof(Image), typeof(Button));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(field, false);
-            rt.anchorMin = new Vector2(0.85f, 0);
-            rt.anchorMax = new Vector2(1f, 1);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            Image img = go.GetComponent<Image>();
-            img.color = new Color(0.4f, 0.85f, 0.6f, 0.45f);
-            Button btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-            int captured = slot;
-            btn.onClick.AddListener(() => OnPreviewAudio(captured));
-            TMP_Text t = MakeNodeTmpText(rt, "Text", "▶", 14, TextAlignmentOptions.Center);
-            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
-            t.raycastTarget = false;
-        }
-
         /// <summary>试听音效槽（0打出 1攻击 2死亡 3受伤）：优先用输入框当前文件名（未保存也能听）</summary>
-        private void OnPreviewAudio(int slot)
+        public void OnPreviewAudio(int slot)
         {
             if (card == null)
                 return;
@@ -2404,16 +2532,23 @@ namespace TcgEngine.UI
             return c as RectTransform;
         }
 
-        /// <summary>统一字号：区块标题 20、状态条 18、行标签/按钮 15，其余 16</summary>
-        private static int NormalizeFontSize(string go_name, int legacy_size)
+        /// <summary>
+        /// 统一字号：区块标题=FontSection、状态条=FontStatus、其余=FontBody、行标签=FontSmall（一律取 UITheme 令牌）。
+        /// 按钮文字例外：保留按钮自身字号（页面级按钮生成时已用 UITheme.FontButton），不被压成正文 16。
+        /// </summary>
+        private static int NormalizeFontSize(GameObject go, int legacy_size)
         {
-            if (go_name == "AreaTitle")
-                return 20;
-            if (go_name == "StatusText")
-                return 18;
-            if (go_name == "PropLabel" || go_name == "ToggleLabel" || go_name.StartsWith("Btn") || go_name.EndsWith("Btn"))
-                return 15;
-            return 16;
+            if (go == null)
+                return UITheme.FontBody;
+            if (go.name == "AreaTitle")
+                return UITheme.FontSection;
+            if (go.name == "StatusText")
+                return UITheme.FontStatus;
+            if (go.GetComponentInParent<Button>() != null)
+                return legacy_size;
+            if (go.name == "PropLabel" || go.name == "ToggleLabel" || go.name.StartsWith("Btn") || go.name.EndsWith("Btn"))
+                return UITheme.FontSmall;
+            return UITheme.FontBody;
         }
 
         /// <summary>按名找文本：已是 TMP 直接返回；旧版 Text 则转换后返回；找不到返回 null</summary>
@@ -2439,7 +2574,7 @@ namespace TcgEngine.UI
             tmp_converted.Add(go);   //标记后不再重试（失败也跳过，避免每次打开都试一遍）
 
             string text = legacy.text;
-            int size = NormalizeFontSize(go.name, legacy.fontSize);   //统一字号（不再沿用旧版杂乱字号）
+            int size = NormalizeFontSize(go, legacy.fontSize);   //统一字号（不再沿用旧版杂乱字号）
             Color color = legacy.color;
             TextAlignmentOptions align = ToTmpAlignment(legacy.alignment);
             bool raycast = legacy.raycastTarget;
@@ -2482,75 +2617,14 @@ namespace TcgEngine.UI
 
         // ---------------- 右侧栏 Tab：卡牌参数 / 节点库（各占满一整列） ----------------
 
-        /// <summary>把「卡牌参数」与「节点库」从上下各半改为整列互斥 + Tab 切换（显示内容翻倍）。
-        /// 运行时构建，无需重跑生成工具。</summary>
-        private void EnsureRightTabs()
-        {
-            if (right_tabs_built)
-                return;
-            prop_area_rt = transform.Find("PropArea") as RectTransform;
-            lib_area_rt = transform.Find("LibArea") as RectTransform;
-            if (prop_area_rt == null || lib_area_rt == null)
-                return;
-            right_tabs_built = true;
-
-            SetRightColumn(prop_area_rt);
-            SetRightColumn(lib_area_rt);
-            if (node_field_root != null)
-                SetRightColumn(node_field_root.transform as RectTransform);
-
-            RectTransform bar = new GameObject("RightTabBar", typeof(RectTransform)).GetComponent<RectTransform>();
-            bar.SetParent(transform, false);
-            bar.anchorMin = new Vector2(0.77f, 0.855f);
-            bar.anchorMax = new Vector2(0.99f, 0.895f);
-            bar.offsetMin = Vector2.zero;
-            bar.offsetMax = Vector2.zero;
-            HorizontalLayoutGroup h = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 6f;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = true;
-            h.childForceExpandHeight = true;
-
-            tab_prop_text = MakeRightTab(bar, "卡牌参数", () => SelectRightTab(true));
-            tab_lib_text = MakeRightTab(bar, "节点库", () => SelectRightTab(false));
-            bar.SetAsLastSibling();   //保证 Tab 在属性/库面板之上可点
-
-            SelectRightTab(false);    //默认节点库（与旧行为一致）
-        }
-
-        /// <summary>右侧栏面板统一矩形：占满整列（内容区在 Tab 栏下方）</summary>
-        private static void SetRightColumn(RectTransform rt)
-        {
-            if (rt == null)
-                return;
-            rt.anchorMin = new Vector2(0.77f, 0.04f);
-            rt.anchorMax = new Vector2(0.99f, 0.85f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
-
-        private TMP_Text MakeRightTab(RectTransform bar, string label, Action onClick)
-        {
-            GameObject go = new GameObject("Tab_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(bar, false);
-            Image img = go.GetComponent<Image>();
-            img.color = new Color(1f, 1f, 1f, 0.12f);
-            Button btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-            if (onClick != null)
-                btn.onClick.AddListener(() => onClick());
-            TMP_Text t = MakeNodeTmpText(rt, "Text", label, 18, TextAlignmentOptions.Center);
-            SetStretchRect(t.rectTransform, 4, 0, 4, 0);
-            t.raycastTarget = false;
-            return t;
-        }
-
-        /// <summary>切换右侧栏页：true=卡牌参数，false=节点库</summary>
+        /// <summary>切换右侧栏页：true=卡牌参数，false=节点库（Tab 栏与整列布局已由生成工具建好，这里只切显隐与高亮）</summary>
         public void SelectRightTab(bool prop)
         {
             right_tab_prop = prop;
+            if (prop_area_rt == null)
+                prop_area_rt = transform.Find("PropArea") as RectTransform;
+            if (lib_area_rt == null)
+                lib_area_rt = transform.Find("LibArea") as RectTransform;
             if (prop_area_rt != null)
                 prop_area_rt.gameObject.SetActive(prop);
             if (lib_area_rt != null)
@@ -2569,6 +2643,284 @@ namespace TcgEngine.UI
             if (img != null)
                 img.color = active ? new Color(0.2f, 0.55f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.12f);
             t.color = active ? Color.white : new Color(1f, 1f, 1f, 0.7f);
+        }
+
+        /// <summary>节点库分类过滤：TMP 下拉在部分场景会渲染出空白方块，统一换成「选择按钮 + 弹层」（与节点参数选择同款）。
+        /// 新按钮复制旧下拉的矩形位置；旧下拉连同其模板一并隐藏（顺带去掉空白方块）。</summary>
+        private void ReplaceFilterDropdown()
+        {
+            if (txt_filter_select != null)
+                return;
+            //旧场景里分类下拉可能没绑到面板字段：按结构在节点库区里找
+            TMP_Dropdown dd = node_filter_dropdown;
+            if (dd == null)
+            {
+                Transform lib = transform.Find("LibArea");
+                if (lib != null)
+                    dd = lib.GetComponentInChildren<TMP_Dropdown>(true);
+            }
+            if (dd == null)
+                return;
+            List<string> opts = FilterOptions();
+            if (opts == null || opts.Count == 0)
+                return;
+            GameObject dd_go = dd.gameObject;
+            RectTransform dd_rt = dd_go.GetComponent<RectTransform>();
+            if (dd_rt == null)
+                return;
+            filter_select_value = Mathf.Clamp(dd.value, 0, opts.Count - 1);
+            dd_go.SetActive(false);
+
+            RectTransform parent = dd_rt.parent as RectTransform;
+            if (parent == null)
+                return;
+            Transform stale = parent.Find("FilterSelect");
+            if (stale != null)
+                Destroy(stale.gameObject);
+
+            GameObject go = new GameObject("FilterSelect", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = dd_rt.anchorMin;
+            rt.anchorMax = dd_rt.anchorMax;
+            rt.offsetMin = dd_rt.offsetMin;
+            rt.offsetMax = dd_rt.offsetMax;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(OnClickFilterSelect);
+            TMP_Text t = MakeNodeTmpText(rt, "Text", opts[filter_select_value], 14, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 8, 0, 8, 0);
+            t.raycastTarget = false;
+            txt_filter_select = t;
+        }
+
+        /// <summary>分类选择弹层：全部/内置/收藏/NodeDoc 分类；选中即刷新节点列表</summary>
+        private void OnClickFilterSelect()
+        {
+            List<string> opts = FilterOptions();
+            if (opts == null || opts.Count == 0)
+                return;
+            string cur = filter_select_value >= 0 && filter_select_value < opts.Count ? opts[filter_select_value] : "全部";
+            OpenSingleSelectPopup("分类", cur, opts.ToArray(), opts.ToArray(), v =>
+            {
+                int idx = opts.IndexOf(v);
+                filter_select_value = idx >= 0 ? idx : 0;
+                filter_index = filter_select_value;
+                if (txt_filter_select != null)
+                    txt_filter_select.text = v;
+                RefreshNodeLib();
+            });
+        }
+
+        /// <summary>隐藏节点库标题（Tab 上已有「节点库」字样，数量提示冗余）</summary>
+        private void HideLibTitle()
+        {
+            if (node_lib_count != null)
+            {
+                node_lib_count.gameObject.SetActive(false);
+                return;
+            }
+            Transform lib = transform.Find("LibArea");
+            Transform title = lib != null ? lib.Find("AreaTitle") : null;
+            if (title != null)
+                title.gameObject.SetActive(false);
+        }
+
+        /// <summary>音效试听按钮：生成工具已建（PlayAudioBtn_0~3），但编辑器里加的监听不会存进场景，运行时重挂</summary>
+        private void RewireAudioPreviewButtons()
+        {
+            string[] labels = { "打出音效", "攻击音效", "死亡音效", "受伤音效" };
+            RectTransform content = PropFormContent();
+            if (content == null)
+                return;
+            for (int slot = 0; slot < labels.Length; slot++)
+            {
+                RectTransform row = FindPropRow(content, labels[slot]);
+                if (row == null)
+                    continue;
+                string target = "PlayAudioBtn_" + slot;
+                foreach (Button b in row.GetComponentsInChildren<Button>(true))
+                {
+                    if (b != null && b.gameObject.name == target)
+                    {
+                        int captured = slot;
+                        b.onClick.AddListener(() => OnPreviewAudio(captured));
+                        break;
+                    }
+                }
+            }
+        }
+
+        // ---------------- 富文本编辑弹层（卡牌文本/描述，TMP 标签源码编辑） ----------------
+
+        /// <summary>把多行文本框换成「点击弹出富文本编辑」的按钮：摘要显示去标签后的前 40 字，点击弹编辑层</summary>
+        private void SetupRichTextRow(string label, TMP_InputField source, string btn_name)
+        {
+            if (source == null)
+                return;
+            RectTransform row = FindPropRow(PropFormContent(), label);
+            if (row == null)
+                return;
+            Transform field = row.Find("Field");
+            if (field == null)
+                return;
+            Transform stale = field.Find(btn_name);
+            if (stale != null)
+                Destroy(stale.gameObject);
+            source.gameObject.SetActive(false);   //原输入框隐藏（值仍在，保存逻辑不变）
+
+            GameObject go = new GameObject(btn_name, typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(field, false);
+            SetStretchRect(rt, 0, 0, 0, 0);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", RichTextSummary(source.text), 14, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 8, 6, 8, 6);
+            t.enableWordWrapping = true;
+            t.overflowMode = TextOverflowModes.Overflow;
+            t.raycastTarget = false;
+            TMP_Text captured = t;
+            btn.onClick.AddListener(() =>
+            {
+                OpenRichTextEditor(label, source, v => { if (captured != null) captured.text = RichTextSummary(v); });
+            });
+        }
+
+        /// <summary>富文本摘要：去标签后的前 40 字（空值给占位提示）</summary>
+        private static string RichTextSummary(string rich)
+        {
+            if (string.IsNullOrEmpty(rich))
+                return "（点击编辑）";
+            string plain = System.Text.RegularExpressions.Regex.Replace(rich, "<[^>]+>", "").Replace("\n", " ").Trim();
+            return plain.Length > 40 ? plain.Substring(0, 40) + "…" : plain;
+        }
+
+        /// <summary>打开富文本编辑弹框：确认后回写 source 并触发 on_confirm（刷新入口摘要）。
+        /// 未绑定场景弹框时自动在同 Canvas 下创建（复用 UI/RichText 下的通用组件）。</summary>
+        public void OpenRichTextEditor(string title, TMP_InputField source, System.Action<string> on_confirm)
+        {
+            if (rich_text_popup == null)
+                rich_text_popup = RichTextPopupUI.Create(transform);
+            if (rich_text_popup == null)
+                return;
+
+            TMP_FontAsset node_font = NodeFont();   //复用画布已渲染成功的中文字体，避免弹框出现方块字
+            if (node_font != null)
+                rich_text_popup.font = node_font;
+            rich_text_popup.title = string.IsNullOrEmpty(title) ? "编辑卡牌描述" : title;
+
+            // 「确定」时必须把结果写回表单输入框：该输入框被隐藏但保存时 ReadForm 仍按它取值，
+            // 只调 on_confirm（仅刷新摘要）会导致卡牌文本存不进去、重开丢样式
+            rich_text_popup.Open(source != null ? source.text : "", v =>
+            {
+                if (source != null)
+                    source.text = v;
+                if (on_confirm != null)
+                    on_confirm(v);
+            });
+        }
+
+        // ---------------- 卡图裁切（点击预览图 → 裁切弹框） ----------------
+
+        /// <summary>
+        /// 给「卡牌图片」/「面板（全图）图片」两行预览挂上「点击 → 卡图裁切」入口。
+        /// 两行的显示区域比例不同，必须分别传，否则裁出来的比例与游戏里对不上：
+        /// 卡牌图片 = 卡牌正面（手牌/收藏） 250×350（HandCard.prefab 的 card_image）；
+        /// 面板图片 = 战场面板 8.56×8.36（BoardCard.prefab 的 card_sprite）。
+        /// slot：0 写 art_path（战场），1 写 art_full_path（卡牌正面）。
+        /// </summary>
+        private void SetupArtClipRows()
+        {
+            art_clip_card = EnsureArtClipTarget(art_preview, 1, new Vector2(250f, 350f));        //卡牌正面：竖长
+            art_clip_panel = EnsureArtClipTarget(art_full_preview, 0, new Vector2(8.56f, 8.36f)); //战场面板：近方
+        }
+
+        /// <summary>slot：0 卡面图（art_path）/ 1 面板图（art_full_path）</summary>
+        private ImageClipEditorUI EnsureArtClipTarget(Image target, int slot, Vector2 target_size)
+        {
+            if (target == null)
+                return null;
+
+            // 预览图在「还没选图」时会被 RefreshArt 置为 enabled=false（Image 组件停用即收不到射线），
+            // 所以点击入口放在一个盖住它的透明命中层上，保证首次（无图）也能点开裁切弹框
+            Transform hit = target.transform.Find("ClipHit");
+            if (hit == null)
+            {
+                GameObject go = new GameObject("ClipHit", typeof(RectTransform), typeof(Image));
+                RectTransform rt = go.GetComponent<RectTransform>();
+                rt.SetParent(target.transform, false);
+                SetStretchRect(rt, 0, 0, 0, 0);
+                Image hit_img = go.GetComponent<Image>();
+                hit_img.color = new Color(1f, 1f, 1f, 0f);   //全透明仍参与射线检测（UI 射线不看 alpha）
+                hit_img.raycastTarget = true;
+                hit = rt;
+            }
+
+            ImageClipEditorUI editor = hit.GetComponent<ImageClipEditorUI>();
+            if (editor == null)
+            {
+                editor = hit.gameObject.AddComponent<ImageClipEditorUI>();
+                editor.onImageChanged += sp => OnArtClipped(slot, sp);
+            }
+            editor.display = target;             //回写/读取都指向真正的预览图
+            editor.currentSprite = target.sprite;
+            editor.targetSize = target_size;     //裁切比例按该行的显示区域
+            return editor;
+        }
+
+        /// <summary>
+        /// 裁切结果回写：编码 PNG 落盘到 Workshop/Art（卡图最终以文件形式持久化，存档/重开/打包都还在），
+        /// 再写 art_path / art_full_path 并刷新预览。
+        /// </summary>
+        private void OnArtClipped(int slot, Sprite sp)
+        {
+            if (card == null || sp == null)
+                return;
+
+            try
+            {
+                Texture2D tex = sp.texture;
+                byte[] png = tex != null ? tex.EncodeToPNG() : null;
+                if (png == null)
+                {
+                    SetStatus("裁切结果编码失败");
+                    return;
+                }
+
+                Directory.CreateDirectory(CardPoolIO.ArtFolder);
+                string base_name = string.IsNullOrEmpty(card.id)
+                    ? "art_" + Guid.NewGuid().ToString("N").Substring(0, 8)
+                    : card.id;
+                string fname = slot == 0 ? base_name + ".png" : base_name + "_full.png";
+                File.WriteAllBytes(Path.Combine(CardPoolIO.ArtFolder, fname), png);
+
+                if (slot == 0)
+                    card.art_path = fname;
+                else
+                    card.art_full_path = fname;
+
+                CardPoolIO.UpdateCardData(card);   //立即同步运行时卡面，避免选图后卡牌上不更新
+                RefreshArt();
+
+                // 落盘后预览图被换成「磁盘加载的新 Sprite」，把入口的当前图同步过去，
+                // 避免下次打开被判定为「外部换图」而丢弃裁切状态（这样重开能回到上次位置继续微调）
+                if (slot == 0)
+                    art_clip_panel.currentSprite = art_full_preview != null ? art_full_preview.sprite : null;   //面板行 = art_path
+                else
+                    art_clip_card.currentSprite = art_preview != null ? art_preview.sprite : null;              //卡牌行 = art_full_path
+
+                SetStatus((slot == 0 ? "已设置面板(战场)图片: " : "已设置卡牌图片: ") + fname);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("保存裁切图片失败: " + e.Message);
+                SetStatus("保存裁切图片失败: " + e.Message);
+            }
         }
 
         private void ReadForm()
@@ -2613,14 +2965,16 @@ namespace TcgEngine.UI
         {
             if (card == null)
                 return;
+            //「卡牌图片」行 = 卡牌正面（手牌/收藏/回合历史）：art_full_path
             if (art_preview != null)
             {
-                art_preview.sprite = CardPoolIO.LoadArt(card.art_path);
+                art_preview.sprite = CardPoolIO.LoadArt(card.art_full_path);
                 art_preview.enabled = art_preview.sprite != null;
             }
+            //「面板（全图）图片」行 = 战场面板：art_path
             if (art_full_preview != null)
             {
-                art_full_preview.sprite = CardPoolIO.LoadArt(card.art_full_path);
+                art_full_preview.sprite = CardPoolIO.LoadArt(card.art_path);
                 art_full_preview.enabled = art_full_preview.sprite != null;
             }
         }
@@ -2654,11 +3008,12 @@ namespace TcgEngine.UI
                 string ext = Path.GetExtension(src);
                 if (string.IsNullOrEmpty(ext))
                     ext = ".png";
-                string fname = (string.IsNullOrEmpty(card.id) ? "art_" + Guid.NewGuid().ToString("N").Substring(0, 8) : card.id) + ext;
+                //「卡牌图片」行 = 卡牌正面（手牌/收藏）→ art_full_path
+                string fname = (string.IsNullOrEmpty(card.id) ? "art_" + Guid.NewGuid().ToString("N").Substring(0, 8) : card.id + "_full") + ext;
                 Directory.CreateDirectory(CardPoolIO.ArtFolder);
                 string dst = Path.Combine(CardPoolIO.ArtFolder, fname);
                 File.Copy(src, dst, true);
-                card.art_path = fname;
+                card.art_full_path = fname;
                 CardPoolIO.UpdateCardData(card);   //立即同步运行时卡面，避免选图后卡牌上不更新
                 RefreshArt();
                 SetStatus("已设置卡牌图片: " + fname);
@@ -2670,7 +3025,7 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>选择面板（全图）图片，复制到 ArtFolder 并写入 card.art_full_path</summary>
+        /// <summary>选择面板（战场）图片，复制到 ArtFolder 并写入 card.art_path</summary>
         private void OnPickFullArt()
         {
             if (card == null)
@@ -2687,11 +3042,12 @@ namespace TcgEngine.UI
                 string ext = Path.GetExtension(src);
                 if (string.IsNullOrEmpty(ext))
                     ext = ".png";
-                string fname = (string.IsNullOrEmpty(card.id) ? "full_" + Guid.NewGuid().ToString("N").Substring(0, 8) : card.id + "_full") + ext;
+                //「面板图片」行 = 战场面板 → art_path
+                string fname = (string.IsNullOrEmpty(card.id) ? "art_" + Guid.NewGuid().ToString("N").Substring(0, 8) : card.id) + ext;
                 Directory.CreateDirectory(CardPoolIO.ArtFolder);
                 string dst = Path.Combine(CardPoolIO.ArtFolder, fname);
                 File.Copy(src, dst, true);
-                card.art_full_path = fname;
+                card.art_path = fname;
                 CardPoolIO.UpdateCardData(card);   //立即同步运行时卡面，避免选图后卡牌上不更新
                 RefreshArt();
                 SetStatus("已设置面板图片: " + fname);
@@ -2762,182 +3118,27 @@ namespace TcgEngine.UI
 
         // ---------------- 节点画布 TMP 文本工具 ----------------
 
-        /// <summary>节点画布 TMP 字体候选（按优先级）：
-        /// ① 场景绑定的 title_text 字体；② 项目 STSONG CJK 字体资产；③ 场景里已实际渲染在用的字体（必然可用）；
-        /// ④ TMP 内置 LiberationSans；⑤ 其余。坏资产由 ApplyNodeFont 的 try/catch 自动淘汰。</summary>
-        private List<TMP_FontAsset> TmpFontCandidates()
+        /// <summary>当前界面使用的中文字体：统一由 UIFonts 解析（全项目单一字体管线）。
+        /// 供富文本弹框等新界面复用，避免退回无中文字形的默认字体。</summary>
+        public TMP_FontAsset NodeFont()
         {
-            List<TMP_FontAsset> list = new List<TMP_FontAsset>();
-            if (title_text != null && title_text.font != null)
-                list.Add(title_text.font);
-
-            TMP_FontAsset[] all = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-            List<TMP_FontAsset> others = new List<TMP_FontAsset>();
-            foreach (TMP_FontAsset fa in all)
-            {
-                if (fa == null || list.Contains(fa))
-                    continue;
-                if (fa.name.Contains("STSONG"))
-                    list.Add(fa);
-                else
-                    others.Add(fa);
-            }
-            //场景中已在使用中的字体资产（有 TMP 文本引用且非空）优先
-            foreach (TextMeshProUGUI t in Resources.FindObjectsOfTypeAll<TextMeshProUGUI>())
-            {
-                if (t == null || t.font == null || list.Contains(t.font) || others.Contains(t.font))
-                    continue;
-                others.Insert(0, t.font);
-            }
-            others.Sort((a, b) =>
-                (a.name.Contains("LiberationSans") ? 0 : 1) - (b.name.Contains("LiberationSans") ? 0 : 1));
-            foreach (TMP_FontAsset fa in others)
-            {
-                if (!list.Contains(fa))
-                    list.Add(fa);
-            }
-            return list;
+            return UIFonts.ResolveFont();
         }
 
-        private TMP_FontAsset m_node_tmp_font;        //成功赋值过的字体缓存
-        private readonly HashSet<string> m_bad_fonts = new HashSet<string>();   //赋值失败/缺字过的字体资产名
-        private static TMP_FontAsset m_os_font_asset; //运行时用系统字体现做的动态字体资产（全项目共享）
+        /// <summary>字体探测句：唯一定义在 UIFonts（全项目统一），此处保留别名以免改动大量调用点</summary>
+        private const string FontProbe = UIFonts.FontProbe;
 
-        /// <summary>探测句：涵盖节点标题/说明里最常用的汉字（含此前显示为方块的：开始/生效/获取/所有/随机/筛选等）。
-        /// 候选字体必须能渲染其中全部字符才算合格，从根上避免"半个词是方块"的缺字体面。</summary>
-        private const string FontProbe = "规则编辑器回合开始结束生效获取友方敌方所有随机筛选目标卡牌属性攻击生命法力值抽牌治疗召唤伤害创建衍生并置入战场简单玩家触发条件类型判断打击消灭";
-
-        /// <summary>实测字体能否渲染探测文本：动态字体会当场补字，补不齐（图盘满/资产损坏）即判不合格</summary>
+        /// <summary>实测字体能否渲染探测文本——统一走 UIFonts（动态补字逻辑只在一处）</summary>
         private static bool FontCovers(TMP_FontAsset fa, string text)
         {
-            if (fa == null || string.IsNullOrEmpty(text))
-                return true;
-            try
-            {
-                uint[] missing;
-                fa.HasCharacters(text, out missing, false, true);
-                return missing == null || missing.Length == 0;
-            }
-            catch (System.Exception)
-            {
-                return false;
-            }
+            return UIFonts.FontCovers(fa, text);
         }
 
-        /// <summary>用项目里导入的中文字体现做动态 TMP 字体资产（图盘按需增长、不会缺字）。
-        /// 编辑器下必须用导入的字体文件——OS 动态字体没有资产路径，TMP 动态补字会全部失败（整体变方块）；
-        /// 打包环境退回 OS 字体。</summary>
-        private TMP_FontAsset CreateOsFontAsset()
-        {
-            if (m_os_font_asset != null)
-                return m_os_font_asset;
-            try
-            {
-                Font f = null;
-#if UNITY_EDITOR
-                string[] asset_candidates = {
-                    "Assets/TcgEngine/Fonts/SimHei.ttf",
-                    "Assets/TcgEngine/Fonts/MSYH.TTC",
-                    "Assets/TcgEngine/Fonts/STSONG.TTF",
-                    "Assets/TcgEngine/Fonts/SIMSUN.TTC",
-                };
-                foreach (string p in asset_candidates)
-                {
-                    f = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(p);
-                    if (f != null)
-                        break;
-                }
-#endif
-                if (f == null)
-                    f = Font.CreateDynamicFontFromOSFont(new string[]
-                        { "SimHei", "Microsoft YaHei", "微软雅黑", "SimSun", "宋体", "STSong", "华文宋体" }, 24);
-                if (f == null)
-                    return null;
-                //不能用单参重载：其默认 90pt 采样 + 1024 图盘，一页只装得下几十个字，很快塞满出方块。
-                //48pt 采样 + 2048 图盘 + 多页支持：一页可容纳两千余字，超出自动加页
-                TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(f, 48, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA,
-                    2048, 2048, AtlasPopulationMode.Dynamic, true);
-                if (fa == null)
-                    return null;
-                fa.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                m_os_font_asset = fa;
-                Debug.Log("节点 TMP：已用「" + f.name + "」现做动态字体资产（48pt/2048/多页）");
-                return fa;
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning("动态 TMP 字体创建失败：" + e.Message);
-                return null;
-            }
-        }
-
-        /// <summary>为 TMP 文本设置画布字体：优先用系统字体（黑体/雅黑）现做的动态字体资产——
-        /// 项目里的 SimHei_TMP/STSONG 资产缺字严重（图盘满、多页关闭），不作首选；
-        /// 系统字体不可用时再逐个尝试项目字体资产，实测覆盖探测文本才算合格</summary>
+        /// <summary>为 TMP 文本设置画布字体：字体解析与套用统一在 UIFonts（全项目单一管线）。
+        /// probe 参数保留仅为不改动既有调用点——字体能否渲染中文由 UIFonts.ResolveFont 统一验证。</summary>
         private void ApplyNodeFont(TMP_Text tmp, string probe = null)
         {
-            if (tmp == null)
-                return;
-            string probe_text = string.IsNullOrEmpty(probe) ? FontProbe : (probe + FontProbe);
-            TMP_FontAsset original_font = tmp.font;   //全失败时恢复用（防 setter 半途抛异常留下 font/材质不一致的残缺态）
-            if (m_node_tmp_font != null)
-            {
-                try { tmp.font = m_node_tmp_font; return; }
-                catch (System.Exception) { m_bad_fonts.Add(m_node_tmp_font.name); m_node_tmp_font = null; }
-            }
-
-            //第一优先：系统字体现做动态字体（图盘按需增长、不会缺字）
-            TMP_FontAsset os = CreateOsFontAsset();
-            if (os != null && !m_bad_fonts.Contains(os.name))
-            {
-                try
-                {
-                    tmp.font = os;
-                    if (!FontCovers(os, probe_text))
-                        throw new System.InvalidOperationException("系统动态字体缺字");
-                    m_node_tmp_font = os;
-                    Debug.Log("节点 TMP 字体选定：系统动态字体（" + os.name + "）");
-                    return;
-                }
-                catch (System.Exception e)
-                {
-                    m_bad_fonts.Add(os.name);
-                    Debug.LogWarning("系统动态字体不可用，转用项目字体资产：" + e.Message);
-                }
-            }
-
-            foreach (TMP_FontAsset fa in TmpFontCandidates())
-            {
-                if (fa == null || m_bad_fonts.Contains(fa.name))
-                    continue;
-                try
-                {
-                    tmp.font = fa;
-                }
-                catch (System.Exception e)
-                {
-                    m_bad_fonts.Add(fa.name);
-                    Debug.LogWarning("节点 TMP 字体「" + fa.name + "」赋值失败，已跳过：" + e.Message);
-                    continue;
-                }
-                if (!FontCovers(fa, probe_text))
-                {
-                    m_bad_fonts.Add(fa.name);
-                    Debug.LogWarning("节点 TMP 字体「" + fa.name + "」缺字（无法渲染探测句全部汉字），已跳过");
-                    continue;
-                }
-                m_node_tmp_font = fa;
-                Debug.Log("节点 TMP 字体选定：" + fa.name);
-                return;
-            }
-            //所有候选都失败：若 setter 半途抛异常导致 sharedMaterial 为 null，后续排版（preferredWidth 等）
-            //会在 TMP 内部空引用，恢复原字体保持 font/材质一致，界面退回旧字体显示
-            try
-            {
-                if (tmp.fontSharedMaterial == null && original_font != null)
-                    tmp.font = original_font;
-            }
-            catch (System.Exception) { }
+            UIFonts.ApplyFont(tmp);
         }
 
         /// <summary>TextAnchor → TMP 对齐（TMP 用 TextAlignmentOptions 枚举）</summary>
@@ -3218,6 +3419,8 @@ namespace TcgEngine.UI
                 if (x + w > max_w)
                     break;   //横向放不下则截断，避免溢出节点库区域
                 Button btn = CreateRecentChip(p);
+                if (btn == null)
+                    continue;   //防御：组件创建失败时跳过该 chip，避免整体刷新中断
                 RectTransform rt = btn.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0, 0.5f);
                 rt.anchorMax = new Vector2(0, 0.5f);
@@ -3229,19 +3432,21 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>运行时创建最近使用小按钮（规格第1节：横向小按钮）</summary>
+        /// <summary>运行时创建最近使用小按钮（规格第1节：横向小按钮）。
+        /// 注意：Image 与 TextMeshProUGUI 不能挂在同一个 GameObject 上（一个 CanvasRenderer 只承载一个 Graphic，
+        /// AddComponent<TextMeshProUGUI>() 会失败返回 null → NRE），文本必须放子物体（与 MakeText 一致）。</summary>
         private Button CreateRecentChip(NodePreset p)
         {
             GameObject go = new GameObject("Recent_" + p.action, typeof(RectTransform));
             go.transform.SetParent(node_recent_root, false);
             Image img = go.AddComponent<Image>();
             img.color = new Color(0.3f, 0.45f, 0.6f, 0.45f);
-            TMP_Text txt = go.AddComponent<TextMeshProUGUI>();
-            ApplyNodeFont(txt);
+
+            TMP_Text txt = MakeText("Text", go.transform, p.title, 13, TextAnchor.MiddleCenter, null);
+            SetStretchRect(txt.rectTransform, 0, 0, 0, 0);
             txt.fontSize = 13;
             txt.color = new Color(0.9f, 1f, 1f, 1f);
             txt.alignment = TextAlignmentOptions.Center;
-            txt.text = p.title;
             txt.raycastTarget = false;
             return go.AddComponent<Button>();
         }
@@ -3558,6 +3763,74 @@ namespace TcgEngine.UI
             return null;
         }
 
+        /// <summary>主动效果入口的目标槽迁移：旧图用无编号字段/引脚（target_type / targetCondition），
+        /// 统一改成编号形式（target_type1 / targetCondition1），并把引用旧引脚 id 的连线改到新 id。
+        /// 只在"存在旧的无编号 target_type 且还没有 target_type1"时执行，幂等。</summary>
+        private static void MigrateEntryTargetSlots(GraphData graph, GraphNode node)
+        {
+            if (node == null || node.fields == null || node.action != "ActivateEffect")
+                return;
+            if (HasField(node, "target_type1") || !HasField(node, "target_type"))
+                return;     //已是编号形式，或本就没有目标槽（新图默认无目标）
+
+            RenameNodeField(node, "target_type", "target_type1");
+            RenameNodeField(node, "target_error", "target_error1");
+            RenameNodeField(node, "target_side", "target_side1");     //归属已不在 UI 显示；保留数据供编译层沿用旧行为
+
+            if (node.pins == null)
+                return;
+            string old_id = node.id + "_targetCondition";
+            string new_id = node.id + "_targetCondition1";
+            foreach (GraphPin p in node.pins)
+            {
+                if (p != null && p.name == "targetCondition")
+                {
+                    p.name = "targetCondition1";
+                    p.display_name = "目标1条件";
+                    p.id = new_id;
+                }
+            }
+            if (graph != null && graph.links != null)
+            {
+                foreach (GraphLink l in graph.links)
+                {
+                    if (l == null)
+                        continue;
+                    if (l.from_node == node.id && l.from_pin == old_id)
+                        l.from_pin = new_id;
+                    if (l.to_node == node.id && l.to_pin == old_id)
+                        l.to_pin = new_id;
+                }
+            }
+            //槽1 的「目标卡牌1」输出口（新预设不再默认提供，迁移时补上）
+            if (node.pins.FindIndex(p => p != null && p.name == "targetCard1") < 0)
+            {
+                node.pins.Add(new GraphPin
+                {
+                    id = node.id + "_targetCard1",
+                    name = "targetCard1",
+                    display_name = "目标卡牌1",
+                    type = NodeValueType.Card,
+                    is_output = true,
+                });
+            }
+        }
+
+        /// <summary>节点字段改名（目标名已存在或源字段不存在则不动）</summary>
+        private static void RenameNodeField(GraphNode node, string from, string to)
+        {
+            if (node == null || node.fields == null || HasField(node, to))
+                return;
+            foreach (FieldCustomData f in node.fields)
+            {
+                if (f != null && f.name == from)
+                {
+                    f.name = to;
+                    return;
+                }
+            }
+        }
+
         /// <summary>旧图数据迁移：①旧节点引脚无类型（type=None）→ 按预设整体重建（id 命名规则不变，连线保持有效）；
         /// ②节点分类规则升级后被改型的（如 202041 由取值改动作）→ 修正 node.type；
         /// ③预设后来新增的引脚（如 主动效果入口的 目标1条件）→ 增量补进节点，已有引脚与连线不动。</summary>
@@ -3581,6 +3854,26 @@ namespace TcgEngine.UI
             }
             if (preset == null)
                 return;
+
+            //字段去重：历史脏数据（旧版本重复追加同名字段）会让内联控件重复显示，同名只保留第一条
+            if (node.fields != null)
+            {
+                HashSet<string> seen_fields = new HashSet<string>();
+                node.fields.RemoveAll(f => f == null || string.IsNullOrEmpty(f.name) || !seen_fields.Add(f.name));
+            }
+
+            //预设后来新增的字段（如 标签列表/目标错误提示/动态目标槽字段）→ 增量补默认值，旧图立即渲染出控件
+            if (preset.fields != null && preset.fields.Count > 0)
+            {
+                if (node.fields == null)
+                    node.fields = new List<FieldCustomData>();
+                foreach (FieldDef fd in preset.fields)
+                {
+                    if (fd != null && !string.IsNullOrEmpty(fd.name) && !HasField(node, fd.name))
+                        node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
+                }
+            }
+
             bool need_rebuild = node.pins.Count == 0;
             foreach (GraphPin p in node.pins)
             {
@@ -3789,7 +4082,7 @@ namespace TcgEngine.UI
             trt.anchoredPosition = new Vector2(0, -10);
             trt.sizeDelta = new Vector2(-70, 34);
 
-            RectTransform close = MakeButton("Close", prt, "✕", font, CloseNodeHelpPopup);
+            RectTransform close = MakeButton("Close", prt, "×", font, CloseNodeHelpPopup);
             close.anchorMin = new Vector2(1, 1);
             close.anchorMax = new Vector2(1, 1);
             close.pivot = new Vector2(1, 1);
@@ -3948,6 +4241,7 @@ namespace TcgEngine.UI
             if (btn_del != null)
             {
                 btn_del.onClick.AddListener(() => OnDeleteNodeId(nid));
+                SetButtonText(btn_del.transform, "×");   //模板红叉字符统一为 ×（✔/✕ 等装饰字符部分字体缺字形会显示空白）
                 //锚点/pivot 显式重设 + 内缩：红叉绝不超出节点外框（场景物体可能与源码不一致）
                 //红叉放到原「–」缩小的位置
                 RectTransform dr = btn_del.GetComponent<RectTransform>();
@@ -4023,10 +4317,10 @@ namespace TcgEngine.UI
         /// <summary>把节点预设字段直接画在节点底部（每行 26px），方便在画布上直接改参数</summary>
         private void CreateNodeInlineFields(Transform node_root, GraphNode node, RectTransform node_rect)
         {
-            NodePreset preset = FindPreset(node.type, node.action);
-            if (preset == null || preset.fields == null || preset.fields.Count == 0)
+            List<FieldDef> fields = NodeRenderFields(node);
+            if (fields.Count == 0)
                 return;
-            int rows = preset.fields.Count;
+            int rows = fields.Count;
             //输入口占用左列前若干行：字段紧接其后，同属左列、左对齐
             int in_c = 0;
             if (node.pins != null)
@@ -4054,7 +4348,7 @@ namespace TcgEngine.UI
             int next_row = in_c;   //无同名输入口的字段：接在输入口下方依次排
             for (int i = 0; i < rows; i++)
             {
-                FieldDef fd = preset.fields[i];
+                FieldDef fd = fields[i];
                 if (fd == null || string.IsNullOrEmpty(fd.name))
                     continue;
                 GraphPin pin = FindInputPin(node, fd.name);
@@ -4079,7 +4373,275 @@ namespace TcgEngine.UI
                 float y = h - 45f - row * 24f - 10f;
                 CreateInlineFieldRow(node_root, node, fd, GetFieldValue(node, fd.name, fd.def ?? ""), y, node_w, right_reserve, x0, with_label);
             }
+
+            //多目标：入口节点末尾追加「＋ 新增目标」按钮行（槽号只增不复用，中间删槽不重排其余编号）
+            if (node.action == "ActivateEffect")
+            {
+                float ay = h - 45f - next_row * 24f - 10f;
+                CreateAddTargetSlotButton(node_root, node, ay);
+            }
+
             RefreshPinFieldVisibility();
+        }
+
+        // ---------------- 多目标（主动效果入口）：目标槽增删 ----------------
+
+        /// <summary>节点实际渲染的字段序列：按 node.fields 顺序（预设字段 + 动态目标槽字段）逐项取定义；
+        /// 未知/无定义的字段不渲染；同名重复字段只渲染一次（防历史脏数据重复显示）；
+        /// 个别字段按条件隐藏（见 IsFieldVisible）。</summary>
+        private static List<FieldDef> NodeRenderFields(GraphNode node)
+        {
+            List<FieldDef> list = new List<FieldDef>();
+            if (node == null || node.fields == null)
+                return list;
+            HashSet<string> seen = new HashSet<string>();
+            foreach (FieldCustomData f in node.fields)
+            {
+                if (f == null || string.IsNullOrEmpty(f.name) || !seen.Add(f.name))
+                    continue;
+                if (!IsFieldVisible(node, f.name))
+                    continue;
+                FieldDef fd = FindFieldDef(node, f.name);
+                if (fd != null)
+                    list.Add(fd);
+            }
+            return list;
+        }
+
+        /// <summary>字段是否渲染（条件字段统一在这）：
+        /// 「目标去重」仅在存在 ≥2 个目标槽时才有意义，单目标时隐藏（运行时同样只在 ≥2 槽时生效）。</summary>
+        private static bool IsFieldVisible(GraphNode node, string name)
+        {
+            if (name == "unique_targets" && node.action == "ActivateEffect")
+                return TargetSlots(node).Count >= 2;
+            return true;
+        }
+
+        /// <summary>字段名 → FieldDef：预设优先；目标槽字段（target_type / target_error 及其编号形式）按命名约定合成。
+        /// 注意：target_side 不在这里合成——入口 UI 已移除「目标归属」，归属改由「目标N条件」链里的「卡牌归属」节点判断
+        /// （旧图里若残留该字段仍会被编译层读取，保证老卡行为不变）。</summary>
+        private static FieldDef FindFieldDef(GraphNode node, string name)
+        {
+            NodePreset preset = FindPreset(node.type, node.action);
+            if (preset != null && preset.fields != null)
+            {
+                foreach (FieldDef fd in preset.fields)
+                {
+                    if (fd != null && fd.name == name)
+                        return fd;
+                }
+            }
+            if (IsSlotField(name, "target_type"))
+                return new FieldDef(name, "目标类型", FieldEditType.Dropdown, new string[] { "无", "角色", "英雄" }, "无");
+            if (IsSlotField(name, "target_error"))
+                return new FieldDef(name, "错误提示", FieldEditType.Input, null, "");
+            return null;
+        }
+
+        /// <summary>name 是否是「前缀」或「前缀+编号(≥1)」形式的槽字段</summary>
+        private static bool IsSlotField(string name, string base_name)
+        {
+            if (string.IsNullOrEmpty(name) || !name.StartsWith(base_name))
+                return false;
+            string num = name.Substring(base_name.Length);
+            if (string.IsNullOrEmpty(num))
+                return true;    //无编号：合法的槽1 旧形式
+            return int.TryParse(num, out int n) && n >= 1;
+        }
+
+        /// <summary>字段名 → 槽号：target_typeN（N≥1）→ N；旧的无编号 target_type → 1；不是目标槽字段返回 0</summary>
+        private static int TargetTypeSlotOf(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return 0;
+            if (name == "target_type")
+                return 1;
+            if (!name.StartsWith("target_type"))
+                return 0;
+            string num = name.Substring("target_type".Length);
+            return (!string.IsNullOrEmpty(num) && int.TryParse(num, out int n) && n >= 1) ? n : 0;
+        }
+
+        /// <summary>节点现存的目标槽号（升序；没有目标槽时返回空列表 = 默认不使用任何目标）</summary>
+        private static List<int> TargetSlots(GraphNode node)
+        {
+            List<int> list = new List<int>();
+            if (node != null && node.fields != null)
+            {
+                foreach (FieldCustomData f in node.fields)
+                {
+                    int s = TargetTypeSlotOf(f != null ? f.name : null);
+                    if (s > 0 && !list.Contains(s))
+                        list.Add(s);
+                }
+            }
+            list.Sort();
+            return list;
+        }
+
+        /// <summary>新增一个目标槽：槽号 = 现存最大 +1（首次为 1；只增不复用，删中间槽后其余槽号不变、连线不受影响）</summary>
+        private void AddTargetSlot(GraphNode node)
+        {
+            if (node == null)
+                return;
+            List<int> slots = TargetSlots(node);
+            int slot = slots.Count > 0 ? slots[slots.Count - 1] + 1 : 1;
+            PushUndo();
+            if (node.fields == null)
+                node.fields = new List<FieldCustomData>();
+            node.fields.Add(new FieldCustomData { name = "target_type" + slot, value = "角色" });
+            node.fields.Add(new FieldCustomData { name = "target_error" + slot, value = "" });
+            //引脚插到同类末尾（输入口排在最后一个 targetCondition* 之后；输出口排在最后一个 targetCard* 之后），
+            //保持「目标N条件」与「目标卡牌N」各自成组
+            GraphPin cond_pin = new GraphPin
+            {
+                id = node.id + "_targetCondition" + slot,
+                name = "targetCondition" + slot,
+                display_name = "目标" + slot + "条件",
+                type = NodeValueType.Boolean,
+                is_output = false,
+            };
+            GraphPin card_pin = new GraphPin
+            {
+                id = node.id + "_targetCard" + slot,
+                name = "targetCard" + slot,
+                display_name = "目标卡牌" + slot,
+                type = NodeValueType.Card,
+                is_output = true,
+            };
+            int cond_at = node.pins.FindLastIndex(p => p != null && !p.is_output && p.name.StartsWith("targetCondition"));
+            node.pins.Insert(cond_at >= 0 ? cond_at + 1 : node.pins.Count, cond_pin);
+            int card_at = node.pins.FindLastIndex(p => p != null && p.is_output && p.name.StartsWith("targetCard"));
+            node.pins.Insert(card_at >= 0 ? card_at + 1 : node.pins.Count, card_pin);
+            RebuildCanvas();
+            SetStatus("已新增目标" + slot + "：给它连一个条件链，下游用「目标卡牌" + slot + "」引用该目标");
+        }
+
+        /// <summary>删除目标槽：字段 + 引脚 + 落在这些引脚上的连线一起移除（删空后入口就是"无目标"）</summary>
+        private void RemoveTargetSlot(GraphNode node, int slot)
+        {
+            if (node == null || slot <= 0)
+                return;
+            PushUndo();
+            // 槽1 兼容旧的无编号字段形式：两种命名都清掉
+            string[] type_names = slot == 1
+                ? new string[] { "target_type", "target_type1", "target_error", "target_error1", "target_side", "target_side1" }
+                : new string[] { "target_type" + slot, "target_error" + slot, "target_side" + slot };
+            string cond_name = slot == 1 ? "targetCondition1" : "targetCondition" + slot;
+            string card_name = "targetCard" + slot;
+            string cond_id = node.id + "_" + cond_name;
+            string card_id = node.id + "_" + card_name;
+            node.pins.RemoveAll(p => p != null
+                && (p.name == cond_name || p.name == card_name
+                    || (slot == 1 && (p.name == "targetCondition" || p.name == "targetCard1"))));
+            node.fields.RemoveAll(f => f != null && System.Array.IndexOf(type_names, f.name) >= 0);
+            if (graph != null && graph.links != null)
+            {
+                graph.links.RemoveAll(l => l != null
+                    && ((l.from_node == node.id && l.from_pin == card_id)
+                        || (l.to_node == node.id && l.to_pin == cond_id)));
+            }
+            RenumberTargetSlots(node);   //删除后自动重排：目标3/4 → 目标2/3（字段/引脚/连线一起改写，不留编号断层）
+            RebuildCanvas();
+            SetStatus("已删除目标" + slot + "，后续目标已自动重排编号（连线保持有效）");
+        }
+
+        /// <summary>删除目标槽后重排编号：剩余槽按从小到大连续编号（原目标2、3 → 目标1、2）。
+        /// 同步改写字段名（target_typeN/target_errorN/target_sideN）、引脚名/ID/显示名，
+        /// 并把引用旧引脚 ID 的连线改到新 ID——因此重排后连线不失效、也不会出现编号空洞。
+        /// 重排映射恒"向下收紧"且按槽号升序处理，目标名不会与现存引脚冲突。</summary>
+        private void RenumberTargetSlots(GraphNode node)
+        {
+            if (node == null)
+                return;
+            List<int> slots = TargetSlots(node);
+            for (int i = 0; i < slots.Count; i++)
+            {
+                int old_no = slots[i];
+                int new_no = i + 1;
+                if (old_no == new_no)
+                    continue;
+                RenameNodeField(node, "target_type" + old_no, "target_type" + new_no);
+                RenameNodeField(node, "target_error" + old_no, "target_error" + new_no);
+                RenameNodeField(node, "target_side" + old_no, "target_side" + new_no);
+                RenameNodePin(graph, node, "targetCondition" + old_no, "targetCondition" + new_no,
+                    "目标" + new_no + "条件", NodeValueType.Boolean, false);
+                RenameNodePin(graph, node, "targetCard" + old_no, "targetCard" + new_no,
+                    "目标卡牌" + new_no, NodeValueType.Card, true);
+            }
+        }
+
+        /// <summary>引脚改名（name/ID/显示名/类型同步），并把引用旧引脚 ID 的连线改到新 ID</summary>
+        private static void RenameNodePin(GraphData graph, GraphNode node, string old_name, string new_name,
+            string display, NodeValueType type, bool is_output)
+        {
+            if (node == null || node.pins == null)
+                return;
+            string old_id = node.id + "_" + old_name;
+            string new_id = node.id + "_" + new_name;
+            foreach (GraphPin p in node.pins)
+            {
+                if (p != null && p.name == old_name)
+                {
+                    p.name = new_name;
+                    p.id = new_id;
+                    p.display_name = display;
+                    p.type = type;
+                    p.is_output = is_output;
+                }
+            }
+            if (graph != null && graph.links != null)
+            {
+                foreach (GraphLink l in graph.links)
+                {
+                    if (l == null)
+                        continue;
+                    if (l.from_node == node.id && l.from_pin == old_id)
+                        l.from_pin = new_id;
+                    if (l.to_node == node.id && l.to_pin == old_id)
+                        l.to_pin = new_id;
+                }
+            }
+        }
+
+        /// <summary>「＋ 新增目标」按钮（主动效果入口底部）</summary>
+        private void CreateAddTargetSlotButton(Transform parent, GraphNode node, float y)
+        {
+            GameObject row = new GameObject("InlineField_AddTarget", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = row.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(0, 0);
+            rt.anchorMax = new Vector2(0, 0);
+            rt.pivot = new Vector2(0, 0);
+            rt.anchoredPosition = new Vector2(20f, y);
+            rt.sizeDelta = new Vector2(110f, 20f);
+            Image img = row.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.14f);
+            Button btn = row.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Label", "＋ 新增目标", 12, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
+            btn.onClick.AddListener(() => AddTargetSlot(node));
+        }
+
+        /// <summary>目标槽行右端的「×」删除按钮（槽数 >1 时才建）</summary>
+        private void CreateRemoveTargetSlotButton(RectTransform row, GraphNode node, int slot, float node_w, float right_reserve)
+        {
+            GameObject go = new GameObject("BtnRemoveSlot", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(row, false);
+            rt.anchorMin = new Vector2(0, 0.5f);
+            rt.anchorMax = new Vector2(0, 0.5f);
+            rt.pivot = new Vector2(0, 0.5f);
+            rt.anchoredPosition = new Vector2(Mathf.Max(60f, node_w - 20f - right_reserve - 22f), 0f);
+            rt.sizeDelta = new Vector2(18f, 18f);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(0.75f, 0.25f, 0.25f, 0.9f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Label", "×", 12, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
+            btn.onClick.AddListener(() => RemoveTargetSlot(node, slot));
         }
 
         /// <summary>新建 TMP 文本并应用节点字体（与节点内其他文字同字体/同渲染，避免样式和清晰度不一致）</summary>
@@ -4111,6 +4673,10 @@ namespace TcgEngine.UI
                 return SelectDisplay(fd, value);
             if (fd != null && fd.edit == FieldEditType.KeywordSelect)
                 return KeywordSelectText(value);   //存 id、显示标题
+            if (fd != null && fd.edit == FieldEditType.BuffSelect)
+                return BuffSelectText(value);      //存 BuffData.id、显示「标题 (id)」
+            if (fd != null && fd.edit == FieldEditType.CardSelect)
+                return CardSelectText(value);      //存卡牌 id、显示「标题 (id)」
             return value;
         }
 
@@ -4218,10 +4784,19 @@ namespace TcgEngine.UI
                 CreateInlineToggle(ctl, node, fd, current);
             else if (fd.edit == FieldEditType.KeywordSelect)
                 CreateInlineKeywordSelect(ctl, node, fd, current);
+            else if (fd.edit == FieldEditType.BuffSelect)
+                CreateInlineBuffSelect(ctl, node, fd, current);     //增益池下拉（206001/206002/106002/106003 的 buff_id）
+            else if (fd.edit == FieldEditType.CardSelect)
+                CreateInlineCardSelect(ctl, node, fd, current);     //卡池卡牌下拉（103002/202003/202004/202005/202046 的定义口）
             else if (fd.edit == FieldEditType.Dropdown || fd.edit == FieldEditType.MultiOptions)
                 CreateInlineSelect(ctl, node, fd, current, fd.edit == FieldEditType.MultiOptions);
             else
                 CreateInlineInput(ctl, node, fd, current);
+
+            //多目标：目标类型行的右端给一个「×」删除该槽（删空即回到"无目标"）
+            int slot_no = TargetTypeSlotOf(fd.name);
+            if (slot_no > 0)
+                CreateRemoveTargetSlotButton(rt, node, slot_no, node_w, right_reserve);
         }
 
         private void CreateInlineInput(RectTransform parent, GraphNode node, FieldDef fd, string current)
@@ -4270,19 +4845,19 @@ namespace TcgEngine.UI
             Image img = go.GetComponent<Image>();
             Button btn = go.GetComponent<Button>();
             btn.targetGraphic = img;
-            TMP_Text t = MakeNodeTmpText(rt, "Text", "✔", 12, TextAlignmentOptions.Center);
+            TMP_Text t = MakeNodeTmpText(rt, "Text", "√", 12, TextAlignmentOptions.Center);
             SetStretchRect(t.rectTransform, 0, 0, 0, 0);
 
             bool on = string.Equals(current, "true", StringComparison.OrdinalIgnoreCase);
             img.color = on ? new Color(0.25f, 0.6f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.15f);
-            t.text = on ? "✔" : "";
+            t.text = on ? "√" : "";
             btn.onClick.AddListener(() =>
             {
                 bool cur = string.Equals(GetFieldValue(node, fd.name, fd.def ?? ""), "true", StringComparison.OrdinalIgnoreCase);
                 bool nv = !cur;
                 SetFieldValue(node, fd.name, nv ? "true" : "false");
                 img.color = nv ? new Color(0.25f, 0.6f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.15f);
-                t.text = nv ? "✔" : "";
+                t.text = nv ? "√" : "";
                 RefreshNodeSummary(node);
                 RefreshPinValues();
                 RebuildCanvas();   //切换后重排（宽度随内容）
@@ -4332,6 +4907,112 @@ namespace TcgEngine.UI
                 KeywordSelectOptions(), KeywordSelectValues()));
         }
 
+        /// <summary>内联增益下拉：显示「标题 (id)」、存储 BuffData.id（列出 BuffPoolIO 增益池全部定义）。
+        /// 206001 添加增益 / 206002 移除增益 / 106002 获取增益定义 / 106003 是否具有增益 的 buff_id 字段用。</summary>
+        private void CreateInlineBuffSelect(RectTransform parent, GraphNode node, FieldDef fd, string current)
+        {
+            GameObject go = new GameObject("Select", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", BuffSelectText(current), 12, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 5, 0, 5, 0);
+            TMP_Text captured_t = t;
+            btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, false,
+                () => { if (captured_t != null) captured_t.text = BuffSelectText(GetFieldValue(node, fd.name, fd.def ?? "")); },
+                BuffSelectOptions(), BuffSelectValues()));
+        }
+
+        /// <summary>内联卡牌下拉：显示「标题 (id)」、存储卡牌 id（列出当前编辑卡池的全部卡牌）。
+        /// 103002 获取卡牌定义 / 202003/202004/202005/202046 创建衍生卡 的定义口用。</summary>
+        private void CreateInlineCardSelect(RectTransform parent, GraphNode node, FieldDef fd, string current)
+        {
+            GameObject go = new GameObject("Select", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Text", CardSelectText(current), 12, TextAlignmentOptions.Left);
+            SetStretchRect(t.rectTransform, 5, 0, 5, 0);
+            TMP_Text captured_t = t;
+            List<string> opts = new List<string>();
+            List<string> vals = new List<string>();
+            if (pool != null && pool.cards != null)
+            {
+                foreach (CardCustomData c in pool.cards)
+                {
+                    if (c == null || string.IsNullOrEmpty(c.id))
+                        continue;
+                    vals.Add(c.id);
+                    opts.Add((string.IsNullOrEmpty(c.title) ? c.id : c.title) + " (" + c.id + ")");
+                }
+            }
+            string[] options = opts.ToArray();
+            string[] values = vals.ToArray();
+            btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, false,
+                () => { if (captured_t != null) captured_t.text = CardSelectText(GetFieldValue(node, fd.name, fd.def ?? "")); },
+                options, values));
+        }
+
+        /// <summary>增益下拉显示文本：增益池里能查到 → 「标题 (id)」；查不到 → 保留原 id（便于发现已删定义）；未选 → 占位</summary>
+        private static string BuffSelectText(string buff_id)
+        {
+            if (string.IsNullOrEmpty(buff_id))
+                return "（选择增益）";
+            BuffData b = BuffPoolIO.Get(buff_id);
+            if (b == null)
+                return buff_id;
+            return (string.IsNullOrEmpty(b.title) ? b.id : b.title) + " (" + b.id + ")";
+        }
+
+        private static string[] BuffSelectOptions()
+        {
+            List<string> list = new List<string>();
+            foreach (BuffData b in BuffPoolIO.GetAll())
+            {
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                list.Add((string.IsNullOrEmpty(b.title) ? b.id : b.title) + " (" + b.id + ")");
+            }
+            return list.ToArray();
+        }
+
+        private static string[] BuffSelectValues()
+        {
+            List<string> list = new List<string>();
+            foreach (BuffData b in BuffPoolIO.GetAll())
+            {
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                list.Add(b.id);
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>卡牌下拉显示文本：卡牌注册表里能查到 → 「标题 (id)」；查不到 → 保留原 id；未选 → 占位</summary>
+        private static string CardSelectText(string card_id)
+        {
+            if (string.IsNullOrEmpty(card_id))
+                return "（选择卡牌）";
+            CardData d = CardData.Get(card_id);
+            if (d == null)
+                return card_id;
+            return (string.IsNullOrEmpty(d.title) ? d.id : d.title) + " (" + d.id + ")";
+        }
+
         /// <summary>估算节点高度：Header(33含分割线) + max(输入,输出)端口行×28 + 说明区 + 底部留白（规格第3节）</summary>
         private static float EstimateNodeHeight(GraphNode node)
         {
@@ -4344,16 +5025,15 @@ namespace TcgEngine.UI
                 }
             }
             int field_rows = 0;
-            NodePreset preset = FindPreset(node.type, node.action);
-            if (preset != null && preset.fields != null)
+            //与输入口同名的字段直接画在该端口行右侧（不额外占行）；其余字段各占一行
+            //（用节点实际字段：预设字段 + 动态目标槽字段）
+            foreach (FieldDef fd in NodeRenderFields(node))
             {
-                //与输入口同名的字段直接画在该端口行右侧（不额外占行）；其余字段各占一行
-                foreach (FieldDef fd in preset.fields)
-                {
-                    if (fd != null && !string.IsNullOrEmpty(fd.name) && !FieldHasInputPin(node, fd.name))
-                        field_rows++;
-                }
+                if (fd != null && !string.IsNullOrEmpty(fd.name) && !FieldHasInputPin(node, fd.name))
+                    field_rows++;
             }
+            if (node.action == "ActivateEffect")
+                field_rows++;   //「＋ 新增目标」按钮行
             //字段接在左侧输入口下方（同属左列），故左列行数 = 输入口 + 字段；取左右列较大者
             int rows = Mathf.Max(in_c + field_rows, out_c);
             return 33f + rows * 24f + 8f;
@@ -4668,20 +5348,12 @@ namespace TcgEngine.UI
             return FindInputPin(node, field_name) != null;
         }
 
-        /// <summary>预设里是否有同名字段（输入口是否该画成「端口名 + 行内控件」）</summary>
+        /// <summary>节点是否有同名字段（输入口是否该画成「端口名 + 行内控件」；含动态目标槽字段）</summary>
         private static bool HasPresetField(GraphNode node, string pin_name)
         {
             if (node == null || string.IsNullOrEmpty(pin_name))
                 return false;
-            NodePreset preset = FindPreset(node.type, node.action);
-            if (preset == null || preset.fields == null)
-                return false;
-            foreach (FieldDef fd in preset.fields)
-            {
-                if (fd != null && fd.name == pin_name)
-                    return true;
-            }
-            return false;
+            return FindFieldDef(node, pin_name) != null;
         }
 
         /// <summary>引脚颜色（方案：执行=紫 #7c5cff / 整数=蓝 #5b9dff / 卡牌=红 #e5484d / 布尔/玩家=灰 #8a8fa3 / 文本=绿 #35c28a）</summary>
@@ -5369,7 +6041,7 @@ namespace TcgEngine.UI
             trt.anchoredPosition = new Vector2(0, -6);
             trt.sizeDelta = new Vector2(-60, 34);
 
-            RectTransform close = MakeButton("Close", prt, "✕", font, CloseFieldSelectPopup);
+            RectTransform close = MakeButton("Close", prt, "×", font, CloseFieldSelectPopup);
             close.anchorMin = new Vector2(1, 1);
             close.anchorMax = new Vector2(1, 1);
             close.pivot = new Vector2(1, 1);
@@ -5744,7 +6416,7 @@ namespace TcgEngine.UI
             OnDeleteNodeId(selected_node);
         }
 
-        /// <summary>删除指定节点及其所有连线（工具栏按钮与节点自带 ✕ 按钮共用；Ctrl+Z 可撤销）</summary>
+        /// <summary>删除指定节点及其所有连线（工具栏按钮与节点自带 × 按钮共用；Ctrl+Z 可撤销）</summary>
         private void OnDeleteNodeId(string node_id)
         {
             if (graph == null || string.IsNullOrEmpty(node_id))
@@ -6120,8 +6792,12 @@ namespace TcgEngine.UI
             }
             PushUndo();   //结构操作：记录撤销点
 
-            //目标入线已占用则移除旧连线（数据 + UI 实例，避免替换后旧线残留画布造成"一入口多线"假象）
-            RemoveLinksOnPin(to.node_id, to.pin_id, false);
+            //可多入的数据口（is_array，如 112004/112005 的 值 参数口）不替换旧连线：允许同口接多条取值线；
+            //其余入线已占用则移除旧连线（数据 + UI 实例，避免替换后旧线残留画布造成"一入口多线"假象）
+            bool multi_input = tpin != null && tpin.is_array
+                && tpin.type != NodeValueType.Flow && tpin.type != NodeValueType.None;
+            if (!multi_input)
+                RemoveLinksOnPin(to.node_id, to.pin_id, false);
             //起点出线到同一入线的重复连线也移除
             graph.links.RemoveAll(l => l.from_node == from.node_id && l.from_pin == from.pin_id
                 && l.to_node == to.node_id && l.to_pin == to.pin_id);
@@ -6388,10 +7064,20 @@ namespace TcgEngine.UI
                 SetStatus("没有可用的 AI 初始卡池");
                 return;
             }
+            UserDeckData ai_deck = new UserDeckData(ai_data);
+            //校验 AI 卡池引用的卡牌在运行时注册表中都能解析（被删除/未注册的自定义卡会导致 AI 开局空卡组直接判负）
+            foreach (UserCardData uc in ai_deck.cards)
+            {
+                if (CardData.Get(uc.tid) == null)
+                {
+                    SetStatus("无法测试：AI 初始卡池「" + ai_data.title + "」引用了无效卡牌 " + uc.tid + "（已删除或未注册），请修正 GameplayData.ai_decks");
+                    return;
+                }
+            }
 
             //设置对战参数并跳转人机战斗
             GameClient.player_settings.deck = test_deck;
-            GameClient.ai_settings.deck = new UserDeckData(ai_data);
+            GameClient.ai_settings.deck = ai_deck;
             GameClient.ai_settings.ai_level = GameplayData.Get().ai_level;
             GameClient.game_settings.test_full_mana = true;
 
@@ -6406,6 +7092,7 @@ namespace TcgEngine.UI
                 if (c.type == CardType.Hero)
                     return new UserCardData(c, VariantData.GetDefault());
             }
+            Debug.LogWarning("[模拟测试] 卡池中不存在「英雄」类型卡牌 → 测试双方将没有英雄（「获取玩家英雄」类节点与英雄伤害/治疗都会失效）");
             return new UserCardData();
         }
 
@@ -6558,9 +7245,9 @@ namespace TcgEngine.UI
             string s = string.IsNullOrEmpty(node.title) ? node.action : node.title;
             foreach (FieldCustomData f in node.fields)
             {
-                //入口目标配置字段(归属/范围/优先级/报错)不进节点摘要，避免刷屏英文键名
-                if (f.name == "target_side" || f.name == "target_scope"
-                    || f.name == "target_error" || f.name == "priority")
+                //入口目标配置字段(目标类型/报错)与 标签/优先级 不进节点摘要（控件已显示，摘要里再拼一次会显得重复）
+                if (f.name.StartsWith("target_") || f.name == "priority"
+                    || f.name == "tags" || f.name == "tag_list")
                     continue;
                 s += "  " + f.name + "=" + f.value;
             }
@@ -6616,4 +7303,5 @@ namespace TcgEngine.UI
                 status_text.text = msg;
         }
     }
+
 }

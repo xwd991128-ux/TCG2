@@ -158,11 +158,26 @@ namespace TcgEngine
                 return;
 
             is_resolving = true;
-            while (CanResolve())
+            try
             {
-                Resolve();
+                while (CanResolve())
+                {
+                    //单个结算回调抛异常（如 AI 线程里误用 UnityEngine.Random）不能把整个队列永久卡死：
+                    //元素在 Resolve() 里已出队，这里只记录并跳过，保证 is_resolving 一定能复位。
+                    try
+                    {
+                        Resolve();
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError("[ResolveQueue] 结算回调抛异常，已跳过该元素: " + e);
+                    }
+                }
             }
-            is_resolving = false;
+            finally
+            {
+                is_resolving = false;
+            }
         }
 
         public virtual void SetDelay(float delay)

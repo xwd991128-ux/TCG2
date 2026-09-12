@@ -16,9 +16,10 @@ namespace TcgEngine.EditorTools
     {
         private const string MENU = "TcgEngine/卡牌编辑器/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
-        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
-        private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
+        //资源路径统一登记在 UITheme（全项目只定义一次）
+        private const string FONT_PATH = UITheme.FontPath;
+        private const string FONT_FALLBACK_PATH = UITheme.FontFallbackPath;
+        private const string EXIT_ICON_PATH = UITheme.ExitIconPath;
 
         private static Font _font;
 
@@ -72,15 +73,14 @@ namespace TcgEngine.EditorTools
             group.blocksRaycasts = true;
             KeywordPanel panel = root.gameObject.AddComponent<KeywordPanel>();
 
-            Image bg = CreateImage("Background", root, new Color(0f, 0f, 0f, 0.92f));
-            bg.raycastTarget = false;
-            SetStretch(bg.rectTransform);
+            //全屏背景遮罩：与卡牌编辑器/规则编辑器统一走 UITheme.MaskPage（原为 0.92，P2 收口到 0.90）
+            UIFactory.CreatePageMask("Background", root);
 
             BuildTopBar(root, panel);
             BuildListArea(root, panel);
             BuildFormArea(root, panel);
 
-            Text status = CreateText("StatusText", root, "", _font, 20, new Color(1, 0.85f, 0.6f, 1f), TextAnchor.MiddleRight);
+            Text status = CreateText("StatusText", root, "", _font, UITheme.FontStatus, new Color(1, 0.85f, 0.6f, 1f), TextAnchor.MiddleRight);
             status.rectTransform.anchorMin = new Vector2(1, 0);
             status.rectTransform.anchorMax = new Vector2(1, 0);
             status.rectTransform.pivot = new Vector2(1, 0.5f);
@@ -103,18 +103,19 @@ namespace TcgEngine.EditorTools
             Image bar_img = bar.gameObject.AddComponent<Image>();
             bar_img.color = new Color(0.08f, 0.08f, 0.1f, 1f);
 
-            Text title = CreateText("Title", bar, "关键词管理", _font, 28, Color.white, TextAnchor.MiddleLeft);
+            //页标题：字号/颜色统一走 UITheme 令牌（P3 起与其它页一致）
+            Text title = CreateText("Title", bar, "关键词管理", _font, UITheme.FontPageTitle, UITheme.TextTitle, TextAnchor.MiddleLeft);
             title.rectTransform.anchorMin = new Vector2(0, 0.5f);
             title.rectTransform.anchorMax = new Vector2(0, 0.5f);
             title.rectTransform.pivot = new Vector2(0, 0.5f);
             title.rectTransform.anchoredPosition = new Vector2(24, 0);
-            title.rectTransform.sizeDelta = new Vector2(300, 40);
+            title.rectTransform.sizeDelta = new Vector2(300, 48);
 
-            Button new_btn = CreateButton("NewBtn", bar, "新建", _font, 20, new Color(0.25f, 0.45f, 0.7f, 1f));
+            Button new_btn = CreateButton("NewBtn", bar, "新建", _font, UITheme.FontButton, new Color(0.25f, 0.45f, 0.7f, 1f));
             AnchorRect(new_btn.GetComponent<RectTransform>(), new Vector2(1, 0.5f), new Vector2(-220, 0), new Vector2(90, 44));
             panel.btn_new = new_btn;
 
-            Button save_btn = CreateButton("SaveBtn", bar, "保存", _font, 20, new Color(0.2f, 0.55f, 0.3f, 1f));
+            Button save_btn = CreateButton("SaveBtn", bar, "保存", _font, UITheme.FontButton, new Color(0.2f, 0.55f, 0.3f, 1f));
             AnchorRect(save_btn.GetComponent<RectTransform>(), new Vector2(1, 0.5f), new Vector2(-120, 0), new Vector2(90, 44));
             panel.btn_save = save_btn;
 
@@ -171,7 +172,7 @@ namespace TcgEngine.EditorTools
             VerticalLayoutGroup layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = true;
-            layout.spacing = 4;
+            layout.spacing = UITheme.GapXs;
             content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scroll_rect.viewport = viewport;
@@ -179,7 +180,7 @@ namespace TcgEngine.EditorTools
             panel.list_content = content;
 
             //行模板：Button+Text
-            GameObject template = CreateButton("RowTemplate", content, "", _font, 18, new Color(1, 1, 1, 0.12f)).gameObject;
+            GameObject template = CreateButton("RowTemplate", content, "", _font, UITheme.FontButton, new Color(1, 1, 1, 0.12f)).gameObject;
             LayoutElement le = template.AddComponent<LayoutElement>();
             le.preferredHeight = 40;
             template.SetActive(false);
@@ -277,7 +278,7 @@ namespace TcgEngine.EditorTools
             VerticalLayoutGroup layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = true;
-            layout.spacing = 4;
+            layout.spacing = UITheme.GapXs;
             content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             scroll_rect.viewport = viewport;
@@ -298,37 +299,30 @@ namespace TcgEngine.EditorTools
             trigger_field.sizeDelta = new Vector2(0, 30);
             CreateInputIn(trigger_field, "触发时机（OnPlay/StartOfTurn/OnDeath…）");
 
-            Button edit_btn = CreateButton("EditBtn", row.transform, "编辑图", _font, 16, new Color(0.25f, 0.45f, 0.7f, 1f));
+            Button edit_btn = CreateButton("EditBtn", row.transform, "编辑图", _font, UITheme.FontButton, new Color(0.25f, 0.45f, 0.7f, 1f));
             AnchorRect(edit_btn.GetComponent<RectTransform>(), new Vector2(0.62f, 0.5f), new Vector2(0, 0), new Vector2(90, 30));
 
-            Button del_btn = CreateButton("DelBtn", row.transform, "删除", _font, 16, new Color(0.7f, 0.25f, 0.25f, 1f));
+            Button del_btn = CreateButton("DelBtn", row.transform, "删除", _font, UITheme.FontButton, new Color(0.7f, 0.25f, 0.25f, 1f));
             AnchorRect(del_btn.GetComponent<RectTransform>(), new Vector2(1, 0.5f), new Vector2(-8, 0), new Vector2(60, 30));
 
             row.SetActive(false);
             panel.rule_template = row;
 
             //添加规则按钮
-            Button add_btn = CreateButton("AddRuleBtn", area, "+ 添加规则", _font, 18, new Color(0.25f, 0.45f, 0.7f, 1f));
+            Button add_btn = CreateButton("AddRuleBtn", area, "+ 添加规则", _font, UITheme.FontButton, new Color(0.25f, 0.45f, 0.7f, 1f));
             AnchorRect(add_btn.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(0, 0), new Vector2(160, 40));
             panel.btn_add_rule = add_btn;
         }
 
         // ---------------- 通用构建辅助（与 GraphEditorBuilder 同款） ----------------
 
+        // ---------------- 通用控件工厂：统一转发到 UIFactory（等价搬迁，调用点零改动） ----------------
+
         private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            return go.GetComponent<RectTransform>();
-        }
+            => UIFactory.CreateRect(name, parent);
 
         private static void SetStretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
+            => UIFactory.SetStretch(rt);
 
         private static void AnchorRect(RectTransform rt, Vector2 anchor, Vector2 pos, Vector2 size)
         {
@@ -339,90 +333,18 @@ namespace TcgEngine.EditorTools
             rt.sizeDelta = size;
         }
 
-        private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = color;
-            return img;
-        }
-
+        //注意 overflow:false —— 本页原实现不设置溢出模式（即 uGUI 默认的 Wrap/Truncate），保持完全一致
         private static Text CreateText(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            Text txt = go.GetComponent<Text>();
-            txt.text = text;
-            txt.font = font;
-            txt.fontSize = size;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            return txt;
-        }
+            => UIFactory.CreateText(name, parent, text, font, size, color, align, false);
 
         private static Button CreateButton(string name, Transform parent, string label, Font font, int size, Color bg_color)
-        {
-            Image img = CreateImage(name, parent, bg_color);
-            Button btn = img.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
-            ColorBlock colors = btn.colors;
-            colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.fadeDuration = 0.1f;
-            btn.colors = colors;
+            => UIFactory.CreateButton(name, parent, label, font, size, bg_color);
 
-            if (name.Contains("CloseBtn"))
-            {
-                Sprite exit_sprite = AssetDatabase.LoadAssetAtPath<Sprite>(EXIT_ICON_PATH);
-                if (exit_sprite != null)
-                {
-                    img.sprite = exit_sprite;
-                    img.type = Image.Type.Simple;
-                    img.color = Color.white;
-                }
-            }
-            else
-            {
-                Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-                SetStretch(txt.rectTransform);
-            }
-            return btn;
-        }
-
+        //输入框统一走 UIFactory（底色/占位色/字号取 UITheme 令牌）；overflow:false 保持本页原行为
         private static InputField CreateInputIn(RectTransform field, string placeholder, bool multiline = false)
         {
-            RectTransform rt = CreateRect("Input", field);
-            SetStretch(rt);
-
-            Image bg = rt.gameObject.AddComponent<Image>();
-            bg.color = new Color(1, 1, 1, 0.25f);
-
-            Text placeholder_txt = CreateText("Placeholder", rt, placeholder, _font, 16, new Color(1, 1, 1, 0.5f), multiline ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft);
-            RectTransform ph_rt = placeholder_txt.rectTransform;
-            ph_rt.anchorMin = Vector2.zero;
-            ph_rt.anchorMax = Vector2.one;
-            ph_rt.offsetMin = new Vector2(10, 4);
-            ph_rt.offsetMax = Vector2.zero;
-
-            Text display = CreateText("Text", rt, "", _font, 16, Color.white, multiline ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft);
-            RectTransform d_rt = display.rectTransform;
-            d_rt.anchorMin = Vector2.zero;
-            d_rt.anchorMax = Vector2.one;
-            d_rt.offsetMin = new Vector2(10, 4);
-            d_rt.offsetMax = Vector2.zero;
-
-            InputField input = rt.gameObject.AddComponent<InputField>();
-            input.targetGraphic = bg;
-            input.textComponent = display;
-            input.placeholder = placeholder_txt;
-            if (multiline)
-            {
-                input.lineType = InputField.LineType.MultiLineNewline;
-                display.horizontalOverflow = HorizontalWrapMode.Wrap;
-                display.verticalOverflow = VerticalWrapMode.Truncate;
-            }
+            InputField input = UIFactory.CreateLegacyInputField("Input", field, placeholder, _font, multiline);
+            SetStretch(input.GetComponent<RectTransform>());
             return input;
         }
 
@@ -433,11 +355,11 @@ namespace TcgEngine.EditorTools
             SetStretch(go.GetComponent<RectTransform>());
 
             Image img = go.GetComponent<Image>();
-            img.color = new Color(1, 1, 1, 0.25f);
+            img.color = UITheme.FieldBg;   //下拉框底统一走令牌（P3）
             Dropdown dd = go.GetComponent<Dropdown>();
             dd.targetGraphic = img;
 
-            Text caption = CreateText("Label", go.transform, options.Count > 0 ? options[0] : "", _font, 16, Color.white, TextAnchor.MiddleLeft);
+            Text caption = CreateText("Label", go.transform, options.Count > 0 ? options[0] : "", _font, UITheme.FontBody, UITheme.TextBody, TextAnchor.MiddleLeft);
             RectTransform caption_rt = caption.rectTransform;
             caption_rt.anchorMin = Vector2.zero;
             caption_rt.anchorMax = Vector2.one;
@@ -491,7 +413,7 @@ namespace TcgEngine.EditorTools
             RectTransform item_bg = CreateRect("Item Background", item);
             SetStretch(item_bg);
             Image item_bg_img = item_bg.gameObject.AddComponent<Image>();
-            item_bg_img.color = new Color(1, 1, 1, 0.1f);
+            item_bg_img.color = UITheme.CtrlWeak;
 
             Toggle item_toggle = item.gameObject.AddComponent<Toggle>();
             item_toggle.targetGraphic = item_bg_img;
@@ -503,8 +425,8 @@ namespace TcgEngine.EditorTools
             item_label.offsetMax = new Vector2(-10, 0);
             Text item_text = item_label.gameObject.AddComponent<Text>();
             item_text.font = _font;
-            item_text.fontSize = 16;
-            item_text.color = Color.white;
+            item_text.fontSize = UITheme.FontBody;
+            item_text.color = UITheme.TextBody;
             item_text.alignment = TextAnchor.MiddleLeft;
 
             scroll.viewport = viewport;

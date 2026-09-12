@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.TextCore.LowLevel;
 using TMPro;
 
 namespace TcgEngine.UI
@@ -21,13 +22,14 @@ namespace TcgEngine.UI
         private const string MENU = "TcgEngine/卡牌编辑器/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
         //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
-        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
-        private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
+        //资源路径统一登记在 UITheme（全项目只定义一次）
+        private const string FONT_PATH = UITheme.FontPath;
+        private const string FONT_FALLBACK_PATH = UITheme.FontFallbackPath;
+        private const string EXIT_ICON_PATH = UITheme.ExitIconPath;
 
         private static Font _font;
         private static TMP_FontAsset _tmpFont;
-        private const string TMP_FONT_PATH = "Assets/TcgEngine/Fonts/SimHei_TMP.asset";
+        private const string TMP_FONT_PATH = UITheme.TmpFontPath;
 
         [MenuItem(MENU + "生成规则编辑器页面到主菜单场景")]
         public static void BuildGraphEditor()
@@ -38,6 +40,10 @@ namespace TcgEngine.UI
             Transform existing = FindTransform("GraphEditorPanel");
             if (existing != null)
             {
+                //先清掉页面内残留的运行时对象（Play 时创建、场景被保存后混进来的，再进 Play 会重复创建）
+                int removed = StripRuntimeObjects(existing.gameObject);
+                if (removed > 0)
+                    Debug.Log("规则编辑器：已清理页面内残留的运行时对象 " + removed + " 个");
                 bool rebuild = !EditorUtility.DisplayDialog("规则编辑器",
                     "场景中已存在规则编辑器页面（含你手动调整的布局）。\n\n" +
                     "「保留现有布局」：跳过重建，布局不变；\n" +
@@ -91,19 +97,73 @@ namespace TcgEngine.UI
         private static TMP_FontAsset GetTmpFont()
         {
             if (_tmpFont != null) return _tmpFont;
-            _tmpFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TMP_FONT_PATH);
-            if (_tmpFont == null)
-            {
-                Font src = AssetDatabase.LoadAssetAtPath<Font>(FONT_PATH);
-                if (src == null) src = AssetDatabase.LoadAssetAtPath<Font>(FONT_FALLBACK_PATH);
-                if (src == null) src = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                _tmpFont = TMP_FontAsset.CreateFontAsset(src);
-                _tmpFont.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                AssetDatabase.CreateAsset(_tmpFont, TMP_FONT_PATH);
-                AssetDatabase.SaveAssets();
-                Debug.Log("规则编辑器：已创建 SimHei TMP 字体资产: " + TMP_FONT_PATH);
-            }
+            _tmpFont = CreateOrRepairTmpFont();
             return _tmpFont;
+        }
+
+        [MenuItem("TcgEngine/规则编辑器/修复 TMP 字体")]
+        private static void RepairTmpFont()
+        {
+            _tmpFont = null;
+            TMP_FontAsset fa = CreateOrRepairTmpFont();
+            bool ok = fa != null && fa.atlasTextures != null && fa.atlasTextures.Length > 0;
+            Debug.Log(ok ? "规则编辑器：TMP 字体已修复/重建: " + TMP_FONT_PATH
+                        : "规则编辑器：TMP 字体修复失败，请查看 Console。");
+        }
+
+        /// <summary>加载或重建 SimHei_TMP：若磁盘资产损坏（m_AtlasTextures 空）则删旧重建。
+/// version/sourceFontFile/atlasWidth 等字段在 TMP 里是 internal 赋值，无法跨程序集手工赋值，
+/// 因此用 TMP_FontAsset.CreateFontAsset() 在内部填好，再把图集纹理/材质 AddObjectToAsset 固化为子资产，
+/// 避免落盘后 m_AtlasTextures 丢失。</summary>
+        private static TMP_FontAsset CreateOrRepairTmpFont()
+        {
+            TMP_FontAsset existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TMP_FONT_PATH);
+            if (existing != null && IsValidTmpFont(existing))
+                return existing;
+
+            if (existing != null)
+                AssetDatabase.DeleteAsset(TMP_FONT_PATH);
+
+            Font src = AssetDatabase.LoadAssetAtPath<Font>(FONT_PATH);
+            if (src == null) src = AssetDatabase.LoadAssetAtPath<Font>(FONT_FALLBACK_PATH);
+            if (src == null) src = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            // 由 TMP 内部把 atlasWidth/Height/Padding/renderMode/faceInfo/sourceFontFile 等不可赋值的字段填好
+            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(src, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+            if (fa == null)
+            {
+                Debug.LogError("规则编辑器：无法用 [" + src.name + "] 创建字体资产，请确认字体导入设置勾选了 Include Font Data。");
+                return null;
+            }
+            AssetDatabase.CreateAsset(fa, TMP_FONT_PATH);
+
+            //把图集纹理与材质固化为子资产（命名后落盘，否则重载后 m_AtlasTextures 丢失）
+            Texture2D atlas = fa.atlasTextures != null && fa.atlasTextures.Length > 0 ? fa.atlasTextures[0] : null;
+            if (atlas != null)
+            {
+                atlas.name = "SimHei_TMP Atlas";
+                AssetDatabase.AddObjectToAsset(atlas, fa);
+            }
+            if (fa.material != null)
+            {
+                fa.material.name = "SimHei_TMP Material";
+                AssetDatabase.AddObjectToAsset(fa.material, fa);
+            }
+
+            EditorUtility.SetDirty(fa);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(TMP_FONT_PATH, ImportAssetOptions.ForceSynchronousImport);
+
+            //重新加载校验，确保图集纹理真正落盘
+            TMP_FontAsset reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TMP_FONT_PATH);
+            if (reloaded != null && IsValidTmpFont(reloaded))
+                return reloaded;
+            return fa;
+        }
+
+        private static bool IsValidTmpFont(TMP_FontAsset fa)
+        {
+            return fa != null && fa.atlasTextures != null && fa.atlasTextures.Length > 0 && fa.atlasTextures[0] != null;
         }
 
         // ---------------- 页面 ----------------
@@ -120,10 +180,8 @@ namespace TcgEngine.UI
 
             GraphEditorPanel panel = root.gameObject.AddComponent<GraphEditorPanel>();
 
-            //全屏背景遮罩：盖住整个游戏画面
-            Image bg = CreateImage("Background", root, new Color(0f, 0f, 0f, 0.9f));
-            bg.raycastTarget = false;
-            SetStretch(bg.rectTransform);
+            //全屏背景遮罩：盖住整个游戏画面（取值统一走 UITheme.MaskPage）
+            UIFactory.CreatePageMask("Background", root);
 
             //顶部工具栏
             BuildTopBar(root, panel);
@@ -131,14 +189,13 @@ namespace TcgEngine.UI
             //左侧画布
             BuildCanvasArea(root, panel);
 
-            //右侧上：属性配置
+            //右侧三区全部占满整列（卡牌参数 / 节点库 Tab 切换；节点参数选中节点时覆盖节点库）
             BuildPropArea(root, panel);
-
-            //右侧下：节点库（先建，默认显示；参数区覆盖其上，运行时互斥切换）
             BuildLibArea(root, panel);
-
-            //右侧下：节点参数编辑区（后建，位于节点库上层，选中节点时显示）
             BuildFieldArea(root, panel);
+
+            //右侧栏顶部的 Tab 栏（卡牌参数 / 节点库），并设置默认选中页
+            BuildRightTabBar(root, panel);
 
             //工具栏置顶：确保返回/保存等按钮不被各内容区域覆盖
             Transform topbar = root.Find("TopBar");
@@ -146,7 +203,7 @@ namespace TcgEngine.UI
                 topbar.SetAsLastSibling();
 
             //底部状态（TMP，全页统一字体）
-            TMP_Text status = CreateTMPText("StatusText", root, "", 20, new Color(1, 0.85f, 0.6f, 1f), TextAlignmentOptions.Right);
+            TMP_Text status = CreateTMPText("StatusText", root, "", UITheme.FontStatus, new Color(1, 0.85f, 0.6f, 1f), TextAlignmentOptions.Right);
             status.rectTransform.anchorMin = new Vector2(1, 0);
             status.rectTransform.anchorMax = new Vector2(1, 0);
             status.rectTransform.pivot = new Vector2(1, 0.5f);   //右对齐，确保提示条完整在屏幕内
@@ -170,15 +227,17 @@ namespace TcgEngine.UI
             bar.anchoredPosition = new Vector2(0, -60);
             bar.sizeDelta = new Vector2(0, 60);
 
-            Text title = CreateText("TitleText", bar, "规则编辑器", _font, 34,
-                new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
+            //标题：建成 TMP 并直接绑定 panel.title_text（运行时用 <sprite> 富文本标签）。
+            //必须建成 TMP 且显式绑定——否则页面末尾的 TmpifyPage/NormalizeSize 会把它归一化成 16px，
+            //这正是规则编辑器标题长期比其它页小的原因（P2 修复）。
+            TMP_Text title = CreateTMPText("TitleText", bar, "规则编辑器", UITheme.FontPageTitle,
+                UITheme.TextTitle, TextAlignmentOptions.Left);
             title.rectTransform.anchorMin = new Vector2(0, 0.5f);
             title.rectTransform.anchorMax = new Vector2(0, 0.5f);
             title.rectTransform.pivot = new Vector2(0, 0.5f);
             title.rectTransform.anchoredPosition = new Vector2(30, 0);
             title.rectTransform.sizeDelta = new Vector2(640, 50);
-            //title_text 已改为 TMP_Text（运行时用 <sprite> 标签），默认布局不再绑定 UGUI 标题
-            //需要 TMP 标题时：在场景中把标题文本换成 TMP - Text 并手动拖到面板的 Title Text 槽
+            panel.title_text = title;
 
             panel.btn_undo = CreateButton("UndoBtn", bar, "撤销", _font, 22,
                 new Color(1f, 0.85f, 0.5f, 0.4f));
@@ -225,7 +284,7 @@ namespace TcgEngine.UI
             srt.anchoredPosition = new Vector2(-200, 0);
             srt.sizeDelta = new Vector2(130, 46);
 
-            panel.btn_close = CreateButton("CloseBtn", bar, "返回", _font, 24, new Color(1, 1, 1, 0.25f));
+            panel.btn_close = CreateButton("CloseBtn", bar, "返回", _font, UITheme.FontButton, new Color(1, 1, 1, 0.25f));
             RectTransform crt = panel.btn_close.GetComponent<RectTransform>();
             crt.anchorMin = new Vector2(1, 0.5f);
             crt.anchorMax = new Vector2(1, 0.5f);
@@ -250,7 +309,7 @@ namespace TcgEngine.UI
             bg.color = new Color(0f, 0f, 0f, 0.35f);
 
             //缩放按钮（左上角，不显示提示文字，只留按钮）
-            panel.btn_zoom_in = CreateButton("ZoomInBtn", area, "放大", _font, 20,
+            panel.btn_zoom_in = CreateButton("ZoomInBtn", area, "放大", _font, UITheme.FontButton,
                 new Color(0.5f, 0.78f, 1f, 0.4f));
             RectTransform zi = panel.btn_zoom_in.GetComponent<RectTransform>();
             zi.anchorMin = new Vector2(0, 1);
@@ -259,7 +318,7 @@ namespace TcgEngine.UI
             zi.anchoredPosition = new Vector2(60, -12);
             zi.sizeDelta = new Vector2(80, 40);
 
-            panel.btn_zoom_out = CreateButton("ZoomOutBtn", area, "缩小", _font, 20,
+            panel.btn_zoom_out = CreateButton("ZoomOutBtn", area, "缩小", _font, UITheme.FontButton,
                 new Color(0.5f, 0.78f, 1f, 0.4f));
             RectTransform zo = panel.btn_zoom_out.GetComponent<RectTransform>();
             zo.anchorMin = new Vector2(0, 1);
@@ -268,7 +327,7 @@ namespace TcgEngine.UI
             zo.anchoredPosition = new Vector2(150, -12);
             zo.sizeDelta = new Vector2(80, 40);
 
-            panel.btn_reset = CreateButton("ResetBtn", area, "复位", _font, 20,
+            panel.btn_reset = CreateButton("ResetBtn", area, "复位", _font, UITheme.FontButton,
                 new Color(1f, 1f, 1f, 0.25f));
             RectTransform rs = panel.btn_reset.GetComponent<RectTransform>();
             rs.anchorMin = new Vector2(0, 1);
@@ -465,7 +524,7 @@ namespace TcgEngine.UI
             dot_rt.anchoredPosition = Vector2.zero;
             dot_rt.sizeDelta = new Vector2(10, 10);
             Image dot = dot_go.GetComponent<Image>();
-            dot.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");   //圆形精灵：端口渲染为圆点而非方块
+            dot.sprite = GetCircleSprite();   //圆形精灵：内置 UI/Skin/Knob.psd 在新版 Unity 已不可加载，改用项目内生成的圆点
             dot.color = Color.white;
             dot.raycastTarget = false;
 
@@ -478,8 +537,9 @@ namespace TcgEngine.UI
         private static void BuildPropArea(Transform parent, GraphEditorPanel panel)
         {
             RectTransform area = CreateRect("PropArea", parent);
-            area.anchorMin = new Vector2(0.77f, 0.5f);
-            area.anchorMax = new Vector2(0.99f, 0.9f);
+            //整列占满右侧栏（与节点库并列在 Tab 下，默认隐藏，切「卡牌参数」时显示）
+            area.anchorMin = new Vector2(0.77f, 0.02f);
+            area.anchorMax = new Vector2(0.99f, 0.84f);
             area.offsetMin = Vector2.zero;
             area.offsetMax = Vector2.zero;
             area.pivot = new Vector2(0.5f, 0.5f);
@@ -488,7 +548,7 @@ namespace TcgEngine.UI
             Image bg = area.gameObject.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.35f);
 
-            Text label = CreateText("AreaTitle", area, "卡牌属性配置", _font, 24,
+            Text label = CreateText("AreaTitle", area, "卡牌参数", _font, 24,
                 new Color(0.76f, 1f, 0.99f, 1f), TextAnchor.MiddleLeft);
             label.rectTransform.anchorMin = new Vector2(0, 1);
             label.rectTransform.anchorMax = new Vector2(1, 1);
@@ -539,13 +599,21 @@ namespace TcgEngine.UI
             scroll.content = content;
 
             //字段：属性名与输入内容同一行（左侧标签 + 右侧控件），用 LayoutElement 固定行高防塌陷
+            //名称整行
             panel.input_name = CreateInputIn(CreateFieldRow(content, "名称", 40), "请输入卡牌名称");
-            panel.dropdown_type = CreateDropdownIn(CreateFieldRow(content, "类型", 40), new List<string>(TYPE_NAMES));
-            panel.dropdown_team = CreateDropdownIn(CreateFieldRow(content, "阵营", 40), new List<string>());
-            panel.dropdown_rarity = CreateDropdownIn(CreateFieldRow(content, "稀有度", 40), new List<string>());
-            panel.input_mana = CreateInputIn(CreateFieldRow(content, "费用", 40), "法力费用");
-            panel.input_attack = CreateInputIn(CreateFieldRow(content, "攻击", 40), "攻击力");
-            panel.input_hp = CreateInputIn(CreateFieldRow(content, "生命", 40), "生命值");
+
+            //类型 | 阵营 | 稀有度：一行三列紧凑（每个字段=上行标签 + 下行控件）
+            RectTransform[] sel_cols = CreateTripleRow(content, new string[] { "类型", "阵营", "稀有度" });
+            panel.dropdown_type = CreateDropdownIn(sel_cols[0], new List<string>(TYPE_NAMES));
+            panel.dropdown_team = CreateDropdownIn(sel_cols[1], new List<string>());
+            panel.dropdown_rarity = CreateDropdownIn(sel_cols[2], new List<string>());
+
+            //费用 | 攻击 | 生命：一行三列紧凑
+            RectTransform[] num_cols = CreateTripleRow(content, new string[] { "费用", "攻击", "生命" });
+            panel.input_mana = CreateInputIn(num_cols[0], "法力费用");
+            panel.input_attack = CreateInputIn(num_cols[1], "攻击力");
+            panel.input_hp = CreateInputIn(num_cols[2], "生命值");
+
             panel.dropdown_trait = CreateDropdownIn(CreateFieldRow(content, "种族", 40), new List<string>());
             panel.input_text = CreateInputIn(CreateFieldRow(content, "卡牌文本", 84), "卡牌效果描述", true);
             panel.input_desc = CreateInputIn(CreateFieldRow(content, "描述", 84), "背景故事/风味文本", true);
@@ -603,10 +671,13 @@ namespace TcgEngine.UI
             fbrt.sizeDelta = new Vector2(140, 36);
 
             CreatePropLabel(content, "音乐配置（存于 Workshop/Audio）");
-            CreateAudioRow(content, panel, "打出音效", ref panel.input_audio_spawn, ref panel.btn_audio_spawn);
-            CreateAudioRow(content, panel, "攻击音效", ref panel.input_audio_attack, ref panel.btn_audio_attack);
-            CreateAudioRow(content, panel, "死亡音效", ref panel.input_audio_death, ref panel.btn_audio_death);
-            CreateAudioRow(content, panel, "受伤音效", ref panel.input_audio_damage, ref panel.btn_audio_damage);
+            CreateAudioRow(content, panel, "打出音效", ref panel.input_audio_spawn, ref panel.btn_audio_spawn, 0);
+            CreateAudioRow(content, panel, "攻击音效", ref panel.input_audio_attack, ref panel.btn_audio_attack, 1);
+            CreateAudioRow(content, panel, "死亡音效", ref panel.input_audio_death, ref panel.btn_audio_death, 2);
+            CreateAudioRow(content, panel, "受伤音效", ref panel.input_audio_damage, ref panel.btn_audio_damage, 3);
+
+            //整列为「卡牌参数」Tab，默认隐藏（默认展示节点库）
+            area.gameObject.SetActive(false);
         }
 
         /// <summary>属性行：左侧属性名 + 右侧控件区（同一行，返回右侧控件区 RectTransform）</summary>
@@ -631,6 +702,44 @@ namespace TcgEngine.UI
             field.offsetMin = new Vector2(92, 0);
             field.offsetMax = Vector2.zero;
             return field;
+        }
+
+        /// <summary>三列紧凑属性行：每列=上行标签 + 下行控件区（像 类型|阵营|稀有度 那样凑一行）。
+        /// 返回各列的「控件区(Field)」RectTransform 数组，供 CreateInputIn/CreateDropdownIn 填充。</summary>
+        private static RectTransform[] CreateTripleRow(Transform parent, string[] labels)
+        {
+            RectTransform row = CreateRect("PropRow3", parent);
+            row.sizeDelta = new Vector2(0, 70);
+            AddLayoutElement(row, 70);
+
+            RectTransform[] fields = new RectTransform[labels.Length];
+            float n = labels.Length;
+            for (int i = 0; i < labels.Length; i++)
+            {
+                RectTransform col = CreateRect("PropRow", row);
+                col.anchorMin = new Vector2(i / n, 0);
+                col.anchorMax = new Vector2((i + 1) / n, 1);
+                col.offsetMin = new Vector2(i > 0 ? 4 : 0, 0);
+                col.offsetMax = new Vector2(i < labels.Length - 1 ? -4 : 0, 0);
+
+                Text lb = CreateText("PropLabel", col, labels[i], _font, 15,
+                    new Color(1, 1, 1, 0.7f), TextAnchor.MiddleLeft);
+                RectTransform lrt = lb.rectTransform;
+                lrt.anchorMin = new Vector2(0, 1);
+                lrt.anchorMax = new Vector2(1, 1);
+                lrt.pivot = new Vector2(0.5f, 1);
+                lrt.anchoredPosition = Vector2.zero;
+                lrt.offsetMin = new Vector2(2, 0);
+                lrt.sizeDelta = new Vector2(0, 22);
+
+                RectTransform field = CreateRect("Field", col);
+                field.anchorMin = new Vector2(0, 0);
+                field.anchorMax = new Vector2(1, 1);
+                field.offsetMin = new Vector2(0, 24);
+                field.offsetMax = new Vector2(0, -2);
+                fields[i] = field;
+            }
+            return fields;
         }
 
         /// <summary>在指定控件区创建 TMP 输入框（填充该区域，全页统一字体）</summary>
@@ -718,16 +827,16 @@ namespace TcgEngine.UI
             return toggle;
         }
 
-        /// <summary>音效行：标签 + 文件名输入框（TMP）+ 「选择音频」按钮（弹出系统文件对话框）</summary>
+        /// <summary>音效行：标签 + 文件名输入框（TMP）+ 「选择音频」按钮（弹出系统文件对话框）+ 试听▶按钮</summary>
         private static void CreateAudioRow(Transform parent, GraphEditorPanel panel, string label,
-            ref TMP_InputField input_ref, ref Button btn_ref)
+            ref TMP_InputField input_ref, ref Button btn_ref, int slot)
         {
             RectTransform row = CreateFieldRow(parent, label, 40);
             row.name = "AudioRow";
 
             RectTransform input_rt = CreateRect("AudioInput", row);
             input_rt.anchorMin = new Vector2(0, 0);
-            input_rt.anchorMax = new Vector2(0.68f, 1);
+            input_rt.anchorMax = new Vector2(0.52f, 1);
             input_rt.offsetMin = Vector2.zero;
             input_rt.offsetMax = Vector2.zero;
             input_rt.gameObject.AddComponent<RectMask2D>();
@@ -762,10 +871,71 @@ namespace TcgEngine.UI
             btn_ref = CreateButton("PickAudioBtn", row, "选择音频", _font, 15,
                 new Color(0.5f, 0.78f, 1f, 0.4f));
             RectTransform brt = btn_ref.GetComponent<RectTransform>();
-            brt.anchorMin = new Vector2(0.72f, 0);
-            brt.anchorMax = new Vector2(1, 1);
+            brt.anchorMin = new Vector2(0.55f, 0);
+            brt.anchorMax = new Vector2(0.82f, 1);
             brt.offsetMin = Vector2.zero;
             brt.offsetMax = Vector2.zero;
+
+            //试听 ▶ 按钮
+            Image img = CreateImage("PlayAudioBtn_" + slot, row, new Color(0.4f, 0.85f, 0.6f, 0.45f));
+            RectTransform prt = img.rectTransform;
+            prt.anchorMin = new Vector2(0.85f, 0);
+            prt.anchorMax = new Vector2(1f, 1);
+            prt.offsetMin = Vector2.zero;
+            prt.offsetMax = Vector2.zero;
+            Button play = prt.gameObject.AddComponent<Button>();
+            play.targetGraphic = img;
+            int captured = slot;
+            play.onClick.AddListener(() => panel.OnPreviewAudio(captured));
+            TMP_Text play_txt = CreateTMPText("Text", prt, "▶", 14, Color.white, TextAlignmentOptions.Center);
+            SetStretch(play_txt.rectTransform);
+            play_txt.raycastTarget = false;
+            //播放按钮上的「选择音频」按钮置顶显示，避免被▶遮挡
+            brt.SetAsLastSibling();
+            prt.SetAsLastSibling();
+        }
+
+        // ---------------- 右侧 Tab 栏（卡牌参数 / 节点库） ----------------
+
+        private static void BuildRightTabBar(Transform parent, GraphEditorPanel panel)
+        {
+            RectTransform bar = CreateRect("RightTabBar", parent);
+            bar.anchorMin = new Vector2(0.77f, 0.852f);
+            bar.anchorMax = new Vector2(0.99f, 0.905f);
+            bar.offsetMin = Vector2.zero;
+            bar.offsetMax = Vector2.zero;
+
+            HorizontalLayoutGroup h = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 6f;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+
+            MakeRightTabBtn(bar, "卡牌参数", () => panel.SelectRightTab(true),
+                out panel.btn_tab_prop, out panel.tab_prop_text);
+            MakeRightTabBtn(bar, "节点库", () => panel.SelectRightTab(false),
+                out panel.btn_tab_lib, out panel.tab_lib_text);
+
+            //置于最上层，避免被三块内容区遮挡
+            bar.SetAsLastSibling();
+
+            //默认选中「节点库」，套用高亮样式 + 内容可见性
+            panel.SelectRightTab(false);
+        }
+
+        private static void MakeRightTabBtn(Transform bar, string label, System.Action onClick,
+            out Button btn, out TMP_Text t)
+        {
+            RectTransform rt = CreateRect("Tab_" + label, bar);
+            Image img = rt.gameObject.AddComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.12f);
+            btn = rt.gameObject.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => onClick());
+            t = CreateTMPText("Text", rt, label, 18, Color.white, TextAlignmentOptions.Center);
+            SetStretch(t.rectTransform);
+            t.raycastTarget = false;
         }
 
         private static Text CreatePropLabel(Transform parent, string text)
@@ -829,8 +999,9 @@ namespace TcgEngine.UI
         private static void BuildFieldArea(Transform parent, GraphEditorPanel panel)
         {
             RectTransform area = CreateRect("FieldArea", parent);
-            area.anchorMin = new Vector2(0.77f, 0.04f);
-            area.anchorMax = new Vector2(0.99f, 0.48f);
+            //整列占满右侧栏（选中节点时覆盖节点库）
+            area.anchorMin = new Vector2(0.77f, 0.02f);
+            area.anchorMax = new Vector2(0.99f, 0.84f);
             area.offsetMin = Vector2.zero;
             area.offsetMax = Vector2.zero;
             area.pivot = new Vector2(0.5f, 0.5f);
@@ -1012,8 +1183,9 @@ namespace TcgEngine.UI
         private static void BuildLibArea(Transform parent, GraphEditorPanel panel)
         {
             RectTransform area = CreateRect("LibArea", parent);
-            area.anchorMin = new Vector2(0.77f, 0.04f);
-            area.anchorMax = new Vector2(0.99f, 0.48f);
+            //整列占满右侧栏（Tab 默认页）
+            area.anchorMin = new Vector2(0.77f, 0.02f);
+            area.anchorMax = new Vector2(0.99f, 0.84f);
             area.offsetMin = Vector2.zero;
             area.offsetMax = Vector2.zero;
             area.pivot = new Vector2(0.5f, 0.5f);
@@ -1033,6 +1205,7 @@ namespace TcgEngine.UI
             label.rectTransform.offsetMin = new Vector2(14, label.rectTransform.offsetMin.y);
             label.rectTransform.sizeDelta = new Vector2(0, 36);
             panel.node_lib_count = label;
+            label.gameObject.SetActive(false);   //标题与 Tab 上的「节点库」重复，默认隐藏（数量提示冗余）
 
             //搜索框（按节点名过滤）
             RectTransform search_row = CreateRect("SearchRow", area);
@@ -1231,58 +1404,112 @@ namespace TcgEngine.UI
             return null;
         }
 
+        // ---------------- 通用控件工厂：统一转发到 UIFactory（等价搬迁，调用点零改动） ----------------
+
         private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            return rt;
-        }
+            => UIFactory.CreateRect(name, parent);
 
         private static void SetStretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
+            => UIFactory.SetStretch(rt);
 
         private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = color;
-            return img;
-        }
+            => UIFactory.CreateImage(name, parent, color);
 
         private static Text CreateText(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
+            => UIFactory.CreateText(name, parent, text, font, size, color, align);
+
+        private const string CIRCLE_SPRITE_PATH = "Assets/TcgEngine/Sprites/UI/pin_dot.png";
+
+        /// <summary>端口圆点精灵：项目里没有现成纯白圆，缺失时用代码生成一枚 PNG 并导入
+        /// （内置 UI/Skin/Knob.psd 在新版 Unity 无法 GetBuiltinResource；生成的资产可持久保存进场景）</summary>
+        private static Sprite GetCircleSprite()
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            Text txt = go.GetComponent<Text>();
-            txt.text = text;
-            txt.font = font;
-            txt.fontSize = size;
-            txt.fontStyle = FontStyle.Normal;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            txt.verticalOverflow = VerticalWrapMode.Overflow;
-            return txt;
+            Sprite existing = AssetDatabase.LoadAssetAtPath<Sprite>(CIRCLE_SPRITE_PATH);
+            if (existing != null)
+                return existing;
+
+            int size = 32;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float radius = size * 0.5f - 1.5f;
+            Vector2 center = new Vector2(size * 0.5f, size * 0.5f);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
+                    float a = d <= radius - 0.75f ? 1f : (d <= radius + 0.75f ? Mathf.Clamp01(radius + 0.75f - d) : 0f);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            }
+            tex.Apply();
+
+            string dir = System.IO.Path.GetDirectoryName(CIRCLE_SPRITE_PATH);
+            if (!System.IO.Directory.Exists(dir))
+                System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.WriteAllBytes(CIRCLE_SPRITE_PATH, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+            AssetDatabase.ImportAsset(CIRCLE_SPRITE_PATH);
+
+            TextureImporter importer = AssetImporter.GetAtPath(CIRCLE_SPRITE_PATH) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.SaveAndReimport();
+            }
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(CIRCLE_SPRITE_PATH);
+            if (sprite == null)
+                Debug.LogWarning("规则编辑器：圆点精灵生成失败，端口将显示为方块（" + CIRCLE_SPRITE_PATH + "）");
+            return sprite;
         }
 
         // ---------------- 整页 TMP 统一（生成时执行一次，页面里不再有旧版字体） ----------------
 
-        /// <summary>统一字号：区块标题 20、行标签/按钮 15，其余 16</summary>
-        private static int NormalizeSize(string go_name, int legacy_size)
+        /// <summary>运行时创建的对象名（Play 时生成，可能被保存进场景导致重复创建）</summary>
+        private static bool IsRuntimeObject(string go_name)
         {
-            if (go_name == "AreaTitle")
-                return 20;
-            if (go_name == "PropLabel" || go_name == "ToggleLabel" || go_name.StartsWith("Btn") || go_name.EndsWith("Btn"))
-                return 15;
-            return 16;
+            if (go_name == "RightTabBar" || go_name == "PropRowKeyword" || go_name == "EffectTabBar"
+                || go_name == "TraitSelect" || go_name == "KeywordSelect")
+                return true;
+            return go_name.StartsWith("PlayAudioBtn_") || go_name.StartsWith("PropPackRow");
+        }
+
+        /// <summary>删除页面内残留的运行时对象，返回删除数量（父物体删除后子物体自动失效，逐个判空）</summary>
+        private static int StripRuntimeObjects(GameObject page)
+        {
+            List<Transform> to_remove = new List<Transform>();
+            foreach (Transform t in page.GetComponentsInChildren<Transform>(true))
+            {
+                if (t != null && t.gameObject != page && IsRuntimeObject(t.name))
+                    to_remove.Add(t);
+            }
+            foreach (Transform t in to_remove)
+            {
+                if (t != null)
+                    Object.DestroyImmediate(t.gameObject);
+            }
+            return to_remove.Count;
+        }
+
+        /// <summary>
+        /// 统一字号：区块标题=FontSection、状态条=FontStatus、行标签=FontSmall，其余=FontBody（一律取 UITheme 令牌）。
+        /// 按钮文字例外：保留按钮自身设定的字号（页面级按钮生成时已用 UITheme.FontButton），
+        /// 既避免被统一成正文 16 而失真，也避免把节点头部的 ✕/– 等小按钮放大。
+        /// </summary>
+        private static int NormalizeSize(GameObject go, int legacy_size)
+        {
+            if (go == null)
+                return UITheme.FontBody;
+            if (go.name == "AreaTitle")
+                return UITheme.FontSection;
+            if (go.name == "StatusText")
+                return UITheme.FontStatus;
+            if (go.GetComponentInParent<Button>() != null)
+                return legacy_size;
+            if (go.name == "PropLabel" || go.name == "ToggleLabel" || go.name.StartsWith("Btn") || go.name.EndsWith("Btn"))
+                return UITheme.FontSmall;
+            return UITheme.FontBody;
         }
 
         private static TextAlignmentOptions ToTmpAlign(TextAnchor anchor)
@@ -1337,7 +1564,7 @@ namespace TcgEngine.UI
             if (tmp != null)
                 return tmp;
             string text = legacy.text;
-            int size = NormalizeSize(go.name, legacy.fontSize);
+            int size = NormalizeSize(go, legacy.fontSize);
             Color color = legacy.color;
             TextAlignmentOptions align = ToTmpAlign(legacy.alignment);
             bool raycast = legacy.raycastTarget;
@@ -1392,53 +1619,10 @@ namespace TcgEngine.UI
 
         /// <summary>创建 TMP 纯文字（TextMeshProUGUI），用 SimHei 动态 TMP 字体。供全页 TMP 迁移使用。</summary>
         private static TMP_Text CreateTMPText(string name, Transform parent, string text, int size, Color color, TextAlignmentOptions align)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            go.transform.SetParent(parent, false);
-            TMP_Text txt = go.GetComponent<TextMeshProUGUI>();
-            txt.text = text;
-            txt.font = GetTmpFont();
-            txt.fontSize = size;
-            txt.fontStyle = FontStyles.Normal;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            txt.enableWordWrapping = false;
-            txt.overflowMode = TextOverflowModes.Overflow;
-            return txt;
-        }
+            => UIFactory.CreateTmpText(name, parent, text, size, color, align, GetTmpFont());
 
         private static Button CreateButton(string name, Transform parent, string label, Font font, int size, Color bg_color)
-        {
-            Image img = CreateImage(name, parent, bg_color);
-            Button btn = img.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
-
-            ColorBlock colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.fadeDuration = 0.1f;
-            btn.colors = colors;
-
-            if (name.Contains("CloseBtn") || name.Contains("ReturnBtn") || name.Contains("ExitBtn"))
-            {
-                Sprite exit_sprite = AssetDatabase.LoadAssetAtPath<Sprite>(EXIT_ICON_PATH);
-                if (exit_sprite != null)
-                {
-                    img.sprite = exit_sprite;
-                    img.type = Image.Type.Simple;
-                    img.color = Color.white;
-                    img.raycastTarget = true;
-                }
-            }
-            else
-            {
-                Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-                SetStretch(txt.rectTransform);
-            }
-            return btn;
-        }
+            => UIFactory.CreateButton(name, parent, label, font, size, bg_color);
 
         private static Dropdown CreateDropdown(string name, Transform parent, List<string> options)
         {

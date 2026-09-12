@@ -98,24 +98,38 @@ namespace TcgEngine.AI
 
         private void Execute()
         {
-            //Create first node
-            first_node = CreateNode(null, null, ai_player_id, 0, 0);
-            first_node.hvalue = heuristic.CalculateHeuristic(original_data, first_node);
-            first_node.alpha = int.MinValue;
-            first_node.beta = int.MaxValue;
+            //本方法运行在独立线程（ai_thread）：任何未捕获异常都会让 running 永远为 true，
+            //而 AIPlayerMM 的协程会一直 while(IsRunning()) 空转 → 模拟对局卡死。
+            //因此必须 try/finally 保证 running 复位（异常只记录，AI 无可用动作时会走 EndTurn 兜底）。
+            try
+            {
+                //Create first node
+                first_node = CreateNode(null, null, ai_player_id, 0, 0);
+                first_node.hvalue = heuristic.CalculateHeuristic(original_data, first_node);
+                first_node.alpha = int.MinValue;
+                first_node.beta = int.MaxValue;
 
-            Profiler.BeginSample("AI");
-            System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+                Profiler.BeginSample("AI");
+                System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
 
-            //Calculate first node
-            CalculateNode(original_data, first_node);
+                //Calculate first node
+                CalculateNode(original_data, first_node);
 
-            Debug.Log("AI: Time " + watch.ElapsedMilliseconds + "ms Depth " + reached_depth + " Nodes " + nb_calculated);
-            Profiler.EndSample();
+                Debug.Log("AI: Time " + watch.ElapsedMilliseconds + "ms Depth " + reached_depth + " Nodes " + nb_calculated);
+                Profiler.EndSample();
 
-            //Save best move
-            best_move = first_node.best_child;
-            running = false;
+                //Save best move
+                best_move = first_node != null ? first_node.best_child : null;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[AI] 推演线程异常，已终止本次计算（避免对局卡死）: " + e);
+                best_move = null;
+            }
+            finally
+            {
+                running = false;
+            }
         }
 
         //Add list of all possible orders and search in all of them
@@ -481,31 +495,74 @@ namespace TcgEngine.AI
 
             if (data.selector == SelectorType.SelectTarget && ability != null)
             {
-                for (int p = 0; p < data.players.Length; p++)
+                //多目标（顺序逐槽）：只按"当前槽"生成候选（已选过的卡排除、槽私有条件过滤），无候选→跳过该槽
+                if (ability.HasTargetSlots())
                 {
-                    Player tplayer = data.players[p];
-                    if (ability.CanTarget(data, caster, tplayer))
+                    int node_slot = CurrentSlotNode(data);
+                    int added = 0;
+                    for (int p = 0; p < data.players.Length; p++)
                     {
-                        AIAction action = CreateAction(GameAction.SelectPlayer, caster);
-                        action.target_player_id = tplayer.player_id;
-                        actions.Add(action);
+                        Player tplayer = data.players[p];
+                        if (tplayer == null || tplayer.hero == null)
+                            continue;
+                        if (ability.UseTargetDedupe() && SlotAlreadySelected(data, tplayer.hero))
+                            continue;
+                        if (!ability.CanTarget(data, caster, tplayer))
+                            continue;
+                        if (!ability.AreSlotConditionsMet(data, caster, tplayer.hero, node_slot))
+                            continue;
+                        AIAction paction = CreateAction(GameAction.SelectPlayer, caster);
+                        paction.target_player_id = tplayer.player_id;
+                        actions.Add(paction);
+                        added++;
                     }
-                }
 
-                foreach (Slot slot in Slot.GetAll())
-                {
-                    Card tcard = data.GetSlotCard(slot);
-                    if (tcard != null && ability.CanTarget(data, caster, tcard))
+                    foreach (Slot slot in Slot.GetAll())
                     {
-                        AIAction action = CreateAction(GameAction.SelectCard, caster);
-                        action.target_uid = tcard.uid;
-                        actions.Add(action);
+                        Card tcard = data.GetSlotCard(slot);
+                        if (tcard == null || (ability.UseTargetDedupe() && SlotAlreadySelected(data, tcard)))
+                            continue;
+                        if (!ability.CanTarget(data, caster, tcard))
+                            continue;
+                        if (!ability.AreSlotConditionsMet(data, caster, tcard, node_slot))
+                            continue;
+                        AIAction caction = CreateAction(GameAction.SelectCard, caster);
+                        caction.target_uid = tcard.uid;
+                        actions.Add(caction);
+                        added++;
                     }
-                    else if (tcard == null && ability.CanTarget(data, caster, slot))
+
+                    if (added == 0)
+                        actions.Add(CreateAction(GameAction.SkipTarget, caster));   //无合法目标：跳过本槽
+                }
+                else
+                {
+                    for (int p = 0; p < data.players.Length; p++)
                     {
-                        AIAction action = CreateAction(GameAction.SelectSlot, caster);
-                        action.slot = slot;
-                        actions.Add(action);
+                        Player tplayer = data.players[p];
+                        if (ability.CanTarget(data, caster, tplayer))
+                        {
+                            AIAction action = CreateAction(GameAction.SelectPlayer, caster);
+                            action.target_player_id = tplayer.player_id;
+                            actions.Add(action);
+                        }
+                    }
+
+                    foreach (Slot slot in Slot.GetAll())
+                    {
+                        Card tcard = data.GetSlotCard(slot);
+                        if (tcard != null && ability.CanTarget(data, caster, tcard))
+                        {
+                            AIAction action = CreateAction(GameAction.SelectCard, caster);
+                            action.target_uid = tcard.uid;
+                            actions.Add(action);
+                        }
+                        else if (tcard == null && ability.CanTarget(data, caster, slot))
+                        {
+                            AIAction action = CreateAction(GameAction.SelectSlot, caster);
+                            action.slot = slot;
+                            actions.Add(action);
+                        }
                     }
                 }
             }
@@ -554,6 +611,18 @@ namespace TcgEngine.AI
                 AIAction caction = CreateAction(GameAction.CancelSelect, caster);
                 actions.Add(caction);
             }
+        }
+
+        /// <summary>顺序逐槽多目标：当前正在选择的图槽号（非多目标返回 0）</summary>
+        private int CurrentSlotNode(Game data)
+        {
+            return data != null ? data.CurrentSelectSlotNode() : 0;
+        }
+
+        /// <summary>顺序逐槽多目标：该卡是否已被前面的槽选走</summary>
+        private bool SlotAlreadySelected(Game data, Card card)
+        {
+            return data != null && card != null && data.IsSlotTargetSelected(card.uid);
         }
 
         private AIAction CreateAction(ushort type)
@@ -638,6 +707,11 @@ namespace TcgEngine.AI
             if (action.type == GameAction.CancelSelect)
             {
                 game_logic.CancelSelection();
+            }
+
+            if (action.type == GameAction.SkipTarget)
+            {
+                game_logic.SkipCurrentSelectSlot();
             }
 
             if (action.type == GameAction.EndTurn)

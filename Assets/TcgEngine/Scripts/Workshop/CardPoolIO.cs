@@ -32,7 +32,14 @@ namespace TcgEngine.Workshop
             get { return Path.Combine(SaveFolder, "Audio"); }
         }
 
-        /// <summary>从 ArtFolder 加载卡牌图片（不存在返回 null）</summary>
+        /// <summary>
+        /// 从 ArtFolder 加载卡牌图片（不存在返回 null）。
+        ///
+        /// 带缓存：key = 文件路径 + 最后写入时间。RefreshArt()/UpdateCardData() 会反复调用本方法，
+        /// 之前每次都新建一张**全尺寸 RGBA32 纹理**且从不释放——刷新几次就能吃掉几百 MB 显存，
+        /// 纹理创建/上传失败时 SpriteRenderer 会渲染成**品红**（表现为「战场上卡图全紫」）。
+        /// 重新裁切/换图后文件写入时间变化，key 不同即自动重载，旧的回收掉。
+        /// </summary>
         public static Sprite LoadArt(string art_path)
         {
             if (string.IsNullOrEmpty(art_path))
@@ -42,17 +49,65 @@ namespace TcgEngine.Workshop
                 string path = Path.Combine(ArtFolder, art_path);
                 if (!File.Exists(path))
                     return null;
+
+                string key = path + "|" + File.GetLastWriteTimeUtc(path).Ticks;
+                if (art_cache.TryGetValue(key, out Sprite cached) && cached != null)
+                    return cached;
+
+                //同一路径的旧版本作废并回收
+                if (art_cache_path.TryGetValue(path, out string old_key) && old_key != key)
+                {
+                    if (art_cache.TryGetValue(old_key, out Sprite old_sp))
+                        DestroyArtSprite(old_sp);
+                    art_cache.Remove(old_key);
+                }
+                art_cache_path[path] = key;
+
                 byte[] bytes = File.ReadAllBytes(path);
                 Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 if (!tex.LoadImage(bytes))
+                {
+                    DestroyUnityObject(tex);   //解码失败也要回收，否则同样是泄漏
                     return null;
-                return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                }
+                tex.wrapMode = TextureWrapMode.Clamp;   //边缘 clamp：避免采样到对侧像素
+                tex.filterMode = FilterMode.Bilinear;
+
+                //FullRect：整图网格。默认的 Tight 会按 alpha 收网格，透明边多的卡面图容易收出怪形状
+                Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+                art_cache[key] = sprite;
+                return sprite;
             }
             catch (System.Exception e)
             {
                 Debug.LogError("加载卡牌图片失败: " + art_path + " " + e.Message);
                 return null;
             }
+        }
+
+        //卡图缓存：路径 → (key → Sprite)
+        private static readonly Dictionary<string, Sprite> art_cache = new Dictionary<string, Sprite>();
+        private static readonly Dictionary<string, string> art_cache_path = new Dictionary<string, string>();
+
+        private static void DestroyArtSprite(Sprite sp)
+        {
+            if (sp == null)
+                return;
+            Texture2D tex = sp.texture;
+            DestroyUnityObject(sp);
+            DestroyUnityObject(tex);
+        }
+
+        /// <summary>运行时用 Destroy、编辑器下用 DestroyImmediate（避免编辑模式报错）</summary>
+        private static void DestroyUnityObject(UnityEngine.Object obj)
+        {
+            if (obj == null)
+                return;
+            if (Application.isPlaying)
+                UnityEngine.Object.Destroy(obj);
+            else
+                UnityEngine.Object.DestroyImmediate(obj);
         }
 
         //记录运行时导入/创建的自定义卡牌 id，用于"仅导出自定义卡"
@@ -901,57 +956,221 @@ namespace TcgEngine.Workshop
             return ab;
         }
 
+        /// <summary>入口的一个目标槽（读自图节点字段 target_type{i}/target_side{i}/target_error{i}）。</summary>
+        private class EntrySlotSpec
+        {
+            public int slot;        //图槽号（1 基，可空洞）
+            public string type;     //无/角色/英雄
+            public string side;     //任意/敌方/友方
+            public string error;    //无合法目标被跳过时的提示文案
+            public bool legacy;     //旧图：未编号的 target_type / targetCondition（单目标）
+        }
+
+        /// <summary>读入口的目标槽列表（按槽号升序）。无编号字段时把旧的单一 target_type 当作槽1（向后兼容）。</summary>
+        private static List<EntrySlotSpec> ReadEntryTargetSlots(GraphNode ev)
+        {
+            List<EntrySlotSpec> list = new List<EntrySlotSpec>();
+            if (ev == null || ev.fields == null)
+                return list;
+            //槽1：优先编号字段 target_type1（新图/迁移后）；否则读旧的未编号 target_type（旧图兼容，条件口=未编号 targetCondition）
+            bool num1 = HasFieldName(ev, "target_type1");
+            bool legacy1 = !num1 && HasFieldName(ev, "target_type");
+            if (num1 || legacy1)
+            {
+                list.Add(new EntrySlotSpec
+                {
+                    slot = 1,
+                    type = GraphRuntime.GetFieldString(ev, num1 ? "target_type1" : "target_type", "无"),
+                    side = GraphRuntime.GetFieldString(ev, num1 ? "target_side1" : "target_side", "任意"),
+                    error = GraphRuntime.GetFieldString(ev, num1 ? "target_error1" : "target_error", ""),
+                    legacy = legacy1,
+                });
+            }
+            //槽 ≥2：编号字段（由编辑器「＋新增目标」生成；槽号只增不复用，可有空洞）
+            foreach (FieldCustomData f in ev.fields)
+            {
+                if (f == null || string.IsNullOrEmpty(f.name) || !f.name.StartsWith("target_type"))
+                    continue;
+                string num = f.name.Substring("target_type".Length);
+                if (string.IsNullOrEmpty(num) || !int.TryParse(num, out int n) || n < 2)
+                    continue;   //未编号=槽1（上面已处理）
+                list.Add(new EntrySlotSpec
+                {
+                    slot = n,
+                    type = f.value,
+                    side = GraphRuntime.GetFieldString(ev, "target_side" + n, "任意"),
+                    error = GraphRuntime.GetFieldString(ev, "target_error" + n, ""),
+                });
+            }
+            list.Sort((a, b) => a.slot.CompareTo(b.slot));
+            return list;
+        }
+
+        /// <summary>节点是否含某字段（用于判定槽1走编号字段还是旧的未编号字段）</summary>
+        private static bool HasFieldName(GraphNode ev, string name)
+        {
+            if (ev == null || ev.fields == null)
+                return false;
+            foreach (FieldCustomData f in ev.fields)
+            {
+                if (f != null && f.name == name)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>槽的归属/角色条件（不含「目标N条件」图条件链），供多目标逐槽校验。</summary>
+        private static List<ConditionData> BuildSlotBaseConditions(EntrySlotSpec s)
+        {
+            List<ConditionData> conds = new List<ConditionData>();
+            if (s.side == "敌方")
+                conds.Add(MakeOwnerCondition(false));
+            else if (s.side == "友方")
+                conds.Add(MakeOwnerCondition(true));
+            if (s.type == "角色")
+            {
+                ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
+                role.player_only = false;
+                role.allow_player = true;   //zmcs「角色」含英雄：玩家英雄也可选
+                conds.Add(role);
+            }
+            else if (s.type == "英雄")
+            {
+                ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
+                role.player_only = true;    //只接受英雄（玩家目标）
+                role.allow_player = true;
+                conds.Add(role);
+            }
+            return conds;
+        }
+
+        /// <summary>槽的「目标N条件」图条件链（无连线返回 null；旧图走未编号的 targetCondition）。</summary>
+        private static ConditionData BuildSlotGraphCondition(GraphNode ev, GraphData graph, EntrySlotSpec s)
+        {
+            if (graph == null)
+                return null;
+            string pin_name = s.legacy ? "targetCondition" : "targetCondition" + s.slot;
+            GraphPin pin = graph.GetPinByName(ev.id, pin_name);
+            GraphLink link = pin != null ? graph.GetIncomingLink(ev.id, pin.id) : null;
+            if (link == null)
+                return null;
+            ConditionGraphTarget cond = ScriptableObject.CreateInstance<ConditionGraphTarget>();
+            cond.graph = graph;
+            cond.entry_node_id = ev.id;
+            cond.slot_index = s.legacy ? 0 : s.slot;
+            return cond;
+        }
+
         /// <summary>入口节点级参数覆盖（在能力编译完成后调用）：
-        /// 主动效果入口=打出时触发（炉石战吼/法术），按 目标类型 字段配置目标解析方式；
-        /// 「目标1条件」输入口有连线时追加 ConditionGraphTarget（逐候选目标求值图条件链，zmcs 机制）。</summary>
+        /// 主动效果入口=打出时触发（炉石战吼/法术）；
+        /// 目标槽 ≥2 → 顺序逐槽多目标（法术也走 SelectTarget：PlayTarget 只有一个落点），槽条件为槽私有；
+        /// 目标槽 ≤1 → 沿用旧的单目标编译（角色=PlayTarget/SelectTarget，英雄=直接指向玩家）。</summary>
         private static void ApplyEntryOverrides(AbilityData ab, GraphNode ev, bool is_spell, GraphData graph)
         {
-            if (ab == null || ev == null)
+            if (ab == null || ev == null || ev.action != "ActivateEffect")
                 return;
-            switch (ev.action)
+
+            List<EntrySlotSpec> slots = ReadEntryTargetSlots(ev);
+            List<EntrySlotSpec> active = new List<EntrySlotSpec>();
+            foreach (EntrySlotSpec s in slots)
             {
-                case "ActivateEffect":
+                if (!string.IsNullOrEmpty(s.type) && s.type != "无")
+                    active.Add(s);
+            }
+
+            //兜底：编号槽存在但类型为"无"（迁移/历史操作遗留的空槽 target_type1），而旧的未编号
+            //target_type 字段配置了有效类型 → 以旧字段为准。否则空槽会把类型顶掉，能力被编译成
+            //target=None（无目标），表现为"打出后图不执行、双方血量无变化"。
+            if (active.Count == 0)
+            {
+                string legacy_type = GraphRuntime.GetFieldString(ev, "target_type", "");
+                if (!string.IsNullOrEmpty(legacy_type) && legacy_type != "无")
                 {
-                    string tt = GraphRuntime.GetFieldString(ev, "target_type", "无");
-                    if (tt == "角色")
+                    Debug.LogWarning("[规则图] 入口编号目标槽类型为空，回退旧 target_type 字段: " + legacy_type
+                        + "（建议在节点上重新设置 目标类型）");
+                    EntrySlotSpec legacy = new EntrySlotSpec
                     {
-                        //法术=打出时拖选(PlayTarget)；随从/装备等=入场后弹出选择(SelectTarget)，且只能选场上角色
-                        ab.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget;
-                        //目标归属：敌方/友方 → ConditionOwner 归属过滤（任意不加）
-                        string side = GraphRuntime.GetFieldString(ev, "target_side", "任意");
-                        if (side == "敌方")
-                            ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(false));
-                        else if (side == "友方")
-                            ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(true));
-                        ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
-                        role.player_only = false;
-                        role.allow_player = true;   //zmcs「角色」含英雄：玩家英雄也可选
-                        ab.conditions_target = AppendCondition(ab.conditions_target, role);
-                    }
-                    else if (tt == "英雄")
-                    {
-                        ab.target = AbilityTarget.PlayerOpponent;   //直接指向对方英雄，不弹选
-                    }
-                    else
-                    {
-                        ab.target = AbilityTarget.None; //无目标：走无目标分支直接执行（NodeDoc 动作自行决定目标）
-                    }
-                    //目标1条件（zmcs：目标1条件 ← 条件节点链，如 卡牌类型判断=仆从）
-                    if (graph != null)
-                    {
-                        GraphPin tc_pin = graph.GetPinByName(ev.id, "targetCondition");
-                        GraphLink tc_link = tc_pin != null ? graph.GetIncomingLink(ev.id, tc_pin.id) : null;
-                        if (tc_link != null)
-                        {
-                            ConditionGraphTarget cond = ScriptableObject.CreateInstance<ConditionGraphTarget>();
-                            cond.graph = graph;
-                            cond.entry_node_id = ev.id;
-                            ab.conditions_target = AppendCondition(ab.conditions_target, cond);
-                        }
-                    }
-                    break;
+                        slot = 1,
+                        type = legacy_type,
+                        side = GraphRuntime.GetFieldString(ev, "target_side", "任意"),
+                        error = GraphRuntime.GetFieldString(ev, "target_error", ""),
+                        legacy = true,
+                    };
+                    slots = new List<EntrySlotSpec> { legacy };
+                    active.Add(legacy);
                 }
             }
+
+            // ---- 多目标：顺序逐槽选择（§冲突1：法术也走 SelectTarget） ----
+            if (active.Count >= 2)
+            {
+                ab.multi_target = true;
+                ab.target = AbilityTarget.SelectTarget;
+                ab.conditions_target = new ConditionData[0];   //归属/角色条件下沉到各槽私有条件，避免全局二次过滤
+                //目标去重（默认关闭=允许多个槽选同一张卡；勾选后同一张卡只能被一个槽选中）
+                ab.unique_targets = GraphRuntime.GetFieldString(ev, "unique_targets", "false") == "true";
+                List<AbilityTargetSlot> tslots = new List<AbilityTargetSlot>();
+                foreach (EntrySlotSpec s in active)
+                {
+                    AbilityTargetSlot ts = new AbilityTargetSlot();
+                    ts.node_slot = s.slot;
+                    ts.label = s.type;
+                    ts.side = s.side;
+                    ts.error = s.error;
+                    List<ConditionData> conds = BuildSlotBaseConditions(s);
+                    ConditionData chain = BuildSlotGraphCondition(ev, graph, s);
+                    if (chain != null)
+                        conds.Add(chain);
+                    ts.conditions = conds.ToArray();
+                    tslots.Add(ts);
+                }
+                ab.target_slots = tslots.ToArray();
+                return;
+            }
+
+            // ---- 单目标 / 无目标：沿用旧行为（槽1 的类型/归属） ----
+            EntrySlotSpec first = active.Count == 1 ? active[0] : (slots.Count > 0 ? slots[0] : null);
+            string tt = first != null ? first.type : GraphRuntime.GetFieldString(ev, "target_type", "无");
+            string side = first != null ? first.side : GraphRuntime.GetFieldString(ev, "target_side", "任意");
+            if (tt == "角色")
+            {
+                //法术=打出时拖选(PlayTarget)；随从/装备等=入场后弹出选择(SelectTarget)，且只能选场上角色
+                ab.target = is_spell ? AbilityTarget.PlayTarget : AbilityTarget.SelectTarget;
+                if (side == "敌方")
+                    ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(false));
+                else if (side == "友方")
+                    ab.conditions_target = AppendCondition(ab.conditions_target, MakeOwnerCondition(true));
+                ConditionTargetRole role = ScriptableObject.CreateInstance<ConditionTargetRole>();
+                role.player_only = false;
+                role.allow_player = true;   //zmcs「角色」含英雄：玩家英雄也可选
+                ab.conditions_target = AppendCondition(ab.conditions_target, role);
+            }
+            else if (tt == "英雄")
+            {
+                ab.target = side == "友方" ? AbilityTarget.PlayerSelf : AbilityTarget.PlayerOpponent;
+            }
+            else
+            {
+                ab.target = AbilityTarget.None; //无目标：走无目标分支直接执行（NodeDoc 动作自行决定目标）
+                //新拖的入口默认零目标槽；下游若引用了 目标卡牌N，往往说明用户忘了点「＋ 新增目标」，提示避免"打出无反应"
+                if (graph != null && GraphHasNodeDocAction(graph, ev.id))
+                    Debug.LogWarning("[规则图] 主动效果入口没有目标槽（点入口上的「＋ 新增目标」并设置目标类型），当前按无目标执行: "
+                        + (ev.title ?? ev.action));
+            }
+            //目标条件（zmcs：目标1条件 ← 条件节点链，如 卡牌类型判断=仆从）
+            if (first != null)
+            {
+                ConditionData chain = BuildSlotGraphCondition(ev, graph, first);
+                if (chain != null)
+                    ab.conditions_target = AppendCondition(ab.conditions_target, chain);
+            }
+
+            //编译诊断：打印入口目标槽字段实况与最终编译结果（排查"打出无反应/无目标"时对照此日志）
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            foreach (EntrySlotSpec s in slots)
+                sb.Append(s.slot).Append(':').Append(string.IsNullOrEmpty(s.type) ? "(空)" : s.type).Append(' ');
+            Debug.Log("[规则图] 入口编译 → target=" + ab.target + " multi=" + ab.multi_target
+                + " is_spell=" + is_spell + " 槽[" + sb.ToString().TrimEnd() + "]");
         }
 
         /// <summary>追加条件到数组（保持非 null 约定）</summary>
@@ -1249,14 +1468,24 @@ namespace TcgEngine.Workshop
             if (card == null || string.IsNullOrEmpty(card.id))
                 return false;
 
-            if (CardData.Get(card.id) != null)
+            CardData existing = CardData.Get(card.id);
+            if (existing != null)
             {
-                Debug.LogWarning("卡牌 id 已存在，跳过: " + card.id);
+                if (existing == card)
+                    return true;   //同一实例重复注册：幂等成功（刷新卡牌列表等场景会重复调用）
+                Debug.LogWarning("卡牌 id 已存在，跳过注册: " + card.id);
                 return false;
             }
 
+            //字典与列表可能不同步（历史卸载/重载只清了其中一边），统一用索引器写入并去重列表，
+            //杜绝「An item with the same key has already been added」异常
+            if (CardData.card_dict.ContainsKey(card.id))
+                CardData.card_dict[card.id] = card;
+            else
+                CardData.card_dict.Add(card.id, card);
+
+            CardData.card_list.RemoveAll(c => c != null && c.id == card.id);   //同 id 旧实例移除，保证一 id 一条
             CardData.card_list.Add(card);
-            CardData.card_dict.Add(card.id, card);
             custom_ids.Add(card.id);
             return true;
         }

@@ -64,6 +64,7 @@ namespace TcgEngine.Server
             RegisterAction(GameAction.SelectCard, ReceiveSelectCard);
             RegisterAction(GameAction.SelectPlayer, ReceiveSelectPlayer);
             RegisterAction(GameAction.SelectSlot, ReceiveSelectSlot);
+            RegisterAction(GameAction.SkipTarget, ReceiveSkipTarget);
             RegisterAction(GameAction.SelectChoice, ReceiveSelectChoice);
             RegisterAction(GameAction.SelectCost, ReceiveSelectCost);
             RegisterAction(GameAction.SelectMulligan, ReceiveSelectMulligan);
@@ -422,6 +423,16 @@ namespace TcgEngine.Server
             if (player != null && game_data.IsPlayerSelectorTurn(player) && !gameplay.IsResolving())
             {
                 gameplay.CancelSelection();
+            }
+        }
+
+        /// <summary>多目标：跳过当前目标槽</summary>
+        public void ReceiveSkipTarget(ClientData iclient, SerializedData sdata)
+        {
+            Player player = GetPlayer(iclient);
+            if (player != null && game_data.IsPlayerSelectorTurn(player) && !gameplay.IsResolving())
+            {
+                gameplay.SkipCurrentSelectSlot();
             }
         }
 

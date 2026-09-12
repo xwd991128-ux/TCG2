@@ -21,6 +21,7 @@ namespace TcgEngine
         public const ushort SelectCard = 1030;
         public const ushort SelectPlayer = 1032;
         public const ushort SelectSlot = 1034;
+        public const ushort SkipTarget = 1035;   //多目标：跳过当前槽（不取消整次施法）
         public const ushort SelectChoice = 1036;
         public const ushort SelectCost = 1037;
         public const ushort SelectMulligan = 1038;

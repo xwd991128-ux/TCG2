@@ -114,7 +114,14 @@ namespace TcgEngine.Client
             {
                 Card caster = gdata.GetCard(gdata.selector_caster_uid);
                 AbilityData ability = AbilityData.Get(gdata.selector_ability_id);
-                if (ability != null && ability.AreTargetConditionsMet(gdata, caster, GetPlayer()))
+                Player tp = GetPlayer();
+                //多目标（顺序逐槽）：按「当前槽」条件高亮；已选过的英雄不再高亮
+                bool multi = ability != null && ability.HasTargetSlots();
+                int slot_node = multi ? gdata.CurrentSelectSlotNode() : 0;
+                bool hero_selected = multi && tp != null && tp.hero != null && gdata.IsSlotTargetSelected(tp.hero.uid);
+                if (ability != null && ability.AreTargetConditionsMet(gdata, caster, tp)
+                    && (!multi || !ability.UseTargetDedupe() || !hero_selected)
+                    && (!multi || ability.AreSlotConditionsMet(gdata, caster, tp, slot_node)))
                     target_alpha = 1f; //Highlight when selecting a target and empty slots are valid
             }
 

@@ -31,6 +31,11 @@ namespace TcgEngine
         public string selector_ability_id;
         public string selector_caster_uid;
 
+        //多目标（顺序逐槽选择）：槽游标 + 计划（图槽号，可空洞）+ 各槽选择结果（uid；null=该槽被跳过/留空）
+        public int selector_slot_index = 0;
+        public int[] selector_slot_nodes;
+        public string[] selector_selected_uids;
+
         //Other reference values
         public string last_played;
         public string last_target;
@@ -160,6 +165,19 @@ namespace TcgEngine
             {
                 return CanAnyPlayAbilityTrigger(card); //Check if spell will have abilities
             }
+            return true;
+        }
+
+        //Check if a card from ANY pile (deck/discard/hand/custom pile) can be placed on a board slot.
+        //Unlike CanPlayCard, this does NOT require the card to be in hand and does not check mana.
+        public virtual bool CanPlaceCardOnBoard(Card card, Slot slot)
+        {
+            if (card == null || card.CardData == null || !card.CardData.IsBoardCard())
+                return false; //Only characters/artifacts can occupy a board slot
+            if (!slot.IsValid() || IsCardOnSlot(slot))
+                return false; //Slot invalid or already occupied
+            if (Slot.GetP(card.player_id) != slot.p)
+                return false; //Cant place on opponent side
             return true;
         }
 
@@ -531,6 +549,43 @@ namespace TcgEngine
             return card != null && GetTempCard(card.uid) != null;
         }
 
+        //---- 多目标（顺序逐槽选择）的只读查询：服务端结算 / 客户端高亮 / AI 共用 ----
+
+        /// <summary>当前正在选择的图槽号（非多目标选择态返回 0）</summary>
+        public int CurrentSelectSlotNode()
+        {
+            if (selector_slot_nodes == null)
+                return 0;
+            if (selector_slot_index < 0 || selector_slot_index >= selector_slot_nodes.Length)
+                return 0;
+            return selector_slot_nodes[selector_slot_index];
+        }
+
+        /// <summary>该 uid 是否已被前面的槽选走（同一张卡不可被两个槽选中）</summary>
+        public bool IsSlotTargetSelected(string uid)
+        {
+            if (string.IsNullOrEmpty(uid) || selector_selected_uids == null)
+                return false;
+            foreach (string s in selector_selected_uids)
+            {
+                if (s == uid)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>已处理完的槽数（UI 显示"已选 x/N"）</summary>
+        public int SelectSlotDone()
+        {
+            return selector_slot_nodes != null ? Mathf.Clamp(selector_slot_index, 0, selector_slot_nodes.Length) : 0;
+        }
+
+        /// <summary>本次多目标的槽总数（非多目标返回 0）</summary>
+        public int SelectSlotTotal()
+        {
+            return selector_slot_nodes != null ? selector_slot_nodes.Length : 0;
+        }
+
         public bool IsCardOnSlot(Slot slot)
         {
             return GetSlotCard(slot) != null;
@@ -581,6 +636,9 @@ namespace TcgEngine
             dest.selector_player_id = source.selector_player_id;
             dest.selector_caster_uid = source.selector_caster_uid;
             dest.selector_ability_id = source.selector_ability_id;
+            dest.selector_slot_index = source.selector_slot_index;
+            dest.selector_slot_nodes = source.selector_slot_nodes != null ? (int[])source.selector_slot_nodes.Clone() : null;
+            dest.selector_selected_uids = source.selector_selected_uids != null ? (string[])source.selector_selected_uids.Clone() : null;
 
             dest.last_destroyed = source.last_destroyed;
             dest.last_played = source.last_played;

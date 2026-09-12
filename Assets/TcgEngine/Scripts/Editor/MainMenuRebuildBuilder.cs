@@ -20,9 +20,10 @@ namespace TcgEngine.UI
         private const string MENU = "TcgEngine/主菜单/";
         private const string MENU_SCENE = "Assets/TcgEngine/Scenes/Menu/Menu.unity";
         //优先用黑体 SimHei（标准 TTF 中文字体，Unity 可直接导入，中文清晰不糊）
-        private const string FONT_PATH = "Assets/TcgEngine/Fonts/SimHei.ttf";
-        private const string FONT_FALLBACK_PATH = "Assets/TcgEngine/Fonts/OpenSans-Bold.ttf";
-        private const string EXIT_ICON_PATH = "Assets/TcgEngine/Sprites/UI/exit.png";
+        //资源路径统一登记在 UITheme（全项目只定义一次）
+        private const string FONT_PATH = UITheme.FontPath;
+        private const string FONT_FALLBACK_PATH = UITheme.FontFallbackPath;
+        private const string EXIT_ICON_PATH = UITheme.ExitIconPath;
 
         private static Font _font;
 
@@ -499,79 +500,21 @@ namespace TcgEngine.UI
             return canvases.Length > 0 ? canvases[0] : null;
         }
 
+        // ---------------- 通用控件工厂：统一转发到 UIFactory（等价搬迁，调用点零改动） ----------------
+
         private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            return rt;
-        }
+            => UIFactory.CreateRect(name, parent);
 
         private static void SetStretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-        }
+            => UIFactory.SetStretch(rt);
 
         private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = color;
-            return img;
-        }
+            => UIFactory.CreateImage(name, parent, color);
 
         private static Text CreateText(string name, Transform parent, string text, Font font, int size, Color color, TextAnchor align)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            Text txt = go.GetComponent<Text>();
-            txt.text = text;
-            txt.font = font;
-            txt.fontSize = size;
-            txt.fontStyle = FontStyle.Normal;
-            txt.alignment = align;
-            txt.color = color;
-            txt.raycastTarget = false;
-            txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-            txt.verticalOverflow = VerticalWrapMode.Overflow;
-            return txt;
-        }
+            => UIFactory.CreateText(name, parent, text, font, size, color, align);
 
         private static Button CreateButton(string name, Transform parent, string label, Font font, int size, Color bg_color)
-        {
-            Image img = CreateImage(name, parent, bg_color);
-            Button btn = img.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
-
-            ColorBlock colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.fadeDuration = 0.1f;
-            btn.colors = colors;
-
-            // 取消/关闭/返回按钮：用 exit.png 图标替换文字
-            if (name.Contains("CloseBtn") || name.Contains("ReturnBtn") || name.Contains("ExitBtn"))
-            {
-                Sprite exit_sprite = AssetDatabase.LoadAssetAtPath<Sprite>(EXIT_ICON_PATH);
-                if (exit_sprite != null)
-                {
-                    img.sprite = exit_sprite;
-                    img.type = Image.Type.Simple;
-                    img.color = Color.white;
-                    img.raycastTarget = true;
-                }
-            }
-            else
-            {
-                Text txt = CreateText("Text", img.transform, label, font, size, Color.white, TextAnchor.MiddleCenter);
-                SetStretch(txt.rectTransform);
-            }
-            return btn;
-        }
+            => UIFactory.CreateButton(name, parent, label, font, size, bg_color);
     }
 }

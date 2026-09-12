@@ -40,6 +40,10 @@ namespace TcgEngine.UI
         private List<string> pool_keys = new List<string>(); // 与卡池下拉选项一一对应
 
         //筛选弹层控件引用（运行时 Find 绑定）
+        private List<string> pool_labels = new List<string>();   // 与 pool_keys 一一对应的显示名
+        private TMPro.TMP_Text filter_pool_select_text;          // 卡池：弹出单选按钮文本
+        private TMPro.TMP_Text filter_sort_by_select_text;       // 排序字段
+        private TMPro.TMP_Text filter_sort_dir_select_text;      // 排序方向
         private Dropdown filter_pool_dd;
         private Toggle[] filter_type_toggles = new Toggle[0];
         private Toggle[] filter_team_toggles = new Toggle[0];
@@ -583,8 +587,12 @@ namespace TcgEngine.UI
             filter_cost_toggles = FindToggles(root, "FilterCostToggle_");
             filter_rarity_toggles = FindToggles(root, "FilterRarityToggle_");
 
-            if (filter_pool_dd != null)
-                filter_pool_dd.onValueChanged.AddListener((v) => OnChangeFilterPool());
+            //卡池 / 排序字段 / 排序方向：旧下拉 → 弹出单选按钮（与规则编辑器、关键词管理同款交互）。
+            //AttachToDropdown 会停用旧下拉并保留它的底色与布局，所以不需要重跑生成工具。
+            filter_pool_select_text = UISelectPopup.AttachToDropdown(filter_pool_dd, OnClickFilterPool);
+            filter_sort_by_select_text = UISelectPopup.AttachToDropdown(filter_sort_by_dd, OnClickFilterSortBy);
+            filter_sort_dir_select_text = UISelectPopup.AttachToDropdown(filter_sort_dir_dd, OnClickFilterSortDir);
+
             if (filter_apply_btn != null)
                 filter_apply_btn.onClick.AddListener(ApplyFilter);
             if (filter_clear_btn != null)
@@ -621,32 +629,92 @@ namespace TcgEngine.UI
             return list.ToArray();
         }
 
-        private void OnChangeFilterPool()
+        /// <summary>点击「卡池」按钮：弹出单选（显示卡池名，写回 pool key）</summary>
+        private void OnClickFilterPool()
         {
-            if (filter_pool_dd != null && filter_pool_dd.value < pool_keys.Count)
-                filter_state.pool = pool_keys[filter_pool_dd.value];
+            string cur = pool_keys.Count > 0 ? pool_keys[Mathf.Clamp(PoolIndex(), 0, pool_keys.Count - 1)] : "";
+            UISelectPopup.OpenSingle(transform, "卡池", pool_labels, pool_keys, cur, OnPoolPicked);
         }
 
-        /// <summary>重建卡池下拉选项（全部 + 内置卡包 + 本地卡池），并恢复当前选择</summary>
+        private void OnPoolPicked(string key)
+        {
+            filter_state.pool = key ?? "";
+            RefreshPoolSelect();
+        }
+
+        /// <summary>当前卡池在 pool_keys 中的下标（找不到时取 0＝全部卡池）</summary>
+        private int PoolIndex()
+        {
+            int idx = pool_keys.IndexOf(filter_state.pool);
+            return idx < 0 ? 0 : idx;
+        }
+
+        private void RefreshPoolSelect()
+        {
+            if (filter_pool_select_text == null)
+                return;
+            filter_pool_select_text.text = pool_labels.Count > 0
+                ? pool_labels[Mathf.Clamp(PoolIndex(), 0, pool_labels.Count - 1)]
+                : "全部卡池";
+        }
+
+        //排序字段 / 方向：选项与生成工具（CardFilterBuilder）保持一致
+        private static readonly string[] SORT_BY_LABELS = { "名称", "法力值", "颜色", "稀有度" };
+        private static readonly string[] SORT_BY_VALUES = { "0", "1", "2", "3" };
+        private static readonly string[] SORT_DIR_LABELS = { "升序", "降序" };
+        private static readonly string[] SORT_DIR_VALUES = { "0", "1" };
+
+        /// <summary>点击「排序字段」：弹出单选</summary>
+        private void OnClickFilterSortBy()
+        {
+            UISelectPopup.OpenSingle(transform, "排序字段", SORT_BY_LABELS, SORT_BY_VALUES,
+                Mathf.Clamp(filter_state.sort_by, 0, SORT_BY_VALUES.Length - 1).ToString(), OnSortByPicked);
+        }
+
+        private void OnSortByPicked(string value)
+        {
+            int v;
+            if (int.TryParse(value, out v))
+                filter_state.sort_by = Mathf.Clamp(v, 0, SORT_BY_VALUES.Length - 1);
+            RefreshSortSelect();
+        }
+
+        /// <summary>点击「排序方向」：弹出单选</summary>
+        private void OnClickFilterSortDir()
+        {
+            UISelectPopup.OpenSingle(transform, "排序方向", SORT_DIR_LABELS, SORT_DIR_VALUES,
+                filter_state.sort_desc ? "1" : "0", OnSortDirPicked);
+        }
+
+        private void OnSortDirPicked(string value)
+        {
+            filter_state.sort_desc = value == "1";
+            RefreshSortSelect();
+        }
+
+        private void RefreshSortSelect()
+        {
+            if (filter_sort_by_select_text != null)
+                filter_sort_by_select_text.text = SORT_BY_LABELS[Mathf.Clamp(filter_state.sort_by, 0, SORT_BY_LABELS.Length - 1)];
+            if (filter_sort_dir_select_text != null)
+                filter_sort_dir_select_text.text = filter_state.sort_desc ? SORT_DIR_LABELS[1] : SORT_DIR_LABELS[0];
+        }
+
+        /// <summary>重建卡池选项（全部 + 内置卡包 + 本地卡池），并刷新按钮显示</summary>
         private void RefreshPoolOptions()
         {
-            if (filter_pool_dd == null)
+            if (filter_pool_dd == null && filter_pool_select_text == null)
                 return;
 
             List<CardPoolIO.PoolOption> options = CardPoolIO.GetPoolOptions();
-            filter_pool_dd.ClearOptions();
             pool_keys.Clear();
-
-            List<string> labels = new List<string>();
+            pool_labels.Clear();
             foreach (CardPoolIO.PoolOption opt in options)
             {
                 pool_keys.Add(opt.key);
-                labels.Add(opt.label);
+                pool_labels.Add(opt.label);
             }
-            filter_pool_dd.AddOptions(labels);
-
-            int idx = pool_keys.IndexOf(filter_state.pool);
-            filter_pool_dd.SetValueWithoutNotify(idx < 0 ? 0 : idx);
+            RefreshPoolSelect();
         }
 
         private void ApplyFilter()
@@ -667,9 +735,8 @@ namespace TcgEngine.UI
         /// <summary>把弹层控件当前值写入筛选状态</summary>
         private void ReadFilterFromUI()
         {
-            filter_state.pool = "";
-            if (filter_pool_dd != null && filter_pool_dd.value < pool_keys.Count)
-                filter_state.pool = pool_keys[filter_pool_dd.value];
+            //卡池 / 排序字段 / 排序方向：已由弹出单选的选中回调直接写入 filter_state，
+            //这里不再从（已停用的）旧下拉读取，避免被它的默认值覆盖。
 
             filter_state.types.Clear();
             foreach (Toggle tg in filter_type_toggles)
@@ -717,18 +784,12 @@ namespace TcgEngine.UI
 
             filter_state.search = filter_search_input != null ? filter_search_input.text : "";
             filter_state.foil = filter_foil_toggle != null && filter_foil_toggle.isOn;
-            filter_state.sort_by = filter_sort_by_dd != null ? filter_sort_by_dd.value : 0;
-            filter_state.sort_desc = filter_sort_dir_dd != null && filter_sort_dir_dd.value == 1;
         }
 
         /// <summary>把筛选状态同步到弹层控件</summary>
         private void SetFilterToUI()
         {
-            if (filter_pool_dd != null)
-            {
-                int idx = pool_keys.IndexOf(filter_state.pool);
-                filter_pool_dd.SetValueWithoutNotify(idx < 0 ? 0 : idx);
-            }
+            RefreshPoolSelect();
 
             foreach (Toggle tg in filter_type_toggles)
             {
@@ -770,10 +831,7 @@ namespace TcgEngine.UI
                 filter_search_input.text = filter_state.search;
             if (filter_foil_toggle != null)
                 filter_foil_toggle.SetIsOnWithoutNotify(filter_state.foil);
-            if (filter_sort_by_dd != null)
-                filter_sort_by_dd.SetValueWithoutNotify(filter_state.sort_by);
-            if (filter_sort_dir_dd != null)
-                filter_sort_dir_dd.SetValueWithoutNotify(filter_state.sort_desc ? 1 : 0);
+            RefreshSortSelect();
         }
 
         private CardType GetTypeById(string id)
