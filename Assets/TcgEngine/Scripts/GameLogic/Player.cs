@@ -23,8 +23,15 @@ namespace TcgEngine
 
         public int hp;
         public int hp_max;
+
+        //---- 三套灵力体系（务必分清，别混用）----
+        //  当前灵力 mana           = 本回合可用的灵力点数（打牌消耗它）
+        //  灵力上限 mana_max        = 每回合开始时恢复到多少（= 本回合的可用上限）
+        //  最大灵力值 mana_max_total = 灵力上限 mana_max 每回合增长能到达的硬顶（超过它的增长不再生效）
         public int mana = 0;
         public int mana_max = 0;
+        public int mana_max_total = 0;
+
         public int kill_count = 0;
 
         public Dictionary<string, Card> cards_all = new Dictionary<string, Card>(); //Dictionnary for quick access to any card by UID
@@ -50,6 +57,27 @@ namespace TcgEngine
 
         public bool IsReady() { return ready && cards_all.Count > 0; }
         public bool IsConnected() { return connected || is_ai; }
+
+        /// <summary>最大灵力值（三套灵力体系之三）：灵力上限 mana_max 每回合增长能到达的硬顶。
+        /// 详见字段区注释；节点/效果用本方法读取，避免各处理解不一致。</summary>
+        public int GetManaMaxTotal() { return mana_max_total; }
+
+        /// <summary>灵力上限的钳制上界 = 最大灵力值。
+        /// 未初始化（mana_max_total &lt;= 0，如旧存档/AI 预测副本/未走开局的 Player）时退回配置硬顶，
+        /// 避免把 mana_max 钳成 0 导致"每回合零灵力"。</summary>
+        public int GetManaClampCap()
+        {
+            int cap = mana_max_total > 0 ? mana_max_total : GameplayData.Get().mana_max;
+            return Mathf.Max(cap, 0);
+        }
+
+        /// <summary>把三套灵力收敛到自洽状态：上限不超过最大灵力值，当前不超过上限（改完灵力后调用）</summary>
+        public void ClampMana()
+        {
+            mana_max = Mathf.Max(mana_max, 0);
+            mana_max = Mathf.Min(mana_max, GetManaClampCap());
+            mana = Mathf.Clamp(mana, 0, mana_max);
+        }
 
         public virtual void ClearOngoing() { ongoing_status.Clear(); ongoing_traits.Clear(); }
 
@@ -583,6 +611,7 @@ namespace TcgEngine
             dest.hp_max = source.hp_max;
             dest.mana = source.mana;
             dest.mana_max = source.mana_max;
+            dest.mana_max_total = source.mana_max_total;   //三套灵力体系：最大灵力值必须一起拷（AI 预测树用）
             dest.kill_count = source.kill_count;
 
             Card.CloneNull(source.hero, ref dest.hero);

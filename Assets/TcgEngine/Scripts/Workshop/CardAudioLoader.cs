@@ -54,6 +54,65 @@ namespace TcgEngine.Workshop
             return !string.IsNullOrEmpty(fname) && cache.ContainsKey(fname);
         }
 
+        /// <summary>按文件名取音频（走同一份缓存）：传给"音效DIY"等编辑流程复用，避免重复解码。
+        /// 文件名无效/文件缺失/解码失败 → 回调 null（不抛异常）。</summary>
+        public static void LoadClip(string fname, Action<AudioClip> onDone)
+        {
+            if (string.IsNullOrEmpty(fname))
+            {
+                if (onDone != null)
+                    onDone(null);
+                return;
+            }
+            LoadSlot(fname, onDone);
+        }
+
+        /// <summary>文件被覆盖重写后让缓存失效（音效DIY保存后必须调用，否则试听与对局仍是旧音频）</summary>
+        public static void Invalidate(string fname)
+        {
+            if (!string.IsNullOrEmpty(fname))
+                cache.Remove(fname);
+        }
+
+        /// <summary>从任意绝对路径解码音频（不进播放缓存；用于导入尚未落盘的素材）。
+        /// 回调 (clip, error)：成功时 error 为空；失败时 clip 为 null 且 error 为中文原因。</summary>
+        public static void LoadExternal(string full_path, Action<AudioClip, string> onDone)
+        {
+            if (string.IsNullOrEmpty(full_path) || !File.Exists(full_path))
+            {
+                if (onDone != null)
+                    onDone(null, "文件不存在或路径无效");
+                return;
+            }
+            Ensure();
+            instance.StartCoroutine(instance.LoadExternalCo(full_path, onDone));
+        }
+
+        private IEnumerator LoadExternalCo(string full_path, Action<AudioClip, string> onDone)
+        {
+            string url = new Uri(full_path).AbsoluteUri;
+            using (UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(url, GetAudioType(full_path)))
+            {
+                yield return req.SendWebRequest();
+                if (req.result != UnityWebRequest.Result.Success)
+                {
+                    if (onDone != null)
+                        onDone(null, "读取失败：" + req.error);
+                    yield break;
+                }
+                AudioClip clip = DownloadHandlerAudioClip.GetContent(req);
+                if (clip == null)
+                {
+                    if (onDone != null)
+                        onDone(null, "解码失败（格式不支持或文件损坏）");
+                    yield break;
+                }
+                clip.name = Path.GetFileName(full_path);
+                if (onDone != null)
+                    onDone(clip, null);
+            }
+        }
+
         /// <summary>校验任意音频文件的时长（编辑器导入用，读绝对路径）：≤ max_seconds 回调 ok=true。
         /// 走 file:// 请求读时长，不进播放缓存。</summary>
         public static void ValidateLength(string full_path, float max_seconds, Action<bool, float> onResult)

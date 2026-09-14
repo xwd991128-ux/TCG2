@@ -82,12 +82,19 @@ namespace TcgEngine.Client
                 Card target = tslot?.GetSlotCard(wpos);
                 AbilityButton ability = AbilityButton.GetFocus(wpos, 1f);
 
-                if (ability != null && ability.IsInteractable())
+                //技能按钮优先且**独占**本次点击：可用=发动；不可用=给出原因后结束。
+                //旧写法是「不可用就继续往下走」，于是这次点击会被当成攻击/移动送出：
+                //服务端再按自己的准入规则静默拒绝 → 表现就是"点了技能完全没反应"，甚至误触攻击。
+                if (ability != null)
                 {
                     if (!Tutorial.Get().CanDo(TutoEndTrigger.CastAbility, card))
                         return;
 
-                    GameClient.Get().CastAbility(card, ability.GetAbility());
+                    if (ability.IsInteractable())
+                        GameClient.Get().CastAbility(card, ability.GetAbility());
+                    else
+                        WarningText.ShowText(AbilityButton.RefuseReason(card, ability.GetAbility()));
+                    return;
                 }
                 else if (tslot is BoardSlotPlayer)
                 {
@@ -116,6 +123,11 @@ namespace TcgEngine.Client
 
                     GameClient.Get().Move(card, tslot.GetSlot());
                 }
+            }
+            else if (selected_card != null && !yourturn)
+            {
+                //选了卡却不在自己的行动回合：给一次提示，而不是"点了完全没反应"
+                WarningText.ShowNotYourTurn();
             }
         }
 

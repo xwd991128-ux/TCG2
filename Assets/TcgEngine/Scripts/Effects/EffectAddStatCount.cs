@@ -34,7 +34,15 @@ namespace TcgEngine
                 target.mana += val;
                 target.mana_max += val;
                 target.mana = Mathf.Max(target.mana, 0);
-                target.mana_max = Mathf.Clamp(target.mana_max, 0, GameplayData.Get().mana_max);
+                //灵力上限的钳制上界 = 该玩家自己的"最大灵力值"
+                target.mana_max = Mathf.Clamp(target.mana_max, 0, target.GetManaClampCap());
+            }
+
+            //最大灵力值（灵力上限的增长硬顶）
+            if (type == EffectStatType.ManaMaxTotal)
+            {
+                target.mana_max_total = Mathf.Max(target.mana_max_total + val, 0);
+                target.ClampMana();
             }
         }
 

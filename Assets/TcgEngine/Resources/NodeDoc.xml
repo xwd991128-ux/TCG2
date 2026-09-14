@@ -11036,4 +11036,60 @@
     <summary><![CDATA[获取一个映射集合中所有键对应的值]]></summary>
     <example><![CDATA[]]></example>
   </ActionComment>
+  <ActionComment>
+    <defineId>209101</defineId>
+    <obsoleteNames />
+    <editorName>设置战斗BGM</editorName>
+    <obsoleteMsg />
+    <category>其他</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>String</type>
+        <name>bgm</name>
+        <displayName>BGM标识</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[音乐库条目的标识或显示名；留空=停止当前战斗BGM。]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>volume</name>
+        <displayName>音量%</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[音量百分比 0-100；-1=使用音乐库/场景配置的音量。]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>fade</name>
+        <displayName>淡入淡出(毫秒)</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[切换时的淡入淡出时长（毫秒，0=瞬时切换）。]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[战斗中把当前背景音乐切换为音乐库中的指定曲子（可带音量与淡入淡出）。仅影响表现层，不改变对局逻辑；只在战斗场景生效。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>209102</defineId>
+    <obsoleteNames />
+    <editorName>恢复默认BGM</editorName>
+    <obsoleteMsg />
+    <category>其他</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>fade</name>
+        <displayName>淡入淡出(毫秒)</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[切换时的淡入淡出时长（毫秒，0=瞬时切换）。]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[恢复到该战斗默认配置的 BGM（清掉本场战斗内的临时换曲）。仅影响表现层。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
 </ArrayOfActionComment>

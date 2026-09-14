@@ -67,6 +67,40 @@ namespace TcgEngine.Gameplay
         /// 由 FinishMultiTarget 写入、EffectRunGraph 读取，交给 NodeDocRunner 供入口「目标卡牌N」输出口取值。</summary>
         private Dictionary<int, Card> multi_target_results;
 
+        // ---------------- 起动式（Activate）触发：时 / 后 ----------------
+        // 「起动时触发」= OnBeforeActivate：任意玩家发动起动式能力（英雄技能/卡牌主动技/装备主动技）
+        //   之前广播（可「阻止本事件」＝本次发动取消、不扣灵力）；value=本次灵力费用。
+        // 「起动后触发」= OnAfterActivate：发动结算后广播（灵力已扣、exhausted 已生效、效果已结算）；
+        //   该入口可配「延迟(毫秒)」/「等待事件」，两者任一满足即执行一次（由 Update 统一消费，跨回合保留）。
+        private const string ACTIVATE_BEFORE = "OnBeforeActivate";
+        private const string ACTIVATE_AFTER = "OnAfterActivate";
+
+        /// <summary>该事件入口是否支持"延迟 / 等待事件后执行"（当前＝「起动后」入口）</summary>
+        public static bool IsDelayableEntry(string action)
+        {
+            return action == ACTIVATE_AFTER;
+        }
+
+        /// <summary>一条待执行的延后触发：事件 action + 宿主卡 + 规则图 + 条件（延迟时长 / 等待事件；任一满足即执行一次）。</summary>
+        private class PendingTrigger
+        {
+            public string action;       //入队时的事件 action（如 OnAfterActivate）
+            public Card host;
+            public GraphData graph;
+            public string label;        //诊断用：action + 宿主卡
+            public string config;       //诊断用：触发条件摘要（延迟/等待事件）
+            public bool has_delay;      //是否配置了「延迟(毫秒)」
+            public float remain;        //剩余秒数
+            public bool delay_done;
+            public bool has_wait;       //是否配置了「等待事件」
+            public string wait_event;   //等待的事件 action（如 OnAfterDamage）
+            public bool wait_done;
+            public bool IsReady { get { return (has_delay && delay_done) || (has_wait && wait_done); } }
+        }
+
+        private readonly List<PendingTrigger> pending_triggers = new List<PendingTrigger>();
+        private float game_time;        //对局内累计时间（秒，Update 累加；仅用于日志/延迟结算）
+
         public GameLogic(bool is_ai)
         {
             //is_instant ignores all gameplay delays and process everything immediately, needed for AI prediction
@@ -89,6 +123,142 @@ namespace TcgEngine.Gameplay
         public virtual void Update(float delta)
         {
             resolve_queue.Update(delta);
+            game_time += delta;          //对局内累计时间（延迟判定与日志用）
+            TickPendingTriggers(delta);
+        }
+
+        // ---------------- 触发待执行队列（延迟 / 等待事件；当前服务「起动后」）----------------
+
+        /// <summary>消费待执行队列：延迟到点 或 等待的事件已到达 → 执行一次并出队。
+        /// 统一在此处（而非广播上下文中）执行，避免嵌套进外层事件；异常已被隔离，绝不影响主流程。</summary>
+        private void TickPendingTriggers(float delta)
+        {
+            if (pending_triggers.Count == 0)
+                return;
+            for (int i = pending_triggers.Count - 1; i >= 0; i--)
+            {
+                PendingTrigger p = pending_triggers[i];
+                if (p == null || p.host == null || p.graph == null)
+                {
+                    pending_triggers.RemoveAt(i);   //宿主/图已失效（离场清理等）→ 丢弃，不报错
+                    continue;
+                }
+                if (p.has_delay && !p.delay_done)
+                {
+                    p.remain -= delta;
+                    if (p.remain <= 0f)
+                    {
+                        p.delay_done = true;
+                        Debug.Log("[起动触发] 延迟结束 " + p.label + " 条件=" + p.config
+                            + "（对局时间 " + game_time.ToString("0.00") + "s）");
+                    }
+                }
+                if (!p.IsReady)
+                    continue;
+                pending_triggers.RemoveAt(i);
+                RunPendingTrigger(p, p.has_delay && p.delay_done ? "延迟到点" : "等待的事件已到达");
+            }
+        }
+
+        /// <summary>标记待执行项等待的事件已到达（由 EmitGraphEvent 调用）。实际执行留到 Update，
+        /// 这样"等事件"触发不会嵌在别的广播上下文里，也不参与该次事件的阻止/改值。</summary>
+        private void MarkPendingWaitEvent(string action)
+        {
+            if (string.IsNullOrEmpty(action) || pending_triggers.Count == 0)
+                return;
+            for (int i = 0; i < pending_triggers.Count; i++)
+            {
+                PendingTrigger p = pending_triggers[i];
+                if (p != null && p.has_wait && !p.wait_done && p.wait_event == action)
+                {
+                    p.wait_done = true;
+                    Debug.Log("[起动触发] 等待的事件已到达 " + p.label + " ← " + action);
+                }
+            }
+        }
+
+        /// <summary>入队一条延后触发（AI 预测实例不入队：预测只算结果，不产生业务/表现副作用）。</summary>
+        private void EnqueuePendingTrigger(string action, Card host, GraphData graph, int delay_ms, string wait_event_label)
+        {
+            if (is_ai_predict || host == null || graph == null || string.IsNullOrEmpty(action))
+                return;
+            bool has_wait = !string.IsNullOrEmpty(wait_event_label) && wait_event_label != "无";
+            string ev = has_wait ? MapWaitEventLabel(wait_event_label) : null;
+            if (has_wait && string.IsNullOrEmpty(ev))
+            {
+                Debug.LogWarning("[起动触发] 无法识别的等待事件「" + wait_event_label + "」→ 该项按仅延迟处理");
+                has_wait = false;
+            }
+            bool has_delay = delay_ms > 0;
+            if (!has_delay && !has_wait)
+                return;   //无延迟也无等待事件：保持"立即执行"，不入队
+            string host_id = host.CardData != null ? host.CardData.id : "?";
+            PendingTrigger p = new PendingTrigger
+            {
+                action = action,
+                host = host,
+                graph = graph,
+                has_delay = has_delay,
+                remain = delay_ms / 1000f,
+                delay_done = false,
+                has_wait = has_wait,
+                wait_event = ev,
+                wait_done = false,
+                config = (has_delay ? ("延迟" + delay_ms + "ms") : "")
+                         + (has_delay && has_wait ? " 或 " : "")
+                         + (has_wait ? ("等待「" + wait_event_label + "」") : ""),
+                label = action + " card=" + host_id,
+            };
+            pending_triggers.Add(p);
+            Debug.Log("[起动触发] 已入队：" + p.label + " 条件=" + p.config
+                + "（就绪后在 Update 中执行一次；对局结束/重开会清空）");
+        }
+
+        /// <summary>「等待事件」下拉的中文标签 → 事件 action 名（与 EmitGraphEvent 广播名一致）</summary>
+        private static string MapWaitEventLabel(string label)
+        {
+            switch (label)
+            {
+                case "打出牌": return "OnBeforePlay";
+                case "伤害后": return "OnAfterDamage";
+                case "治疗后": return "OnAfterHeal";
+                case "死亡后": return "OnAfterDeath";
+                case "装备后": return "OnAfterEquip";
+                case "抽卡后": return "OnAfterDraw";
+                case "回合开始后": return "OnAfterTurnStart";
+                case "回合结束后": return "OnAfterTurnEnd";
+                case "自己起动后": return ACTIVATE_AFTER;
+                default: return null;
+            }
+        }
+
+        /// <summary>执行一条待执行项：合成独立的事件上下文（不是"当前广播事件"），异常隔离。</summary>
+        private void RunPendingTrigger(PendingTrigger p, string reason)
+        {
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = p.action;
+            ctx.phase = GraphEventPhase.After;
+            ctx.card = p.host;
+            ctx.player = game_data != null ? game_data.GetPlayer(p.host.player_id) : null;
+            ctx.value = 0;
+            ctx.turn = game_data != null ? game_data.turn_count : 0;
+            try
+            {
+                Debug.Log("[起动触发] 执行 " + p.label + "（" + reason + "；条件=" + p.config + "）");
+                NodeDocRunner.RunEvent(this, p.graph, p.host, ctx);
+            }
+            catch (System.Exception e)
+            {
+                //图异常必须隔离：否则会中断事件广播，毁掉整局
+                Debug.LogError("[起动触发] " + p.label + " 执行异常，已隔离（不影响对局）: " + e.Message + "\n" + e.StackTrace);
+            }
+        }
+
+        /// <summary>清空待执行队列（新对局/对局结束时调用）</summary>
+        private void ResetPendingTriggers()
+        {
+            pending_triggers.Clear();
+            game_time = 0f;
         }
 
         //----- Turn Phases ----------
@@ -97,6 +267,9 @@ namespace TcgEngine.Gameplay
         {
             if (game_data.state == GameState.GameEnded)
                 return;
+
+            //新对局：清空上一次对局遗留的延后触发队列（起动后 的 延迟/等待）
+            ResetPendingTriggers();
 
             //图事件通知「对战开始时」
             EmitNotify("OnBeforeGameStart", null, null);
@@ -130,8 +303,11 @@ namespace TcgEngine.Gameplay
                 player.hp_max = pdeck != null ? pdeck.start_hp : GameplayData.Get().hp_start;
                 player.hp = player.hp_max;
                 player.mana_max = pdeck != null ? pdeck.start_mana : GameplayData.Get().mana_start;
+                //三套灵力体系之"最大灵力值"：开局取配置硬顶 GameplayData.mana_max（该配置从此刻起只作"开局最大灵力值"，
+                //不再参与每回合 clamp）；并保证不低于开局上限，避免出现"上限 > 最大"的自相矛盾
+                player.mana_max_total = Mathf.Max(GameplayData.Get().mana_max, player.mana_max);
                 if (game_data.settings != null && game_data.settings.test_full_mana)
-                    player.mana_max = GameplayData.Get().mana_max;   //模拟测试：开局双方法力直接为上限
+                    player.mana_max = player.mana_max_total;   //模拟测试：开局双方法力直接为上限
                 player.mana = player.mana_max;
 
                 //Draw starting cards
@@ -184,9 +360,11 @@ namespace TcgEngine.Gameplay
                 DrawCard(player, GameplayData.Get().cards_per_turn);
             }
 
-            //Mana 
+            //Mana：灵力上限按 mana_per_turn 增长，最多涨到"最大灵力值"（挂在玩家身上的硬顶，可被节点改写）
+            if (player.mana_max_total <= 0)
+                player.mana_max_total = Mathf.Max(GameplayData.Get().mana_max, player.mana_max);   //旧存档/未走开局时兜底
             player.mana_max += GameplayData.Get().mana_per_turn;
-            player.mana_max = Mathf.Min(player.mana_max, GameplayData.Get().mana_max);
+            player.mana_max = Mathf.Min(player.mana_max, player.mana_max_total);
             player.mana = player.mana_max;
 
             //Overload - 每点过载使英雄失去1点法力值
@@ -400,6 +578,7 @@ namespace TcgEngine.Gameplay
                 game_data.selector = SelectorType.None;
                 game_data.current_player = winner; //Winner player
                 resolve_queue.Clear();
+                ResetPendingTriggers();     //对局结束：丢弃尚未到点的延后触发，避免结束后再执行
                 onGameEnd?.Invoke(winner_player);
                 RefreshData();
 
@@ -520,45 +699,12 @@ namespace TcgEngine.Gameplay
                 event_log.RemoveRange(0, event_log.Count - EVENT_LOG_MAX);
             try
             {
-                //宿主收集：事件主体卡(extra_host，任意牌堆都能响应) 优先，随后双方全部区域卡
-                List<Card> hosts = new List<Card>();
-                if (extra_host != null)
-                    hosts.Add(extra_host);
-                foreach (Player p in game_data.players)
-                {
-                    if (p == null)
-                        continue;
-                    if (p.hero != null && !hosts.Contains(p.hero))
-                        hosts.Add(p.hero);
-                    foreach (Card c in p.cards_board)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                    foreach (Card c in p.cards_equip)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                    foreach (Card c in p.cards_secret)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                    foreach (Card c in p.cards_hand)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                    foreach (Card c in p.cards_deck)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                    foreach (Card c in p.cards_discard)
-                        if (c != null && !hosts.Contains(c))
-                            hosts.Add(c);
-                }
+                //延后触发项若正等待本事件到达 → 标记（实际执行留到 Update，避免嵌套进本次广播）
+                MarkPendingWaitEvent(ctx.action);
 
+                //宿主收集与排序（与「事件入口预览」共用同一套规则）
+                List<Card> hosts = CollectEventHosts(extra_host, ctx.action);
                 int extra_count = extra_host != null ? 1 : 0;
-                //同事件多宿主：按入口「优先级」降序触发（额外宿主=事件主体卡固定最先）；同优先级保持收集顺序
-                if (hosts.Count > extra_count + 1)
-                {
-                    List<Card> rest = hosts.GetRange(extra_count, hosts.Count - extra_count);
-                    rest.Sort((a, b) => HostEventPriority(b, ctx.action).CompareTo(HostEventPriority(a, ctx.action)));
-                    hosts.RemoveRange(extra_count, hosts.Count - extra_count);
-                    hosts.AddRange(rest);
-                }
                 for (int i = 0; i < hosts.Count; i++)
                 {
                     FireEventHost(hosts[i], ctx, i < extra_count);
@@ -590,6 +736,124 @@ namespace TcgEngine.Gameplay
             ctx.player = player;
             ctx.value = 0;
             EmitGraphEvent(ctx);
+        }
+
+        /// <summary>收集一次广播的宿主（固定顺序）：事件主体卡(extra_host，任意牌堆都能响应)优先 →
+        /// 双方 英雄/战场/装备区/奥秘区/手牌/牌库/墓地；再按入口「优先级」降序做稳定排序。
+        /// 抽成独立方法：让「事件入口预览」（只读、可独立测试）与真实广播共用同一套宿主规则。</summary>
+        private List<Card> CollectEventHosts(Card extra_host, string event_action)
+        {
+            List<Card> hosts = new List<Card>();
+            if (game_data == null)
+                return hosts;
+            if (extra_host != null)
+                hosts.Add(extra_host);
+            foreach (Player p in game_data.players)
+            {
+                if (p == null)
+                    continue;
+                if (p.hero != null && !hosts.Contains(p.hero))
+                    hosts.Add(p.hero);
+                foreach (Card c in p.cards_board)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+                foreach (Card c in p.cards_equip)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+                foreach (Card c in p.cards_secret)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+                foreach (Card c in p.cards_hand)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+                foreach (Card c in p.cards_deck)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+                foreach (Card c in p.cards_discard)
+                    if (c != null && !hosts.Contains(c))
+                        hosts.Add(c);
+            }
+            int extra_count = extra_host != null ? 1 : 0;
+            //同事件多宿主：按入口「优先级」降序（额外宿主=事件主体卡固定最先）；同优先级保持收集顺序
+            if (!string.IsNullOrEmpty(event_action) && hosts.Count > extra_count + 1)
+            {
+                List<Card> rest = hosts.GetRange(extra_count, hosts.Count - extra_count);
+                rest.Sort((a, b) => HostEventPriority(b, event_action).CompareTo(HostEventPriority(a, event_action)));
+                hosts.RemoveRange(extra_count, hosts.Count - extra_count);
+                hosts.AddRange(rest);
+            }
+            return hosts;
+        }
+
+        /// <summary>取图里第一个匹配该 action 的事件入口节点（无则 null）</summary>
+        private static GraphNode FindEntryNode(GraphData graph, string action)
+        {
+            if (graph == null || graph.nodes == null)
+                return null;
+            foreach (GraphNode n in graph.nodes)
+            {
+                if (n != null && n.type == GraphNodeType.Event && n.action == action)
+                    return n;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 【可独立测试】只读预览：本次对局里 action（如 <see cref="ACTIVATE_BEFORE"/>/<see cref="ACTIVATE_AFTER"/>）
+        /// 会命中哪些宿主入口、按什么顺序执行、参数是什么。不执行任何动作、不改任何状态，
+        /// 也不会入队/触发，可在对局任意时刻调用（Console / 自动化测试）验证节点配置是否正确。
+        /// </summary>
+        public string PreviewEventTriggers(string action)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.Append("[事件触发] 预览 ").Append(action).Append("：");
+            if (game_data == null)
+            {
+                sb.Append("无对局数据");
+                return sb.ToString();
+            }
+            List<Card> hosts = CollectEventHosts(null, action);
+            int n = 0;
+            for (int i = 0; i < hosts.Count; i++)
+            {
+                Card host = hosts[i];
+                if (host == null || host.HasStatus(StatusType.Silenced))
+                    continue;   //被沉默的卡不响应图事件（与 FireEventHost 同规）
+                string zone = GetCardZone(host);
+                foreach (AbilityData ab in host.GetAbilities())
+                {
+                    if (ab == null || ab.trigger.ToString() != action)
+                        continue;
+                    foreach (EffectData eff in ab.effects)
+                    {
+                        EffectRunGraph rg = eff as EffectRunGraph;
+                        if (rg == null || rg.graph == null)
+                            continue;
+                        if (!string.IsNullOrEmpty(rg.trigger_action) && rg.trigger_action != action)
+                            continue;
+                        if (!EntryZoneAllows(rg.graph, action, zone))
+                            continue;   //入口「生效区域」不含宿主所在牌堆 → 不会触发
+                        GraphNode entry = FindEntryNode(rg.graph, action);
+                        n++;
+                        sb.Append("\n  #").Append(n).Append(' ')
+                          .Append(host.CardData != null ? host.CardData.id : "?")
+                          .Append("（").Append(string.IsNullOrEmpty(zone) ? "不在牌堆" : zone).Append('）')
+                          .Append(" 优先级=").Append(entry != null ? GraphRuntime.GetFieldInt(entry, "priority", 0) : 0)
+                          .Append(" 生效区域=").Append(entry != null ? GraphRuntime.GetFieldString(entry, "zones", "(未设置→按默认)") : "(无入口节点)");
+                        if (entry != null && IsDelayableEntry(action))
+                        {
+                            int d = GraphRuntime.GetFieldInt(entry, "delay_ms", 0);
+                            string w = GraphRuntime.GetFieldString(entry, "wait_event", "无");
+                            sb.Append(" 延迟=").Append(d).Append("ms 等待事件=").Append(string.IsNullOrEmpty(w) ? "无" : w);
+                        }
+                    }
+                }
+            }
+            if (n == 0)
+                sb.Append("（无匹配入口 → 检查：生效区域是否含宿主所在牌堆 / 图的入口 action 是否为 ").Append(action)
+                  .Append(" / 该卡是否引用了这张图 / 卡是否被沉默）");
+            sb.Append("\n  延后待执行队列 = ").Append(pending_triggers.Count).Append(" 项");
+            return sb.ToString();
         }
 
         /// <summary>宿主对某事件入口的优先级：读该宿主匹配事件入口节点的 priority 字段，取最高值（无则 int.MinValue）</summary>
@@ -642,20 +906,48 @@ namespace TcgEngine.Gameplay
                     if (!string.IsNullOrEmpty(rg.trigger_action) && rg.trigger_action != ctx.action)
                         continue;
                     if (!is_extra && !EntryZoneAllows(rg.graph, ctx.action, zone))
-                        continue;   //入口「生效牌堆」不含宿主当前所在牌堆 → 该宿主不响应
-                    //入口「标签列表」写入事件上下文（战吼/亡语等自定义标签，供图内判断）
-                    foreach (GraphNode gn in rg.graph.nodes)
+                        continue;   //入口「生效堆」不含宿主当前所在牌堆 → 该宿主不响应
+                    //定位入口节点：写「标签列表」；「启动后触发」还要读 延迟/等待事件 参数
+                    GraphNode entry = FindEntryNode(rg.graph, ctx.action);
+                    if (entry != null)
                     {
-                        if (gn != null && gn.type == GraphNodeType.Event && gn.action == ctx.action)
-                        {
-                            string tags = GraphRuntime.GetFieldString(gn, "tags", "");
-                            if (string.IsNullOrEmpty(tags))
-                                tags = GraphRuntime.GetFieldString(gn, "tag_list", "");
+                        string tags = GraphRuntime.GetFieldString(entry, "tags", "");
+                        if (string.IsNullOrEmpty(tags))
+                            tags = GraphRuntime.GetFieldString(entry, "tag_list", "");
+                        if (!string.IsNullOrEmpty(tags))
                             ctx.tags = tags;
-                            break;
+                    }
+
+                    //可延后的入口（起动后）：配了 延迟(毫秒) 或 等待事件 → 入队延后执行（两者任一满足即执行一次）；
+                    //未配置则保持"发动结算后立即同步执行"的默认行为
+                    if (entry != null && IsDelayableEntry(ctx.action))
+                    {
+                        int delay_ms = GraphRuntime.GetFieldInt(entry, "delay_ms", 0);
+                        string wait_label = GraphRuntime.GetFieldString(entry, "wait_event", "无");
+                        if (delay_ms > 0 || (!string.IsNullOrEmpty(wait_label) && wait_label != "无"))
+                        {
+                            EnqueuePendingTrigger(ctx.action, host, rg.graph, delay_ms, wait_label);
+                            continue;
                         }
                     }
-                    NodeDocRunner.RunEvent(this, rg.graph, host, ctx);
+
+                    //起动式入口（起动时/起动后）：异常隔离——一个坏图不允许中断能力发动或整次广播
+                    if (ctx.action == ACTIVATE_BEFORE || ctx.action == ACTIVATE_AFTER)
+                    {
+                        try
+                        {
+                            NodeDocRunner.RunEvent(this, rg.graph, host, ctx);
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError("[起动触发] " + (host.CardData != null ? host.CardData.id : "?")
+                                + " 的 " + ctx.action + " 图执行异常，已隔离（不影响对局）: " + e.Message);
+                        }
+                    }
+                    else
+                    {
+                        NodeDocRunner.RunEvent(this, rg.graph, host, ctx);
+                    }
                 }
             }
         }
@@ -741,6 +1033,8 @@ namespace TcgEngine.Gameplay
                 case "OnAfterTurnStart":
                 case "OnBeforeTurnEnd":
                 case "OnAfterTurnEnd":
+                case "OnBeforeActivate":   //起动时：载体=英雄/场上卡/装备卡
+                case "OnAfterActivate":    //起动后：同上
                     return "英雄;战场;装备区";
                 default:
                     return "任意";
@@ -1044,6 +1338,10 @@ namespace TcgEngine.Gameplay
         {
             if (game_data.CanCastAbility(card, iability))
             {
+                //图事件「起动时」：发动结算前广播（可「阻止本事件」= 本次发动取消、不扣灵力）；value=灵力费用
+                if (!EmitActivateBefore(card, iability))
+                    return;   //被阻止：不记历史、不横置、不扣费、不结算
+
                 Player player = game_data.GetPlayer(card.player_id);
                 if (!is_ai_predict && iability.target != AbilityTarget.SelectTarget)
                     player.AddHistory(GameAction.CastAbility, card, iability);
@@ -1051,6 +1349,40 @@ namespace TcgEngine.Gameplay
                 TriggerCardAbility(iability, card);
                 resolve_queue.ResolveAll();
             }
+        }
+
+        /// <summary>「起动时」广播（起动式能力发动结算前）。返回 false = 被「阻止本事件」取消本次发动。
+        /// 施法卡作为额外宿主，保证其自身图无论所在区域都能响应。</summary>
+        private bool EmitActivateBefore(Card caster, AbilityData ability)
+        {
+            if (caster == null || ability == null || game_data == null)
+                return true;
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = ACTIVATE_BEFORE;
+            ctx.phase = GraphEventPhase.Before;      //Before 才能被「阻止本事件」/「修改事件值」
+            ctx.card = caster;                       //事件主体=发动该能力的卡（英雄技能=英雄卡）
+            ctx.player = game_data.GetPlayer(caster.player_id);
+            ctx.value = ability.mana_cost;           //事件值=本次灵力费用（只读提示；实际扣费仍按能力定义）
+            bool cancelled = EmitGraphEvent(ctx, caster);
+            if (cancelled)
+                Debug.Log("[起动触发] " + (caster.CardData != null ? caster.CardData.id : "?")
+                    + " 的起动被「阻止本事件」取消（本次不扣灵力、不结算）");
+            return !cancelled;
+        }
+
+        /// <summary>「起动后」广播（起动式能力结算完成后：灵力已扣、exhausted 已生效、效果已结算）。
+        /// 入口若配了「延迟/等待事件」，由 FireEventHost 转为入队延后执行。纯通知，不可阻止。</summary>
+        private void EmitActivateAfter(Card caster, AbilityData ability)
+        {
+            if (caster == null || ability == null || game_data == null || game_data.state == GameState.GameEnded)
+                return;
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = ACTIVATE_AFTER;
+            ctx.phase = GraphEventPhase.After;
+            ctx.card = caster;
+            ctx.player = game_data.GetPlayer(caster.player_id);
+            ctx.value = ability.mana_cost;
+            EmitGraphEvent(ctx, caster);
         }
 
         //----- 攻击（统一骨架：仆从/英雄/玩家 共用一条链，差异仅命中落点与回调组） -----
@@ -1752,6 +2084,11 @@ namespace TcgEngine.Gameplay
                 if (EmitGraphEvent(dctx))
                     return;         //被阻止：本次伤害不结算
                 value = Mathf.Max(dctx.value, 0);
+                //图上改写（208005 更改受伤卡牌 / 208006 更改伤害源）：按新目标、新来源结算（未改写则保持原值）
+                if (dctx.card != null && dctx.card != target)
+                    target = dctx.card;
+                if (dctx.source_card != null && dctx.source_card != attacker)
+                    attacker = dctx.source_card;
             }
 
             //Damage
@@ -2211,11 +2548,16 @@ namespace TcgEngine.Gameplay
             Player player = game_data.GetPlayer(caster.player_id);
 
             //Pay cost
-            if (iability.trigger == AbilityTrigger.Activate || iability.trigger == AbilityTrigger.None)
+            bool is_activate = iability.trigger == AbilityTrigger.Activate;
+            if (is_activate || iability.trigger == AbilityTrigger.None)
             {
                 player.mana -= iability.mana_cost;
                 caster.exhausted = caster.exhausted || iability.exhaust;
             }
+
+            //图事件「起动后」（仅起动式能力）：费用已扣、效果已结算之后广播
+            if (is_activate)
+                EmitActivateAfter(caster, iability);
 
             //Recalculate and clear
             UpdateOngoing();

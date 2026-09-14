@@ -26,6 +26,13 @@ namespace TcgEngine
                 target.mana = ability.value;
                 target.mana = Mathf.Max(target.mana, 0);
             }
+
+            //设置"最大灵力值"（灵力上限的增长硬顶）：改成指定值，并让上限/当前按新硬顶收敛
+            if (type == EffectStatType.ManaMaxTotal)
+            {
+                target.mana_max_total = Mathf.Max(ability.value, 0);
+                target.ClampMana();
+            }
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)

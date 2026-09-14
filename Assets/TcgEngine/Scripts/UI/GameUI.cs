@@ -229,6 +229,7 @@ namespace TcgEngine.UI
             AudioTool.Get().FadeOutMusic("music");
             AudioTool.Get().FadeOutSFX("ambience");
             AudioTool.Get().FadeOutSFX("ending_sfx");
+            TcgEngine.Audio.BgmManager.Stop(0.8f);   //退出对战：BGM 淡出（下个场景的界面会按配置接上）
 
             yield return new WaitForSeconds(1f);
 

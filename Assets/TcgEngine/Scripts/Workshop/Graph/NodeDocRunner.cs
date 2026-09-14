@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using TcgEngine.Gameplay;
+using TcgEngine.VFX;   //节点特效（表现层）：VFXRuntime / VFXConfig / VFXTrigger
 using UnityEngine;
 
 namespace TcgEngine.Workshop
@@ -75,6 +76,9 @@ namespace TcgEngine.Workshop
             maps.Clear();
             try
             {
+                //入口匹配 → 按「优先级」降序执行；优先级相同保持图内原顺序（稳定排序）。
+                //编辑器已约束"每张效果图 1 个入口"，此处兜底历史图/多入口场景。
+                List<GraphNode> matched = new List<GraphNode>();
                 foreach (GraphNode ev in graph.nodes)
                 {
                     if (ev == null || ev.type != GraphNodeType.Event)
@@ -86,7 +90,27 @@ namespace TcgEngine.Workshop
                         continue;
                     if (!IsEventConditionMet(logic, graph, ev, caster, target_card, target_player))
                         continue;   //事件入口「条件」输入口：连线布尔为假则本入口不触发（事件筛选）
+                    matched.Add(ev);
+                }
+                if (matched.Count > 1)
+                {
+                    List<int> order = new List<int>();
+                    for (int i = 0; i < matched.Count; i++)
+                        order.Add(i);
+                    order.Sort((a, b) =>
+                    {
+                        int pa = GraphRuntime.GetFieldInt(matched[a], "priority", 0);
+                        int pb = GraphRuntime.GetFieldInt(matched[b], "priority", 0);
+                        return pa != pb ? pb.CompareTo(pa) : a.CompareTo(b);   //同优先级=原顺序
+                    });
+                    List<GraphNode> sorted = new List<GraphNode>();
+                    foreach (int i in order)
+                        sorted.Add(matched[i]);
+                    matched = sorted;
+                }
 
+                foreach (GraphNode ev in matched)
+                {
                     //入口「标签列表」写入当前事件上下文（战吼/亡语等自定义标签，供图内判断）
                     if (cur_event != null)
                     {
@@ -97,9 +121,19 @@ namespace TcgEngine.Workshop
                             cur_event.tags = tt;
                     }
 
+                    //事件节点特效（表现层）：事件触发时播放；未配置零开销
+                    TriggerNodeVfx(ev, caster, target_card, target_player, true);
+
                     int executed = 0;
                     WalkNode(logic, graph, ev, caster, target_card, target_player, new HashSet<string>(), ref executed);
                     count += executed;
+                }
+                //诊断：图被触发却没有任何入口匹配 → 图内动作（含特效）一律不会执行，这是"完全没反应"的实锤
+                if (count == 0 && (trigger_action == "ActivateEffect" || trigger_action == "ActivateAbility"))
+                {
+                    WarnThrottled("no_entry",
+                        "[NodeDoc] 图被触发（action=" + trigger_action + "）但没有任何入口节点匹配 → 图内动作与特效都不会执行；"
+                        + "请检查：入口节点的 目标类型/触发条件/优先级/标签 是否配置正确（或该卡的能力是否挂上了本图）");
                 }
                 return count;
             }
@@ -285,6 +319,33 @@ namespace TcgEngine.Workshop
                 case "202043":
                 case "201008":
                 case "201010":
+                case "102023":   //获取合法卡牌使用目标
+                case "102024":   //获取合法攻击目标
+                case "103016":   //获取卡牌定义对应角色
+                case "103022":   //获取卡牌定义的合法使用目标
+                case "103025":   //获取卡牌定义所属卡池
+                case "111036":   //转换集合类型
+                case "211001":   //遍历
+                case "202030":   //触发卡牌定义宣言
+                case "202031":   //触发卡牌定义遗言
+                case "202032":   //触发法术或技能卡牌定义效果
+                case "203001":   //展示卡牌定义
+                case "209101":   //设置战斗BGM
+                case "209102":   //恢复默认BGM
+                case "202002":   //丢弃卡牌（旧版变体，转发 202038）
+                case "202034":   //造成伤害或法伤（旧版变体，转发 202041）
+                case "102002":   //卡牌类型判断（旧版变体，转发 102032）
+                case "103005":   //卡牌定义类型判断（旧版变体，转发 103024）
+                case "104003":   //卡牌快照类型判断（旧版变体，转发 104017）
+                case "108003":   //转换事件类型（事件线求值通道）
+                case "GetManaMaxTotal":   //获取最大灵力值（项目内灵力节点）
+                case "SetManaMaxTotal":   //设置最大灵力值（项目内灵力节点）
+                case "208003":   //更改攻击目标
+                case "208004":   //更改使用目标
+                case "208005":   //伤害/更改受伤卡牌
+                case "208006":   //伤害/更改伤害源
+                case "208007":   //伤害/更改伤害值
+                case "208008":   //治疗/更改治疗值
                     return true;
                 default:
                     return false;
@@ -357,6 +418,14 @@ namespace TcgEngine.Workshop
 
             if (node.type != GraphNodeType.Action || string.IsNullOrEmpty(node.category))
             {
+                //诊断：本该执行的动作节点被跳过（旧版保存的节点/类型残留）时会静默走过 ——
+                //这是"节点既不出伤害也不出特效"的隐蔽盲点，这里留一条可追溯的警告
+                if (node.type == GraphNodeType.Action && string.IsNullOrEmpty(node.category) && IsSupportedAction(node.action))
+                {
+                    WarnThrottled("skip_nocat:" + node.action,
+                        "[NodeDoc] 节点 " + node.action + "(" + node.title + ") 缺少分类信息（旧版保存的节点），已跳过执行 → "
+                        + "既不结算也不出特效；请删除该节点后从节点库重新拖入并保存卡牌");
+                }
                 WalkFlowOutputs(logic, graph, node, null, caster, target_card, target_player, visited, ref executed);
                 return;
             }
@@ -370,6 +439,15 @@ namespace TcgEngine.Workshop
                     ExecuteLoopNode(logic, graph, node, caster, target_card, target_player, visited, ref executed);
                 else
                     ExecuteLoopUntilNode(logic, graph, node, caster, target_card, target_player, visited, ref executed);
+                return;
+            }
+
+            if (node.action == "211001")
+            {
+                //遍历：array 口集合逐元素展开 动作 口循环体（element 口输出当前元素）
+                if (loops.Exists(l => l.node_id == node.id))
+                    return;   //防自环：循环体走回自身
+                ExecuteForEachNode(logic, graph, node, caster, target_card, target_player, visited, ref executed);
                 return;
             }
 
@@ -396,6 +474,8 @@ namespace TcgEngine.Workshop
             {
                 Debug.LogError("[NodeDoc] 动作执行异常，已跳过该节点 " + node.action + "(" + node.title + "): " + e);
             }
+            //节点特效（表现层）：仅客户端战斗场景生效；未配置的节点零开销，不影响执行顺序
+            TriggerNodeVfx(node, caster, target_card, target_player, false);
             executed++;
             WalkFlowOutputs(logic, graph, node, null, caster, target_card, target_player, visited, ref executed);
         }
@@ -497,6 +577,358 @@ namespace TcgEngine.Workshop
                 if (ConsumeLoopFlags()) break;
             }
             WalkFlowOutputs(logic, graph, node, "out", caster, target_card, target_player, visited, ref executed);
+        }
+
+        /// <summary>遍历(211001)的当前元素：element 输出口在各值通道（卡牌/定义/玩家/增益/事件/Object）按此取值；
+        /// 嵌套循环按保存/恢复维护（配合 loops 栈）</summary>
+        private static object cur_loop_elem;
+
+        /// <summary>集合探测深度（111036/211001 的集合输入可能互相引用成环 → 限制递归，AI 线程上必须防死循环）</summary>
+        private static int probe_depth;
+
+        /// <summary>执行 211001 遍历：array 口集合逐元素展开「动作」口循环体，
+        /// 循环体内可通过本节点的「元素」输出口读取当前元素；元素上限 1000（与 212005 同规，防死循环）。</summary>
+        private static void ExecuteForEachNode(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player, HashSet<string> visited, ref int executed)
+        {
+            List<object> elems = ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out string kind);
+            int i = 0;
+            foreach (object el in elems)
+            {
+                if (i >= 1000)
+                {
+                    Debug.LogWarning("[NodeDoc] 211001 遍历超过硬上限 1000 个元素，提前结束（检查集合来源）");
+                    break;
+                }
+                i++;
+                loops.Add(new LoopCtx { node_id = node.id, iter = i });
+                object outer = cur_loop_elem;
+                cur_loop_elem = el;
+                try
+                {
+                    WalkFlowOutputs(logic, graph, node, "action", caster, target_card, target_player, new HashSet<string>(), ref executed);
+                }
+                finally
+                {
+                    cur_loop_elem = outer;
+                    loops.RemoveAt(loops.Count - 1);
+                }
+                if (ConsumeLoopFlags())         //212006 停止
+                    break;
+            }
+            Debug.Log("[NodeDoc] 211001 遍历完成 元素种类=" + kind + " 元素数=" + i);
+            WalkFlowOutputs(logic, graph, node, "out", caster, target_card, target_player, visited, ref executed);
+        }
+
+        /// <summary>取某输入引脚连线的来源节点（引脚不存在/无连线/来源非 NodeDoc 取值节点 → null）</summary>
+        private static GraphNode IncomingSource(GraphData graph, GraphNode node, string pin_name)
+        {
+            if (graph == null || node == null)
+                return null;
+            GraphPin pin = graph.GetPinByName(node.id, pin_name);
+            GraphLink link = pin != null ? graph.GetIncomingLink(node.id, pin.id) : null;
+            if (link == null)
+                return null;
+            GraphNode src = graph.GetNode(link.from_node);
+            return (src != null && !string.IsNullOrEmpty(src.category)) ? src : null;
+        }
+
+        /// <summary>探取集合类输入口（211001 遍历的 array 口 / 111036 转换的 array 口）得到元素对象列表。
+        /// 依上游节点的通道依次尝试：卡牌集合 → 增益集合 → 事件集合 → 定义集合（按常见口名） → 单值回退。
+        /// kind 输出元素种类："card"/"buff"/"event"/"define"/"player"/"unknown"，供类型转换使用。</summary>
+        private static List<object> ProbeElements(GameLogic logic, GraphData graph, GraphNode node, string pin_name,
+            Card caster, Card target_card, Player target_player, out string kind)
+        {
+            List<object> result = new List<object>();
+            kind = "unknown";
+            GraphNode src = IncomingSource(graph, node, pin_name);
+            if (src == null || logic == null || probe_depth >= 8)
+                return result;
+            probe_depth++;
+            try
+            {
+                List<Card> cards = ResolveCollectionNode(logic, graph, src, caster, target_card, target_player);
+                if (cards != null && cards.Count > 0)
+                {
+                    kind = "card";
+                    foreach (Card c in cards)
+                        if (c != null)
+                            result.Add(c);
+                    return result;
+                }
+                List<BuffRef> buffs = ResolveBuffList(logic, graph, src, caster, target_card, target_player);
+                if (buffs.Count > 0)
+                {
+                    kind = "buff";
+                    foreach (BuffRef b in buffs)
+                        result.Add(b);
+                    return result;
+                }
+                List<GraphEventContext> events = ResolveEventList(logic, graph, src, caster, target_card, target_player);
+                if (events.Count > 0)
+                {
+                    kind = "event";
+                    foreach (GraphEventContext e in events)
+                        result.Add(e);
+                    return result;
+                }
+                foreach (string pn in new string[] { "array", "collection", "cardDefines", "elements" })
+                {
+                    List<CardData> defs = ResolveValueDefines(logic, graph, src, pn, caster, target_card, target_player);
+                    if (defs.Count > 0)
+                    {
+                        kind = "define";
+                        foreach (CardData d in defs)
+                            if (d != null)
+                                result.Add(d);
+                        return result;
+                    }
+                }
+                //单值回退：上游是单值取值节点时，视为"只有一个元素的集合"
+                Card one = ResolveValueCard(logic, graph, src, caster, target_card, target_player);
+                if (one != null) { kind = "card"; result.Add(one); return result; }
+                BuffRef ob = ResolveValueBuff(logic, graph, src, caster, target_card, target_player);
+                if (ob != null) { kind = "buff"; result.Add(ob); return result; }
+                GraphEventContext oe = ResolveValueEvent(logic, graph, src, caster, target_card, target_player);
+                if (oe != null) { kind = "event"; result.Add(oe); return result; }
+                CardData od = ResolveValueDefine(logic, graph, src, caster, target_card, target_player);
+                if (od != null) { kind = "define"; result.Add(od); return result; }
+                Player op = ResolvePlayerOutput(logic, graph, src, caster, target_player);
+                if (op != null) { kind = "player"; result.Add(op); return result; }
+                return result;
+            }
+            finally
+            {
+                probe_depth--;
+            }
+        }
+
+        /// <summary>集合元素 → 卡牌（111036 转换到卡牌集合）：定义元素会被实例化为临时卡（携带 owner=施法者玩家）</summary>
+        private static Card ElementToCard(GameLogic logic, object o, Card caster)
+        {
+            if (o is Card c)
+                return c;
+            if (o is CardData d)
+                return caster != null ? Card.Create(d, VariantData.GetDefault(), logic.GameData.GetPlayer(caster.player_id)) : null;
+            if (o is BuffRef br)
+                return br.card;
+            if (o is GraphEventContext ge)
+                return ge.card;
+            if (o is Player pl)
+                return pl.hero;
+            return null;
+        }
+
+        private static List<Card> ConvertToCards(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<Card> result = new List<Card>();
+            foreach (object o in ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out _))
+            {
+                Card c = ElementToCard(logic, o, caster);
+                if (c != null && !result.Contains(c))
+                    result.Add(c);
+            }
+            return result;
+        }
+
+        private static List<CardData> ConvertToDefines(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<CardData> result = new List<CardData>();
+            foreach (object o in ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out _))
+            {
+                CardData d = null;
+                if (o is CardData cd)
+                    d = cd;
+                else if (o is Card c)
+                    d = c.CardData;
+                else if (o is BuffRef br)
+                    d = null;                       //增益 → 定义不是卡牌定义（由 106005 取 BuffDefine），按"抛弃不可转换元素"处理
+                else if (o is GraphEventContext ge && ge.card != null)
+                    d = ge.card.CardData;
+                if (d != null && !result.Contains(d))
+                    result.Add(d);
+            }
+            return result;
+        }
+
+        private static Player ConvertToPlayer(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            foreach (object o in ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out _))
+            {
+                if (o is Player pl)
+                    return pl;
+                Card c = ElementToCard(logic, o, caster);
+                if (c != null)
+                    return logic.GameData.GetPlayer(c.player_id);
+                if (o is BuffRef br && br.card != null)
+                    return logic.GameData.GetPlayer(br.card.player_id);
+                if (o is GraphEventContext ge && ge.player != null)
+                    return ge.player;
+            }
+            return null;
+        }
+
+        private static List<BuffRef> ConvertToBuffs(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<BuffRef> result = new List<BuffRef>();
+            foreach (object o in ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out _))
+            {
+                if (o is BuffRef br)
+                {
+                    result.Add(br);
+                    continue;
+                }
+                Card c = ElementToCard(logic, o, caster);
+                if (c != null && c.buffs != null)
+                {
+                    foreach (CardBuff cb in c.buffs)
+                        result.Add(new BuffRef { card = c, buff = cb, buff_id = cb.buff_id });
+                }
+            }
+            return result;
+        }
+
+        private static List<GraphEventContext> ConvertToEvents(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<GraphEventContext> result = new List<GraphEventContext>();
+            foreach (object o in ProbeElements(logic, graph, node, "array", caster, target_card, target_player, out _))
+            {
+                if (o is GraphEventContext ge)      //非事件元素无法还原为事件 → 抛弃（文档：不转换的元素丢弃）
+                    result.Add(ge);
+            }
+            return result;
+        }
+
+        /// <summary>111036 的 Object/单值通道：按节点上的"转换类型"下拉（typeName）决定转换目标；
+        /// 需要特定类型的下游口（卡牌数组/定义数组/玩家口…）由其通道各自转换，与本下拉无关。</summary>
+        private static object ConvertToObject(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            string type_name = GraphRuntime.GetFieldString(node, "typeName", "卡牌");
+            if (type_name == "卡牌定义")
+            {
+                List<CardData> defs = ConvertToDefines(logic, graph, node, caster, target_card, target_player);
+                return defs.Count > 0 ? (object)defs[0] : null;
+            }
+            if (type_name == "玩家")
+                return ConvertToPlayer(logic, graph, node, caster, target_card, target_player);
+            if (type_name == "增益")
+            {
+                List<BuffRef> buffs = ConvertToBuffs(logic, graph, node, caster, target_card, target_player);
+                return buffs.Count > 0 ? (object)buffs[0] : null;
+            }
+            if (type_name == "事件")
+            {
+                List<GraphEventContext> events = ConvertToEvents(logic, graph, node, caster, target_card, target_player);
+                return events.Count > 0 ? (object)events[0] : null;
+            }
+            List<Card> cards = ConvertToCards(logic, graph, node, caster, target_card, target_player);
+            return cards.Count > 0 ? (object)cards[0] : null;
+        }
+
+        /// <summary>合法使用目标（102023 / 103022）：枚举全场角色（双方战场随从 + 英雄卡），
+        /// 用「可选中目标」类能力的 conditions_target 判定（define 非空时用该定义的能力，否则用 source 的能力）。
+        /// 英雄=卡牌：能力可按玩家选中时，其英雄卡视为合法目标（用 Player 版 CanTarget 判定）。</summary>
+        private static List<Card> ValidPlayTargets(GameLogic logic, Card source, CardData define)
+        {
+            List<Card> result = new List<Card>();
+            if (logic == null || source == null)
+                return result;
+            List<AbilityData> abis = new List<AbilityData>();
+            if (define != null && define.abilities != null)
+                abis.AddRange(define.abilities);
+            else
+                abis.AddRange(source.GetAbilities());
+            foreach (Player pl in logic.GameData.players)
+            {
+                if (pl == null)
+                    continue;
+                foreach (Card c in pl.cards_board)
+                {
+                    if (c != null && CanBePlayTarget(logic, abis, source, c) && !result.Contains(c))
+                        result.Add(c);
+                }
+                if (pl.hero != null && CanTargetPlayer(logic, abis, source, pl) && !result.Contains(pl.hero))
+                    result.Add(pl.hero);
+            }
+            return result;
+        }
+
+        private static bool CanBePlayTarget(GameLogic logic, List<AbilityData> abis, Card source, Card candidate)
+        {
+            foreach (AbilityData a in abis)
+            {
+                if (a == null || (a.target != AbilityTarget.SelectTarget && a.target != AbilityTarget.PlayTarget))
+                    continue;
+                if (a.CanTarget(logic.GameData, source, candidate))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool CanTargetPlayer(GameLogic logic, List<AbilityData> abis, Card source, Player pl)
+        {
+            foreach (AbilityData a in abis)
+            {
+                if (a == null || (a.target != AbilityTarget.SelectTarget && a.target != AbilityTarget.PlayTarget))
+                    continue;
+                if (a.CanTarget(logic.GameData, source, pl))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>合法攻击目标（102024）：攻击者须在场上；枚举敌方战场随从（CanAttackTarget）与敌方英雄（打脸，英雄=卡牌）</summary>
+        private static List<Card> ValidAttackTargets(GameLogic logic, Card attacker)
+        {
+            List<Card> result = new List<Card>();
+            if (logic == null || attacker == null || !logic.GameData.IsOnBoard(attacker))
+                return result;
+            foreach (Player pl in logic.GameData.players)
+            {
+                if (pl == null || pl.player_id == attacker.player_id)
+                    continue;
+                foreach (Card c in pl.cards_board)
+                {
+                    if (c != null && logic.GameData.CanAttackTarget(attacker, c))
+                        result.Add(c);
+                }
+                if (pl.hero != null && logic.GameData.CanAttackTarget(attacker, pl))
+                    result.Add(pl.hero);
+            }
+            return result;
+        }
+
+        /// <summary>103025 获取卡牌定义所属卡池：TCG2 用 CardData.packs（卡包）承载"卡池"，取首个卡包</summary>
+        private static PackData DefinePack(CardData define)
+        {
+            if (define == null || define.packs == null || define.packs.Length == 0)
+                return null;
+            return define.packs[0];
+        }
+
+        /// <summary>以一张卡为载体触发「另一个定义」的能力（202030/202031/202032）：
+        /// 有目标卡时以其为触发者传入（供能力的触发者条件读取），否则只传载体</summary>
+        private static void TriggerDefineAbility(GameLogic logic, AbilityData ability, Card carrier, List<Card> triggerers)
+        {
+            if (logic == null || ability == null || carrier == null)
+                return;
+            try
+            {
+                if (triggerers != null && triggerers.Count > 0 && triggerers[0] != null)
+                    logic.TriggerCardAbility(ability, carrier, triggerers[0]);
+                else
+                    logic.TriggerCardAbility(ability, carrier);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[NodeDoc] 触发定义能力失败（已忽略）: " + e.Message);
+            }
         }
 
         /// <summary>整数输入口取值：内置值节点走 GraphRuntime 求值；NodeDoc 取值节点走 ResolveNodeInt；无连线用字段默认</summary>
@@ -616,6 +1048,153 @@ namespace TcgEngine.Workshop
                 bool? v = ResolveBoolSource(logic, graph, src, caster, target_card, target_player);
                 if (v != null)
                     list.Add(v.Value);
+            }
+            return list;
+        }
+
+        // ---------------- 运算节点的编号输入槽（112004 整数运算 / 112005 逻辑运算） ----------------
+        // 设计：每个输入槽 = 一个编号端口（arg1/arg2… 或 value1/value2…）+ 同名"手填值"字段。
+        // 求值规则：该槽有连线 → 取连线值（允许多条线）；无连线 → 取该槽字段的手填值。
+        // 槽1 兼容旧图的无编号形式（arg / value），旧图无需迁移也能继续跑。
+        // 槽号只增不复用；删除后由编辑器重排编号（见 GraphEditorPanel.RenumberParamSlots）。
+
+        /// <summary>运算节点的槽基名：112004→"arg"，112005→"value"；其它节点返回 null</summary>
+        private static string ParamSlotBase(GraphNode node)
+        {
+            if (node == null)
+                return null;
+            if (node.action == "112004")
+                return "arg";
+            if (node.action == "112005")
+                return "value";
+            return null;
+        }
+
+        /// <summary>名字 → 槽号：base（旧的无编号形式）= 1；base+N（N≥1）= N；其它返回 0</summary>
+        private static int ParamSlotOf(string name, string base_name)
+        {
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(base_name) || !name.StartsWith(base_name))
+                return 0;
+            string num = name.Substring(base_name.Length);
+            if (string.IsNullOrEmpty(num))
+                return 1;
+            return int.TryParse(num, out int n) && n >= 1 ? n : 0;
+        }
+
+        /// <summary>节点上实际存在的输入槽号（升序）：字段与端口都算，无编号名视为槽 1</summary>
+        private static List<int> ParamSlots(GraphNode node, string base_name)
+        {
+            List<int> list = new List<int>();
+            if (node == null || string.IsNullOrEmpty(base_name))
+                return list;
+            if (node.fields != null)
+            {
+                foreach (FieldCustomData f in node.fields)
+                {
+                    int s = ParamSlotOf(f != null ? f.name : null, base_name);
+                    if (s > 0 && !list.Contains(s))
+                        list.Add(s);
+                }
+            }
+            if (node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                {
+                    int s = ParamSlotOf(p != null ? p.name : null, base_name);
+                    if (s > 0 && !list.Contains(s))
+                        list.Add(s);
+                }
+            }
+            list.Sort();
+            return list;
+        }
+
+        /// <summary>是否存在旧的无编号端口/字段（决定槽 1 用 arg 还是 arg1）</summary>
+        private static bool ParamSlotHasLegacy(GraphNode node, string base_name)
+        {
+            if (node == null)
+                return false;
+            if (node.fields != null)
+            {
+                foreach (FieldCustomData f in node.fields)
+                    if (f != null && f.name == base_name)
+                        return true;
+            }
+            if (node.pins != null)
+            {
+                foreach (GraphPin p in node.pins)
+                    if (p != null && p.name == base_name)
+                        return true;
+            }
+            return false;
+        }
+
+        /// <summary>槽号 → 实际端口/字段名（槽 1 且存在旧无编号名时用旧名）</summary>
+        private static string ParamSlotName(GraphNode node, string base_name, int slot)
+        {
+            if (slot == 1 && ParamSlotHasLegacy(node, base_name))
+                return base_name;
+            return base_name + slot;
+        }
+
+        /// <summary>整数运算(112004)输入槽求值：逐槽「有连线取连线值（可多线）/ 无连线取手填值」</summary>
+        private static List<int> ResolveIntParamSlots(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<int> list = new List<int>();
+            if (graph == null || node == null)
+                return list;
+            string base_name = ParamSlotBase(node);
+            if (base_name != "arg")
+                return list;
+            foreach (int s in ParamSlots(node, base_name))
+            {
+                string pname = ParamSlotName(node, base_name, s);
+                int before = list.Count;
+                GraphPin pin = graph.GetPinByName(node.id, pname);
+                if (pin != null)
+                {
+                    foreach (GraphLink link in graph.GetIncoming(node.id, pin.id))
+                    {
+                        GraphNode src = graph.GetNode(link.from_node);
+                        int? v = ResolveIntSource(logic, graph, src, caster, target_card, target_player);
+                        if (v != null)
+                            list.Add(v.Value);
+                    }
+                }
+                if (list.Count == before)
+                    list.Add(GraphRuntime.GetFieldInt(node, pname, 0));   //无连线 → 该槽手填值
+            }
+            return list;
+        }
+
+        /// <summary>逻辑运算(112005)输入槽求值（同上，布尔）</summary>
+        private static List<bool> ResolveBoolParamSlots(GameLogic logic, GraphData graph, GraphNode node,
+            Card caster, Card target_card, Player target_player)
+        {
+            List<bool> list = new List<bool>();
+            if (graph == null || node == null)
+                return list;
+            string base_name = ParamSlotBase(node);
+            if (base_name != "value")
+                return list;
+            foreach (int s in ParamSlots(node, base_name))
+            {
+                string pname = ParamSlotName(node, base_name, s);
+                int before = list.Count;
+                GraphPin pin = graph.GetPinByName(node.id, pname);
+                if (pin != null)
+                {
+                    foreach (GraphLink link in graph.GetIncoming(node.id, pin.id))
+                    {
+                        GraphNode src = graph.GetNode(link.from_node);
+                        bool? v = ResolveBoolSource(logic, graph, src, caster, target_card, target_player);
+                        if (v != null)
+                            list.Add(v.Value);
+                    }
+                }
+                if (list.Count == before)
+                    list.Add(GraphRuntime.GetFieldString(node, pname, "false") == "true");   //无连线 → 该槽手填值
             }
             return list;
         }
@@ -787,12 +1366,22 @@ namespace TcgEngine.Workshop
                 }
                 case "106004":
                 {
-                    //获取增益属性：buff_id + 属性名 → 读 Buff 实例 props（无 buff_id 回退旧路径读原生加成状态）
-                    Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
+                    //获取增益属性：增益口(buff，Buff 通道) + 属性名(propName) → 读 Buff 实例 props；
+                    //无增益连线时回退旧路径（card 口 + buff_id 字段 + prop 字段），最后退化读原生加成状态。
+                    //引脚名对齐 NodeDoc.xml：旧实现读 "card"，而该节点的口名是 buff → 连线被静默忽略。
+                    string prop = GraphRuntime.GetFieldString(src, "propName", "");
+                    if (string.IsNullOrEmpty(prop))
+                        prop = GraphRuntime.GetFieldString(src, "prop", "攻击加成");
+                    BuffRef r = HasInputPin(graph, src, "buff")
+                        ? ResolveInputBuff(logic, graph, src, "buff", caster, target_card, target_player) : null;
+                    Card c = r != null ? r.card : null;
+                    if (c == null)
+                        c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);   //旧图引脚兼容
                     if (c == null)
                         return null;
-                    string prop = GraphRuntime.GetFieldString(src, "prop", "攻击加成");
-                    string buff_id = GraphRuntime.GetFieldString(src, "buff_id", "");
+                    string buff_id = BuffRefId(r);
+                    if (string.IsNullOrEmpty(buff_id))
+                        buff_id = GraphRuntime.GetFieldString(src, "buff_id", "");
                     if (!string.IsNullOrEmpty(buff_id))
                         return BuffRuntime.GetPropValue(c, buff_id, prop);
                     return GetBuffProp(c, prop);
@@ -856,6 +1445,11 @@ namespace TcgEngine.Workshop
                 {
                     Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
                     return p != null ? p.mana_max : (int?)null;
+                }
+                case "GetManaMaxTotal":   //获取最大灵力值（项目内节点：三套灵力体系之三，NodeDoc 无对应 defineId）
+                {
+                    Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
+                    return p != null ? p.GetManaMaxTotal() : (int?)null;
                 }
                 case "101018":   //获取玩家的当前回合数（v1 简化：返回全局回合数，未按玩家拆分）
                 {
@@ -937,7 +1531,7 @@ namespace TcgEngine.Workshop
                         default:       return c.GetHP();
                     }
                 }
-                case "101002":   //获取玩家属性（Object 输出，v1 支持整数字段：生命/最大生命/灵力/灵力上限/击杀数）
+                case "101002":   //获取玩家属性（Object 输出；整数字段：生命/最大生命/灵力/灵力上限/最大灵力值/击杀数）
                 {
                     Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
                     if (p == null)
@@ -953,8 +1547,11 @@ namespace TcgEngine.Workshop
                         case "法力值":
                             return p.mana;
                         case "灵力上限":
-                        case "最大灵力":
+                        case "最大灵力":          //旧叫法（=灵力上限 mana_max），保留兼容，勿与新档"最大灵力值"混淆
                             return p.mana_max;
+                        case "最大灵力值":        //三套灵力体系之三：灵力上限的增长硬顶
+                        case "灵力硬顶":
+                            return p.mana_max_total;
                         case "击杀数":
                             return p.kill_count;
                         default:
@@ -967,10 +1564,10 @@ namespace TcgEngine.Workshop
                     Card el = ResolveInputCard(logic, graph, src, "element", caster, target_card, target_player);
                     return el != null ? col.IndexOf(el) : -1;
                 }
-                case "112004":   //整数运算：operator(+-*/%) + 多个整数（arg 口全部取值线；无连线用字段默认）
+                case "112004":   //整数运算：operator(+-*/%) + 编号输入槽（每槽可连线，也可手填整数）
                 {
                     string op = GraphRuntime.GetFieldString(src, "operator", "+");
-                    List<int> vals = ResolveAllIntArgs(logic, graph, src, "arg", caster, target_card, target_player);
+                    List<int> vals = ResolveIntParamSlots(logic, graph, src, caster, target_card, target_player);
                     if (vals.Count == 0)
                         vals.Add(GraphRuntime.GetFieldInt(src, "arg", 0));
                     int acc = vals[0];
@@ -1087,6 +1684,12 @@ namespace TcgEngine.Workshop
                         GraphNode src = graph.GetNode(link.from_node);
                         if (src != null)
                         {
+                            if (src.action == "211001")   //遍历：element 输出口（Object 通道）
+                                return cur_loop_elem;
+                            if (src.action == "103025")   //获取卡牌定义所属卡池：CardData.packs 首个卡包
+                                return DefinePack(ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player));
+                            if (src.action == "111036")   //转换集合类型：Object 通道取首个转换结果
+                                return ConvertToObject(logic, graph, src, caster, target_card, target_player);
                             if (src.type == GraphNodeType.Event)
                             {
                                 //事件环境变量（触发器节点输出口 → Object 口）：自身/目标/有无目标/己方/敌方玩家；
@@ -1183,8 +1786,8 @@ namespace TcgEngine.Workshop
                                 return DefineTags(ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player));
                             if (src.action == "107001" || src.action == "107004" || src.action == "107005" || src.action == "107006")
                                 return ResolveEffectList(logic, graph, src, caster, target_card, target_player);   //效果列表（Object 通道）
-                            if (src.action == "107003")   //获取效果属性
-                                return EffectProp(ResolveValueEffect(logic, graph, src, caster, target_card, target_player),
+                            if (src.action == "107003")   //获取效果属性：效果口(effect) → 属性名(propName)
+                                return EffectProp(ResolveInputEffect(logic, graph, src, "effect", caster, target_card, target_player),
                                     GraphRuntime.GetFieldString(src, "propName", ""));
                             if (src.action == "107009")   //获取效果所属卡牌定义（Object 通道）
                                 return OwnerCardDefineOfAbility(ResolveValueEffect(logic, graph, src, caster, target_card, target_player));
@@ -1229,6 +1832,82 @@ namespace TcgEngine.Workshop
             return GraphRuntime.GetFieldString(act, pin_name, "");   //无连线：字段常量（字符串形式）
         }
 
+        /// <summary>
+        /// 节点特效（表现层）：动作/事件节点若配置了特效则触发一次。
+        /// 语义：
+        ///  · 动作节点：trigger=动作时 → 立即；trigger=动作完成后延迟 → 用配置的 delay；trigger=事件触发时 → 动作执行时不播；
+        ///  · 事件节点：事件被匹配到时播放（延迟同样生效）。
+        /// 安全性：未配置/非战斗场景（GameBoard 不存在）直接返回；不改动任何对局状态与执行顺序。
+        /// </summary>
+        /// <summary>特效触发日志计数（只统计"配了特效"的节点，最多 20 条，避免刷屏；排查完可删）</summary>
+        private static int vfx_trigger_logs;
+
+        /// <summary>诊断警告节流（同一条最多 2 次）：把"静默跳过"变成可见日志，排查完可整段删除</summary>
+        private static readonly Dictionary<string, int> diag_warn_counts = new Dictionary<string, int>();
+
+        private static void WarnThrottled(string key, string msg)
+        {
+            diag_warn_counts.TryGetValue(key, out int n);
+            if (n >= 2)
+                return;
+            diag_warn_counts[key] = n + 1;
+            Debug.LogWarning(msg);
+        }
+
+        private static void TriggerNodeVfx(GraphNode node, Card caster, Card target_card, Player target_player, bool is_event_node)
+        {
+            if (node == null || node.vfx == null)
+                return;   //未配置（node.vfx 为空）：正常情况，保持静默零开销
+            if (!node.vfx.IsConfigured)
+            {
+                //配置还在但没有可用素材（启用被关/素材为空）→ 说明"配过但播不出来"
+                WarnThrottled("vfx_no_frames:" + node.action,
+                    "[NodeDoc] 节点 " + node.action + "(" + node.title + ") 配了特效但没有可用素材（enabled=" + node.vfx.enabled
+                    + " 序列图=" + (node.vfx.HasSheet ? node.vfx.sheet_path : "无") + " 帧数="
+                    + (node.vfx.frame_names != null ? node.vfx.frame_names.Count : 0) + "）→ 不会出特效");
+                return;
+            }
+
+            //表现层调用必须完全隔离：这段代码会被 AI 推演线程执行，任何异常都不允许外溢
+            //（外溢会被 AILogic 当成"推演线程异常"终止 AI 计算；VFX 只是观感，绝不能影响对局逻辑）
+            try
+            {
+                VFXConfig cfg = node.vfx;
+                if (!is_event_node)
+                {
+                    if (cfg.trigger == VFXTrigger.OnEvent)
+                    {
+                        //动作节点没有"事件触发"这个时机：旧实现直接 return（静默不播，是"伤害节点特效无效"的常见原因）。
+                        //改为按动作节点唯一可用的时机（动作执行时）播放，并提示去改配置。
+                        WarnThrottled("vfx_trig_event:" + node.action,
+                            "[NodeDoc] 节点 " + node.action + "(" + node.title + ") 是动作节点，特效「播放时机=事件触发时」不会生效；"
+                            + "已按「动作时」播放（建议在特效编辑器里改为 动作时/动作完成后延迟）");
+                    }
+                    if (cfg.trigger != VFXTrigger.AfterActionDelay && cfg.delay > 0.01f)
+                    {
+                        cfg = cfg.Clone();      //"动作时"忽略延迟（不改动节点原始配置）
+                        cfg.delay = 0f;
+                    }
+                }
+                //诊断：证明"图执行到了这个节点、且特效配置在运行时确实存在"（若这条不出现 = 图未执行/节点类型不对/配置没落盘）
+                if (vfx_trigger_logs < 20)
+                {
+                    vfx_trigger_logs++;
+                    Debug.Log("[VFX] 节点 " + node.action + " 触发特效（" + (is_event_node ? "事件节点" : "动作节点")
+                        + " 绑定=" + cfg.bind + " 素材="
+                        + (cfg.HasSheet
+                            ? ("序列图 " + cfg.sheet_path + " [" + cfg.sheet_cols + "×" + cfg.sheet_rows + "]")
+                            : ("序列帧 " + (cfg.frame_names != null ? cfg.frame_names.Count : 0) + " 张"))
+                        + " 目标卡=" + (target_card != null ? target_card.uid : (caster != null ? "回退施法卡" : "null")) + "）");
+                }
+                VFXRuntime.Trigger(cfg, caster, target_card, target_player, node.action);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[NodeDoc] 特效播放失败（已忽略，不影响对局逻辑）: " + e.Message);
+            }
+        }
+
         /// <summary>按 defineId 把 NodeDoc 动作落到 TCG2 游戏逻辑（v1 白名单）</summary>
         private static void ExecuteAction(GameLogic logic, GraphData graph, GraphNode act, Card caster,
             Card target_card, Player target_player)
@@ -1251,6 +1930,7 @@ namespace TcgEngine.Workshop
                     }
                     break;
                 }
+                case "202034":   //（旧版变体：无"+伤害"口，余同 202041；旧图兼容——damage2 缺字段按 0）
                 case "202041":   //造成伤害或法伤（卡池主流伤害动作）：伤害+加成、多目标、是否法伤（法伤无视护甲/免疫/践踏/吸血）
                 {
                     int value = GetIntInput(logic, graph, act, "damage", caster, target_card, target_player,
@@ -1386,7 +2066,13 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] 206002 移除增益失败：无目标卡");
                         break;
                     }
-                    string buff_id = GraphRuntime.GetFieldString(act, "buff_id", "");
+                    //增益口(buff)：若连线则取该增益引用的 id（BuffRef 通道）；否则回退 buff_id 字段。
+                    //引脚名对齐 NodeDoc.xml：该节点的口是 buff（旧实现只读字段，连线被静默忽略）
+                    BuffRef wire = HasInputPin(graph, act, "buff")
+                        ? ResolveInputBuff(logic, graph, act, "buff", caster, target_card, target_player) : null;
+                    string buff_id = BuffRefId(wire);
+                    if (string.IsNullOrEmpty(buff_id))
+                        buff_id = GraphRuntime.GetFieldString(act, "buff_id", "");
                     if (!string.IsNullOrEmpty(buff_id))
                     {
                         if (!BuffRuntime.HasBuff(tcard, buff_id))
@@ -1411,18 +2097,43 @@ namespace TcgEngine.Workshop
                     Debug.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " prop=" + prop);
                     break;
                 }
-                case "206003":   //设置增益属性：buff_id + 属性名 + 值 → 写 Buff 实例（原生映射同步）；
-                                 //无 buff_id 时回退旧逻辑（直接改加成状态）
+                case "206003":   //设置增益属性：增益口(buffs, Buff[]) / 属性名(propName) + 值 → 写 Buff 实例（原生映射同步）；
+                                 //无 buffs 连线时回退旧路径（card 口 + buff_id 字段 + prop 字段 + 原生加成状态）
                 {
+                    int value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "value", 0));
+                    string prop = GraphRuntime.GetFieldString(act, "propName", "");
+                    if (string.IsNullOrEmpty(prop))
+                        prop = GraphRuntime.GetFieldString(act, "prop", "攻击加成");
+                    List<BuffRef> buffs = HasInputPin(graph, act, "buffs")
+                        ? ResolveInputBuffs(logic, graph, act, "buffs", caster, target_card, target_player) : new List<BuffRef>();
+                    if (buffs.Count > 0)
+                    {
+                        //引脚名对齐 NodeDoc.xml：该节点的口是 buffs（旧实现读 "card"，连线被静默忽略）
+                        int applied = 0;
+                        foreach (BuffRef r in buffs)
+                        {
+                            Card tc = r != null ? r.card : null;
+                            string id = BuffRefId(r);
+                            if (tc == null || string.IsNullOrEmpty(id))
+                                continue;
+                            if (!BuffRuntime.HasBuff(tc, id))
+                            {
+                                Debug.LogWarning("[NodeDoc] 206003 设置增益属性：卡牌无该增益 buff_id=\"" + id + "\"");
+                                continue;
+                            }
+                            BuffRuntime.SetPropValue(tc, id, prop, value);
+                            applied++;
+                        }
+                        Debug.Log("[NodeDoc] 206003 设置增益属性 " + prop + "=" + value + " 增益数=" + applied);
+                        break;
+                    }
                     Card tcard = ResolveInputCard(logic, graph, act, "card", caster, target_card, target_player);
                     if (tcard == null)
                     {
                         Debug.LogWarning("[NodeDoc] 206003 设置增益属性失败：无目标卡");
                         break;
                     }
-                    int value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
-                        GraphRuntime.GetFieldInt(act, "value", 0));
-                    string prop = GraphRuntime.GetFieldString(act, "prop", "攻击加成");
                     string buff_id = GraphRuntime.GetFieldString(act, "buff_id", "");
                     if (!string.IsNullOrEmpty(buff_id))
                     {
@@ -1501,10 +2212,15 @@ namespace TcgEngine.Workshop
                                  //无 buff_id 时回退旧字段（attack_add/hp_add/duration 数值加成）兼容旧图
                 {
                     List<Card> targets = ResolveInputCards(logic, graph, act, "cards", caster, target_card);
-                    string buff_id = GraphRuntime.GetFieldString(act, "buff_id", "");
+                    //增益定义口(buffDefine)：若连线则优先取 BuffDefine 通道（106005 单个增益定义 / 106002 获取增益定义）；
+                    //引脚名对齐 NodeDoc.xml：旧实现只读 buff_id 字段，该口的连线被静默忽略
+                    BuffData bdef = HasInputPin(graph, act, "buffDefine")
+                        ? ResolveInputBuffDefine(logic, graph, act, "buffDefine", caster, target_card, target_player) : null;
+                    string buff_id = bdef != null ? bdef.id : GraphRuntime.GetFieldString(act, "buff_id", "");
                     if (!string.IsNullOrEmpty(buff_id))
                     {
-                        BuffData bdef = BuffPoolIO.Get(buff_id);
+                        if (bdef == null)
+                            bdef = BuffPoolIO.Get(buff_id);
                         if (bdef == null)
                         {
                             Debug.LogWarning("[NodeDoc] 206001 添加增益失败：BuffData 不存在 buff_id=\"" + buff_id + "\"");
@@ -1670,6 +2386,7 @@ namespace TcgEngine.Workshop
                     Debug.Log("[NodeDoc] 202029 变形 " + tcard.CardData?.id + " → " + define.id + (transformed != null ? " 成功" : " 失败"));
                     break;
                 }
+                case "202002":   //（旧版变体，与 202038 同参：hands 手牌集合；旧图兼容）
                 case "202038":   //丢弃卡牌：hands 口的卡逐张进墓地
                 {
                     List<Card> cards = ResolveInputCards(logic, graph, act, "hands", caster, target_card);
@@ -1882,6 +2599,20 @@ namespace TcgEngine.Workshop
                     if (cur > count)
                         h.AddStatus(StatusType.Armor, cur - count, 0);
                     Debug.Log("[NodeDoc] 202020 护甲 -" + count + " → " + Mathf.Max(cur - count, 0));
+                    break;
+                }
+                case "SetManaMaxTotal":   //设置最大灵力值（项目内节点：灵力上限的增长硬顶）
+                {
+                    Player pl = ResolveInputPlayer(logic, graph, act, "player", caster, target_player) ?? PlayerOf(logic, caster);
+                    int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "value", 0));
+                    if (pl != null)
+                    {
+                        pl.mana_max_total = Mathf.Max(v, 0);
+                        pl.ClampMana();   //上限/当前按新硬顶收敛
+                        Debug.Log("[NodeDoc] 设置最大灵力值 → p" + pl.player_id + " 最大=" + pl.mana_max_total
+                            + "（当前/上限 " + pl.mana + "/" + pl.mana_max + "）");
+                    }
                     break;
                 }
                 case "201001":   //设置当前灵力值（=mana，钳到 [0, mana_max]）
@@ -2216,8 +2947,14 @@ namespace TcgEngine.Workshop
                             player.mana = Mathf.Max(value, 0);
                             break;
                         case "灵力上限":
-                        case "最大灵力":
+                        case "最大灵力":          //旧叫法（=灵力上限 mana_max）
                             player.mana_max = Mathf.Max(value, 0);
+                            player.ClampMana();
+                            break;
+                        case "最大灵力值":        //三套灵力体系之三：灵力上限的增长硬顶
+                        case "灵力硬顶":
+                            player.mana_max_total = Mathf.Max(value, 0);
+                            player.ClampMana();   //上限/当前按新硬顶收敛
                             break;
                         case "击杀数":
                             player.kill_count = value;
@@ -2361,16 +3098,50 @@ namespace TcgEngine.Workshop
                     Debug.Log("[NodeDoc] 201007 摧毁道具 玩家 p" + player.player_id);
                     break;
                 }
-                case "201006":   //复原技能（近似映射：清除英雄「已行动」状态，使主动技能可再次使用）
+                case "201006":   //复原技能：让该玩家的技能本回合可以再次发动
                 {
                     Player player = ResolveInputPlayer(logic, graph, act, "player", caster, target_player) ?? PlayerOf(logic, caster);
-                    if (player == null || player.hero == null)
+                    if (player == null)
                     {
-                        Debug.LogWarning("[NodeDoc] 201006 复原技能失败：无玩家/英雄");
+                        Debug.LogWarning("[NodeDoc] 201006 复原技能失败：无目标玩家");
                         break;
                     }
-                    player.hero.exhausted = false;
-                    Debug.Log("[NodeDoc] 201006 复原技能 玩家 p" + player.player_id + " 英雄已刷新");
+
+                    //① 英雄脱离「已行动」：英雄技能通常用横置（exhaust）限制每回合一次
+                    if (player.hero != null)
+                        player.hero.exhausted = false;
+
+                    //② 清掉"本回合已发动"记录：配了「每回合一次」(once_per_turn) 的技能是靠
+                    //   game_data.ability_played + ConditionOnce 判定的，**只清 exhausted 不够** ——
+                    //   技能看着已刷新，实际仍判"条件不满足"而拒绝发动（表现为：点了没反应）。
+                    //   只清该玩家自己卡上的起动式能力 id（英雄/场上/装备），不影响对手的其它技能。
+                    int cleared = 0;
+                    if (logic.GameData != null && logic.GameData.ability_played != null)
+                    {
+                        List<Card> skill_cards = new List<Card>();
+                        if (player.hero != null)
+                            skill_cards.Add(player.hero);
+                        if (player.cards_board != null)
+                            skill_cards.AddRange(player.cards_board);
+                        if (player.cards_equip != null)
+                            skill_cards.AddRange(player.cards_equip);
+
+                        foreach (Card sc in skill_cards)
+                        {
+                            if (sc == null)
+                                continue;
+                            foreach (AbilityData ab in sc.GetAbilities())
+                            {
+                                if (ab != null && ab.trigger == AbilityTrigger.Activate
+                                    && logic.GameData.ability_played.Remove(ab.id))
+                                    cleared++;
+                            }
+                        }
+                    }
+
+                    Debug.Log("[NodeDoc] 201006 复原技能 玩家 p" + player.player_id
+                        + "：英雄已刷新，清空本回合「已发动」技能记录 " + cleared + " 条"
+                        + (player.hero == null ? "（警告：该玩家没有英雄卡）" : ""));
                     break;
                 }
                 case "201013":   //设置疲劳层数（近似映射：Player「疲劳层数」特性）
@@ -2428,9 +3199,62 @@ namespace TcgEngine.Workshop
                         + " " + key + "=" + visible + " 目标数=" + cards.Count);
                     break;
                 }
-                case "207001":   //发动效果：执行「效果」口解析出的能力(AbilityData)的全部 EffectData
+                case "202030":   //触发卡牌定义宣言：以 cards 为载体，触发 cardDefine 的 打出时(OnPlay) 能力
+                case "202031":   //触发卡牌定义遗言：以 cards 为载体，触发 cardDefine 的 死亡时(OnDeath) 能力
+                case "202032":   //触发法术或技能卡牌定义效果：以 cards 为载体，触发 cardDefine 的法术/技能能力（打出时能力）
                 {
-                    AbilityData effect = ResolveValueEffect(logic, graph, act, caster, target_card, target_player);
+                    CardData dfn = ResolveInputDefine(logic, graph, act, "cardDefine", caster, target_card, target_player);
+                    if (dfn == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] " + act.action + " 失败：卡牌定义口为空（检查 cardDefine 取值线）");
+                        break;
+                    }
+                    List<Card> carriers = ResolveInputCards(logic, graph, act, "cards", caster, target_card);
+                    if (carriers.Count == 0)
+                        carriers.Add(caster);   //未指定载体：以施法卡自身承载
+                    List<Card> triggerers = ResolveInputCards(logic, graph, act, "targets", caster, target_card);
+                    int fired = 0;
+                    foreach (Card carrier in carriers)
+                    {
+                        if (carrier == null)
+                            continue;
+                        if (act.action == "202032")
+                        {
+                            if (dfn.abilities == null)
+                                continue;
+                            foreach (AbilityData ab in dfn.abilities)
+                            {
+                                if (ab == null || ab.trigger != AbilityTrigger.OnPlay)   //法术/技能效果=打出时能力
+                                    continue;
+                                TriggerDefineAbility(logic, ab, carrier, triggerers);
+                                fired++;
+                            }
+                        }
+                        else
+                        {
+                            AbilityData ab = dfn.GetAbility(act.action == "202031" ? AbilityTrigger.OnDeath : AbilityTrigger.OnPlay);
+                            if (ab != null)
+                            {
+                                TriggerDefineAbility(logic, ab, carrier, triggerers);
+                                fired++;
+                            }
+                        }
+                    }
+                    Debug.Log("[NodeDoc] " + act.action + " 触发定义能力 " + dfn.id + " 载体数=" + carriers.Count + " 触发次数=" + fired);
+                    break;
+                }
+                case "203001":   //展示卡牌定义：TCG2 无"揭示给指定玩家"的界面机制，v1=记录日志（表现层待接入）
+                {
+                    CardData dfn = ResolveInputDefine(logic, graph, act, "cardDefine", caster, target_card, target_player);
+                    Player who = HasInputPin(graph, act, "player")
+                        ? ResolveInputPlayer(logic, graph, act, "player", caster, target_player) : null;
+                    Debug.Log("[NodeDoc] 203001 展示卡牌定义 " + (dfn != null ? dfn.id : "(空)")
+                        + " → " + (who != null ? ("玩家 p" + who.player_id) : "双方") + "（表现层暂未接入界面）");
+                    break;
+                }
+                case "207001":   //发动效果：执行「效果」口(effect)解析出的能力(AbilityData)的全部 EffectData；未连线回退当前效果
+                {
+                    AbilityData effect = ResolveInputEffect(logic, graph, act, "effect", caster, target_card, target_player);
                     if (effect == null || effect.effects == null || effect.effects.Length == 0)
                     {
                         Debug.LogWarning("[NodeDoc] 207001 发动效果失败：效果口为空或该效果无组件（effect="
@@ -2530,6 +3354,81 @@ namespace TcgEngine.Workshop
                         cur_event.cancelled = true;
                     break;
                 }
+                //事件可写通道（208003~208008；NodeDoc.xml 建议改用「转换事件类型 108003 + 设置变量 208001」，
+                //两者写的是同一批事件字段：目标卡/受伤卡/来源/数值）
+                case "208003":   //更改攻击目标
+                case "208004":   //更改使用目标
+                {
+                    if (cur_event == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] " + act.action + " 更改攻击/使用目标：当前无事件上下文（须在「攻击时/使用卡牌时」事件图内），忽略");
+                        break;
+                    }
+                    Card tc = act.action == "208003"
+                        ? ResolveInputCard(logic, graph, act, "target", caster, target_card, target_player)
+                        : FirstCard(ResolveValueCards(logic, graph, act, caster, target_card, target_player, "target"));
+                    if (tc == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] " + act.action + " 未连目标卡牌，忽略");
+                        break;
+                    }
+                    cur_event.target_card = tc;
+                    //引擎限制：TCG2 的"攻击/打出"实际目标由流程参数决定，不是事件字段 → 图上改写只进事件上下文
+                    //（供图内「获取变量·目标卡牌」等读取），不会改变本次实际目标；需改实际目标请用引擎侧配置
+                    Debug.Log("[NodeDoc] " + act.action + " 改写事件目标卡 = " + (tc.CardData != null ? tc.CardData.id : "?")
+                        + "（写入事件上下文，供图内读取）");
+                    break;
+                }
+                case "208005":   //伤害/更改受伤卡牌
+                {
+                    if (cur_event == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 208005 更改受伤卡牌：当前无事件上下文，忽略");
+                        break;
+                    }
+                    Card tc = ResolveInputCard(logic, graph, act, "target", caster, target_card, target_player);
+                    if (tc == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 208005 未连卡牌，忽略");
+                        break;
+                    }
+                    cur_event.card = tc;
+                    Debug.Log("[NodeDoc] 208005 更改受伤卡牌 = " + (tc.CardData != null ? tc.CardData.id : "?")
+                        + "（「伤害时」事件内生效：实际结算改打到该卡）");
+                    break;
+                }
+                case "208006":   //伤害/更改伤害源
+                {
+                    if (cur_event == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 208006 更改伤害源：当前无事件上下文，忽略");
+                        break;
+                    }
+                    Card sc = ResolveInputCard(logic, graph, act, "source", caster, target_card, target_player);
+                    if (sc == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 208006 未连卡牌，忽略");
+                        break;
+                    }
+                    cur_event.source_card = sc;
+                    Debug.Log("[NodeDoc] 208006 更改伤害源 = " + (sc.CardData != null ? sc.CardData.id : "?")
+                        + "（「伤害时」事件内生效：归因/吸血按新来源）");
+                    break;
+                }
+                case "208007":   //伤害/更改伤害值
+                case "208008":   //治疗/更改治疗值
+                {
+                    if (cur_event == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] " + act.action + " 更改伤害/治疗值：当前无事件上下文，忽略");
+                        break;
+                    }
+                    int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "value", 0));
+                    cur_event.value = v;
+                    Debug.Log("[NodeDoc] " + act.action + " 改写事件数值 = " + v + "（「伤害时/治疗时」事件内生效）");
+                    break;
+                }
                 case "208001":   //设置变量（zmcs）：按变量名写回当前事件上下文
                 {
                     if (cur_event == null)
@@ -2538,13 +3437,15 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     string vn = GraphRuntime.GetFieldString(act, "varName", "数值");
-                    if (vn == "数值")
+                    if (vn == "数值" || vn == "伤害值" || vn == "治疗值")
                         cur_event.value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
                             GraphRuntime.GetFieldInt(act, "value", 0));
                     else if (vn == "来源")
                         cur_event.source_card = ResolveInputCard(logic, graph, act, "value", caster, target_card, target_player);
                     else if (vn == "玩家")
                         cur_event.player = ResolveInputPlayer(logic, graph, act, "value", caster, target_player);
+                    else if (vn == "目标卡牌")
+                        cur_event.target_card = ResolveInputCard(logic, graph, act, "value", caster, target_card, target_player);
                     else    //卡牌
                         cur_event.card = ResolveInputCard(logic, graph, act, "value", caster, target_card, target_player);
                     Debug.Log("[NodeDoc] 208001 设置变量 " + vn);
@@ -2592,10 +3493,55 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] 触发按钮效果 超过递归深度上限 8 层，已停止（检查按钮图是否自环）");
                     break;
                 }
+                case "209101":   //设置战斗BGM：战斗内把背景音乐换成音乐库里的指定曲子（表现层请求，不改对局逻辑）
+                {
+                    string bgm = GraphRuntime.GetFieldString(act, "bgm", "");
+                    if (string.IsNullOrEmpty(bgm))
+                        bgm = ResolveInputString(logic, graph, act, "bgm", caster, target_card, target_player);
+                    int vol_pct = GetIntInput(logic, graph, act, "volume", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "volume", -1));
+                    int fade_ms = GetIntInput(logic, graph, act, "fade", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "fade", 800));
+                    TcgEngine.Audio.BgmBattleRuntime.RequestSetBgm(bgm, vol_pct, fade_ms);
+                    break;
+                }
+                case "209102":   //恢复默认BGM：清掉本场战斗内的临时换曲，回到对战界面配置的曲子
+                {
+                    int fade_ms = GetIntInput(logic, graph, act, "fade", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "fade", 800));
+                    TcgEngine.Audio.BgmBattleRuntime.RequestRestoreDefault(fade_ms);
+                    break;
+                }
                 default:
                     Debug.LogWarning("[NodeDoc] 未支持的 NodeDoc 动作，已跳过: " + act.action + " (" + act.title + ")");
                     break;
             }
+        }
+
+        /// <summary>String 型输入口取值：支持内置字符串常量、NodeDoc 112006 字符串常量、以及任何返回字符串的取值节点；
+        /// 无连线/无法解析返回空串（调用方一般会再退回字段默认值）。</summary>
+        private static string ResolveInputString(GameLogic logic, GraphData graph, GraphNode act, string pin_name,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph == null || act == null)
+                return "";
+            GraphPin pin = graph.GetPinByName(act.id, pin_name);
+            GraphLink link = pin != null ? graph.GetIncomingLink(act.id, pin.id) : null;
+            if (link == null)
+                return "";
+            GraphNode src = graph.GetNode(link.from_node);
+            if (src == null)
+                return "";
+
+            if (string.IsNullOrEmpty(src.category) && src.type == GraphNodeType.Value)
+                return GraphRuntime.GetFieldString(src, "value", "");      //内置字符串常量（旧直通节点）
+            if (src.action == "112006")
+                return GraphRuntime.GetFieldString(src, "value", "");      //NodeDoc 字符串常量
+            if (src.action == "103023")
+                return GetObjectInput(logic, graph, act, pin_name, caster, target_card, target_player) as string ?? "";
+
+            object o = GetObjectInput(logic, graph, act, pin_name, caster, target_card, target_player);
+            return o as string ?? "";
         }
 
         /// <summary>Card 型输入口取值：有取值线时按来源解析——
@@ -2916,6 +3862,27 @@ namespace TcgEngine.Workshop
                 return null;
             switch (node.action)
             {
+                case "102023":   //获取合法卡牌使用目标：卡牌口 → 其能力的合法目标集合（含可打脸的敌方英雄卡）
+                {
+                    Card c = ResolveInputCard(logic, graph, node, "card", caster, target_card, target_player);
+                    return ValidPlayTargets(logic, c, null);
+                }
+                case "102024":   //获取合法攻击目标：卡牌口（须为场上随从）→ 可攻击的敌方角色集合
+                {
+                    Card c = ResolveInputCard(logic, graph, node, "card", caster, target_card, target_player);
+                    return ValidAttackTargets(logic, c);
+                }
+                case "103022":   //获取卡牌定义的合法使用目标：定义口 + 源卡牌口（无源卡时以施法卡为载体）
+                {
+                    CardData dfn = ResolveInputDefine(logic, graph, node, "cardDefine", caster, target_card, target_player);
+                    Card src = HasInputPin(graph, node, "source")
+                        ? ResolveInputCard(logic, graph, node, "source", caster, target_card, target_player) : null;
+                    return ValidPlayTargets(logic, src ?? caster, dfn);
+                }
+                case "111036":   //转换集合类型（→ 卡牌集合）
+                    return ConvertToCards(logic, graph, node, caster, target_card, target_player);
+                case "211001":   //遍历：集合通道读到的是"当前元素"
+                    return cur_loop_elem is Card loop_card ? new List<Card> { loop_card } : new List<Card>();
                 case "111012":
                     return EvaluateFilter(logic, graph, node, caster, target_card);
                 case "111029":
@@ -2936,24 +3903,27 @@ namespace TcgEngine.Workshop
                         return new List<Card>();
                     return new List<Card>(node.action == "101008" ? p.cards_deck : p.cards_hand);
                 }
-                case "101017":
+                case "101017":   //获取牌堆：与编辑器下拉一致，支持 战场/手牌/牌库/墓地/装备区/奥秘区/英雄/暂存区
                 {
                     Player p = ResolveValuePlayer(logic, graph, node, caster, target_player);
                     if (p == null)
                         return new List<Card>();
                     string pile = GraphRuntime.GetFieldString(node, "pileName", "牌库");
-                    if (pile == "手牌")
-                        return new List<Card>(p.cards_hand);
-                    if (pile == "墓地" || pile == "弃牌")
-                        return new List<Card>(p.cards_discard);
-                    return new List<Card>(p.cards_deck);
+                    List<Card> zone_list = ZoneCards(p, pile);
+                    if (zone_list == null)
+                    {
+                        //不再"未知区域一律当牌库"：那种静默兜底会让"勾了战场却读到牌库"这类错配无法察觉
+                        Debug.LogWarning("[NodeDoc] 101017 获取牌堆：未知区域「" + pile + "」→ 返回空集合");
+                        return new List<Card>();
+                    }
+                    return new List<Card>(zone_list);
                 }
-                case "105002":   //获取牌堆中的牌（Pile 值通道：来源可为 102029/101017/200004）
+                case "105002":   //获取牌堆中的牌（Pile 值通道：来源可为 102029/101017/200004；含英雄区）
                 {
                     if (!PileDecode(ResolveInputPile(logic, graph, node, "pile", caster, target_card, target_player),
                             out int pid, out string pile))
                         return new List<Card>();
-                    List<Card> list = PileList(logic.GameData.GetPlayer(pid), pile);
+                    List<Card> list = ZoneCards(logic.GameData.GetPlayer(pid), pile);
                     return list != null ? new List<Card>(list) : new List<Card>();
                 }
                 case "111001":   //创建集合：elements 口的单张卡（v1 仅支持卡牌元素）
@@ -3185,8 +4155,10 @@ namespace TcgEngine.Workshop
             return r;
         }
 
-        /// <summary>把中文/英文牌堆名归一为内部名（手牌/牌库/墓地/战场/装备/奥秘；未知返回原样）
-        /// TCG2 无 延迟区/暂存区/技能区/道具栏，输入这些名字恒不在任何牌堆（判假），不强行映射到现有区域。</summary>
+        /// <summary>把中文/英文牌堆名归一为**内部名**：战场 / 手牌 / 牌库 / 墓地 / 装备 / 奥秘 / 英雄 / 暂存区。
+        /// 编辑器下拉用的是显示名（装备区/奥秘区…），因此这里必须同时认两种写法（未知返回原样）。
+        /// TCG2 无 延迟区/技能区/道具栏/备牌区/任务区：输入这些名字恒不在任何牌堆（判假），不强行映射到现有区域。
+        /// 注：「英雄」不是列表区域（= 玩家的 player.hero 单卡），读写由 ZoneCards 单独处理。</summary>
         private static string PileNormalize(string s)
         {
             if (string.IsNullOrEmpty(s))
@@ -3215,14 +4187,24 @@ namespace TcgEngine.Workshop
                 case "equip":
                     return "装备";
                 case "奥秘":
+                case "奥秘区":
                 case "secret":
                     return "奥秘";
+                case "英雄":
+                case "英雄区":
+                case "hero":
+                    return "英雄";
+                case "暂存区":
+                case "临时区":
+                case "temp":
+                    return "暂存区";
                 default:
                     return s;
             }
         }
 
-        /// <summary>查询某卡当前所在牌堆的内部名（遍历双方各区域；不在任何区域返回空串）</summary>
+        /// <summary>查询某卡当前所在牌堆的内部名（遍历双方各区域；含英雄与暂存区；不在任何区域返回空串）。
+        /// 返回值与 PileNormalize 的输出同口径，供 102029 获取卡牌所在牌堆 / 105001·105005 卡牌所在牌堆判断 比较。</summary>
         private static string GetCardPileName(GameLogic logic, Card c)
         {
             if (logic == null || c == null)
@@ -3231,12 +4213,14 @@ namespace TcgEngine.Workshop
             {
                 if (pl == null)
                     continue;
+                if (pl.hero == c) return "英雄";     //英雄是单卡字段、不在任何列表里，必须单独判
                 if (pl.cards_hand != null && pl.cards_hand.Contains(c)) return "手牌";
                 if (pl.cards_deck != null && pl.cards_deck.Contains(c)) return "牌库";
                 if (pl.cards_board != null && pl.cards_board.Contains(c)) return "战场";
                 if (pl.cards_discard != null && pl.cards_discard.Contains(c)) return "墓地";
                 if (pl.cards_equip != null && pl.cards_equip.Contains(c)) return "装备";
                 if (pl.cards_secret != null && pl.cards_secret.Contains(c)) return "奥秘";
+                if (pl.cards_temp != null && pl.cards_temp.Contains(c)) return "暂存区";
             }
             return "";
         }
@@ -3267,12 +4251,13 @@ namespace TcgEngine.Workshop
             return !string.IsNullOrEmpty(pile_name);
         }
 
-        /// <summary>某玩家某区域的卡牌列表（区域名须为内部名；无对应区域返回 null）。</summary>
+        /// <summary>某玩家某区域的**实际列表引用**（可写路径用：移动/清空会直接改这个 list）。
+        /// 区域名先经 PileNormalize 归一（装备区→装备、奥秘区→奥秘…）；「英雄」不是列表 → 返回 null（用 ZoneCards 只读读取）。</summary>
         private static List<Card> PileList(Player p, string pile_name)
         {
             if (p == null)
                 return null;
-            switch (pile_name)
+            switch (PileNormalize(pile_name))
             {
                 case "手牌": return p.cards_hand;
                 case "牌库": return p.cards_deck;
@@ -3281,19 +4266,37 @@ namespace TcgEngine.Workshop
                 case "装备": return p.cards_equip;
                 case "奥秘": return p.cards_secret;
                 case "暂存区": return p.cards_temp;
-                default: return null;
+                default: return null;   //英雄 / 未知区域：不是可读写列表
             }
         }
 
+        /// <summary>某玩家某区域的卡牌列表（**只读**，含「英雄」这种不是列表的区域）：
+        /// 列表区域直接返回其 list，英雄返回只含该英雄卡的新列表，未知区域返回 null。</summary>
+        private static List<Card> ZoneCards(Player p, string zone)
+        {
+            if (p == null)
+                return null;
+            string z = PileNormalize(zone);
+            if (z == "英雄")
+                return p.hero != null ? new List<Card> { p.hero } : new List<Card>();
+            return PileList(p, z);
+        }
+
         /// <summary>把卡牌移入某玩家某区域（仅数据型区域：手牌/牌库/墓地/奥秘/暂存区）。
-        /// 取舍：战场/装备是带占位与佩戴关系的特殊状态区，本通道不写入（请用 210002/装备节点）；
+        /// 取舍：战场/装备区是带占位与佩戴关系的特殊状态区，本通道不写入（请用 210002/装备节点）；
+        /// 英雄不是"牌堆"，也不能被本通道写入（请用英雄相关节点）；
         /// 跨玩家搬运不支持（先经「获得控制权」）；场上/装备中的卡离场须走离场流程，直接拒绝。</summary>
         private static bool PileMoveCard(GameLogic logic, Card c, Player player, string pile_name, int position)
         {
             if (logic == null || c == null || player == null)
                 return false;
-            if (pile_name == "战场" || pile_name == "装备")
+            pile_name = PileNormalize(pile_name);
+            if (pile_name == "战场" || pile_name == "装备" || pile_name == "英雄")
+            {
+                Debug.LogWarning("[NodeDoc] 移入区域被拒绝：" + pile_name
+                    + " 不是可写入的数据型区域（战场/装备区请用召唤·装备类节点；英雄不是牌堆）");
                 return false;
+            }
             List<Card> list = PileList(player, pile_name);
             if (list == null)
                 return false;
@@ -3439,8 +4442,19 @@ namespace TcgEngine.Workshop
                 return null;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（事件通道）
+                    return cur_loop_elem as GraphEventContext;
                 case "108001":   //当前事件
                     return cur_event;
+                case "108003":   //转换事件类型：返回同一事件上下文
+                {
+                    //zmcs 用本节点切换"变量名"预设，再配合「设置变量(208001)」写 目标卡牌/伤害值 等字段；
+                    //TCG2 的变量名是节点上的固定下拉（已含 目标卡牌/伤害值/治疗值），故运行期只需原样返回事件，
+                    //保证「转换事件类型 → 设置变量/获取变量」这条推荐链路能正常跑通。
+                    if (cur_event == null)
+                        Debug.LogWarning("[NodeDoc] 108003 转换事件类型：当前无事件上下文（该节点须在事件效果图内使用，如「XX时/XX后」入口的事件线）");
+                    return cur_event;
+                }
                 case "108012":   //获取事件的父事件
                 {
                     GraphEventContext e = ResolveInputEvent(logic, graph, node, "eventArg", caster, target_card, target_player);
@@ -3503,6 +4517,14 @@ namespace TcgEngine.Workshop
                 return result;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（事件集合通道）
+                {
+                    if (cur_loop_elem is GraphEventContext loop_ev)
+                        result.Add(loop_ev);
+                    return result;
+                }
+                case "111036":   //转换集合类型（→ 事件集合；非事件元素按文档"抛弃不可转换元素"处理）
+                    return ConvertToEvents(logic, graph, node, caster, target_card, target_player);
                 case "108005":   //本局游戏中所有某类型事件
                 {
                     string type = GraphRuntime.GetFieldString(node, "eventRef", "伤害");
@@ -3664,6 +4686,14 @@ namespace TcgEngine.Workshop
                 return result;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（增益通道）
+                {
+                    if (cur_loop_elem is BuffRef loop_buff)
+                        result.Add(loop_buff);
+                    return result;
+                }
+                case "111036":   //转换集合类型（→ 增益集合）
+                    return ConvertToBuffs(logic, graph, node, caster, target_card, target_player);
                 case "106006":   //获取卡牌上的所有增益
                 {
                     Card c = ResolveInputCard(logic, graph, node, "card", caster, target_card, target_player);
@@ -3736,6 +4766,34 @@ namespace TcgEngine.Workshop
                 }
             }
             return result;
+        }
+
+        /// <summary>节点上是否存在该名字的输入引脚。
+        /// 说明：节点由编辑器按 NodeDoc 生成，但部分口被编辑器"有意剥离"改用字段（如 206002/206003/106004/106003
+        /// 的 Buff 口 → 换成 buff_id 下拉字段，见 GraphEditorPanel.cs:904-915）。对这类口必须先判引脚是否存在，
+        /// 否则会触发 ResolveInputBuff/ResolveInputBuffs 的"当前增益/当前上下文"回退，改变既有语义。</summary>
+        private static bool HasInputPin(GraphData graph, GraphNode node, string pin_name)
+        {
+            return graph != null && node != null && graph.GetPinByName(node.id, pin_name) != null;
+        }
+
+        /// <summary>解析「增益定义」单口输入（buffDefine 引脚）：连线来源按 BuffDefine 通道求值；
+        /// 未连线返回 null（由调用方回退到 buff_id 字段）。用于 206001 添加增益等可接线口。</summary>
+        private static BuffData ResolveInputBuffDefine(GameLogic logic, GraphData graph, GraphNode act, string pin_name,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph != null && act != null)
+            {
+                GraphPin pin = graph.GetPinByName(act.id, pin_name);
+                GraphLink link = pin != null ? graph.GetIncomingLink(act.id, pin.id) : null;
+                if (link != null)
+                {
+                    GraphNode src = graph.GetNode(link.from_node);
+                    if (src != null && !string.IsNullOrEmpty(src.category))
+                        return ResolveValueBuffDefine(logic, graph, src, caster, target_card, target_player);
+                }
+            }
+            return null;
         }
 
         /// <summary>增益引用 → 增益定义 id</summary>
@@ -4063,6 +5121,8 @@ namespace TcgEngine.Workshop
                 return null;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（卡牌通道）
+                    return cur_loop_elem as Card;
                 case "102001":
                     return caster;
                 case "101004":
@@ -4080,9 +5140,11 @@ namespace TcgEngine.Workshop
                     List<Card> col = ResolveValueCards(logic, graph, node, caster, target_card, target_player);
                     return col.Count > 0 ? col[GraphRuntime.RandInt(0, col.Count)] : null;
                 }
-                case "111007":   //获取第X个元素：集合口 + 元素位置(Int32，可取值线/循环节点)
+                case "111007":   //获取第X个元素：集合口(array，与 111026/111028 同族) + 元素位置(Int32)
                 {
-                    List<Card> col = ResolveValueCards(logic, graph, node, caster, target_card, target_player);
+                    List<Card> col = ResolveValueCards(logic, graph, node, caster, target_card, target_player, "array");
+                    if (col.Count == 0)
+                        col = ResolveValueCards(logic, graph, node, caster, target_card, target_player);   //旧图默认口兼容
                     int idx = GetIntInput(logic, graph, node, "index", caster, target_card, target_player, 0);
                     return (idx >= 0 && idx < col.Count) ? col[idx] : null;
                 }
@@ -4187,6 +5249,9 @@ namespace TcgEngine.Workshop
                 return cur_event != null ? cur_event.source_card : null;
             if (name == "目标")
                 return target_card ?? (cur_event != null ? cur_event.card : null);
+            //「目标卡牌」= 事件里的目标卡（208003/208004 或 208001 写入；未写则回退到入口选中目标/事件主体卡）
+            if (name == "目标卡牌")
+                return cur_event != null ? (cur_event.target_card ?? target_card ?? cur_event.card) : target_card;
             return cur_event != null ? (cur_event.card ?? caster) : caster;
         }
 
@@ -4202,11 +5267,29 @@ namespace TcgEngine.Workshop
             return owner ?? PlayerOf(logic, caster);
         }
 
+        /// <summary>类型判断节点的"卡牌类型"取值：新节点用 type 枚举字段；
+        /// 旧变体（102002/103005/104003）用 select（卡牌定义选择）→ 取所选定义的 type。取不到返回原值（视为不匹配）。
+        /// 旧图兼容：老图上没有 type 字段，只有 select。</summary>
+        private static string TypeFieldOrLegacySelect(GraphNode node)
+        {
+            string t = GraphRuntime.GetFieldString(node, "type", "");
+            if (!string.IsNullOrEmpty(t) && t != "无")
+                return t;
+            string sel = GraphRuntime.GetFieldString(node, "select", "");
+            if (!string.IsNullOrEmpty(sel))
+            {
+                CardData d = CardData.Get(sel);
+                if (d != null)
+                    return CardTypeName(d.type);   //CardData.type 是 CardType 枚举 → 统一转成中文类型名（与 type 字段同口径）
+            }
+            return t;
+        }
+
         /// <summary>事件家族：按「变量名」从当前事件上下文取整数（数值）</summary>
         private static int? EventVarInt(GraphNode node)
         {
             string name = GraphRuntime.GetFieldString(node, "varName", "数值");
-            if (name != "数值")
+            if (name != "数值" && name != "伤害值" && name != "治疗值")
                 return null;
             return cur_event != null ? cur_event.value : 0;
         }
@@ -4221,6 +5304,24 @@ namespace TcgEngine.Workshop
                 return null;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（定义通道）
+                    return cur_loop_elem as CardData;
+                case "111036":   //转换集合类型（→ 定义集合，单定义消费者取首个）
+                {
+                    List<CardData> defs = ConvertToDefines(logic, graph, node, caster, target_card, target_player);
+                    return defs.Count > 0 ? defs[0] : null;
+                }
+                case "103016":   //获取卡牌定义对应角色：TCG2 无"定义→角色归属"字段，
+                                 //v1=定义本身为英雄/随从时返回该定义（该项目的"角色"即随从/英雄实体），否则空
+                {
+                    CardData d = ResolveInputDefine(logic, graph, node, "card", caster, target_card, target_player);
+                    if (d == null)
+                        return null;
+                    if (d.type == CardType.Hero || d.type == CardType.Character)
+                        return d;
+                    Debug.LogWarning("[NodeDoc] 103016 获取卡牌定义对应角色：TCG2 无定义→角色归属字段，非英雄/随从定义返回空（" + d.id + "）");
+                    return null;
+                }
                 case "103002":
                 {
                     string id = GraphRuntime.GetFieldString(node, "cardRef", "");
@@ -4332,6 +5433,31 @@ namespace TcgEngine.Workshop
 
         /// <summary>求值 Effect 输出的 NodeDoc 取值节点（单个效果）：107001 该效果 / 107004 卡牌效果(首个) /
         /// 107006 卡牌定义效果(首个) / 112007 临时变量；107005 增益效果（TCG2 增益无独立效果列表）返回 null。</summary>
+        /// <summary>解析「效果」单口输入（effect 引脚）：连线的来源节点按效果通道求值；
+        /// 未连线或求值为空时回退"当前正在运行的效果"（ctx_ability，即 107001 该效果）。
+        /// 说明：旧实现直接对节点自身调用 ResolveValueEffect（等价于把 207001/107003/107007 自己当效果源），
+        /// 求值通道里没有这三个分支 → effect 口恒空，连线完全失效。</summary>
+        private static AbilityData ResolveInputEffect(GameLogic logic, GraphData graph, GraphNode act, string pin_name,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph != null && act != null)
+            {
+                GraphPin pin = graph.GetPinByName(act.id, pin_name);
+                GraphLink link = pin != null ? graph.GetIncomingLink(act.id, pin.id) : null;
+                if (link != null)
+                {
+                    GraphNode src = graph.GetNode(link.from_node);
+                    if (src != null && !string.IsNullOrEmpty(src.category))
+                    {
+                        AbilityData e = ResolveValueEffect(logic, graph, src, caster, target_card, target_player);
+                        if (e != null)
+                            return e;
+                    }
+                }
+            }
+            return ctx_ability;
+        }
+
         private static AbilityData ResolveValueEffect(GameLogic logic, GraphData graph, GraphNode node,
             Card caster, Card target_card, Player target_player)
         {
@@ -4427,7 +5553,7 @@ namespace TcgEngine.Workshop
             List<Card> result = new List<Card>();
             if (logic == null)
                 return result;
-            AbilityData effect = ResolveValueEffect(logic, graph, node, caster, target_card, target_player);
+            AbilityData effect = ResolveInputEffect(logic, graph, node, "effect", caster, target_card, target_player);
             if (effect == null)
                 return result;
             Card source = ResolveInputCard(logic, graph, node, "source", caster, target_card, target_player) ?? caster;
@@ -4619,6 +5745,14 @@ namespace TcgEngine.Workshop
                 return result;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（定义集合通道）
+                {
+                    if (cur_loop_elem is CardData loop_def)
+                        result.Add(loop_def);
+                    return result;
+                }
+                case "111036":   //转换集合类型（→ 定义集合）
+                    return ConvertToDefines(logic, graph, node, caster, target_card, target_player);
                 case "103001":
                     result.AddRange(CardData.card_list);
                     return result;
@@ -4864,6 +5998,10 @@ namespace TcgEngine.Workshop
                 return null;
             switch (node.action)
             {
+                case "211001":   //遍历：element 输出口 → 当前遍历元素（玩家通道）
+                    return cur_loop_elem as Player;
+                case "111036":   //转换集合类型（→ 玩家，单消费者取首个）；本通道无 target_card 上下文，传 null
+                    return ConvertToPlayer(logic, graph, node, caster, null, target_player);
                 case "102010":
                 {
                     Card c = ResolveInputCard(logic, graph, node, "card", caster, null, target_player);
@@ -4995,9 +6133,10 @@ namespace TcgEngine.Workshop
                     return p != null && p.cards_equip != null && p.cards_equip.Count > 0;
                 }
                 case "102032":  //卡牌类型判断：卡牌口 + 卡牌类型(枚举字段) → 真值
+                case "102002":  //（旧版变体：类型来自"卡牌定义选择"口 select → 取所选定义的 type；旧图兼容）
                 {
                     Card c = ResolveInputCardFiltered(logic, graph, node, "card", elem_filter, cur_elem, caster, target_card, null);
-                    return c != null && CardTypeMatches(c, GraphRuntime.GetFieldString(node, "type", ""));
+                    return c != null && CardTypeMatches(c, TypeFieldOrLegacySelect(node));
                 }
                 case "EFCardOwner":   //卡牌归属：己方/敌方（入口「目标N条件」链里用它替代旧的「目标归属」下拉）
                 {
@@ -5108,10 +6247,10 @@ namespace TcgEngine.Workshop
                     }
                     finally { evaluating_filters.Remove(node.id); }
                 }
-                case "112005":  //逻辑运算：值口(布尔，支持多线) + 运算符(且/或/非)
+                case "112005":  //逻辑运算：编号输入槽（每槽可连线，也可手填布尔） + 运算符(且/或/非)
                 {
                     string op = GraphRuntime.GetFieldString(node, "operator", "且");
-                    List<bool> vals = ResolveAllBoolArgs(logic, graph, node, "value", caster, target_card, null);
+                    List<bool> vals = ResolveBoolParamSlots(logic, graph, node, caster, target_card, null);
                     if (vals.Count == 0)
                         vals.Add(GraphRuntime.GetFieldString(node, "value", "true") == "true");
                     if (op == "非")
@@ -5147,18 +6286,19 @@ namespace TcgEngine.Workshop
                     return v == null;
                 }
                 case "103024":  //卡牌定义类型判断：定义口(card) + 卡牌类型(枚举字段)
+                case "103005":  //（旧版变体：类型来自 select 卡牌定义选择口；旧图兼容）
                 {
                     CardData d = ResolveInputDefineFiltered(logic, graph, node, "card", elem_filter, cur_define, caster, target_card, null);
-                    return d != null && DefineTypeMatches(d, GraphRuntime.GetFieldString(node, "type", ""));
+                    return d != null && DefineTypeMatches(d, TypeFieldOrLegacySelect(node));
                 }
-                case "103017":  //卡牌定义具有宣言（v1=定义带有 打出时(OnPlay) 能力）
+                case "103017":  //卡牌定义具有宣言（v1=定义带有 打出时(OnPlay) 能力）；定义口=cardDefine（同族 103014/103021）
                 {
-                    CardData d = ResolveInputDefineFiltered(logic, graph, node, "card", elem_filter, cur_define, caster, target_card, null);
+                    CardData d = ResolveInputDefineFiltered(logic, graph, node, "cardDefine", elem_filter, cur_define, caster, target_card, null);
                     return d != null && DefineHasTrigger(d, AbilityTrigger.OnPlay);
                 }
-                case "103018":  //卡牌定义具有遗言（v1=定义带有 死亡时(OnDeath) 能力）
+                case "103018":  //卡牌定义具有遗言（v1=定义带有 死亡时(OnDeath) 能力）；定义口=cardDefine
                 {
-                    CardData d = ResolveInputDefineFiltered(logic, graph, node, "card", elem_filter, cur_define, caster, target_card, null);
+                    CardData d = ResolveInputDefineFiltered(logic, graph, node, "cardDefine", elem_filter, cur_define, caster, target_card, null);
                     return d != null && DefineHasTrigger(d, AbilityTrigger.OnDeath);
                 }
                 case "106003":  //是否具有增益：卡牌口 + buff_id(字段，BuffPoolIO 池) → 布尔
@@ -5192,9 +6332,10 @@ namespace TcgEngine.Workshop
                     return r.card.GetTraitValue(BuffVisKey(BuffRefId(r), prop, vp.player_id)) > 0;
                 }
                 case "104017":  //卡牌快照类型判断（卡牌类型下拉）
+                case "104003":  //（旧版变体：类型来自 select 卡牌定义选择口；旧图兼容）
                 {
                     Card sc = SnapshotInput(logic, graph, node, caster, target_card, null);
-                    return sc != null && CardTypeMatches(sc, GraphRuntime.GetFieldString(node, "type", ""));
+                    return sc != null && CardTypeMatches(sc, TypeFieldOrLegacySelect(node));
                 }
                 case "104004":  //卡牌快照关键词判断
                 {

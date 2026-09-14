@@ -266,8 +266,9 @@ namespace TcgEngine.Workshop
             return name;
         }
 
-        /// <summary>AudioClip → 16-bit PCM WAV 字节（运行时无法还原原始 mp3/ogg 压缩字节，统一重编码为 wav）</summary>
-        private static byte[] AudioClipToWav(AudioClip clip)
+        /// <summary>AudioClip → 16-bit PCM WAV 字节（运行时无法还原原始 mp3/ogg 压缩字节，统一重编码为 wav）。
+        /// 公开给音效DIY编辑器复用（同一套编码口径，避免重复造轮子）。</summary>
+        public static byte[] AudioClipToWav(AudioClip clip)
         {
             try
             {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TcgEngine.Client;
+using TcgEngine.Audio;   //BgmManager / BgmKeys（场景BGM配置）
 
 namespace TcgEngine.UI
 {
@@ -37,13 +38,19 @@ namespace TcgEngine.UI
             //Set default settings
             Application.targetFrameRate = 120;
             GameClient.game_settings = GameSettings.Default;
+
+            //回到大厅 = 局域网会话结束（清掉断线兜底守卫；不在局域网会话里时是空操作）
+            GameClientLAN.EndSession();
         }
 
         private void Start()
         {
             BlackPanel.Get().Show(true);
-            AudioTool.Get().PlayMusic("music", music);
+            //主菜单 BGM：优先用「场景BGM配置」里 main_menu 配的曲；未配置则回退到本组件 Inspector 上挂的 music（迁移兼容）
+            BgmManager.PlayFor(BgmKeys.MainMenu, false, music, 0.4f);
             AudioTool.Get().PlaySFX("ambience", ambience, 0.5f, true, true);
+            MusicLibraryLauncher.EnsureEntry();   //主菜单「音乐库」入口（运行时注入，不依赖重跑生成工具）
+            LanPanel.EnsureMenuEntry();           //主菜单「局域网对战」入口（运行时注入；也可在场景里手放按钮绑 OnClickLan）
 
             //防御：重构后这些引用可能未被绑定（指向已隐藏/被删除的 TopBar 元素），判空避免 NRE
             if (username_txt != null) username_txt.text = "";
@@ -272,6 +279,13 @@ namespace TcgEngine.UI
             SoloPanel.Get().Show();
         }
 
+        /// <summary>局域网对战入口（开房/加入，房主直连，不走匹配服务器）。
+        /// 场景按钮可直接绑本方法；未登录时由 GameClientLAN 用本地身份兜底（AuthenticatorLocal）。</summary>
+        public void OnClickLan()
+        {
+            LanPanel.Open(transform);
+        }
+
         public void OnClickPvP()
         {
             if (!Authenticator.Get().IsConnected())
@@ -296,6 +310,12 @@ namespace TcgEngine.UI
         {
             if (CardPoolPanel.Get() != null)
                 CardPoolPanel.Get().Show();
+        }
+
+        /// <summary>打开「音乐库」（主菜单音乐配置入口）。场景里也可直接把按钮 OnClick 绑到本方法。</summary>
+        public void OnClickMusicLibrary()
+        {
+            MusicLibraryLauncher.Open(transform);
         }
 
         /// <summary>打开关键词管理面板（场景按钮 OnClick 里选此方法；面板未生成时提示）</summary>

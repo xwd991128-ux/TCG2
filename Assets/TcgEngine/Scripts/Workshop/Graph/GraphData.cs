@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TcgEngine.VFX;   //VFXConfig：动作/事件节点的可选特效配置
 
 namespace TcgEngine.Workshop
 {
@@ -110,6 +111,10 @@ namespace TcgEngine.Workshop
         public bool collapsed;                     // 收起节点：只显示头部，端口/描述隐藏，连线不断
         public List<GraphPin> pins = new List<GraphPin>();
         public List<FieldCustomData> fields = new List<FieldCustomData>();
+
+        //可选特效配置（动作/事件节点用；函数节点不显示入口也不生效）。
+        //序列化：随图 JSON 落盘（frame_names/曲线点数组等均为 JsonUtility 友好结构），null=未配置（运行时零开销）
+        public VFXConfig vfx;
     }
 
     /// <summary>

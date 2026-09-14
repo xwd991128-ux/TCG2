@@ -4,6 +4,7 @@ using UnityEngine;
 using TcgEngine.Client;
 using UnityEngine.Events;
 using TcgEngine.UI;
+using TcgEngine.Audio;   //BgmManager / BgmKeys（场景BGM配置）
 
 namespace TcgEngine.Client
 {
@@ -110,6 +111,8 @@ namespace TcgEngine.Client
             bool tied = pwinner == null;
 
             AudioTool.Get().FadeOutMusic("music");
+            //进入结算：停掉 BGM（配置表 end_game 若配了曲子则改播该曲，默认停，交给胜负音乐）
+            BgmManager.PlayFor(BgmKeys.EndGame);
 
             yield return new WaitForSeconds(1f);
 

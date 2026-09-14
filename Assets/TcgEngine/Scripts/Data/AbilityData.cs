@@ -784,6 +784,10 @@ namespace TcgEngine
         OnAfterTurnStart = 85,   //回合开始后
         OnBeforeTurnEnd = 86,    //回合结束前
         OnAfterTurnEnd = 87,     //回合结束后
+        //起动式（Activate=5）能力的「时/后」广播时点：由 GameLogic.CastAbility / AfterAbilityResolved 发出，
+        //供全场图监听（可阻止本次发动 / 发动结算后连锁）——与 OnBeforePlay/OnAfterDamage 同一套图事件机制
+        OnBeforeActivate = 88,   //起动式能力发动前（可阻止；value=灵力费用）
+        OnAfterActivate = 89,    //起动式能力发动后（灵力已扣、效果已结算）
     }
 
     /// <summary>

@@ -17,7 +17,15 @@ namespace TcgEngine.UI
         public bool is_opponent;
         public Text pname;
         public AvatarUI avatar;
+
+        /// <summary>旧「空心/实心圆」灵力条：本面板已改为文本三值显示（见 mana_txt）。
+        /// 该引用保留只为不破坏现有场景/预制绑定，不再写入数值；未拖绑时为 null，逻辑不受影响。</summary>
         public IconBar mana_bar;
+
+        /// <summary>三套灵力文本「当前灵力 / 灵力上限 / 最大灵力值」（TMP，优先）。
+        /// 可手动拖绑任意 TMP 文本；留空时会在运行时自动创建（位置复制 mana_bar，找不到则放面板底部居中）。</summary>
+        public TMPro.TMP_Text mana_txt;
+
         public Text hp_txt;
         public Text hp_max_txt;
         public PlayedCardsPanel played_cards_panel_prefab;
@@ -52,6 +60,7 @@ namespace TcgEngine.UI
             pname.text = "";
             hp_txt.text = "";
             hp_max_txt.text = "";
+            EnsureManaText();   //三套灵力：文本显示（未拖绑则运行时创建，并停用旧圆点条）
 
             for (int i = 0; i < secrets.Length; i++)
                 secrets[i].gameObject.SetActive(false);
@@ -70,8 +79,15 @@ namespace TcgEngine.UI
             if (player != null)
             {
                 pname.text = player.username;
-                mana_bar.value = player.mana;
-                mana_bar.max_value = player.mana_max;
+                //三套灵力：当前灵力 / 灵力上限 / 最大灵力值（实时刷新）
+                if (mana_txt != null)
+                    mana_txt.text = player.mana + " / " + player.mana_max + " / " + player.GetManaMaxTotal();
+                else if (mana_bar != null)
+                {
+                    //兜底：TMP 文本创建失败时退回旧圆点显示，避免灵力完全不显示
+                    mana_bar.value = player.mana;
+                    mana_bar.max_value = player.mana_max;
+                }
                 hp_txt.text = prev_hp.ToString();
                 hp_max_txt.text = "/" + player.hp_max.ToString();
 
@@ -112,6 +128,56 @@ namespace TcgEngine.UI
                 if (!active && was_active)
                     secrets[i].Rebind();
             }
+        }
+
+        /// <summary>
+        /// 灵力文本兜底创建：优先使用场景里拖绑的 mana_txt；没有则在运行时创建 TMP 文本，
+        /// 位置优先复制旧圆点条 mana_bar（视觉上原地替换），并把旧圆点条整条停用（对象保留，便于回退）。
+        /// 只在绑定/创建成功后才停用圆点条：万一 TMP 创建失败，旧显示仍然可用。
+        /// </summary>
+        private void EnsureManaText()
+        {
+            if (mana_txt != null)
+            {
+                if (mana_bar != null)
+                    mana_bar.gameObject.SetActive(false);
+                return;
+            }
+
+            GameObject go = new GameObject("ManaText", typeof(RectTransform));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(transform, false);
+
+            RectTransform src = mana_bar != null ? mana_bar.GetComponent<RectTransform>() : null;
+            if (src != null)
+            {
+                rt.anchorMin = src.anchorMin;
+                rt.anchorMax = src.anchorMax;
+                rt.pivot = src.pivot;
+                rt.anchoredPosition = src.anchoredPosition;
+                rt.sizeDelta = new Vector2(Mathf.Max(src.sizeDelta.x, 180f), Mathf.Max(src.sizeDelta.y, 32f));
+            }
+            else
+            {
+                rt.anchorMin = new Vector2(0.5f, 0f);
+                rt.anchorMax = new Vector2(0.5f, 0f);
+                rt.pivot = new Vector2(0.5f, 0f);
+                rt.anchoredPosition = new Vector2(0f, 12f);
+                rt.sizeDelta = new Vector2(200f, 32f);
+            }
+
+            TMPro.TextMeshProUGUI txt = go.AddComponent<TMPro.TextMeshProUGUI>();
+            UIFonts.ApplyFont(txt);                 //全项目统一字体管线（含中文字形）
+            txt.fontSize = 24;
+            txt.alignment = TMPro.TextAlignmentOptions.Center;
+            txt.color = Color.white;
+            txt.enableWordWrapping = false;
+            txt.overflowMode = TMPro.TextOverflowModes.Overflow;
+            txt.raycastTarget = false;
+            mana_txt = txt;
+
+            if (mana_bar != null)
+                mana_bar.gameObject.SetActive(false);   //创建成功：停用旧圆点灵力显示
         }
 
         public void Kill()

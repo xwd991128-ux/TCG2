@@ -46,7 +46,7 @@ namespace TcgEngine.UI
             focus = nextfocus;
 
             if (focus_highlight != null && IsVisible())
-                focus_highlight.enabled = focus && interactable;
+                focus_highlight.enabled = focus && IsInteractable();   //"可用高亮"必须等于"现在真能发动"，否则会出现"看着可用、点了没反应"
         }
 
         public void SetAbility(Card card, AbilityData iability)
@@ -80,14 +80,17 @@ namespace TcgEngine.UI
 
         public void OnClick()
         {
-            if (card != null && iability != null)
+            if (card == null || iability == null)
+                return;
+            if (!Tutorial.Get().CanDo(TutoEndTrigger.CastAbility, card))
+                return;
+            if (!IsInteractable())
             {
-                if (!Tutorial.Get().CanDo(TutoEndTrigger.CastAbility, card))
-                    return;
-
-                GameClient.Get().CastAbility(card, iability);
-                PlayerControls.Get().UnselectAll();
+                WarningText.ShowText(RefuseReason(card, iability));   //给出原因，不再静默丢弃
+                return;
             }
+            GameClient.Get().CastAbility(card, iability);
+            PlayerControls.Get().UnselectAll();
         }
 
         public AbilityData GetAbility()
@@ -100,9 +103,51 @@ namespace TcgEngine.UI
             return canvas_group.alpha > 0.5f;
         }
 
+        /// <summary>按钮是否"现在真的能发动"：基础可发动状态（BoardCard 传入的 Game.CanCastAbility）
+        /// **且** 处于自己的行动回合（= 服务端 ReceiveCastCardAbility 的准入条件）。
+        /// 旧实现只判 CanCastAbility，不含回合/选择器状态 → 按钮会亮但点下去被服务端静默丢弃（"看着可用、点了没反应"）。</summary>
         public bool IsInteractable()
         {
-            return interactable && IsVisible();
+            return interactable && IsVisible() && IsActionTurnNow();
+        }
+
+        /// <summary>是否处于自己的行动回合（与服务端一致的判定：current_player 是自己 && Play && Main && selector==None）</summary>
+        private static bool IsActionTurnNow()
+        {
+            GameClient gc = GameClient.Get();
+            if (gc == null || !gc.IsReady())
+                return false;
+            Game gdata = gc.GetGameData();
+            Player player = gc.GetPlayer();
+            return gdata != null && player != null && gdata.IsPlayerActionTurn(player);
+        }
+
+        /// <summary>
+        /// 不能发动的原因（点击时用 WarningText 显示，避免"点了完全没反应"）。
+        /// 判定次序与 Game.CanCastAbility / Player.CanPayAbility 一致，便于一眼定位是配置问题还是费用问题。
+        /// 返回 null = 可以发动。
+        /// </summary>
+        public static string RefuseReason(Card card, AbilityData ability)
+        {
+            if (card == null || ability == null)
+                return "无法使用";
+            GameClient gc = GameClient.Get();
+            if (gc == null || !gc.IsReady())
+                return "对局尚未就绪";
+            Game gdata = gc.GetGameData();
+            Player me = gc.GetPlayer();
+            if (gdata == null || me == null)
+                return "无法使用";
+            if (!gdata.IsPlayerActionTurn(me))
+                return gdata.IsPlayerSelectorTurn(me) ? "请先完成目标选择" : "不是你的行动回合";
+            if (ability.exhaust && card.exhausted)
+                return "本卡本回合已行动（可用「复原技能」刷新）";
+            Player owner = gdata.GetPlayer(card.player_id);
+            if (owner != null && owner.mana < ability.mana_cost)
+                return "灵力不足（需要 " + ability.mana_cost + "，当前 " + owner.mana + "）";
+            if (!gdata.CanCastAbility(card, ability))
+                return "发动条件不满足（检查「发动条件」连线/每回合一次/沉默等）";
+            return null;
         }
 
         public void MouseEnter()

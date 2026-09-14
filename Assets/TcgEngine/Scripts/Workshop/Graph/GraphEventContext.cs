@@ -22,6 +22,7 @@ namespace TcgEngine.Workshop
         public GraphEventPhase phase;  // 时 / 后
         public Card card;              // 事件主体卡（被使用的牌 / 受伤的卡 / 抽到的卡），可为空
         public Card source_card;       // 来源卡（伤害来源等），可为空
+        public Card target_card;       // 目标卡（攻击目标/使用目标；208003/208004 与变量名「目标卡牌」读写），可为空
         public Player player;          // 主体玩家（抽牌玩家等），可为空
         public int value;              // 事件数值（伤害量 / 抽卡批次等；Before 事件下可被「修改事件值」改写并生效）
         public int slot = -1;          // 事件主体卡所在牌堆中的位置（slot/第几张；无则 -1）

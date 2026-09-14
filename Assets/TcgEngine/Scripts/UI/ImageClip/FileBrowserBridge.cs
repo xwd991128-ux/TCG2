@@ -23,7 +23,11 @@ namespace TcgEngine.UI
         /// <summary>图片过滤器（FileDialogTool 约定格式：显示名|通配符）</summary>
         public const string IMAGE_FILTER = "图片文件 (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp";
 
+        /// <summary>音频过滤器（音效DIY/选择音效共用；格式以项目已支持解码的为准）</summary>
+        public const string AUDIO_FILTER = "音频文件 (*.wav;*.ogg;*.mp3;*.aif;*.aiff)|*.wav;*.ogg;*.mp3;*.aif;*.aiff";
+
         private static readonly string[] SUPPORTED_EXT = { ".png", ".jpg", ".jpeg", ".bmp" };
+        private static readonly string[] SUPPORTED_AUDIO_EXT = { ".wav", ".ogg", ".mp3", ".aif", ".aiff" };
 
         /// <summary>当前平台是否支持本地文件对话框</summary>
         public static bool IsSupported
@@ -45,9 +49,21 @@ namespace TcgEngine.UI
         /// </summary>
         public static string OpenImageFile(string title = "选择图片")
         {
+            return OpenFile(string.IsNullOrEmpty(title) ? "选择图片" : title, IMAGE_FILTER);
+        }
+
+        /// <summary>打开音频选择对话框（音效DIY导入素材用），返回单个文件路径；取消/不支持返回 null。</summary>
+        public static string OpenAudioFile(string title = "选择音频")
+        {
+            return OpenFile(string.IsNullOrEmpty(title) ? "选择音频" : title, AUDIO_FILTER);
+        }
+
+        /// <summary>通用文件对话框（同步阻塞：期间把 Time.timeScale 置 0，返回前原样恢复）</summary>
+        private static string OpenFile(string title, string filter)
+        {
             if (!IsSupported)
             {
-                Debug.LogWarning("卡图裁切：当前平台不支持本地文件对话框。" + SupportMatrix);
+                Debug.LogWarning("本地文件导入：当前平台不支持本地文件对话框。" + SupportMatrix);
                 return null;
             }
 
@@ -55,8 +71,7 @@ namespace TcgEngine.UI
             try
             {
                 Time.timeScale = 0f;   //弹框期间冻结对局；用 prev_scale 原样恢复，避免覆盖项目自身设置
-                string[] files = FileDialogTool.OpenFiles(
-                    string.IsNullOrEmpty(title) ? "选择图片" : title, IMAGE_FILTER, false);
+                string[] files = FileDialogTool.OpenFiles(title, filter, false);
                 if (files == null || files.Length == 0)
                     return null;
                 return files[0];
@@ -75,15 +90,26 @@ namespace TcgEngine.UI
         /// <summary>扩展名是否受支持（png/jpg/jpeg/bmp，忽略大小写）</summary>
         public static bool IsSupportedExtension(string path)
         {
+            return HasExtension(path, SUPPORTED_EXT);
+        }
+
+        /// <summary>音频扩展名是否受支持（wav/ogg/mp3/aif/aiff，忽略大小写）</summary>
+        public static bool IsSupportedAudioExtension(string path)
+        {
+            return HasExtension(path, SUPPORTED_AUDIO_EXT);
+        }
+
+        private static bool HasExtension(string path, string[] allow)
+        {
             if (string.IsNullOrEmpty(path))
                 return false;
             string ext = System.IO.Path.GetExtension(path);
             if (string.IsNullOrEmpty(ext))
                 return false;
             ext = ext.ToLowerInvariant();
-            for (int i = 0; i < SUPPORTED_EXT.Length; i++)
+            for (int i = 0; i < allow.Length; i++)
             {
-                if (SUPPORTED_EXT[i] == ext)
+                if (allow[i] == ext)
                     return true;
             }
             return false;

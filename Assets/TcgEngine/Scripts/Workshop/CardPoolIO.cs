@@ -852,6 +852,7 @@ namespace TcgEngine.Workshop
                 case "OnAttack": return AbilityTrigger.OnBeforeAttack;
                 case "OnDraw": return AbilityTrigger.OnDraw;
                 case "ActivateEffect": return AbilityTrigger.OnPlay;    //主动效果入口（zmcs）= 打出时触发（炉石战吼/法术）
+                case "ActivateAbility": return AbilityTrigger.Activate; //起动式效果入口（zmcs）= 点击发动（英雄技能/卡牌主动技）
                 case "AuraEffect": return AbilityTrigger.Ongoing;       //光环效果入口（zmcs）
                 //图事件入口（EventContext 广播）：action 名与 AbilityTrigger 枚举名一致（事件预设 BuildGraphEventPresets）
                 case "OnBeforePlay": return AbilityTrigger.OnBeforePlay;
@@ -876,6 +877,9 @@ namespace TcgEngine.Workshop
                 case "OnAfterTurnStart": return AbilityTrigger.OnAfterTurnStart;
                 case "OnBeforeTurnEnd": return AbilityTrigger.OnBeforeTurnEnd;
                 case "OnAfterTurnEnd": return AbilityTrigger.OnAfterTurnEnd;
+                //起动式（Activate）能力的「时/后」：GameLogic.CastAbility 与 AfterAbilityResolved 广播
+                case "OnBeforeActivate": return AbilityTrigger.OnBeforeActivate;
+                case "OnAfterActivate": return AbilityTrigger.OnAfterActivate;
                 default: return AbilityTrigger.None;
             }
         }
@@ -1067,8 +1071,27 @@ namespace TcgEngine.Workshop
         /// 目标槽 ≤1 → 沿用旧的单目标编译（角色=PlayTarget/SelectTarget，英雄=直接指向玩家）。</summary>
         private static void ApplyEntryOverrides(AbilityData ab, GraphNode ev, bool is_spell, GraphData graph)
         {
-            if (ab == null || ev == null || ev.action != "ActivateEffect")
+            if (ab == null || ev == null)
                 return;
+            //带目标槽的图入口：主动效果入口（打出触发）/ 起动式效果入口（点击发动）共用同一套目标槽编译
+            if (ev.action != "ActivateEffect" && ev.action != "ActivateAbility")
+                return;
+
+            //起动式效果入口：能力自身的参数（灵力费用/横置/每回合一次/能力名与描述）——与目标槽无关，先读
+            if (ev.action == "ActivateAbility")
+            {
+                ab.mana_cost = GraphRuntime.GetFieldInt(ev, "mana_cost", 0);
+                ab.exhaust = GraphRuntime.GetFieldString(ev, "exhaust", "true") != "false";
+                if (GraphRuntime.GetFieldString(ev, "once_per_turn", "false") == "true")
+                    ab.conditions_trigger = AppendCondition(ab.conditions_trigger,
+                        ScriptableObject.CreateInstance<ConditionOnce>());   //每回合一次（ability_played 每回合清空）
+                string at = GraphRuntime.GetFieldString(ev, "ability_title", "");
+                if (!string.IsNullOrEmpty(at))
+                    ab.title = at;
+                string ad = GraphRuntime.GetFieldString(ev, "ability_desc", "");
+                if (!string.IsNullOrEmpty(ad))
+                    ab.desc = ad;
+            }
 
             List<EntrySlotSpec> slots = ReadEntryTargetSlots(ev);
             List<EntrySlotSpec> active = new List<EntrySlotSpec>();
@@ -1152,10 +1175,10 @@ namespace TcgEngine.Workshop
             else
             {
                 ab.target = AbilityTarget.None; //无目标：走无目标分支直接执行（NodeDoc 动作自行决定目标）
-                //新拖的入口默认零目标槽；下游若引用了 目标卡牌N，往往说明用户忘了点「＋ 新增目标」，提示避免"打出无反应"
+                //新拖的入口默认零目标槽；下游若引用了 目标卡牌N，往往说明用户忘了点「＋ 新增目标」，提示避免"无反应"
                 if (graph != null && GraphHasNodeDocAction(graph, ev.id))
-                    Debug.LogWarning("[规则图] 主动效果入口没有目标槽（点入口上的「＋ 新增目标」并设置目标类型），当前按无目标执行: "
-                        + (ev.title ?? ev.action));
+                    Debug.LogWarning("[规则图] " + (ev.title ?? "图入口") + " 没有目标槽（点入口上的「＋ 新增目标」并设置目标类型），当前按无目标执行: "
+                        + ev.action);
             }
             //目标条件（zmcs：目标1条件 ← 条件节点链，如 卡牌类型判断=仆从）
             if (first != null)
@@ -1258,8 +1281,15 @@ namespace TcgEngine.Workshop
             {
                 EffectMana mana = ScriptableObject.CreateInstance<EffectMana>();
                 string mode = GraphRuntime.GetFieldString(node, "mana_mode", "增加上限(空水晶)");
-                mana.increase_max = mode != "恢复当前";   //空水晶=加法力上限；恢复当前=加当前法力
-                mana.increase_value = mode == "恢复当前";
+                //三套灵力（按模式关键字分流，未知/空值维持旧默认"增加上限"）：
+                //  恢复当前            → 加当前灵力 mana
+                //  增加上限(空水晶)     → 加灵力上限 mana_max
+                //  增加最大灵力值(硬顶) → 加最大灵力值 mana_max_total
+                mana.increase_value = mode.Contains("当前");
+                mana.increase_max = mode.Contains("上限");
+                mana.increase_max_total = mode.Contains("最大");
+                if (!mana.increase_value && !mana.increase_max && !mana.increase_max_total)
+                    mana.increase_max = true;   //未知/空 → 旧默认行为
                 return mana;
             }
             if (node.action == "AddAttack")

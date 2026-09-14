@@ -197,7 +197,10 @@ namespace TcgEngine.Client
             if (TcgNetwork.Get().IsActive())
                 return; // Already connected
 
-            if (game_settings.IsHost() && NetworkData.Get().solo_type == SoloType.Offline)
+            //修复：离线分支只适用于「Solo/冒险」（WebGL 不能开房）。原条件只判 IsHost()，而 HostP2P（局域网房主）
+            //也满足 IsHost() → 房主会被静默降级成 StartHostOffline（根本不开 UDP socket、无服务器），
+            //表现为"别人连 127.0.0.1/局域网IP 永远连不上，房主空等、房客 10 秒后被弹回大厅"。
+            if (game_settings.IsHost() && game_settings.IsOffline() && NetworkData.Get().solo_type == SoloType.Offline)
             {
                 TcgNetwork.Get().StartHostOffline();    //WebGL dont support hosting a game, must join a dedicated server, in solo it starts a offline mode that doesn't use netcode at all
             }

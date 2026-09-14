@@ -27,7 +27,15 @@ namespace TcgEngine
                 target.mana += ability.value;
                 target.mana_max += ability.value;
                 target.mana = Mathf.Max(target.mana, 0);
-                target.mana_max = Mathf.Clamp(target.mana_max, 0, GameplayData.Get().mana_max);
+                //灵力上限的钳制上界 = 该玩家自己的"最大灵力值"（不再是全局 GameplayData.mana_max）
+                target.mana_max = Mathf.Clamp(target.mana_max, 0, target.GetManaClampCap());
+            }
+
+            //最大灵力值（灵力上限的增长硬顶）：加减后让上限/当前按新硬顶收敛
+            if (type == EffectStatType.ManaMaxTotal)
+            {
+                target.mana_max_total = Mathf.Max(target.mana_max_total + ability.value, 0);
+                target.ClampMana();
             }
         }
 
@@ -59,5 +67,8 @@ namespace TcgEngine
         Attack = 10,
         HP = 20,
         Mana = 30,
+        /// <summary>最大灵力值（三套灵力体系之三：灵力上限 mana_max 的增长硬顶）。
+        /// 加在末尾且值=40，不影响既有资产的序列化枚举值（Mana=30 保持不变）。</summary>
+        ManaMaxTotal = 40,
     }
 }

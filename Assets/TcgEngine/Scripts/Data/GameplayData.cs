@@ -16,6 +16,9 @@ namespace TcgEngine
         public int hp_start = 30;
         public int mana_start = 2;
         public int mana_per_turn = 1;
+        /// <summary>开局"最大灵力值"（三套灵力体系之三）：新对局开始时写入玩家 mana_max_total；
+        /// 从此只作开局硬顶，**不再参与每回合 clamp**（每回合按玩家自己的 mana_max_total 收口）。
+        /// 三套灵力语义：当前灵力 mana / 灵力上限 mana_max / 最大灵力值 mana_max_total。</summary>
         public int mana_max = 12;
         public int cards_start = 5;
         public int cards_per_turn = 1;

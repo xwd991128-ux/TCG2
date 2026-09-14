@@ -60,6 +60,9 @@ namespace TcgEngine.UI
             if (instant || display_speed < 0.01f)
                 canvas_group.alpha = 1f;
 
+            //场景 BGM：界面自动切歌（只有 BgmManager 映射表里的界面会触发；弹窗/选择器自动忽略）
+            TcgEngine.Audio.BgmManager.NotifyPanelShown(GetType().Name);
+
             if (onShow != null)
                 onShow.Invoke();
         }

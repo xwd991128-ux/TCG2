@@ -10,6 +10,8 @@ namespace TcgEngine
         Attack = 10,
         HP = 20,
         Mana = 30,
+        /// <summary>最大灵力值（三套灵力体系之三：灵力上限的增长硬顶）；仅玩家有意义，卡牌判断恒为假</summary>
+        ManaMaxTotal = 40,
     }
 
     /// <summary>
@@ -54,6 +56,12 @@ namespace TcgEngine
             if (type == ConditionStatType.Mana)
             {
                 return CompareInt(target.mana, oper, value);
+            }
+
+            //最大灵力值（灵力上限的增长硬顶）
+            if (type == ConditionStatType.ManaMaxTotal)
+            {
+                return CompareInt(target.GetManaMaxTotal(), oper, value);
             }
 
             return false;

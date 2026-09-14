@@ -34,6 +34,12 @@ namespace TcgEngine
                 return CompareInt(target.mana, oper, value);
             }
 
+            //最大灵力值（灵力上限的增长硬顶）
+            if (type == ConditionStatType.ManaMaxTotal)
+            {
+                return CompareInt(target.GetManaMaxTotal(), oper, value);
+            }
+
             return false;
         }
     }

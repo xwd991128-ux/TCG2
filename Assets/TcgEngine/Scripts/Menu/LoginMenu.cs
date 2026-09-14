@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TcgEngine.Audio;   //BgmManager / BgmKeys（场景BGM配置）
 
 namespace TcgEngine.UI
 {
@@ -44,7 +45,8 @@ namespace TcgEngine.UI
 
         private void Start()
         {
-            AudioTool.Get().PlayMusic("music", music);
+            //登录页 BGM：配置表 login 条目优先，未配置则回退本组件挂的 music（迁移兼容）
+            BgmManager.PlayFor(BgmKeys.Login, false, music, 0.4f);
             BlackPanel.Get().Show(true);
             error_msg.text = "";
             test_area.SetActive(Authenticator.Get().IsTest());

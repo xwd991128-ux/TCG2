@@ -18,6 +18,11 @@ namespace TcgEngine
         private Dictionary<string, float> channels_volume = new Dictionary<string, float>();
         private Dictionary<string, float> tchannels_volume = new Dictionary<string, float>();
 
+        //每个通道的淡入淡出速度（单位：音量/秒）。缺省 0.5/s，即既有行为不变；
+        //BGM 切歌（PlayMusicFade/StopMusicFade）按调用方给的时长设置该通道速度。
+        private Dictionary<string, float> channels_fade_speed = new Dictionary<string, float>();
+        private const float DEFAULT_FADE_SPEED = 0.5f;
+
         [HideInInspector] public float master_vol = 1f;
         [HideInInspector] public float sfx_vol = 1f;
         [HideInInspector] public float music_vol = 1f;
@@ -36,7 +41,7 @@ namespace TcgEngine
                 {
                     float tvol = tchannels_volume[pair.Key];
                     float vol = channels_volume[pair.Key];
-                    vol = Mathf.MoveTowards(vol, tvol, 0.5f * Time.deltaTime);
+                    vol = Mathf.MoveTowards(vol, tvol, FadeSpeedOf(pair.Key) * Time.deltaTime);
                     channels_volume[pair.Key] = vol;
                     pair.Value.volume = vol * music_vol;
 
@@ -51,13 +56,88 @@ namespace TcgEngine
                 {
                     float tvol = tchannels_volume[pair.Key];
                     float vol = channels_volume[pair.Key];
-                    vol = Mathf.MoveTowards(vol, tvol, 0.5f * Time.deltaTime);
+                    vol = Mathf.MoveTowards(vol, tvol, FadeSpeedOf(pair.Key) * Time.deltaTime);
                     channels_volume[pair.Key] = vol;
                     pair.Value.volume = vol * sfx_vol;
 
                     if (vol < 0.01f && tvol < 0.01f)
                         StopSFX(pair.Key);
                 }
+            }
+        }
+
+        /// <summary>通道淡入淡出速度（音量/秒）；未设置过则用既有默认 0.5/s（保证老调用行为完全不变）</summary>
+        private float FadeSpeedOf(string channel)
+        {
+            if (channel != null && channels_fade_speed.TryGetValue(channel, out float s))
+                return s;
+            return DEFAULT_FADE_SPEED;
+        }
+
+        /// <summary>设置某通道的淡入淡出时长（秒）：时长≤0 视为瞬时切换</summary>
+        public void SetFadeDuration(string channel, float seconds)
+        {
+            if (string.IsNullOrEmpty(channel))
+                return;
+            channels_fade_speed[channel] = seconds > 0.01f ? (1f / seconds) : 1000f;
+        }
+
+        /// <summary>当前通道正在播放的曲子（无则 null）</summary>
+        public AudioClip GetMusicClip(string channel)
+        {
+            AudioSource source = GetMusicChannel(channel);
+            return source != null ? source.clip : null;
+        }
+
+        /// <summary>当前通道的音量（未经总音量系数）</summary>
+        public float GetMusicVolume(string channel)
+        {
+            if (!string.IsNullOrEmpty(channel) && channels_volume.ContainsKey(channel))
+                return channels_volume[channel];
+            return 0f;
+        }
+
+        /// <summary>BGM 淡入播放（新增扩展；不改动既有 PlayMusic 行为）：从 0 音量起播，在 fade_in 秒内升到 vol。
+        /// 同一通道上新曲会立即替换旧曲（交叉由调用方用双通道或先淡出实现）。</summary>
+        public void PlayMusicFade(string channel, AudioClip music, float vol, float fade_in, bool loop = true)
+        {
+            if (string.IsNullOrEmpty(channel) || music == null)
+                return;
+
+            AudioSource source = GetMusicChannel(channel);
+            if (source == null)
+            {
+                source = CreateChannel(channel);
+                channels_music[channel] = source;
+            }
+            if (source == null)
+                return;
+
+            SetFadeDuration(channel, fade_in);
+            float start = fade_in > 0.01f ? 0f : vol;
+            channels_volume[channel] = start;
+            tchannels_volume[channel] = vol;
+
+            source.Stop();
+            source.clip = music;
+            source.loop = loop;
+            source.volume = start * music_vol;
+            source.Play();
+        }
+
+        /// <summary>BGM 淡出停止（新增扩展）：在 fade_out 秒内降到 0，随后由 Update 自动 StopMusic。</summary>
+        public void StopMusicFade(string channel, float fade_out)
+        {
+            if (string.IsNullOrEmpty(channel))
+                return;
+            if (!channels_music.ContainsKey(channel))
+                return;
+            SetFadeDuration(channel, fade_out);
+            tchannels_volume[channel] = 0f;
+            if (fade_out <= 0.01f)
+            {
+                channels_volume[channel] = 0f;
+                StopMusic(channel);
             }
         }
 
