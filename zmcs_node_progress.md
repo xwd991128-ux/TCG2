@@ -166,6 +166,39 @@ $vis=0;$todo=0; foreach($d in $all){$hidden=($d.id.StartsWith('-')) -or ($keep[$
 - `PileMoveCard` 对 战场/装备区/英雄 明确拒绝并给可操作警告（请用召唤/装备类节点）。
 - 编辑器侧统一 `ZONE_NAMES` / `ZONE_NAMES_WITH_TEMP` 两个数组，所有区域下拉共用（避免"装备区 vs 装备"叫法不一致导致勾了不生效）。
 
+### T3. 两级**联动**选择（Select2）：比较节点 A/B 万能槽（✅ 已完成）
+- **用途**：`112002 比较` 的 A/B 是 Object 万能槽——参考《醉梦传说》做法，无连线时填固定值：**第一级选"值类型"、第二级选/填具体值**。
+- **八个值类型**：真值（真/假）、整数（内联输入 + 整数校验）、文本（内联输入）、关键词（KeywordData 池）、卡牌标签（关键词 + 种族特性）、卡牌定义引用（当前卡池卡牌）、卡池引用（PackData 内置卡包）、增益定义引用（BuffPoolIO 增益池）。
+- **UI（真联动，无需手动下钻）**：节点行内并排两个控件 —— 左 `值类型` 下拉（92px）+ 右 `值` 控件（枚举类=下拉，整数/文本=内联输入框）。**改第一级 → 第二级立即重算并就地刷新**（弹层关闭后随 `relayout_pending` 重排）。
+- **联动约定（明确口径）**：
+  - 触发条件 = 第一级**改选**时（同级之间切换不触发重算）；
+  - 数据依赖 = 第二级可选项取自 `BuildSelect2Groups()`（关键词池/特性/当前卡池/卡包/增益池）；
+  - 默认值处理 = 旧值**仍合法**则保留（枚举类：在新类型列表内；整数：可解析；文本：任意），否则取该类型默认（枚举→首项、整数→0、文本→原串），并在状态栏说明"原值 xx 已自动改为 yy"；
+  - **第一级未选**（字段无类型前缀的旧数据）→ 第二级为**禁用态**显示 `原值：xxx` / `（先选类型）`，**不擅自改写数据**，用户选类型时才按上面规则规范化。
+- **存储格式**：字段写 `"类型:值"`（`真值:true` / `整数:3` / `关键词:taunt` / `卡牌定义引用:fireball` …）；运行时 `NodeDocRunner.DecodeTypedFieldValue` 解码为 `bool/int/string/CardData/PackData/BuffData`；`"类型:"`（选了类型没选值）→ 视为「不存在」（null）；**无前缀数据（如旧的 `"0"`）原样当字符串** → 老图不受影响。
+- **边界**：某类型当前无子项（关键词池/卡池为空）→ 第二级显示禁用态「（该类型暂无可选项）」并点击提示，**不写值**；整数填了非数字 → 离开编辑时状态栏提示。
+
+### T4. TMP 输入框崩溃 / 缺字方块 / 光标缺失（✅ 已修，详见 `.codebuddy/skills/unity-tmp-pitfalls/SKILL.md`）
+- **输入框越界崩溃**（栈 `GenerateHightlight`→`OnFillVBO`→`Rebuild`）：TMP 3.0.7 在「文本为空 + 失焦后 `m_SelectionStillActive` 仍为真」时访问 `characterInfo[-1]`；**任何空输入框点过一次再点开都会崩**。修法：新增 `UIScripts/UI/TmpInputUtil.cs`（空值单空格占位 + `Read` Trim + `Guard` 补光标/失焦兜底），全部运行时输入框与 `SetInput/GetInput` 走它，并在 `RefreshForm/RefreshNodeLib/RefreshNodeFields` 用 `GuardAllInputs()` 兜底场景输入框。
+- **方框**：`▾ ☑ ☐ ▸ ◂ ▶ ✕` 都在 GB2312 之外 → 中文字体缺字形；统一换成 `▼ ▲ □ ■ √ × ← →`（`√×` 已在探测句内）。
+- **光标不显示**：TMP 只在 `OnEnable` 且 `textComponent` 已就绪时建 Caret → 绑定后（未聚焦时）重启一次 `enabled` + `caretColor` 设白。
+- **字体选择加固**：`UIFonts` 增加 `SymbolProbe`（缺符号只降级为次选），候选池优先挑"符号也齐"的字体，避免"中文正常、箭头勾选框全方块"。
+
+### T5. 回合控制节点（✅ 已完成）：额外回合 / 跳过回合 / 结束回合 + 回合取值
+- **逻辑层唯一实现（不散落到 UI）**：`GameLogic` 新增
+  - `RequestEndTurn()`：`NextStep()` 语义（取消选择 + `resolve_queue.AddCallback(EndTurn)` + `ResolveAll`），仅 `GamePhase.Main` 生效 → 效果结算中途重入安全。
+  - `GiveExtraTurns(player, count)` / `SkipNextTurns(player, count)`。
+  - `NextPlayerId(from)`：选下家时跳过 `Player.skip_turns > 0` 的玩家并消耗 1 层；全员被跳过时保持原玩家 + 警告（防死局）。
+  - `StartNextTurn()` 补全 `HeroNewTurn` 契约：`value`=剩余额外回合数（`duration=0` → permanent，不会被 `ReduceStatusDurations` 递减）；`value>0` 消耗 1 层且**不换人**；`value<=0` 视为残留 → 清除并正常换人（防无限回合）。
+  - `StartMainPhase()` 新增广播 `OnBeforeMainPhase` / `OnAfterMainPhase`（phase 已是 Main，故主阶段动作在此可用）。
+- **数据层**：`Player.skip_turns`（跳过回合层数）+ `Player.Clone` 同步复制（AI 预测树必须一致）；额外回合复用既有 `StatusType.HeroNewTurn=102`（状态经 `CardStatus.CloneList` 一并克隆）。
+- **Effect 桥接**：`EffectEndTurn` / `EffectExtraTurn` / `EffectSkipTurn`（`DoEffect` 只调上面三个 GameLogic 入口，卡牌能力与图共用同一逻辑）。
+- **节点**（defineId 10/11=取值、20/21=动作）：
+  - 动作 `209201 结束回合`、`209202 获得额外回合`（player + value，默认 1）、`209203 使目标失去下一回合`（player 缺省=对手）。
+  - 取值 `119001 获取回合数`、`119002 获取行动玩家`（与既有 `101005` 等价）、`119003 判断是否该玩家回合`、`119004 获取当前阶段`（文本：未开始/换牌/回合开始/主阶段/回合结束）、`119005 判断是否为第一回合`。
+  - 运行时分发：动作 → `NodeDocRunner.ExecuteAction`；整数 → `ResolveNodeInt`；玩家 → `ResolvePlayerOutput`；条件 → `EvaluateConditionNode`；文本 → `GetObjectInput` 的 String 通道。
+  - 编辑器：`SupportedNodeIds` 登记 8 个 id；事件入口新增「主阶段开始时 / 主阶段开始后」；`NodeDoc.xml` 登记 8 条（category=回合，含端口注释）。
+
 ### T2. 事件日志 + 卡牌快照基础设施（✅ 已完成，白名单 190→228）
 - [x] `GraphEventContext` 增补字段：`turn`/`repeat`/`parent`/`children`/`card_before`/`card_after`
 - [x] `GameLogic.EmitGraphEvent`：广播时落事件日志（父/子链、回合、前后快照，上限 512）+ `GetEventLog/GetTurnEvents/GetRangeEvents`
