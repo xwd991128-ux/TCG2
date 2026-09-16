@@ -458,9 +458,36 @@ namespace TcgEngine.Gameplay
             if (game_data.state == GameState.GameEnded)
                 return;
 
-            Player player =game_data.GetPlayer(game_data.current_player) ;
-            if (!player.HasStatus(StatusType.HeroNewTurn))
-                game_data.current_player = (game_data.current_player + 1) % game_data.settings.nb_players;
+            Player player = game_data.GetPlayer(game_data.current_player);
+
+            //---- 额外回合（HeroNewTurn）：value = 剩余额外回合数 ----
+            //契约（与节点/效果侧一致）：AddStatus 时 duration=0 → permanent，因此不会被 EndTurn 里的
+            //ReduceStatusDurations 递减，只有这里会消耗它。
+            //  · value > 0  → 消耗 1 层，current_player 不变（当前玩家原地再来一个完整回合）；
+            //  · value <= 0 → 视为残留/脏数据：清除状态并正常换人（防止出现无限回合锁局）。
+            bool extra_turn = false;
+            if (player != null && player.HasStatus(StatusType.HeroNewTurn))
+            {
+                int left = player.GetStatusValue(StatusType.HeroNewTurn);
+                if (left > 0)
+                {
+                    extra_turn = true;
+                    player.AddStatus(StatusType.HeroNewTurn, -1, 0);   //消耗 1 层（duration=0 保持 permanent）
+                    if (player.GetStatusValue(StatusType.HeroNewTurn) <= 0)
+                        player.RemoveStatus(StatusType.HeroNewTurn);   //用完即清，不留残留
+                    Debug.Log("[回合] p" + player.player_id + " 触发额外回合（剩余额外回合 "
+                        + player.GetStatusValue(StatusType.HeroNewTurn) + "）");
+                }
+                else
+                {
+                    player.RemoveStatus(StatusType.HeroNewTurn);
+                    Debug.LogWarning("[回合] p" + player.player_id + " 的 HeroNewTurn 值为 " + left
+                        + "（<=0）→ 视为残留状态，已清除并正常换人");
+                }
+            }
+
+            if (!extra_turn)
+                game_data.current_player = NextPlayerId(game_data.current_player);
 
             if (game_data.current_player == game_data.first_player)
                 game_data.turn_count++;
@@ -469,14 +496,85 @@ namespace TcgEngine.Gameplay
             StartTurn();
         }
 
+        /// <summary>下一个行动玩家 id：**跳过**带「失去 N 个回合」标记的玩家（每跳过一个消耗 1 层标记）。
+        /// 保护：全部玩家都被跳过时保持原玩家并告警（避免死循环 / 双方都不行动导致卡死）。</summary>
+        public virtual int NextPlayerId(int from_id)
+        {
+            int nb = game_data.settings != null ? Mathf.Max(1, game_data.settings.nb_players) : 1;
+            int id = from_id;
+            for (int i = 0; i < nb; i++)
+            {
+                id = (id + 1) % nb;
+                Player p = game_data.GetPlayer(id);
+                if (p == null)
+                    continue;
+                if (p.skip_turns > 0)
+                {
+                    p.skip_turns--;
+                    Debug.Log("[回合] 跳过玩家 p" + id + " 的回合（剩余跳过 " + p.skip_turns + " 个）");
+                    continue;
+                }
+                return id;
+            }
+            Debug.LogWarning("[回合] 所有玩家的回合都被跳过 → 保持当前玩家 p" + from_id
+                + "（异常保护：请检查「失去下一回合」的施加次数）");
+            return from_id;
+        }
+
+        // ---------------- 回合控制：逻辑层唯一实现（节点与 Effect 都调这里，避免逻辑散落） ----------------
+
+        /// <summary>结束当前回合。走 resolve_queue（AddCallback + ResolveAll）而不是直接调 EndTurn：
+        /// 保证当前效果结算链跑完再切回合，且不会在 resolve 回调里重入回合流程。</summary>
+        public virtual bool RequestEndTurn()
+        {
+            if (game_data.state == GameState.GameEnded)
+                return false;
+            if (game_data.phase != GamePhase.Main)
+            {
+                Debug.LogWarning("[回合] 结束回合被忽略：当前阶段为 " + game_data.phase + "（仅主阶段可结束回合）");
+                return false;
+            }
+            NextStep();   //取消选择 + resolve_queue.AddCallback(EndTurn) + ResolveAll()
+            return true;
+        }
+
+        /// <summary>使玩家获得额外回合：加 count 层 HeroNewTurn（value=剩余额外回合数，duration=0=permanent）。
+        /// 该玩家本回合结束时会被 StartNextTurn 消耗 1 层并原地再来一个回合。</summary>
+        public virtual void GiveExtraTurns(Player player, int count)
+        {
+            if (player == null || count <= 0)
+                return;
+            player.AddStatus(StatusType.HeroNewTurn, count, 0);
+            Debug.Log("[回合] p" + player.player_id + " 获得额外回合 ×" + count
+                + "（累计剩余 " + player.GetStatusValue(StatusType.HeroNewTurn) + "）");
+        }
+
+        /// <summary>使玩家失去接下来的 count 个回合（StartNextTurn 选下家时跳过并消耗标记）</summary>
+        public virtual void SkipNextTurns(Player player, int count)
+        {
+            if (player == null || count <= 0)
+                return;
+            player.skip_turns += count;
+            Debug.Log("[回合] p" + player.player_id + " 将失去接下来 " + count
+                + " 个回合（累计 " + player.skip_turns + "）");
+        }
+
         public virtual void StartMainPhase()
         {
             if (game_data.state == GameState.GameEnded)
                 return;
 
             game_data.phase = GamePhase.Main;
+
+            //图事件通知「主阶段开始时」：此时 phase 已是 Main —— 主阶段才能做的事（如「结束回合」）在这里就能生效，
+            //但界面尚未刷新（onTurnPlay/RefreshData 之后才是「主阶段开始后」）。
+            EmitNotify("OnBeforeMainPhase", null, game_data.GetActivePlayer());
+
             onTurnPlay?.Invoke();
             RefreshData();
+
+            //图事件通知「主阶段开始后」
+            EmitNotify("OnAfterMainPhase", null, game_data.GetActivePlayer());
         }
 
         public virtual void EndTurn()
@@ -616,14 +714,65 @@ namespace TcgEngine.Gameplay
                 return;
             if (!game_data.IsPlayerTurn(player))
                 return;   //仅自己回合可点
+            //只允许点"本局自己的按钮栏里确实有"的按钮（按钮栏是每个玩家各自的局内临时列表；开局为空 → 什么都点不了）
+            if (player.battle_buttons == null || !player.battle_buttons.Contains(button_id))
+            {
+                Debug.LogWarning("[按钮栏] 拒绝点击：本局按钮栏里没有 " + button_id);
+                return;
+            }
             BattleButtonConfig cfg = BattleButtonIO.GetConfig();
-            if (cfg == null || cfg.graph == null)
+            if (cfg == null)
                 return;
             Card hero = player.hero;
             if (hero == null)
                 return;
-            //执行「点击按钮时」→「点击按钮后」两段；效果走 ResolveQueue 结算，由 RefreshAll 同步客户端
-            NodeDocRunner.RunButtonClick(this, cfg.graph, hero, button_id);
+            //多张按钮图：逐张执行（每张图内部各自匹配「点击按钮时/后」的 button_id 分支）
+            System.Collections.Generic.List<CardEffectData> graphs = cfg.EnsureGraphs();
+            int ran = 0;
+            for (int i = 0; i < graphs.Count; i++)
+            {
+                if (graphs[i] == null || graphs[i].graph == null)
+                    continue;
+                ran += NodeDocRunner.RunButtonClick(this, graphs[i].graph, hero, button_id);
+            }
+
+            //★ 点完立刻结算并同步（否则"点了没反应"，要等下一个操作/回合结束才一起结算）：
+            //   ① UpdateOngoing：把图里挂起的伤害/持续效果真正落到 hp/属性（DamageCard 只累加 card.damage）
+            //   ② ResolveAll：跑完按钮图排队的能力/攻击回调
+            //   ③ RefreshData：onRefresh → GameServer.RefreshAll，把新状态立刻推给客户端
+            UpdateOngoing();
+            resolve_queue.ResolveAll();
+            RefreshData();
+            Debug.Log("[按钮栏] 执行按钮图：" + button_id + "（图 " + graphs.Count + " 张，NodeDoc 动作 " + ran + " 个）→ 已立即结算并同步");
+        }
+
+        // ---------------- 局内按钮栏（增加 / 删除按钮节点调这里；不写 buttons.json） ----------------
+
+        /// <summary>给指定玩家的按钮栏在第 pos 个位置插入按钮（1 起算；pos&lt;=0 或超出 = 追加到最后），后面依次顺延。</summary>
+        public virtual void AddBattleButton(Player player, string button_id, int pos)
+        {
+            if (player == null || string.IsNullOrEmpty(button_id))
+                return;
+            if (player.battle_buttons == null)
+                player.battle_buttons = new List<string>();
+            int idx = (pos <= 0 || pos > player.battle_buttons.Count) ? player.battle_buttons.Count : pos - 1;
+            player.battle_buttons.Insert(idx, button_id);
+            RefreshData();
+            Debug.Log("[按钮栏] p" + player.player_id + " 增加按钮 " + button_id
+                + " → 第 " + (idx + 1) + " 位（共 " + player.battle_buttons.Count + " 个）");
+        }
+
+        /// <summary>删除指定玩家按钮栏第 pos 个按钮（1 起算；pos&lt;=0 或超出 = 第一个），后面依次前移。</summary>
+        public virtual void RemoveBattleButton(Player player, int pos)
+        {
+            if (player == null || player.battle_buttons == null || player.battle_buttons.Count == 0)
+                return;
+            int idx = (pos <= 0 || pos > player.battle_buttons.Count) ? 0 : pos - 1;
+            string removed = player.battle_buttons[idx];
+            player.battle_buttons.RemoveAt(idx);
+            RefreshData();
+            Debug.Log("[按钮栏] p" + player.player_id + " 删除第 " + (idx + 1) + " 个按钮 " + removed
+                + "（剩余 " + player.battle_buttons.Count + " 个）");
         }
 
         // ---------------- 图事件广播（EventContext，全场监听 + 时/后） ----------------
@@ -1101,16 +1250,22 @@ namespace TcgEngine.Gameplay
             VariantData variant = VariantData.GetDefault();
             if (deck.hero != null)
             {
-                player.hero = Card.Create(deck.hero, variant, player);
+                Card hero_card = Card.Create(deck.hero, variant, player);   //CardData 为空时返回 null（不再 NRE）
+                if (hero_card != null)
+                    player.hero = hero_card;
+                else
+                    Debug.LogError("[Game] 英雄卡创建失败（hero 定义缺失）：" + deck.hero.id);
             }
 
             foreach (CardData card in deck.cards)
             {
-                if (card != null)
-                {
-                    Card acard = Card.Create(card, variant, player);
+                if (card == null)
+                    continue;
+                Card acard = Card.Create(card, variant, player);            //同上：创建失败返回 null → 跳过该张
+                if (acard != null)
                     player.cards_deck.Add(acard);
-                }
+                else
+                    Debug.LogError("[Game] 卡组里有创建失败的卡（已跳过，卡组会少一张）：" + card.id);
             }
 
             DeckPuzzleData puzzle = deck as DeckPuzzleData;

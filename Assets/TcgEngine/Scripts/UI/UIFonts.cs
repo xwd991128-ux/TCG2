@@ -29,6 +29,14 @@ namespace TcgEngine.UI
         /// </summary>
         public const string FontProbe = "规则编辑器回合开始结束生效获取友方敌方所有随机筛选目标卡牌属性攻击生命法力值抽牌治疗召唤伤害创建衍生并置入战场简单玩家触发条件类型判断打击消灭√×";
 
+        /// <summary>
+        /// 符号探测句：界面实际会渲染的符号（下拉箭头 / 勾选框 / 方向 / 播放停止 等）。
+        /// 只取 GB2312 符号区里的常见符号 —— 中文字体一般都有；但**静态烘焙**的字体资产（只烤了部分字）
+        /// 往往缺这些符号，表现就是"中文正常、箭头与勾选框全变方块"。
+        /// 约定：缺符号**不算不可用**（避免把能显示中文的字体全否掉），但会被降级为次选。
+        /// </summary>
+        public const string SymbolProbe = "▼▲□■●○◆◇←→√×";
+
         private static TMP_FontAsset m_resolved;                        //本会话已解析成功的字体（与 font_asset 同步）
         private static TMP_FontAsset m_dynamic;                         //现做的动态中文字体缓存
         private static readonly HashSet<string> m_bad_fonts = new HashSet<string>();   //判定为坏/缺字的字体资产名
@@ -116,45 +124,64 @@ namespace TcgEngine.UI
         /// </summary>
         public static TMP_FontAsset ResolveFont()
         {
-            //① 外部显式设置了全局字体：能用就用（显式选择优先）
-            if (font_asset != null && font_asset != m_resolved && IsUsable(font_asset))
-            {
-                m_resolved = font_asset;
-                return font_asset;
-            }
+            bool explicit_changed = font_asset != null && font_asset != m_resolved;
 
-            //② 本会话已解析成功过：直接复用（不再探测）
-            if (m_resolved != null)
+            //① 本会话已解析成功、且没有新的显式设置：直接复用（不再探测——本方法被每个新建文本调用）
+            if (!explicit_changed && m_resolved != null)
             {
                 font_asset = m_resolved;
                 return m_resolved;
             }
 
-            //③ 用项目里的中文字体文件现做动态字体（48pt/2048 图盘/多页，按需增长不会缺字）
-            TMP_FontAsset dyn = CreateDynamicChineseFont();
-            if (IsUsable(dyn))
-            {
-                m_resolved = dyn;
-                font_asset = dyn;
-                return dyn;
-            }
+            //② 收集候选（按优先级）：外部显式设置 → 现做动态字体 → 项目已有中文 TMP 资产
+            List<TMP_FontAsset> pool = new List<TMP_FontAsset>();
+            if (font_asset != null && IsUsable(font_asset))
+                pool.Add(font_asset);
 
-            //④ 项目里已有的中文 TMP 字体资产（逐个试，能覆盖探测句才算合格）
+            TMP_FontAsset dyn = CreateDynamicChineseFont();   //48pt/2048 图盘/多页，按需增长不会缺字
+            if (IsUsable(dyn) && !pool.Contains(dyn))
+                pool.Add(dyn);
+
             List<TMP_FontAsset> candidates = TmpFontCandidates();
             for (int i = 0; i < candidates.Count; i++)
             {
                 TMP_FontAsset fa = candidates[i];
-                if (!IsUsable(fa))
-                    continue;
-                m_resolved = fa;
-                font_asset = fa;
-                Debug.Log("UIFonts：字体选定「" + fa.name + "」（项目字体资产）");
-                return fa;
+                if (IsUsable(fa) && !pool.Contains(fa))
+                    pool.Add(fa);
             }
 
-            //⑤ 全部失败：退回 TMP 默认字体（可能不含中文字形，但界面照常工作、不崩）
+            //③ 优先选"符号也齐"的候选：避免中文正常、下拉箭头/勾选框却全是方块
+            TMP_FontAsset pick = null;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                if (IsSymbolComplete(pool[i]))
+                {
+                    pick = pool[i];
+                    break;
+                }
+            }
+            if (pick == null && pool.Count > 0)
+            {
+                pick = pool[0];   //都不齐：退回第一个中文可用者（不比改动前差）
+                Debug.LogWarning("UIFonts：所有候选字体都缺界面符号（" + SymbolProbe + "），已选「" + pick.name
+                    + "」——下拉箭头/勾选框可能显示为方块；请给该字体补图集，或改用一个完整的中文字体。");
+            }
+            if (pick != null)
+            {
+                m_resolved = pick;
+                font_asset = pick;
+                return pick;
+            }
+
+            //④ 全部失败：退回 TMP 默认字体（可能不含中文字形，但界面照常工作、不崩）
             try { return TMP_Settings.defaultFontAsset; }
             catch { return null; }
+        }
+
+        /// <summary>字体是否还覆盖界面用到的符号（缺符号 → 降级为次选，但不判为不可用）</summary>
+        public static bool IsSymbolComplete(TMP_FontAsset fa)
+        {
+            return fa != null && !m_bad_fonts.Contains(fa.name) && FontCovers(fa, SymbolProbe);
         }
 
         /// <summary>可用性判定：非空、未被判定为坏资产、且能渲染探测句</summary>

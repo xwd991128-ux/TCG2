@@ -510,7 +510,9 @@ namespace TcgEngine.UI
             mask.raycastTarget = true;              //CreateImage 默认吃射线；显式声明，保证能接点击
             Button mask_btn = mask.gameObject.AddComponent<Button>();
             mask_btn.transition = Selectable.Transition.None;
-            mask_btn.onClick.AddListener(OnClickCancel);
+            //★ 点空白处**不关闭**：剪辑/音量等编辑属于"未保存内容"，只认「取消 / 确定 / ×」；
+            //   遮罩仍吃射线 → 照样挡住穿透点击与背景滚动。
+            mask_btn.onClick.AddListener(() => { });
 
             //主面板
             float panel_h = Mathf.Min(900f, Mathf.Max(620f, Screen.height - 80f));
@@ -563,7 +565,7 @@ namespace TcgEngine.UI
             RectTransform btn_row = MakeStack("ButtonRow", panel_rect, 42f, ref y);
             MakeBarButton(btn_row, "导入文件", 18f, 118f, new Color(0.5f, 0.78f, 1f, 0.34f), OnClickImportFile);
             MakeBarButton(btn_row, "图库", 144f, 88f, new Color(0.6f, 0.72f, 1f, 0.34f), OnClickGallery);
-            MakeBarButton(btn_row, "▶ 试听", 240f, 92f, new Color(0.4f, 0.85f, 0.6f, 0.36f), OnClickPreview);
+            MakeBarButton(btn_row, "▲ 试听", 240f, 92f, new Color(0.4f, 0.85f, 0.6f, 0.36f), OnClickPreview);
             MakeBarButton(btn_row, "■ 停止", 340f, 92f, new Color(1f, 0.6f, 0.6f, 0.3f), OnClickStop);
             MakeBarButton(btn_row, "清空", 440f, 88f, new Color(1f, 0.75f, 0.4f, 0.26f), OnClickClear);
 

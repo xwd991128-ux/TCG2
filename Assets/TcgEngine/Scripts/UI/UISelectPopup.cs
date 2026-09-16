@@ -217,8 +217,8 @@ namespace TcgEngine.UI
             btn.targetGraphic = bg;
             UITheme.ApplyButtonColors(btn);
 
-            TMP_Text t = NewText("Label", rt, (m_multi ? (on ? "☑ " : "☐ ") : "") + label,
-                UITheme.FontBody, TextAlignmentOptions.Left);
+            TMP_Text t = NewText("Label", rt, (m_multi ? (on ? "√ " : "□ ") : "") + label,
+                UITheme.FontBody, TextAlignmentOptions.Left);   //√/□ 在 GB2312 内：中文字体必有字形（☑/☐ 常缺 → 方块）
             t.overflowMode = TextOverflowModes.Ellipsis;
             RectTransform trt = t.rectTransform;
             trt.anchorMin = Vector2.zero;

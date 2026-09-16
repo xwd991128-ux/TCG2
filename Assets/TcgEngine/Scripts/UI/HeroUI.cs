@@ -130,7 +130,10 @@ namespace TcgEngine.UI
 
         public Player GetPlayer()
         {
-            Game gdata = GameClient.Get().GetGameData();
+            Game gdata = GameClient.Get() != null ? GameClient.Get().GetGameData() : null;
+            //★ 同 GameClient.GetPlayer：首帧 game_data 为 null 时直接 GetPlayer(...) 会抛 NRE（且发生在 UI 刷新里）
+            if (gdata == null || gdata.players == null)
+                return null;
             return gdata.GetPlayer(GetPlayerID());
         }
 

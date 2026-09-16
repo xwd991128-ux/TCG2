@@ -247,7 +247,11 @@ namespace TcgEngine.UI
         public Player GetPlayer()
         {
             int player_id = is_opponent ? GameClient.Get().GetOpponentPlayerID() : GameClient.Get().GetPlayerID();
-            Game data = GameClient.Get().GetGameData();
+            Game data = GameClient.Get() != null ? GameClient.Get().GetGameData() : null;
+            //★ 同 GameClient.GetPlayer：进对战首帧 data 为 null，直接 data.GetPlayer(...) 会在 UI 刷新里抛 NRE
+            //  （异常会把该帧 Update 后续逻辑全部掐断）→ 未就绪时返回 null，调用方按"暂无玩家"处理。
+            if (data == null || data.players == null)
+                return null;
             return data.GetPlayer(player_id);
         }
 

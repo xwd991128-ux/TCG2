@@ -897,7 +897,8 @@ namespace TcgEngine.UI
             mask.raycastTarget = true;
             Button mask_btn = mask.gameObject.AddComponent<Button>();
             mask_btn.transition = Selectable.Transition.None;
-            mask_btn.onClick.AddListener(OnClickCancel);
+            //★ 点空白处**不关闭**：特效帧编辑属于"未保存内容"，只认「取消 / 确定 / ×」
+            mask_btn.onClick.AddListener(() => { });
 
             GameObject panel_go = new GameObject("Panel", typeof(RectTransform));
             panel_go.transform.SetParent(transform, false);
@@ -924,7 +925,7 @@ namespace TcgEngine.UI
             //工具条
             RectTransform bar = MakeStack("Bar", 40f, ref y);
             MakeBar(bar, "选择序列图…", 18f, 124f, new Color(0.85f, 0.7f, 1f, 0.38f), OnClickPickSheet);
-            MakeBar(bar, "试播 ▶", 150f, 86f, new Color(0.4f, 0.85f, 0.6f, 0.34f), PlayPreview);
+            MakeBar(bar, "试播 ▲", 150f, 86f, new Color(0.4f, 0.85f, 0.6f, 0.34f), PlayPreview);   //▲/■ 在 GB2312 内：中文字体必有字形
             MakeBar(bar, "停止 ■", 244f, 78f, new Color(1f, 0.6f, 0.6f, 0.28f), OnClickStop);
             btn_pingpong = MakeBar(bar, "来回播", 330f, 88f, new Color(1f, 0.85f, 0.45f, 0.3f), OnClickPingpong);
             MakeBar(bar, "切片设置…", 426f, 112f, new Color(0.5f, 0.78f, 1f, 0.34f), OnClickOpenSheetPanel);

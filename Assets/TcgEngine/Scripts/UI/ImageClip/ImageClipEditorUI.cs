@@ -48,6 +48,9 @@ namespace TcgEngine.UI
     [RequireComponent(typeof(RectTransform))]
     public class ImageClipEditorUI : MonoBehaviour, IPointerClickHandler
     {
+        /// <summary>是否允许在弹框里换图。面板图片（战场）置 false：只允许调整大小与重置（图片由卡牌图片自动生成）。</summary>
+        public bool allow_replace = true;
+
         [Header("引用（可留空，运行时自动补齐）")]
         public ImageClipPopupUI popup;     // 裁切弹框
         public Image display;              // 显示 / 回写的图片；留空取自身 Image

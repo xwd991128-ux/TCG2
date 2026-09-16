@@ -17,6 +17,9 @@ namespace TcgEngine
         public int first_player = 0;
         public int current_player = 0;
         public int turn_count = 0;
+
+        //注：战斗页面按钮栏是**每个玩家各自**的（Player.battle_buttons），因为「增加/删除按钮」节点带玩家输入
+        //    （给谁增减按钮），放在 Game 上无法区分玩家。
         public float turn_timer = 0f;
 
         public GameState state = GameState.Connecting;
@@ -618,6 +621,7 @@ namespace TcgEngine
             dest.first_player = source.first_player;
             dest.current_player = source.current_player;
             dest.turn_count = source.turn_count;
+            //局内按钮栏在 Player 上（每玩家一份），由 Player.Clone 负责拷贝
             dest.turn_timer = source.turn_timer;
             dest.state = source.state;
             dest.phase = source.phase;

@@ -401,7 +401,8 @@ namespace TcgEngine.UI
             mask.raycastTarget = true;
             Button mask_btn = mask.gameObject.AddComponent<Button>();
             mask_btn.transition = Selectable.Transition.None;
-            mask_btn.onClick.AddListener(CloseRename);
+            //★ 改名弹框：点空白处**不关闭**（正在输入的曲名不应被丢弃），只认「确定 / 取消 / ×」
+            mask_btn.onClick.AddListener(() => { });
 
             GameObject panel_go = new GameObject("Panel", typeof(RectTransform));
             panel_go.transform.SetParent(rename_popup, false);

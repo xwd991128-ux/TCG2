@@ -489,6 +489,31 @@ namespace TcgEngine.Server
 
         //--- Setup Commands ------
 
+        /// <summary>开局建卡的安全包装：建卡过程中任何异常都不再让异步任务**静默中止**
+        /// （旧表现：客户端永远停在「Connecting to server…」，看不到任何报错）。
+        /// 注意 `GameLogic.SetPlayerDeck` 有 **DeckData / UserDeckData 两个重载**，这里各包一层。</summary>
+        private void SafeSetPlayerDeck(Player player, DeckData deck)
+        {
+            SafeSetPlayerDeckCore(player, () => gameplay.SetPlayerDeck(player, deck));
+        }
+
+        private void SafeSetPlayerDeck(Player player, UserDeckData deck)
+        {
+            SafeSetPlayerDeckCore(player, () => gameplay.SetPlayerDeck(player, deck));   //走 UserDeckData 重载
+        }
+
+        private void SafeSetPlayerDeckCore(Player player, System.Action build)
+        {
+            try
+            {
+                build();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[GameServer] SetPlayerDeck 失败（" + (player != null ? player.username : "?") + "）：" + e);
+            }
+        }
+
         public virtual async void SetPlayerDeck(int player_id, string username, UserDeckData deck)
         {
             Player player = game_data.GetPlayer(player_id);
@@ -505,7 +530,7 @@ namespace TcgEngine.Server
                 {
                     if (user.IsDeckValid(udeck))
                     {
-                        gameplay.SetPlayerDeck(player, udeck);
+                        SafeSetPlayerDeck(player, udeck);
                         SendPlayerReady(player);
                         return;
                     }
@@ -519,11 +544,11 @@ namespace TcgEngine.Server
                 //Use premade deck
                 DeckData cdeck = DeckData.Get(deck.tid);
                 if (cdeck != null)
-                    gameplay.SetPlayerDeck(player, cdeck);
+                    SafeSetPlayerDeck(player, cdeck);
 
                 //Trust client in test mode
                 else if (Authenticator.Get().IsTest())
-                    gameplay.SetPlayerDeck(player, deck);
+                    SafeSetPlayerDeck(player, deck);
 
                 //Deck not found
                 else

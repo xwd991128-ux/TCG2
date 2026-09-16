@@ -57,6 +57,13 @@ namespace TcgEngine.UI
             visible = true;
             gameObject.SetActive(true);
 
+            //显示页恢复输入（与 Hide 对称）
+            if (canvas_group != null)
+            {
+                canvas_group.blocksRaycasts = true;
+                canvas_group.interactable = true;
+            }
+
             if (instant || display_speed < 0.01f)
                 canvas_group.alpha = 1f;
 
@@ -72,6 +79,15 @@ namespace TcgEngine.UI
             visible = false;
             if (instant || display_speed < 0.01f)
                 canvas_group.alpha = 0f;
+
+            //★ 关键：隐藏的页面必须同时停止接收射线。
+            //只把 alpha 归零时，全屏页仍会以 blocksRaycasts=true 吃掉下面页面（规则编辑器等）的所有点击 ——
+            //表现就是"界面看得见、所有按钮和输入框都点不动"（HomePanel 的注释也记过同类现象）。
+            if (canvas_group != null)
+            {
+                canvas_group.blocksRaycasts = false;
+                canvas_group.interactable = false;
+            }
 
             if (onHide != null)
                 onHide.Invoke();

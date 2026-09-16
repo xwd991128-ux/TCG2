@@ -180,6 +180,8 @@ namespace TcgEngine.UI
         /// </summary>
         public void Open(ImageClipState state, Sprite display, ImageClipEditorUI editor, Vector2 target_size)
         {
+            // 面板图片（allow_replace=false）等"只允许调整、不允许换图"的入口在这里生效
+            allow_replace = editor == null || editor.allow_replace;
             // 先走通用入口（会把 owner 清空），再记录回写目标，避免 ApplyResult 被调用两次
             Open(state, display, editor != null ? (Action<Sprite>)editor.ApplyResult : null, target_size);
             owner = editor;
@@ -195,6 +197,7 @@ namespace TcgEngine.UI
         public void Open(ImageClipState state, Sprite display, Action<Sprite> on_confirm, Vector2 target_size)
         {
             EnsureBuilt();
+            ApplyToolbarMode();          //按"是否允许换图"决定工具栏与提示行的显隐
             SetViewportAspect(target_size);
             if (state == null)
                 state = new ImageClipState();
@@ -661,7 +664,9 @@ namespace TcgEngine.UI
                 mask_btn = gameObject.AddComponent<Button>();
             mask_btn.targetGraphic = mask;
             mask_btn.transition = Selectable.Transition.None;
-            mask_btn.onClick.AddListener(OnClickCancel);
+            //★ 点空白处**不关闭**：裁切位置/缩放属于"未保存内容"，误触即丢太伤；只认「取消 / 确定 / ×」。
+            //   遮罩仍 raycastTarget=true，所以照样挡住穿透点击与背景滚动。
+            mask_btn.onClick.AddListener(() => SetHint("点「取消」或「确定」结束编辑（点空白处不会丢弃当前调整）", false));
 
             BuildPanel();
         }
@@ -733,6 +738,18 @@ namespace TcgEngine.UI
             m_hint = MakeTextTop("Hint", panel_rect, "", 18, TextAlignmentOptions.Center, HintColor, 16f, 420f, 16f, 24f);
         }
 
+        /// <summary>
+        /// 是否允许"换图"。面板图片（战场）走 false：只允许**调整大小 + 重置**，不给「从文件导入 / 从图库选择」，
+        /// 顶部提示行也随之隐藏（图片由卡牌图片自动生成，见 GraphEditorPanel.AutoPanelArtFromArtFile）。
+        /// </summary>
+        public bool allow_replace = true;
+
+        private RectTransform tool_import_file;
+        private RectTransform tool_import_gallery;
+        private RectTransform tool_zoom_in;
+        private RectTransform tool_zoom_out;
+        private RectTransform tool_reset;
+
         /// <summary>工具栏：从文件导入 / 从图库选择 / + / - / 重置</summary>
         private void BuildToolbar()
         {
@@ -746,6 +763,40 @@ namespace TcgEngine.UI
             x = MakeToolButton(bar, "BtnZoomIn", "+", 44f, x, OnClickZoomIn);
             x = MakeToolButton(bar, "BtnZoomOut", "-", 44f, x, OnClickZoomOut);
             x = MakeToolButton(bar, "BtnReset", "重置", 72f, x, OnClickReset);
+
+            //记住各按钮，供 allow_replace=false 时隐藏导入类按钮并左移其余按钮
+            tool_import_file = bar.Find("BtnImportFile") as RectTransform;
+            tool_import_gallery = bar.Find("BtnImportGallery") as RectTransform;
+            tool_zoom_in = bar.Find("BtnZoomIn") as RectTransform;
+            tool_zoom_out = bar.Find("BtnZoomOut") as RectTransform;
+            tool_reset = bar.Find("BtnReset") as RectTransform;
+        }
+
+        /// <summary>按「是否允许换图」重排工具栏：不允许时隐藏 从文件导入/从图库选择 与顶部提示行（+ / − / 重置 左移补位）。</summary>
+        private void ApplyToolbarMode()
+        {
+            if (tool_import_file != null)
+                tool_import_file.gameObject.SetActive(allow_replace);
+            if (tool_import_gallery != null)
+                tool_import_gallery.gameObject.SetActive(allow_replace);
+            if (m_hint != null)
+                m_hint.gameObject.SetActive(allow_replace);      //删除顶部提示行
+
+            float x = 0f;
+            x = PlaceTool(tool_import_file, 140f, x);
+            x = PlaceTool(tool_import_gallery, 140f, x);
+            x = PlaceTool(tool_zoom_in, 44f, x);
+            x = PlaceTool(tool_zoom_out, 44f, x);
+            PlaceTool(tool_reset, 72f, x);
+        }
+
+        /// <summary>把一个工具按钮放到 x 处（与 MakeToolButton 的定位规则一致），返回下一个 x</summary>
+        private static float PlaceTool(RectTransform rt, float width, float x)
+        {
+            if (rt == null || !rt.gameObject.activeSelf)
+                return x;
+            rt.anchoredPosition = new Vector2(x, rt.anchoredPosition.y);
+            return x + width + 8f;
         }
 
         private float MakeToolButton(RectTransform bar, string name, string label, float width, float x, Action onClick)

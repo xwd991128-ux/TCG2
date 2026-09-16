@@ -695,13 +695,20 @@ namespace TcgEngine.Client
 
         public Player GetPlayer()
         {
+            //★ 空值保护：进对战的第一帧（还没收到 RefreshAll）game_data 为 null，
+            //  旧写法直接 gdata.GetPlayer(...) → NullReferenceException，且是在 UI.Update 里抛，
+            //  会把该帧后续逻辑（按钮栏刷新等）全部掐断。未就绪时统一返回 null，由调用方按"暂无玩家"处理。
             Game gdata = GetGameData();
+            if (gdata == null || gdata.players == null)
+                return null;
             return gdata.GetPlayer(GetPlayerID());
         }
 
         public Player GetOpponentPlayer()
         {
             Game gdata = GetGameData();
+            if (gdata == null || gdata.players == null)
+                return null;
             return gdata.GetPlayer(GetOpponentPlayerID());
         }
 

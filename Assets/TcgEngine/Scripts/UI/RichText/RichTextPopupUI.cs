@@ -281,7 +281,9 @@ namespace TcgEngine.UI
                 mask_btn = gameObject.AddComponent<Button>();
             mask_btn.targetGraphic = mask;
             mask_btn.transition = Selectable.Transition.None;
-            mask_btn.onClick.AddListener(OnClickCancel);
+            //★ 点空白处**不关闭**：正在编辑的富文本属于"未保存内容"，只认「取消 / 确定 / ×」。
+            //   遮罩仍 raycastTarget=true → 仍然拦住穿透点击与背景滚动。
+            mask_btn.onClick.AddListener(() => { });
 
             BuildPanel();
             ApplyFonts();

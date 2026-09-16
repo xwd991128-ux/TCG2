@@ -45,6 +45,18 @@ namespace TcgEngine
         public List<Card> cards_secret = new List<Card>();  //Cards in the player's secret area
         public List<Card> cards_temp = new List<Card>();    //Temporary cards that have just been created, not assigned to any zone yet
 
+        /// <summary>「失去接下来 N 个回合」的层数（回合控制节点用）：GameLogic.StartNextTurn 选下家时
+        /// 遇到 skip_turns &gt; 0 的玩家就跳过并消耗 1 层。放在 Player 上（而不是 Game）是因为它是
+        /// **玩家自身**的状态，天然随玩家一起被 AI 预测树克隆（见 Player.Clone）。</summary>
+        public int skip_turns = 0;
+
+        /// <summary>
+        /// 该玩家自己的「战斗页面按钮栏」（**局内临时**，随对局状态同步）：开局为空，
+        /// 由「增加按钮 / 删除按钮」节点在对局中增删（节点带玩家输入 → 给谁增减）；
+        /// 列表顺序 = 屏幕上从左到右的顺序（位置 1 起算）。不写 buttons.json，不影响其他对局。
+        /// </summary>
+        public List<string> battle_buttons = new List<string>();
+
         public List<CardTrait> traits = new List<CardTrait>();              //Current persistant traits the cards has
         public List<CardTrait> ongoing_traits = new List<CardTrait>();      //Current ongoing traits the cards has
 
@@ -613,6 +625,10 @@ namespace TcgEngine
             dest.mana_max = source.mana_max;
             dest.mana_max_total = source.mana_max_total;   //三套灵力体系：最大灵力值必须一起拷（AI 预测树用）
             dest.kill_count = source.kill_count;
+            dest.skip_turns = source.skip_turns;   //回合控制：跳过回合标记必须一起拷，否则 AI 预测会算错下家
+            dest.battle_buttons = source.battle_buttons != null
+                ? new List<string>(source.battle_buttons)
+                : new List<string>();              //局内按钮栏：必须克隆，否则 AI 预测看到的按钮栏与真局不一致
 
             Card.CloneNull(source.hero, ref dest.hero);
             Card.CloneDict(source.cards_all, dest.cards_all);

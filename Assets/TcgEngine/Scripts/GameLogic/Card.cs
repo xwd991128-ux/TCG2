@@ -34,6 +34,13 @@ namespace TcgEngine
 
         public List<string> keywords = new List<string>();  //拥有的关键词（KeywordData.id）
 
+        //---- 增益「属性修改」的运行时可变项（由 BuffRuntime.ReapplyNative 统一重算，每张卡独立）----
+        //不复用 ongoing_traits/ongoing_status：那些由其它系统按回合清理，混用会互相清掉。
+        public List<string> buff_added_traits = new List<string>();      //增益附加的种族（TraitData.id）
+        public List<string> buff_removed_traits = new List<string>();    //增益移除的种族（抑制 HasTrait）
+        public List<string> buff_added_keywords = new List<string>();    //增益附加的关键词（KeywordData.id）
+        public List<string> buff_removed_keywords = new List<string>();  //增益移除的关键词（抑制 HasKeyword）
+
         public List<CardStatus> status = new List<CardStatus>();
         public List<CardStatus> ongoing_status = new List<CardStatus>();
 
@@ -55,6 +62,8 @@ namespace TcgEngine
         public virtual void Clear()
         {
             ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
+            buff_added_traits.Clear(); buff_removed_traits.Clear();
+            buff_added_keywords.Clear(); buff_removed_keywords.Clear();
             SetCard(CardData, VariantData); //Reset to initial stats
             equipped_uid = null;
         }
@@ -67,9 +76,16 @@ namespace TcgEngine
 
         public virtual void SetCard(CardData icard, VariantData cvariant)
         {
+            if (icard == null)
+            {
+                //卡牌定义缺失（未注册/资源被删）：以前会在这里 NRE，而且是在**服务端开局流程**里抛 →
+                //异步任务静默中止 → 客户端永远停在「Connecting to server…」。这里改成报错并跳过赋值。
+                Debug.LogError("[Card] SetCard 收到空 CardData（卡牌定义缺失/未注册）→ 已跳过本次赋值");
+                return;
+            }
             data = icard;
             card_id = icard.id;
-            variant_id = cvariant.id;
+            variant_id = cvariant != null ? cvariant.id : variant_id;
             attack = icard.attack;
             hp = icard.hp;
             mana = icard.mana;
@@ -78,15 +94,40 @@ namespace TcgEngine
             SetAbilities(icard);
         }
 
+        /// <summary>种族/属性：**逐项防空**。卡牌资源（CardData 资产）里的 traits/stats 数组可能有空槽
+        /// （Missing 引用 / 编辑器里删了引用但数组没缩），旧写法 `trait.id` 直接 NRE，
+        /// 而它发生在服务端 SetPlayerDeck → 整局开不起来（客户端卡在 "Connecting to server…"）。
+        /// 现在跳过空槽并点名"哪张卡的第几项"，便于回头修资源。</summary>
         public void SetTraits(CardData icard)
         {
             traits.Clear();
-            foreach (TraitData trait in icard.traits)
-                SetTrait(trait.id, 0);
+            if (icard == null)
+                return;
+            if (icard.traits != null)
+            {
+                for (int i = 0; i < icard.traits.Length; i++)
+                {
+                    TraitData trait = icard.traits[i];
+                    if (trait == null)
+                    {
+                        Debug.LogWarning("[Card] " + icard.id + " 的 traits[" + i + "] 是空引用（资源里该槽 Missing/未填）→ 已跳过，建议清掉该空槽");
+                        continue;
+                    }
+                    SetTrait(trait.id, 0);
+                }
+            }
             if (icard.stats != null)
             {
-                foreach (TraitStat stat in icard.stats)
+                for (int i = 0; i < icard.stats.Length; i++)
+                {
+                    TraitStat stat = icard.stats[i];
+                    if (stat.trait == null)     //TraitStat 是 struct：本身不可能为 null，只需判它内部的 trait 引用
+                    {
+                        Debug.LogWarning("[Card] " + icard.id + " 的 stats[" + i + "] 的 trait 为空引用 → 已跳过");
+                        continue;
+                    }
                     SetTrait(stat.trait.id, stat.value);
+                }
             }
         }
 
@@ -108,7 +149,28 @@ namespace TcgEngine
 
         public bool HasKeyword(string id)
         {
-            return keywords.Contains(id);
+            if (string.IsNullOrEmpty(id))
+                return false;
+            if (buff_removed_keywords.Contains(id))
+                return false;                       //被增益属性修改移除（抑制，直到增益消失）
+            return keywords.Contains(id) || buff_added_keywords.Contains(id);
+        }
+
+        /// <summary>全部关键词（基础 + 增益附加，去掉被移除的）</summary>
+        public List<string> GetAllKeywords()
+        {
+            List<string> all = new List<string>();
+            foreach (string k in keywords)
+            {
+                if (!buff_removed_keywords.Contains(k) && !all.Contains(k))
+                    all.Add(k);
+            }
+            foreach (string k in buff_added_keywords)
+            {
+                if (!all.Contains(k))
+                    all.Add(k);
+            }
+            return all;
         }
 
         public void SetAbilities(CardData icard)
@@ -117,8 +179,14 @@ namespace TcgEngine
             abilities_ongoing.Clear();
             if (abilities_data != null)
                 abilities_data.Clear();
+            if (icard == null || icard.abilities == null)
+                return;
             foreach (AbilityData ability in icard.abilities)
+            {
+                if (ability == null)
+                    continue;      //能力数组里的空槽同样跳过（与 traits/keywords 同规）
                 AddAbility(ability);
+            }
         }
         
         //------ Custom Traits/Stats ---------
@@ -217,14 +285,34 @@ namespace TcgEngine
 
         public bool HasTrait(string id)
         {
+            if (string.IsNullOrEmpty(id))
+                return false;
+            if (buff_removed_traits.Contains(id))
+                return false;                       //被增益属性修改移除（抑制）
+            if (buff_added_traits.Contains(id))
+                return true;
             return GetTrait(id) != null || GetOngoingTrait(id) != null;
         }
 
         public List<CardTrait> GetAllTraits()
         {
             List<CardTrait> all_traits = new List<CardTrait>();
-            all_traits.AddRange(traits);
-            all_traits.AddRange(ongoing_traits);
+            foreach (CardTrait t in traits)
+            {
+                if (t != null && !buff_removed_traits.Contains(t.id))
+                    all_traits.Add(t);
+            }
+            foreach (CardTrait t in ongoing_traits)
+            {
+                if (t != null && !buff_removed_traits.Contains(t.id))
+                    all_traits.Add(t);
+            }
+            foreach (string id in buff_added_traits)
+            {
+                CardTrait exist = GetTrait(id);
+                if (exist == null && GetOngoingTrait(id) == null)
+                    all_traits.Add(new CardTrait(id, 0));
+            }
             return all_traits;
         }
         
@@ -552,6 +640,12 @@ namespace TcgEngine
 
         public static Card Create(CardData icard, VariantData ivariant, Player player, string uid)
         {
+            if (icard == null)
+            {
+                //卡牌定义缺失：以前在 icard.id 处 NRE（同样发生在服务端开局流程 → 整局开不起来）
+                Debug.LogError("[Card] Create 收到空 CardData（该卡 id 未注册/资源丢失）→ 返回 null，调用方需判空");
+                return null;
+            }
             Card card = new Card(icard.id, uid, player.player_id);
             card.SetCard(icard, ivariant);
             player.cards_all[card.uid] = card;
@@ -589,6 +683,12 @@ namespace TcgEngine
 
             CardTrait.CloneList(source.traits, dest.traits);
             CardTrait.CloneList(source.ongoing_traits, dest.ongoing_traits);
+            //关键词与增益属性修改的运行时可变量：AI 预测树必须一致，否则预测会算错
+            dest.keywords = new List<string>(source.keywords);
+            dest.buff_added_traits = new List<string>(source.buff_added_traits);
+            dest.buff_removed_traits = new List<string>(source.buff_removed_traits);
+            dest.buff_added_keywords = new List<string>(source.buff_added_keywords);
+            dest.buff_removed_keywords = new List<string>(source.buff_removed_keywords);
             CardStatus.CloneList(source.status, dest.status);
             CardStatus.CloneList(source.ongoing_status, dest.ongoing_status);
             GameTool.CloneList(source.abilities, dest.abilities); 
