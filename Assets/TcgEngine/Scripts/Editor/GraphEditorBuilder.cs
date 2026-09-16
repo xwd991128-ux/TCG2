@@ -446,7 +446,7 @@ namespace TcgEngine.UI
             title.rectTransform.offsetMax = new Vector2(-90, 0);
 
             //删除按钮：Header 右上角（规格第4节：16×16）
-            Button btn_del = CreateButton("BtnDel", header, "✕", _font, 14, new Color(0.8f, 0.2f, 0.2f, 0.8f));
+            Button btn_del = CreateButton("BtnDel", header, "×", _font, 14, new Color(0.8f, 0.2f, 0.2f, 0.8f));   //× 在探测句内：✕ 常缺字形 → 方块
             RectTransform del_rt = btn_del.GetComponent<RectTransform>();
             del_rt.anchorMin = new Vector2(1, 1);
             del_rt.anchorMax = new Vector2(1, 1);
@@ -887,7 +887,7 @@ namespace TcgEngine.UI
             play.targetGraphic = img;
             int captured = slot;
             play.onClick.AddListener(() => panel.OnPreviewAudio(captured));
-            TMP_Text play_txt = CreateTMPText("Text", prt, "▶", 14, Color.white, TextAlignmentOptions.Center);
+            TMP_Text play_txt = CreateTMPText("Text", prt, "▲", 14, Color.white, TextAlignmentOptions.Center);   //▲ 在 GB2312 内：▶ 常缺字形 → 方块
             SetStretch(play_txt.rectTransform);
             play_txt.raycastTarget = false;
             //播放按钮上的「选择音频」按钮置顶显示，避免被▶遮挡

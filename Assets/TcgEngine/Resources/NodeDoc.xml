@@ -1427,6 +1427,174 @@
     <example><![CDATA[]]></example>
   </ActionComment>
   <ActionComment>
+    <defineId>209201</defineId>
+    <obsoleteNames />
+    <editorName>结束回合</editorName>
+    <category>回合</category>
+    <inputs />
+    <outputs />
+    <summary><![CDATA[结束当前回合，把行动权交给下一位玩家。<br>仅主阶段生效；结算走结算队列（等当前效果结算完成后才真正切换回合），因此在效果/事件图里调用是安全的。]]></summary>
+    <example><![CDATA[<ul><li>打出「时间加速」：结算完毕后立即结束我方回合，让对手接管。</li></ul>]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>209202</defineId>
+    <obsoleteNames />
+    <editorName>获得额外回合</editorName>
+    <category>回合</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Player</type>
+        <name>player</name>
+        <displayName>玩家</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[获得额外回合的玩家；无连线时默认施法卡所属玩家。]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>value</name>
+        <displayName>额外回合数</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[连续额外行动几个回合（默认 1；可叠加，层数用完自动清除）。]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[让目标玩家在本次回合结束后**原地再来一个完整回合**。<br>可叠加：多次获得则连续行动相应次数；该玩家回合结束时消耗 1 层。]]></summary>
+    <example><![CDATA[<ul><li>「时之沙」：本回合结束时，我方再行动一次。</li></ul>]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>209203</defineId>
+    <obsoleteNames />
+    <editorName>使目标失去下一回合</editorName>
+    <category>回合</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Player</type>
+        <name>player</name>
+        <displayName>玩家</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[被跳过回合的玩家；无连线时默认施法者的对手。]]></summary>
+      </ActionParameterComment>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>value</name>
+        <displayName>跳过回合数</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[连续跳过几个回合（默认 1；可叠加）。]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs />
+    <summary><![CDATA[目标玩家将失去接下来的若干回合：轮到该玩家时直接跳过，由再下一位玩家行动。<br>保护：若所有玩家都被跳过，则保持当前玩家行动并输出警告，避免死局。]]></summary>
+    <example><![CDATA[<ul><li>「时间停滞」：跳过对手的下一回合。</li></ul>]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>119001</defineId>
+    <obsoleteNames />
+    <editorName>获取回合数</editorName>
+    <category>回合</category>
+    <inputs />
+    <outputs>
+      <ActionParameterComment>
+        <type>Int32</type>
+        <name>turnCount</name>
+        <displayName>回合数</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[当前对局的总回合数（每轮回到先手玩家时 +1）。]]></summary>
+      </ActionParameterComment>
+    </outputs>
+    <summary><![CDATA[获取当前对局进行到第几回合。可接「比较」节点做「第 3 回合后」这类条件。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>119002</defineId>
+    <obsoleteNames />
+    <editorName>获取行动玩家</editorName>
+    <category>回合</category>
+    <inputs />
+    <outputs>
+      <ActionParameterComment>
+        <type>Player</type>
+        <name>player</name>
+        <displayName>行动玩家</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[当前轮到行动（current_player）的玩家。]]></summary>
+      </ActionParameterComment>
+    </outputs>
+    <summary><![CDATA[获取当前行动玩家。与既有「获取当前回合的玩家」等价，供回合控制逻辑连线使用。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>119003</defineId>
+    <obsoleteNames />
+    <editorName>判断是否该玩家回合</editorName>
+    <category>回合</category>
+    <inputs>
+      <ActionParameterComment>
+        <type>Player</type>
+        <name>player</name>
+        <displayName>玩家</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[要判断的玩家；无连线时默认施法卡所属玩家。]]></summary>
+      </ActionParameterComment>
+    </inputs>
+    <outputs>
+      <ActionParameterComment>
+        <type>Boolean</type>
+        <name>result</name>
+        <displayName>结果</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[该玩家是否正处于自己的行动回合。]]></summary>
+      </ActionParameterComment>
+    </outputs>
+    <summary><![CDATA[判断某位玩家是不是当前行动玩家（常用于事件筛选与条件分支）。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>119004</defineId>
+    <obsoleteNames />
+    <editorName>获取当前阶段</editorName>
+    <category>回合</category>
+    <inputs />
+    <outputs>
+      <ActionParameterComment>
+        <type>String</type>
+        <name>phase</name>
+        <displayName>阶段</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[当前阶段文本：未开始 / 换牌 / 回合开始 / 主阶段 / 回合结束。]]></summary>
+      </ActionParameterComment>
+    </outputs>
+    <summary><![CDATA[获取当前对局阶段（文本）。可与「比较」节点的文本常量比较，做阶段相关的条件判断。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
+    <defineId>119005</defineId>
+    <obsoleteNames />
+    <editorName>判断是否为第一回合</editorName>
+    <category>回合</category>
+    <inputs />
+    <outputs>
+      <ActionParameterComment>
+        <type>Boolean</type>
+        <name>result</name>
+        <displayName>结果</displayName>
+        <isParams>false</isParams>
+        <isArray>false</isArray>
+        <summary><![CDATA[是否仍处于第一回合（总回合数 <= 1）。]]></summary>
+      </ActionParameterComment>
+    </outputs>
+    <summary><![CDATA[判断是否第一回合（常用于「开局/先手回合」相关效果：第一回合不触发、首回合加成等）。]]></summary>
+    <example><![CDATA[]]></example>
+  </ActionComment>
+  <ActionComment>
     <defineId>201006</defineId>
     <obsoleteNames />
     <editorName>复原技能</editorName>

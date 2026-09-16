@@ -16,6 +16,9 @@ namespace TcgEngine.Workshop
         /// <summary>关键词修改后写盘（Editor 注册）</summary>
         public static Action<KeywordData> save;
 
+        /// <summary>删除关键词资产（Editor 注册；变量选择弹框的「删除」用）</summary>
+        public static Action<KeywordData> delete;
+
         public static bool CreateAsset(KeywordData keyword, string path)
         {
             return create != null && keyword != null && create.Invoke(keyword, path);
@@ -24,6 +27,12 @@ namespace TcgEngine.Workshop
         public static void SaveAsset(KeywordData keyword)
         {
             save?.Invoke(keyword);
+        }
+
+        /// <summary>删除关键词资产（未注册时为空操作，仅内存移除由调用方负责）</summary>
+        public static void DeleteAsset(KeywordData keyword)
+        {
+            delete?.Invoke(keyword);
         }
     }
 }

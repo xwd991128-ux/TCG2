@@ -223,6 +223,18 @@ namespace TcgEngine.UI
             SetStatus("已保存: " + kw.title);
         }
 
+        /// <summary>变量选择弹框的「编辑」入口：打开关键词编辑器并选中指定关键词（找不到时保持当前选中）</summary>
+        public void EditKeyword(string keyword_id)
+        {
+            Show();
+            if (string.IsNullOrEmpty(keyword_id))
+                return;
+            RefreshList();
+            int index = KeywordData.GetAll().IndexOf(KeywordData.Get(keyword_id));
+            if (index >= 0)
+                SelectKeyword(index);
+        }
+
         private KeywordData Current => selected >= 0 && selected < KeywordData.GetAll().Count ? KeywordData.GetAll()[selected] : null;
 
         private void SetStatus(string msg)

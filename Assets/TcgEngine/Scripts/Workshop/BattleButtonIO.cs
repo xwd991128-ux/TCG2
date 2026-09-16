@@ -156,6 +156,50 @@ namespace TcgEngine.Workshop
             return b;
         }
 
+        /// <summary>
+        /// **编辑器/池顺序调整专用**（改 buttons.json 的按钮池顺序）。
+        /// 注意：局内的「增加按钮/删除按钮」节点**不走这里**（那改的是本局的 Game.battle_buttons，见 GameLogic.AddBattleButton）。
+        /// 在战斗页面**第 pos 个位置**插入按钮（1 起算；pos&lt;=0 或超出 = 追加到最后），
+        /// 位置后面的按钮依次顺延。传入的 id 必须是按钮池里已有的按钮（"增加按钮"节点 = 把已有按钮摆到某位置）。
+        /// </summary>
+        public static void InsertButton(string id, int pos)
+        {
+            if (string.IsNullOrEmpty(id))
+                return;
+            BattleButtonConfig cfg = GetConfig();
+            List<BattleButtonData> list = new List<BattleButtonData>(cfg.buttons ?? new BattleButtonData[0]);
+            BattleButtonData b = Get(id);
+            if (b == null)
+            {
+                Debug.LogWarning("[BattleButtonIO] 增加按钮失败：按钮池里没有 " + id);
+                return;
+            }
+            list.RemoveAll(x => x == b);      //先摘掉（语义 = 调整它在列表里的位置）
+            int idx = (pos <= 0 || pos > list.Count) ? list.Count : pos - 1;
+            list.Insert(idx, b);
+            cfg.buttons = list.ToArray();
+            Debug.Log("[BattleButtonIO] 增加按钮「" + b.GetTitle() + "」→ 第 " + (idx + 1) + " 位（共 " + list.Count + " 个）");
+        }
+
+        /// <summary>删除第 pos 个按钮（1 起算；pos&lt;=0 或超出 = 删第一个），后面的按钮依次前移</summary>
+        public static void RemoveButtonAt(int pos)
+        {
+            BattleButtonConfig cfg = GetConfig();
+            List<BattleButtonData> list = new List<BattleButtonData>(cfg.buttons ?? new BattleButtonData[0]);
+            if (list.Count == 0)
+            {
+                Debug.LogWarning("[BattleButtonIO] 删除按钮失败：当前没有按钮");
+                return;
+            }
+            int idx = (pos <= 0 || pos > list.Count) ? 0 : pos - 1;
+            BattleButtonData b = list[idx];
+            list.RemoveAt(idx);
+            cfg.buttons = list.ToArray();
+            if (b != null)
+                button_dict.Remove(b.id);
+            Debug.Log("[BattleButtonIO] 删除第 " + (idx + 1) + " 个按钮「" + (b != null ? b.GetTitle() : "") + "」（剩余 " + list.Count + " 个）");
+        }
+
         /// <summary>从按钮列表构建按钮 id 下拉（规则图 button_id 字段用）</summary>
         public static List<string> GetOptionIds()
         {

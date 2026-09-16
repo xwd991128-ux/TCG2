@@ -85,9 +85,13 @@ namespace TcgEngine.Workshop
                         continue;
                     if (!string.IsNullOrEmpty(trigger_action) && ev.action != trigger_action)
                         continue;
-                    if (!string.IsNullOrEmpty(button_id) &&
-                        GraphRuntime.GetFieldString(ev, "button_id", "") != button_id)
-                        continue;
+                    if (!string.IsNullOrEmpty(button_id))
+                    {
+                        //「按钮」两种取值方式都认：下拉选的 button_id 字段，或 button 连线取到的值（如接「这个按钮」）
+                        string ev_bid = ResolveNodeButtonId(logic, graph, ev, caster, target_card, target_player);
+                        if (ev_bid != button_id)
+                            continue;
+                    }
                     if (!IsEventConditionMet(logic, graph, ev, caster, target_card, target_player))
                         continue;   //事件入口「条件」输入口：连线布尔为假则本入口不触发（事件筛选）
                     matched.Add(ev);
@@ -157,13 +161,28 @@ namespace TcgEngine.Workshop
         /// <param name="hero">点击玩家的英雄卡（图上下文：自身）</param>
         /// <param name="button_id">被点击的按钮 id</param>
         /// <returns>实际执行的 NodeDoc 动作数</returns>
+        /// <summary>「这个按钮」节点（ThisButton）取的按钮 id：进入按钮触发时设置，触发结束恢复（支持嵌套）</summary>
+        private static string ctx_button_id;
+
+        /// <summary>当前正在触发的按钮 id（供「这个按钮」取值节点与外部查询；无按钮上下文时为空）</summary>
+        public static string CurrentButtonId { get { return ctx_button_id; } }
+
         public static int RunButtonClick(GameLogic logic, GraphData graph, Card hero, string button_id)
         {
             if (logic == null || graph == null || hero == null || string.IsNullOrEmpty(button_id))
                 return 0;
             int count = 0;
-            count += Run(logic, graph, hero, null, null, "ButtonClicked", button_id: button_id);
-            count += Run(logic, graph, hero, null, null, "ButtonClickedAfter", button_id: button_id);
+            string prev_btn = ctx_button_id;
+            ctx_button_id = button_id;      //★「这个按钮」= 正在触发的这个按钮
+            try
+            {
+                count += Run(logic, graph, hero, null, null, "ButtonClicked", button_id: button_id);
+                count += Run(logic, graph, hero, null, null, "ButtonClickedAfter", button_id: button_id);
+            }
+            finally
+            {
+                ctx_button_id = prev_btn;
+            }
             return count;
         }
 
@@ -255,6 +274,13 @@ namespace TcgEngine.Workshop
                 case "202039":
                 case "202047":
                 case "202041":
+                case "209201":   //结束回合
+                case "209202":   //获得额外回合
+                case "209203":   //使目标失去下一回合
+                case "AddButton":     //增加按钮（玩家按钮栏插入）
+                case "RemoveButton":  //删除按钮（玩家按钮栏移除）
+                case "ThisButton":    //这个按钮（取值：当前触发的按钮 id）
+                case "ButtonPosition": //获取按钮位置（取值：按钮 → 位置 1 起算）
                 case "212001":
                 case "212002":
                 case "202003":
@@ -1305,6 +1331,20 @@ namespace TcgEngine.Workshop
                 return cur_event != null ? cur_event.value : ctx_duration;
             switch (src.action)
             {
+                case "119001":   //获取回合数（对局总回合数 Game.turn_count；无对局上下文返回 null）
+                    return logic != null ? logic.GameData.turn_count : (int?)null;
+                case "ButtonPosition":   //获取按钮位置（按钮 → 位置，1 起算；不存在返回 -1）
+                {
+                    Player p = ResolveInputPlayer(logic, graph, src, "player", caster, null);
+                    if (p == null && caster != null && logic != null)
+                        p = PlayerOf(logic, caster);          //没连玩家 → 默认施法者所属玩家
+                    //按钮两种取值方式统一走 ResolveNodeButtonId（字段 button/button_id 或 button 连线）
+                    string bid = ResolveNodeButtonId(logic, graph, src, caster, null, null);
+                    if (p == null || p.battle_buttons == null || string.IsNullOrEmpty(bid))
+                        return -1;
+                    int idx = p.battle_buttons.IndexOf(bid);
+                    return idx >= 0 ? idx + 1 : -1;
+                }
                 case "108010":   //获取事件重复次数
                 {
                     GraphEventContext e = ResolveInputEvent(logic, graph, src, "eventArg", caster, target_card, target_player);
@@ -1668,6 +1708,50 @@ namespace TcgEngine.Workshop
                 caster, target_card, target_player);
         }
 
+        /// <summary>按钮类节点的「按钮」连线口取值（button 口，可接「这个按钮」/临时变量等取值节点）；无连线 → 空</summary>
+        private static string ResolveButtonIdByLink(GameLogic logic, GraphData graph, GraphNode act, Card caster,
+            Card target_card, Player target_player)
+        {
+            object v = GetObjectInput(logic, graph, act, "button", caster, target_card, target_player);
+            return v != null ? v.ToString() : null;
+        }
+
+        /// <summary>「按钮」输入参数的**统一取值**（所有按钮类节点共用，两种方式并存）：
+        ///   ① 先读 `button` 字段 = 从按钮库（buttons.json）下拉选的值（旧图字段名 `button_id` 仍兼容）；
+        ///   ② 字段没选 → 走 `button` 连线口取另一个节点的输出（如「这个按钮」/临时变量）。
+        /// ButtonSelect 未选时字段里存的是「（无）」→ 视为空。两者都没有 → null（调用方按"未配置"处理）。</summary>
+        private static string ResolveNodeButtonId(GameLogic logic, GraphData graph, GraphNode node, Card caster,
+            Card target_card, Player target_player)
+        {
+            string bid = GraphRuntime.GetFieldString(node, "button", "");
+            if (IsNoButton(bid))
+                bid = GraphRuntime.GetFieldString(node, "button_id", "");   //旧图字段名（尚未在编辑器里打开过）
+            if (IsNoButton(bid))
+                bid = null;
+            if (string.IsNullOrEmpty(bid))
+                bid = ResolveButtonIdByLink(logic, graph, node, caster, target_card, target_player);
+            return IsNoButton(bid) ? null : bid;
+        }
+
+        /// <summary>「没选按钮」的占位值判定（空 / （无） / 无）</summary>
+        private static bool IsNoButton(string v)
+        {
+            return string.IsNullOrEmpty(v) || v == "（无）" || v == "无";
+        }
+
+        /// <summary>节点上是否存在某字段（旧图兼容判断用，如删除按钮的旧"位置"字段）</summary>
+        private static bool HasFieldDef(GraphNode node, string name)
+        {
+            if (node == null || node.fields == null)
+                return false;
+            foreach (FieldCustomData f in node.fields)
+            {
+                if (f != null && f.name == name)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>Object 型输入口通用取值（212004 的 值 口 / 112010 的分支值口）：
         /// 按来源节点类型依次尝试 临时变量/按条件选值/集合/卡牌/玩家/整数；无连线返回字段常量字符串。</summary>
         private static object GetObjectInput(GameLogic logic, GraphData graph, GraphNode act, string pin_name,
@@ -1745,6 +1829,10 @@ namespace TcgEngine.Workshop
                             }
                             if (src.action == "112006")   //字符串常量（Object/String 通道）：直接返回字段值
                                 return GraphRuntime.GetFieldString(src, "value", "");
+                            if (src.action == "119004")   //获取当前阶段（→ String：换牌/回合开始/主阶段/回合结束/未开始）
+                                return logic != null ? PhaseName(logic.GameData.phase) : null;
+                            if (src.action == "ThisButton")   //这个按钮：当前正在编辑/触发的按钮 id（按钮图上下文）
+                                return CurrentButtonId;
                             if (src.action == "105003")   //获取牌堆名（Pile → String）
                             {
                                 if (PileDecode(ResolveInputPile(logic, graph, src, "pile", caster, target_card, target_player),
@@ -1829,7 +1917,69 @@ namespace TcgEngine.Workshop
                     }
                 }
             }
-            return GraphRuntime.GetFieldString(act, pin_name, "");   //无连线：字段常量（字符串形式）
+            //无连线：字段常量。两层选择（编辑器 Select2）写入的是 "类型:值" → 这里解码成对应类型
+            //（bool/int/引用对象）；无前缀的旧数据原样返回字符串（向后兼容）。
+            return DecodeTypedFieldValue(GraphRuntime.GetFieldString(act, pin_name, ""));
+        }
+
+        /// <summary>GamePhase → 中文名（119004 获取当前阶段 的输出；与界面用词一致，便于「比较」节点直接按文本比较）</summary>
+        private static string PhaseName(GamePhase phase)
+        {
+            switch (phase)
+            {
+                case GamePhase.None: return "未开始";
+                case GamePhase.Mulligan: return "换牌";
+                case GamePhase.StartTurn: return "回合开始";
+                case GamePhase.Main: return "主阶段";
+                case GamePhase.EndTurn: return "回合结束";
+                default: return phase.ToString();
+            }
+        }
+
+        /// <summary>两层选择字段值 "类型:值" 的解码（112002 比较的 A/B 等 Object 口用）：
+        /// 真值→bool、整数→int、文本/关键词/卡牌标签→字符串、卡牌定义引用→CardData、
+        /// 卡池引用→PackData、增益定义引用→BuffData。
+        /// 无前缀或前缀不在白名单（例如文本里本来就有冒号）→ 原样返回，老图与普通文本不受影响；
+        /// 引用资产解析不到时回退成字符串 id（图内仍可按 id 比较/打日志，不会变成 null 常量）。</summary>
+        private static object DecodeTypedFieldValue(string raw)
+        {
+            if (string.IsNullOrEmpty(raw))
+                return raw;
+            int i = raw.IndexOf(':');
+            if (i <= 0)
+                return raw;      //无类型前缀（或普通文本自带冒号，如 http://…）→ 原样返回
+            string key = raw.Substring(0, i);
+            string val = raw.Substring(i + 1);
+            if (string.IsNullOrEmpty(val))
+                return null;     //选了类型但没选值（如该类型暂无可选项）→ 视为「不存在」，比较时按缺失处理
+            switch (key)
+            {
+                case "真值":
+                    return val == "true" || val == "1";
+                case "整数":
+                    return int.TryParse(val, out int n) ? (object)n : raw;
+                case "文本":
+                case "关键词":
+                case "卡牌标签":
+                    return val;
+                case "卡牌定义引用":
+                {
+                    CardData d = CardData.Get(val);
+                    return d != null ? (object)d : val;
+                }
+                case "卡池引用":
+                {
+                    PackData p = PackData.Get(val);
+                    return p != null ? (object)p : val;
+                }
+                case "增益定义引用":
+                {
+                    BuffData b = BuffPoolIO.Get(val);
+                    return b != null ? (object)b : val;
+                }
+                default:
+                    return raw;
+            }
         }
 
         /// <summary>
@@ -2014,6 +2164,38 @@ namespace TcgEngine.Workshop
                     }
                     break;
                 }
+                //---------------- 回合控制（动作）：逻辑唯一实现在 GameLogic，这里只做桥接 ----------------
+                case "209201":   //结束回合：结束当前回合（走 resolve_queue，等本次结算跑完再切回合；仅主阶段生效）
+                {
+                    logic.RequestEndTurn();
+                    break;
+                }
+                case "209202":   //获得额外回合：目标玩家获得 value 个额外回合（HeroNewTurn 层数）
+                {
+                    Player p = ResolveInputPlayer(logic, graph, act, "player", caster, target_player)
+                        ?? PlayerOf(logic, caster);      //玩家口无连线：默认施法卡所属玩家
+                    int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player, 1);
+                    if (p == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 209202 获得额外回合失败：无目标玩家");
+                        break;
+                    }
+                    logic.GiveExtraTurns(p, Mathf.Max(1, v));
+                    break;
+                }
+                case "209203":   //使目标失去下一回合：目标玩家被跳过 value 个回合
+                {
+                    Player p = ResolveInputPlayer(logic, graph, act, "player", caster, target_player)
+                        ?? OpponentOf(logic, caster);    //玩家口无连线：默认对手（“跳过对手回合”是最常见用法）
+                    int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player, 1);
+                    if (p == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] 209203 使目标失去下一回合失败：无目标玩家");
+                        break;
+                    }
+                    logic.SkipNextTurns(p, Mathf.Max(1, v));
+                    break;
+                }
                 case "212001":   //分支动作：控制节点，分支选择在 ReachableActions 遍历时处理
                     break;
                 case "210001":   //简单抽牌：使玩家抽一张（卡库顶；手牌满时 TCG2 不抽也不爆牌，与 zmcs 爆牌语义有差异）
@@ -2105,6 +2287,11 @@ namespace TcgEngine.Workshop
                     string prop = GraphRuntime.GetFieldString(act, "propName", "");
                     if (string.IsNullOrEmpty(prop))
                         prop = GraphRuntime.GetFieldString(act, "prop", "攻击加成");
+                    //目标属性口径与增益参数面板一致（花费/攻击/生命/护甲/关键词/种族/自定义参数）；
+                    //旧写法（攻击加成/生命加成/法力费用…）经 NormalizeBuffTarget 归一，"自定义"取手填名。
+                    string target = prop == "自定义"
+                        ? GraphRuntime.GetFieldString(act, "prop_custom", "")
+                        : NormalizeBuffTarget(prop);
                     List<BuffRef> buffs = HasInputPin(graph, act, "buffs")
                         ? ResolveInputBuffs(logic, graph, act, "buffs", caster, target_card, target_player) : new List<BuffRef>();
                     if (buffs.Count > 0)
@@ -2142,8 +2329,8 @@ namespace TcgEngine.Workshop
                             Debug.LogWarning("[NodeDoc] 206003 设置增益属性：卡牌无该增益 buff_id=\"" + buff_id + "\"");
                             break;
                         }
-                        BuffRuntime.SetPropValue(tcard, buff_id, prop, value);
-                        Debug.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + buff_id + "." + prop + "=" + value);
+                        BuffRuntime.SetPropByTarget(tcard, buff_id, target, value);
+                        Debug.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + buff_id + "." + target + "=" + value);
                         break;
                     }
                     StatusType type = prop == "生命加成" ? StatusType.AddHP : StatusType.AddAttack;
@@ -3474,9 +3661,13 @@ namespace TcgEngine.Workshop
                 }
                 case "TriggerButtonEffect":   //触发按钮效果：模拟完整点击（先「时」后「后」），递归深度受限防自环
                 {
-                    string bid = GraphRuntime.GetFieldString(act, "button_id", "");
+                    //按钮两种取值方式：下拉选的 button_id 字段 或 button 连线（另一个节点的输出）
+                    string bid = ResolveNodeButtonId(logic, graph, act, caster, target_card, target_player);
                     if (string.IsNullOrEmpty(bid))
+                    {
+                        Debug.LogWarning("[NodeDoc] 触发按钮效果：没选按钮也没连线（button 为空），已跳过");
                         break;
+                    }
                     if (trigger_depth < 8)
                     {
                         trigger_depth++;
@@ -3493,6 +3684,55 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] 触发按钮效果 超过递归深度上限 8 层，已停止（检查按钮图是否自环）");
                     break;
                 }
+                //---------------- 战斗页面按钮栏：增加 / 删除（位置 1 起算；位置空或 ≤0 走默认） ----------------
+                case "AddButton":     //增加按钮：把按钮池里的按钮摆到第 pos 个位置（空/≤0 = 加到最后，后面依次顺延）
+                case "RemoveButton":  //删除按钮：删除第 pos 个（空/≤0 = 第一个），后面依次前移
+                {
+                    //★ 玩家输入：给谁增减按钮（玩家的按钮栏是各自的局内临时列表）
+                    Player owner = ResolveInputPlayer(logic, graph, act, "player", caster, target_player);
+                    if (owner == null && caster != null)
+                        owner = PlayerOf(logic, caster);      //没连线 → 默认触发者
+                    if (owner == null)
+                    {
+                        Debug.LogWarning("[NodeDoc] " + (act.action == "AddButton" ? "增加按钮" : "删除按钮")
+                            + "：没解析到玩家（请连「玩家」口或检查上下文），已跳过");
+                        break;
+                    }
+                    int pos = GetIntInput(logic, graph, act, "pos", caster, target_card, target_player, -1);
+                    if (act.action == "AddButton")
+                    {
+                        string bid = ResolveNodeButtonId(logic, graph, act, caster, target_card, target_player);
+                        if (string.IsNullOrEmpty(bid))
+                            Debug.LogWarning("[NodeDoc] 增加按钮：没选按钮也没连线（button 为空），已跳过");
+                        else
+                            logic.AddBattleButton(owner, bid, pos);   //★ 只改这个玩家的局内按钮栏
+                    }
+                    else
+                    {
+                        //★ 删除按钮 = **按「按钮」删**（不再用"位置"）：按钮取值两种方式（下拉选 / 连线取另一节点输出）。
+                        string bid = ResolveNodeButtonId(logic, graph, act, caster, target_card, target_player);
+                        if (!string.IsNullOrEmpty(bid))
+                        {
+                            int idx = owner.battle_buttons != null ? owner.battle_buttons.IndexOf(bid) : -1;
+                            if (idx < 0)
+                                Debug.LogWarning("[NodeDoc] 删除按钮：该玩家按钮栏里没有「" + bid + "」，已跳过（未改动按钮栏）");
+                            else
+                                logic.RemoveBattleButton(owner, idx + 1);   //★ 只改这个玩家的局内按钮栏
+                        }
+                        else if (HasFieldDef(act, "pos"))
+                        {
+                            //旧图兼容：没配「按钮」但节点上还留着旧的"位置"字段 → 仍按位置删（新加节点已无该字段）
+                            logic.RemoveBattleButton(owner, pos);
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[NodeDoc] 删除按钮：没选按钮也没连线（button 为空），已跳过");
+                        }
+                    }
+                    break;
+                }
+                case "ThisButton":   //「这个按钮」是取值节点：在取值侧处理（见 GetObjectInput 的 String 通道）
+                    break;
                 case "209101":   //设置战斗BGM：战斗内把背景音乐换成音乐库里的指定曲子（表现层请求，不改对局逻辑）
                 {
                     string bgm = GraphRuntime.GetFieldString(act, "bgm", "");
@@ -4153,6 +4393,37 @@ namespace TcgEngine.Workshop
                     r.Add(c);
             }
             return r;
+        }
+
+        /// <summary>增益「目标属性」名归一：旧写法（攻击加成/生命加成/法力费用/护甲值…）→ 面板口径
+        /// （花费/攻击/生命/护甲/关键词/种族）；未知名字（玩家自定义参数）原样返回。</summary>
+        private static string NormalizeBuffTarget(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+                return "";
+            switch (s)
+            {
+                case "攻击加成":
+                case "攻击力":
+                    return BuffModTarget.Attack;
+                case "生命加成":
+                case "生命值":
+                    return BuffModTarget.HP;
+                case "法力费用":
+                case "费用":
+                case "耗":
+                case "法力值":
+                    return BuffModTarget.Cost;
+                case "护甲值":
+                case "护盾":
+                    return BuffModTarget.Armor;
+                case "关键字":
+                    return BuffModTarget.Keyword;
+                case "特性":
+                    return BuffModTarget.Trait;
+                default:
+                    return s;
+            }
         }
 
         /// <summary>把中文/英文牌堆名归一为**内部名**：战场 / 手牌 / 牌库 / 墓地 / 装备 / 奥秘 / 英雄 / 暂存区。
@@ -6007,6 +6278,8 @@ namespace TcgEngine.Workshop
                     Card c = ResolveInputCard(logic, graph, node, "card", caster, null, target_player);
                     return c != null ? logic.GameData.GetPlayer(c.player_id) : null;
                 }
+                case "119002":   //获取行动玩家（= 当前的 current_player；与既有 101005 获取当前回合的玩家等价）
+                    return logic.GameData.GetActivePlayer();
                 case "101003":
                 {
                     Player p = ResolveValuePlayer(logic, graph, node, caster, target_player);
@@ -6131,6 +6404,16 @@ namespace TcgEngine.Workshop
                 {
                     Player p = logic != null ? ResolveInputPlayer(logic, graph, node, "player", caster, null) : null;
                     return p != null && p.cards_equip != null && p.cards_equip.Count > 0;
+                }
+                //---------------- 回合控制（判断） ----------------
+                case "119003":  //判断是否该玩家回合：当前行动玩家 == player 口
+                {
+                    Player p = logic != null ? ResolveInputPlayer(logic, graph, node, "player", caster, null) : null;
+                    return p != null && logic.GameData.current_player == p.player_id;
+                }
+                case "119005":  //判断是否为第一回合（turn_count <= 1；无对局上下文时判假）
+                {
+                    return logic != null && logic.GameData.turn_count <= 1;
                 }
                 case "102032":  //卡牌类型判断：卡牌口 + 卡牌类型(枚举字段) → 真值
                 case "102002":  //（旧版变体：类型来自"卡牌定义选择"口 select → 取所选定义的 type；旧图兼容）

@@ -75,6 +75,70 @@ namespace TcgEngine.Workshop
             trait = traits.Count > 0 ? traits[0] : "";   //双写兼容
             return traits;
         }
+
+        // ==================== 卡牌自定义属性（与「增益」里那套完全同一规格） ====================
+        // 声明格式对齐「醉梦传说」的「自定义效果属性 = 名称:类型[:数组]」，并额外带**初始值**。
+        // 复用 BuffData.cs 里的 BuffCustomProp / BuffPropType（同一套类型命名与结构），
+        // 差别只在于"归属"：这里描述的是**这张卡牌**的自定义参数。
+
+        /// <summary>卡牌自定义属性声明（名称 / 类型 / 是否为数组 / 初始值）</summary>
+        public List<BuffCustomProp> custom_prop_defs = new List<BuffCustomProp>();
+
+        /// <summary>自定义属性列表（幂等自愈：为 null 时补空表）</summary>
+        public List<BuffCustomProp> EnsureCustomPropDefs()
+        {
+            if (custom_prop_defs == null)
+                custom_prop_defs = new List<BuffCustomProp>();
+            return custom_prop_defs;
+        }
+
+        /// <summary>按名找自定义属性（找不到→null）</summary>
+        public BuffCustomProp FindCustomProp(string name)
+        {
+            if (custom_prop_defs == null || string.IsNullOrEmpty(name))
+                return null;
+            foreach (BuffCustomProp c in custom_prop_defs)
+            {
+                if (c != null && c.name == name)
+                    return c;
+            }
+            return null;
+        }
+
+        /// <summary>取某自定义属性的初始值（找不到→0）</summary>
+        public int CustomPropInit(string name)
+        {
+            BuffCustomProp c = FindCustomProp(name);
+            return c != null ? c.InitInt() : 0;
+        }
+
+        /// <summary>新增（同名视为编辑：覆盖类型 / 是否数组 / 初始值）</summary>
+        public BuffCustomProp AddCustomProp(string name, string type, bool is_array, string init_value)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+            EnsureCustomPropDefs();
+            BuffCustomProp exist = FindCustomProp(name);
+            if (exist == null)
+            {
+                exist = new BuffCustomProp(name, type, is_array, init_value);
+                custom_prop_defs.Add(exist);
+            }
+            else
+            {
+                exist.type = string.IsNullOrEmpty(type) ? BuffPropType.Int : type;
+                exist.is_array = is_array;
+                exist.init_value = init_value ?? "";
+            }
+            return exist;
+        }
+
+        /// <summary>删除自定义属性</summary>
+        public void RemoveCustomProp(string name)
+        {
+            if (custom_prop_defs != null)
+                custom_prop_defs.RemoveAll(c => c == null || c.name == name);
+        }
     }
 
     /// <summary>

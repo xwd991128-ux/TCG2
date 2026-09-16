@@ -7,6 +7,9 @@ using TcgEngine.Workshop;
 namespace TcgEngine.UI
 {
     /// <summary>
+    /// 【已弃用为"独立页面"】增益的列表/新增/删除已统一到卡牌编辑器「变量配置 → 增益」选择弹框
+    /// （VariableSelectPopup）；本页现在只作为**单条增益的编辑落地页**，从弹框点「编辑/新增」进入（见 EditBuff）。
+    ///
     /// 增益管理系统面板（游戏内 Unity 组件版，与卡池管理 CardPoolPanel 平级）。
     /// 增益是全局资源（Workshop/buffs.json，与卡池文件同目录），不属于任何单个卡池，
     /// 因此独立成页：左侧增益列表 + 右侧属性表编辑（攻击/生命加成自动参与战斗，自定义属性供规则图读写）。
@@ -38,6 +41,7 @@ namespace TcgEngine.UI
         public Text status_text;                     // 状态提示
 
         private static BuffPanel instance;
+        private bool opened_for_edit = false;   //true = 由弹框「编辑/新增」进入（见 EditBuff）；false = 旧独立入口
         public static BuffPanel Get() { return instance; }
 
         private BuffData editing_buff;                          // 当前编辑的增益定义
@@ -71,7 +75,21 @@ namespace TcgEngine.UI
 
         public override void Show(bool instant = false)
         {
+            //弃用独立页面：从导航栏/外部直接打开（非弹框的「编辑」路径）时，一律重定向到新的统一弹框流程，
+            //让"旧的增益管理页面"不再作为入口出现（弹框里点「编辑」再回到本页编辑单条增益）。
+            if (!opened_for_edit)
+            {
+                CardEditorPanel host = CardEditorPanel.Get();
+                if (host != null)
+                {
+                    Debug.Log("[增益] 独立管理页已弃用 → 重定向到「变量配置 → 增益」选择弹框");
+                    VariableSelectPopup.Open(VariableSelectPopup.Kind.Buff);
+                    return;
+                }
+            }
+            opened_for_edit = false;
             base.Show(instant);
+            HideLegacyParamUI();     //旧版右侧属性表整块停用（参数统一到新版「增益参数」页）
             RefreshBuffList();
             List<BuffData> all = BuffPoolIO.GetAll();
             if (all.Count > 0)
@@ -139,6 +157,60 @@ namespace TcgEngine.UI
                         ? new Color(0.5f, 0.78f, 1f, 0.5f)
                         : new Color(1f, 1f, 1f, 0.08f);
             }
+        }
+
+        /// <summary>
+        /// 停用旧版"右侧属性表"（名称/分类/描述/持续回合/属性行/编辑效果）—— 重构后增益参数统一在
+        /// 新版「增益编辑页 → 增益参数」编辑。**不删除场景对象**（删除会让 Unity 报 missing script），
+        /// 只运行时隐藏并提示，避免"同一份参数两处可改"与多余组件。
+        /// 列表管理（新增/复制/删除/保存）保留作为兜底：规则编辑器不在场景里时仍可管理增益池。
+        /// </summary>
+        private void HideLegacyParamUI()
+        {
+            GameObject[] legacy =
+            {
+                buff_name_input != null ? buff_name_input.gameObject : null,
+                buff_category_dropdown != null ? buff_category_dropdown.gameObject : null,
+                buff_desc_input != null ? buff_desc_input.gameObject : null,
+                buff_duration_input != null ? buff_duration_input.gameObject : null,
+                buff_prop_content != null ? buff_prop_content.gameObject : null,
+                buff_prop_template != null ? buff_prop_template.gameObject : null,
+                btn_buff_add_prop != null ? btn_buff_add_prop.gameObject : null,
+                btn_buff_edit_graph != null ? btn_buff_edit_graph.gameObject : null,
+            };
+            foreach (GameObject go in legacy)
+            {
+                if (go != null && go.activeSelf)
+                    go.SetActive(false);
+            }
+            SetStatus("参数编辑已迁移到「增益编辑页 → 增益参数」（本页仅保留列表管理）");
+        }
+
+        /// <summary>变量选择弹框的「编辑」入口：打开增益编辑器并选中指定增益。
+        /// BuffPanel 从此只作为"单条增益"的编辑落地页（列表管理/新建/删除由弹框统一承担，旧式独立入口已弃用）。</summary>
+        public void EditBuff(string buff_id)
+        {
+            //单入口：增益的完整编辑（参数 + 效果图）统一在新版「增益编辑页」（规则编辑器的「增益参数」Tab），
+            //本页只做"选中 → 跳过去"，避免同一份参数有两处能改（双入口 / 双份数据）。
+            opened_for_edit = true;
+            BuffData b = BuffPoolIO.Get(buff_id);
+            GraphEditorPanel editor = GraphEditorPanel.Get();
+            if (editor == null)
+                editor = FindObjectOfType<GraphEditorPanel>(true);
+            if (b == null || editor == null)
+            {
+                //兜底（规则编辑器不在场景里 / id 为空）：保持旧行为在本页编辑
+                Show();
+                if (!string.IsNullOrEmpty(buff_id))
+                {
+                    RefreshBuffList();
+                    SelectBuff(buff_id);
+                }
+                return;
+            }
+            editor.OpenBuff(b);     //→ 增益编辑页：右侧「增益参数」Tab（名称/描述/特效/属性修改/自定义参数）
+            editor.Show();
+            Hide();
         }
 
         /// <summary>选中增益：加载到右侧编辑区</summary>

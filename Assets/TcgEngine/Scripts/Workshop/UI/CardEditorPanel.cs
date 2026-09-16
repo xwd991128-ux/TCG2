@@ -112,8 +112,13 @@ namespace TcgEngine.UI
             if (btn_save2 != null) btn_save2.onClick.AddListener(OnSave);
             if (btn_test != null) btn_test.onClick.AddListener(OnTest);
             if (btn_go != null) btn_go.onClick.AddListener(OnGo);
-            if (btn_buff != null) btn_buff.onClick.AddListener(OnOpenBuffEditor);
-            if (btn_buttons != null) btn_buttons.onClick.AddListener(OnOpenButtonEditor);
+            //变量配置四入口（增益/种族/关键词/按钮）：统一走「选择弹框」，不再直接跳转旧的管理页面。
+            //先清掉 Builder 时代挂上的旧监听，避免"旧入口残留"（同一按钮有两个行为）。
+            if (btn_buff != null) btn_buff.onClick.RemoveAllListeners();
+            if (btn_buttons != null) btn_buttons.onClick.RemoveAllListeners();
+            if (btn_buff != null) btn_buff.onClick.AddListener(() => OpenVariablePopup(VariableSelectPopup.Kind.Buff));
+            if (btn_buttons != null) btn_buttons.onClick.AddListener(() => OpenVariablePopup(VariableSelectPopup.Kind.Button));
+            ConfigVariablePopup();
             if (btn_close != null) btn_close.onClick.AddListener(OnClose);
             if (btn_add_card != null) btn_add_card.onClick.AddListener(OnAddCard);
             if (btn_copy != null) btn_copy.onClick.AddListener(OnCopyCard);
@@ -133,13 +138,559 @@ namespace TcgEngine.UI
             ApplyEditorLayout();   //把散落的按钮归位成「左下操作栏 + 右侧变量配置列」
         }
 
-        /// <summary>进入增益编辑器（隐藏本页 + 显示增益页）</summary>
-        private void OnOpenBuffEditor()
+        /// <summary>
+        /// 移除变量配置列右上角的 ×（需求变更：不再收起/展开该列）。
+        /// 运行时建的按钮叫 SideCloseBtn，场景里可能还存着旧副本 → 两处都按名字扫：先 SetActive(false)
+        /// （立刻不可见，Destroy 要到帧末才生效），再 Destroy；最后强制把整列恢复为"展开"，避免之前被收起过。
+        /// </summary>
+        private void RemoveSideCloseButton()
         {
+            Transform parent = editor_area_root != null ? editor_area_root.transform : transform;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                Transform root = pass == 0 ? parent : transform;
+                if (root == null)
+                    continue;
+                for (int i = root.childCount - 1; i >= 0; i--)
+                {
+                    Transform ch = root.GetChild(i);
+                    if (ch == null || ch.name != "SideCloseBtn")
+                        continue;
+                    ch.gameObject.SetActive(false);
+                    Destroy(ch.gameObject);
+                    Debug.Log("[变量配置] 已移除右上角的 ×（按需求不再收起该列）");
+                }
+            }
+            side_config_visible = true;
+            ApplySideConfigVisible();   //保证列处于展开状态
+        }
+
+        // ================= 卡池编辑器 → 按钮编辑器（「按钮」弹框里点「编辑」走这里） =================
+        // 注：下面这批"方块按钮行"的构建方法已弃用（按钮栏显示在**对战界面**，见 GameUI.EnsureBattleBar()），
+        //     但 **OpenButtonEditor** 是当前唯一的入口方法，仍在使用（弹框「编辑」→ 按钮编辑器）。
+
+        private Button btn_row_toggle;            //左侧方块（文字随状态：按钮 →  /  按钮 ←）
+        private RectTransform btn_row_root;       //整行（方块 + 可横向滚动的按钮列表）
+        private RectTransform btn_row_content;    //方形按钮容器（HorizontalLayoutGroup）
+        private readonly List<Button> btn_row_squares = new List<Button>();
+        private readonly List<string> btn_row_ids = new List<string>();
+        private string btn_row_selected;          //当前选中的按钮 id（高亮用）
+        private bool btn_row_expanded;            //是否展开
+
+        /// <summary>
+        /// 构建「按钮」栏（幂等）：左侧方块 = 展开/收起开关（箭头方向随状态变），
+        /// 右侧一排**正方形**按钮 = buttons.json 的全部按钮（按序平铺、可横向滚动、选中高亮），
+        /// 末尾一个「＋」= 新建按钮。默认收起，点方块展开。
+        /// </summary>
+        private void EnsureButtonRow(Font font)
+        {
+            Transform parent = editor_area_root != null ? editor_area_root.transform : transform;
+            if (btn_row_root == null)
+            {
+                GameObject row_go = new GameObject("ButtonRow", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+                btn_row_root = row_go.GetComponent<RectTransform>();
+                btn_row_root.SetParent(parent, false);
+                //位置：左下角的空白带（避开上方 4 个变量配置按钮占用的区域，也避开底部状态栏）
+                btn_row_root.anchorMin = new Vector2(0f, 0f);
+                btn_row_root.anchorMax = new Vector2(1f, 0f);
+                btn_row_root.pivot = new Vector2(0.5f, 0f);
+                btn_row_root.offsetMin = new Vector2(16f, 52f);
+                btn_row_root.offsetMax = new Vector2(-88f, 100f);   //右端留 72px 给 ×
+                Image row_bg = row_go.GetComponent<Image>();
+                row_bg.color = new Color(1f, 1f, 1f, 0.06f);
+                row_bg.raycastTarget = false;
+
+                ScrollRect sr = row_go.GetComponent<ScrollRect>();
+                sr.horizontal = true;
+                sr.vertical = false;
+                sr.movementType = ScrollRect.MovementType.Clamped;
+                sr.scrollSensitivity = 24f;
+
+                GameObject view_go = new GameObject("Viewport", typeof(RectTransform));
+                RectTransform view = view_go.GetComponent<RectTransform>();
+                view.SetParent(btn_row_root, false);
+                view.anchorMin = Vector2.zero;
+                view.anchorMax = Vector2.one;
+                view.offsetMin = new Vector2(66f, 4f);   //左端 66 留给方块
+                view.offsetMax = new Vector2(-4f, -4f);
+                view_go.AddComponent<RectMask2D>();
+                sr.viewport = view;
+
+                GameObject content_go = new GameObject("Content", typeof(RectTransform));
+                btn_row_content = content_go.GetComponent<RectTransform>();
+                btn_row_content.SetParent(view, false);
+                btn_row_content.anchorMin = new Vector2(0f, 0f);
+                btn_row_content.anchorMax = new Vector2(0f, 1f);
+                btn_row_content.pivot = new Vector2(0f, 0.5f);
+                btn_row_content.anchoredPosition = Vector2.zero;
+                btn_row_content.sizeDelta = Vector2.zero;
+                HorizontalLayoutGroup hlg = content_go.AddComponent<HorizontalLayoutGroup>();
+                hlg.spacing = 6f;
+                hlg.padding = new RectOffset(2, 2, 2, 2);
+                hlg.childAlignment = TextAnchor.MiddleLeft;
+                hlg.childControlWidth = true;
+                hlg.childControlHeight = true;    //★ 否则方块上的 LayoutElement 被忽略
+                hlg.childForceExpandWidth = false;
+                hlg.childForceExpandHeight = false;
+                ContentSizeFitter csf = content_go.AddComponent<ContentSizeFitter>();
+                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+                sr.content = btn_row_content;
+
+                //左侧方块（展开/收起开关，始终可见）
+                btn_row_toggle = CreateLayoutButton("BtnRowToggle", "按钮 →", ColPurple, font, 20);
+                if (btn_row_toggle != null)
+                {
+                    RectTransform trt = btn_row_toggle.GetComponent<RectTransform>();
+                    trt.SetParent(btn_row_root, false);
+                    trt.anchorMin = new Vector2(0f, 0.5f);
+                    trt.anchorMax = new Vector2(0f, 0.5f);
+                    trt.pivot = new Vector2(0f, 0.5f);
+                    trt.anchoredPosition = new Vector2(2f, 0f);
+                    trt.sizeDelta = new Vector2(58f, 36f);
+                    btn_row_toggle.onClick.RemoveAllListeners();
+                    btn_row_toggle.onClick.AddListener(ToggleButtonRow);
+                }
+                Debug.Log("[按钮栏] 构建完成：方块(展开/收起) + 一排方形按钮（buttons.json）");
+            }
+
+            if (btn_row_root != null)
+                btn_row_root.gameObject.SetActive(true);
+            ApplyButtonRowExpanded();
+            RefreshButtonRowSquares();
+        }
+
+        private void ToggleButtonRow()
+        {
+            btn_row_expanded = !btn_row_expanded;
+            ApplyButtonRowExpanded();
+            SetStatus(btn_row_expanded ? "按钮栏：已展开（点某个方块进入按钮编辑器）" : "按钮栏：已收起");
+        }
+
+        /// <summary>箭头与可见性随状态变：收起=「按钮 →」（点它会向右展开），展开=「按钮 ←」（点击收起）</summary>
+        private void ApplyButtonRowExpanded()
+        {
+            if (btn_row_content != null)
+                btn_row_content.gameObject.SetActive(btn_row_expanded);
+            if (btn_row_toggle != null)
+            {
+                TMPro.TMP_Text t = btn_row_toggle.GetComponentInChildren<TMPro.TMP_Text>(true);   //本文件没有 using TMPro，按既有写法用全限定名
+                if (t != null)
+                    t.text = btn_row_expanded ? "按钮 ←" : "按钮 →";
+            }
+        }
+
+        /// <summary>重建方形按钮（幂等；先脱层再 Destroy，避免重复/延迟销毁导致的重影）</summary>
+        private void RefreshButtonRowSquares()
+        {
+            if (btn_row_content == null)
+                return;
+            for (int i = btn_row_content.childCount - 1; i >= 0; i--)
+            {
+                Transform c = btn_row_content.GetChild(i);
+                if (c == null)
+                    continue;
+                c.SetParent(null, false);
+                Destroy(c.gameObject);
+            }
+            btn_row_squares.Clear();
+            btn_row_ids.Clear();
+
+            List<BattleButtonData> list = BattleButtonIO.GetAll();
+            for (int i = 0; i < list.Count; i++)
+            {
+                BattleButtonData b = list[i];
+                if (b == null || string.IsNullOrEmpty(b.id))
+                    continue;
+                CreateButtonSquare(b, false);
+            }
+            CreateButtonSquare(null, true);      //末尾「＋」= 新建按钮
+            LayoutRebuilder.ForceRebuildLayoutImmediate(btn_row_content);
+            RefreshButtonRowSelected();
+        }
+
+        private void CreateButtonSquare(BattleButtonData b, bool is_add)
+        {
+            string label = is_add ? "＋" : ShortButtonLabel(b);
+            Button btn = CreateLayoutButton(is_add ? "BtnSquareAdd" : ("BtnSquare_" + b.id), label,
+                is_add ? ColGreen : ColBlue, UiFont(), 18);
+            if (btn == null)
+                return;
+            RectTransform rt = btn.GetComponent<RectTransform>();
+            rt.SetParent(btn_row_content, false);
+            rt.sizeDelta = new Vector2(38f, 38f);          //正方形
+            LayoutElement le = rt.GetComponent<LayoutElement>();
+            if (le == null)
+                le = rt.gameObject.AddComponent<LayoutElement>();
+            le.minWidth = 38f;
+            le.preferredWidth = 38f;
+            le.minHeight = 38f;
+            le.preferredHeight = 38f;
+
+            btn.onClick.RemoveAllListeners();
+            if (is_add)
+            {
+                btn.onClick.AddListener(() =>
+                {
+                    BattleButtonData nb = BattleButtonIO.New();
+                    BattleButtonIO.SaveAll();
+                    btn_row_selected = nb != null ? nb.id : null;
+                    btn_row_expanded = true;
+                    ApplyButtonRowExpanded();
+                    RefreshButtonRowSquares();
+                    SetStatus("已新建按钮：" + (nb != null ? nb.GetTitle() : "") + "（点它进入按钮编辑器完善名称/背景/描述）");
+                });
+            }
+            else
+            {
+                string id = b.id;
+                btn.onClick.AddListener(() => OpenButtonEditor(id));
+                btn_row_squares.Add(btn);
+                btn_row_ids.Add(id);
+            }
+        }
+
+        private string ShortButtonLabel(BattleButtonData b)
+        {
+            string t = b != null ? b.GetTitle() : "";
+            if (string.IsNullOrEmpty(t))
+                return "按";
+            return t.Length > 2 ? t.Substring(0, 2) : t;    //方块只有 38px：取前两个汉字做标识
+        }
+
+        private void RefreshButtonRowSelected()
+        {
+            for (int i = 0; i < btn_row_squares.Count && i < btn_row_ids.Count; i++)
+            {
+                Button sq = btn_row_squares[i];
+                if (sq == null)
+                    continue;
+                Image img = sq.GetComponent<Image>();
+                if (img == null)
+                    continue;
+                bool on = !string.IsNullOrEmpty(btn_row_selected) && btn_row_ids[i] == btn_row_selected;
+                img.color = on ? new Color(0.55f, 0.55f, 0.55f, 0.95f) : UITheme.Ctrl;   //黑白灰：选中=中灰高亮
+            }
+        }
+
+        /// <summary>
+        /// 进入**按钮编辑器**（规则编辑器面板的按钮模式：右列第一个 Tab = 按钮参数），并记住选中项。
+        /// 入口：①「按钮」选择弹框里的「编辑」；② 对战界面按钮栏（GameUI）走的是同一套 GameClient 触发，不经这里。
+        /// 返回路径：按钮编辑器点「×/返回」→ GraphEditorPanel.OnClose（按钮模式分支）→ NotifyButtonGraphClosed
+        ///          → 重新显示卡池编辑器并刷新按钮列表/状态。
+        /// </summary>
+        private void OpenButtonEditor(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                SetStatus("请先在列表里选中一个按钮再点「编辑」");
+                return;
+            }
+            BattleButtonData b = BattleButtonIO.Get(id);
+            if (b == null)
+            {
+                BattleButtonIO.LoadAll();      //缓存里没有就重新加载一次（可能刚由别的入口新增）
+                b = BattleButtonIO.Get(id);
+            }
+            if (b == null)
+            {
+                SetStatus("找不到按钮：" + id);
+                return;
+            }
+
+            GraphEditorPanel panel = GraphEditorPanel.Get();
+            if (panel == null)
+                panel = FindObjectOfType<GraphEditorPanel>(true);
+            if (panel == null)
+            {
+                SetStatus("未找到按钮编辑器（规则编辑器面板），请先运行「生成规则编辑器页面」工具");
+                return;
+            }
+
+            //状态同步：记住当前按钮（弹框/旧列表/按钮栏三处选中态一致）
+            selected_button_id = id;
+            btn_row_selected = id;
+            RefreshButtonRowSelected();
+
+            //页面切换：先收干净浮层（选择弹框等），再隐藏卡池编辑器，最后打开按钮编辑器（它内部会 Show 自己）
+            VariableSelectPopup.CloseAll();
             Hide();
-            BuffPanel panel = BuffPanel.Get();
-            if (panel != null)
-                panel.Show();
+            panel.OpenButton(b);
+            SetStatus("已进入按钮编辑器：" + b.GetTitle() + "（右列「按钮参数」改名称/背景/描述/自定义参数；点 × 返回卡池编辑器）");
+        }
+
+        // ================= 变量配置：统一走「选择弹框」（旧式直接跳管理页面已弃用） =================
+
+        /// <summary>把四类入口的宿主回调注入弹框：谁打开编辑器、卡牌当前值、选中回写、变更通知、字体</summary>
+        private void ConfigVariablePopup()
+        {
+            VariableSelectPopup.open_editor = OpenVariableEditor;
+            VariableSelectPopup.current_value_of_card = CurrentCardValue;
+            VariableSelectPopup.on_picked = PickCardValue;
+            VariableSelectPopup.after_changed = AfterVariableChanged;
+        }
+
+        /// <summary>打开某类别的选择弹框（增益/种族/关键词/按钮共用一套弹框）</summary>
+        private void OpenVariablePopup(VariableSelectPopup.Kind kind)
+        {
+            if (current_pool == null)
+            {
+                SetStatus("请先打开一个卡池");
+                return;
+            }
+            VariableSelectPopup.Open(kind);
+        }
+
+        /// <summary>入口按钮重挂监听：清掉 Builder 时代的旧行为，只保留"打开弹框"</summary>
+        private void RewireVariableButton(Button btn, VariableSelectPopup.Kind kind)
+        {
+            if (btn == null)
+                return;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OpenVariablePopup(kind));
+        }
+
+        /// <summary>弹框「编辑 / 新增」→ 进入对应编辑器页面并选中该项（四类的差异都在这里收口）</summary>
+        private void OpenVariableEditor(VariableSelectPopup.Kind kind, string id)
+        {
+            switch (kind)
+            {
+                case VariableSelectPopup.Kind.Buff:
+                {
+                    BuffPanel panel = BuffPanel.Get();
+                    if (panel == null)
+                        panel = FindObjectOfType<BuffPanel>(true);
+                    if (panel == null)
+                    {
+                        SetStatus("未找到增益编辑器（BuffPanel）");
+                        return;
+                    }
+                    Hide();
+                    panel.EditBuff(id);        //打开并选中该增益（BuffPanel 仍是"单条增益"的编辑落地页）
+                    return;
+                }
+                case VariableSelectPopup.Kind.Keyword:
+                {
+                    KeywordPanel panel = KeywordPanel.Get();
+                    if (panel == null)
+                        panel = FindObjectOfType<KeywordPanel>(true);
+                    if (panel == null)
+                    {
+                        SetStatus("未找到关键词编辑器（KeywordPanel）");
+                        return;
+                    }
+                    Hide();
+                    panel.EditKeyword(id);
+                    return;
+                }
+                case VariableSelectPopup.Kind.Button:
+                    //★ 「编辑」= 进入**按钮编辑器**（规则编辑器面板的按钮模式：右列第一个 Tab = 按钮参数），
+                    //  而不是旧的内嵌按钮列表页；返回路径由 GraphEditorPanel.OnClose → NotifyButtonGraphClosed 负责。
+                    OpenButtonEditor(id);
+                    return;
+                case VariableSelectPopup.Kind.Trait:
+                    //种族暂无独立编辑页：弹框内直接改标题（见 VariableSelectPopup.OnEditClick）
+                    SetStatus("种族没有独立编辑页：可在弹框内改名");
+                    return;
+            }
+        }
+
+        /// <summary>卡牌当前已配置的该项 id（弹框列表默认预选中用；增益/按钮是全局资源 → 无当前项）</summary>
+        private string CurrentCardValue(VariableSelectPopup.Kind kind)
+        {
+            if (current_card == null)
+                return null;
+            switch (kind)
+            {
+                case VariableSelectPopup.Kind.Trait:
+                {
+                    List<string> traits = current_card.EnsureTraits();
+                    return traits.Count > 0 ? traits[0] : null;
+                }
+                case VariableSelectPopup.Kind.Keyword:
+                    return current_card.keywords != null && current_card.keywords.Count > 0 ? current_card.keywords[0] : null;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>弹框单击选中 → 回写卡牌：种族=traits[0]（单选），关键词=移到首位保留其余（卡牌可带多个关键词）</summary>
+        private void PickCardValue(VariableSelectPopup.Kind kind, string id)
+        {
+            if (current_card == null)
+            {
+                if (!string.IsNullOrEmpty(id))
+                    SetStatus("提示：未选中卡牌，本次仅在弹框里选中 " + id + "（选中卡牌后再点可写入卡面）");
+                return;
+            }
+            switch (kind)
+            {
+                case VariableSelectPopup.Kind.Trait:
+                {
+                    List<string> traits = current_card.EnsureTraits();
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        traits.Clear();
+                        current_card.trait = "";
+                        SetStatus("已清除种族（记得保存卡池）");
+                        break;
+                    }
+                    if (traits.Count == 0)
+                        traits.Add(id);
+                    else
+                        traits[0] = id;          //首位=当前种族（双写 trait 由 EnsureTraits 兜底）
+                    SetStatus("已设置种族：" + id + "（记得保存卡池）");
+                    break;
+                }
+                case VariableSelectPopup.Kind.Keyword:
+                {
+                    if (string.IsNullOrEmpty(id))
+                        break;
+                    if (current_card.keywords == null)
+                        current_card.keywords = new List<string>();
+                    current_card.keywords.Remove(id);
+                    current_card.keywords.Insert(0, id);
+                    SetStatus("已设置关键词：" + id + "（共 " + current_card.keywords.Count + " 个，记得保存卡池）");
+                    break;
+                }
+                default:
+                    SetStatus("已选中：" + id + "（增益/按钮是全局资源，保存后对所有卡牌生效）");
+                    return;
+            }
+            RefreshCardList();
+            OnSelectCardId(current_card.id);
+        }
+
+        /// <summary>弹框里增删项之后的刷新（卡面重绘 + 选中态保持）</summary>
+        private void AfterVariableChanged()
+        {
+            if (current_card == null)
+                return;
+            RefreshCardList();
+            OnSelectCardId(current_card.id);
+        }
+
+        // ---------------- 右侧列的收起/展开（× 按钮） ----------------
+
+        private Button side_close_btn;
+        private bool side_config_visible = true;
+
+        /// <summary>
+        /// 变量配置列右上角的 × ：收起/展开整列。
+        /// 关键点：① 放在 editor_area_root 内、最后创建并 SetAsLastSibling → 层级最高，不会被四组按钮遮挡（保证可点）；
+        ///        ② 按钮列已右收 72px（见 ApplyEditorLayout 的 sizeDelta），与 × 之间留出间距，不再重叠。
+        /// </summary>
+        private void EnsureSideCloseButton(Font font)
+        {
+            Transform parent = editor_area_root != null ? editor_area_root.transform : transform;
+            Transform exist = parent.Find("SideCloseBtn");
+            if (exist != null)
+                side_close_btn = exist.GetComponent<Button>();
+            if (side_close_btn == null)
+            {
+                side_close_btn = CreateLayoutButton("SideCloseBtn", "×", ColRed, font, 30);
+                if (side_close_btn == null)
+                    return;
+            }
+            RectTransform rt = side_close_btn.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-12f, -12f);
+            rt.sizeDelta = new Vector2(44f, 44f);
+            side_close_btn.onClick.RemoveAllListeners();
+            side_close_btn.onClick.AddListener(ToggleSideConfig);
+            if (!side_close_btn.gameObject.activeSelf)
+                side_close_btn.gameObject.SetActive(true);
+            side_close_btn.transform.SetAsLastSibling();
+        }
+
+        /// <summary>
+        /// 把"别人的 ×"从变量配置列里挪走：
+        /// 场景里的旧关闭按钮（btn_close 等）锚在面板右侧中部，正好压在四个入口按钮上（会出现两个 × 且其中一个重叠）。
+        /// 这里把**任何与配置列矩形相交、且看起来是关闭按钮**的 Button 统一停到面板右上角：
+        ///   · 保留它的原功能（点了还是关面板/返回），不删对象；
+        ///   · 判定：名字含 close（忽略大小写）或按钮文字是 ×/X/✕。
+        /// </summary>
+        private void ParkForeignCloseButtons()
+        {
+            if (side_config_bar == null)
+                return;
+            Rect col = WorldRect(side_config_bar);
+            col.xMin -= 8f;
+            col.xMax += 8f;
+            foreach (Button b in GetComponentsInChildren<Button>(true))
+            {
+                if (b == null || b == side_close_btn)
+                    continue;
+                if (!LooksLikeCloseButton(b))
+                    continue;
+                RectTransform rt = b.GetComponent<RectTransform>();
+                if (rt == null || !col.Overlaps(WorldRect(rt)))
+                    continue;
+                rt.SetParent(transform, false);      //移到面板根部（脱离原容器，避免被原布局再次拉回去）
+                rt.anchorMin = new Vector2(1f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-16f, -16f);
+                rt.sizeDelta = new Vector2(44f, 44f);
+                rt.SetAsLastSibling();
+                Debug.Log("[卡牌编辑器] 旧的关闭按钮与「变量配置」列重叠 → 已挪到面板右上角：" + b.name);
+            }
+        }
+
+        /// <summary>名字或文字看起来像关闭按钮（×/X/✕ 或含 close）。TMP 与旧版 Text 都要看
+        /// （页面里两种文本控件并存，只查一种会漏掉旧按钮）。</summary>
+        private static bool LooksLikeCloseButton(Button b)
+        {
+            if (b.name != null && b.name.ToLower().Contains("close"))
+                return true;
+            TMPro.TMP_Text tmp = b.GetComponentInChildren<TMPro.TMP_Text>(true);
+            string s = tmp != null ? (tmp.text ?? "").Trim() : "";
+            if (string.IsNullOrEmpty(s))
+            {
+                Text legacy = b.GetComponentInChildren<Text>(true);
+                s = legacy != null ? (legacy.text ?? "").Trim() : "";
+            }
+            return s == "×" || s == "X" || s == "x" || s == "✕";
+        }
+
+        private static Rect WorldRect(RectTransform rt)
+        {
+            Vector3[] c = new Vector3[4];
+            rt.GetWorldCorners(c);
+            return new Rect(c[0].x, c[0].y, c[2].x - c[0].x, c[2].y - c[0].y);
+        }
+
+        private System.Collections.IEnumerator ParkForeignCloseNextFrame()
+        {
+            yield return null;
+            ParkForeignCloseButtons();
+        }
+
+        private void ToggleSideConfig()
+        {
+            side_config_visible = !side_config_visible;
+            ApplySideConfigVisible();
+            SetStatus(side_config_visible ? "变量配置：已展开" : "变量配置：已收起（点右上角按钮展开）");
+        }
+
+        private void ApplySideConfigVisible()
+        {
+            Transform parent = editor_area_root != null ? editor_area_root.transform : transform;
+            if (side_config_bar != null)
+                side_config_bar.gameObject.SetActive(side_config_visible);
+            Transform caption = parent.Find("SideCaption");
+            if (caption != null)
+                caption.gameObject.SetActive(side_config_visible);
+            if (editor_hint != null)
+                editor_hint.gameObject.SetActive(side_config_visible);
+            if (side_close_btn != null)
+            {
+                Text t = side_close_btn.GetComponentInChildren<Text>(true);
+                if (t != null)
+                    t.text = side_config_visible ? "×" : "≡";   //收起后图标变成"展开"提示，仍可点
+            }
         }
 
         /// <summary>切换进入内嵌战斗按钮编辑器：隐藏卡牌编辑内容，显示按钮编辑区。
@@ -315,13 +866,20 @@ namespace TcgEngine.UI
         public void NotifyButtonGraphClosed()
         {
             Show();
+            //旧的内嵌「按钮管理页」已弃用（入口改为卡池界面的「按钮」栏 → 按钮编辑器），这里不再显示它
             if (button_editor_root != null)
-                button_editor_root.SetActive(true);
-            SetCardEditVisible(false);
+                button_editor_root.SetActive(false);
+            SetCardEditVisible(true);    //★ 返回卡池时**恢复**卡牌列表 + 右侧属性/变量配置列（原来这里是 false → 整列都不见了）
             RefreshButtonList();
             if (!string.IsNullOrEmpty(selected_button_id))
                 SelectButton(selected_button_id);
-            SetStatus("按钮规则图已更新（点击「保存」写回 buttons.json）");
+            if (btn_row_root != null)
+            {
+                btn_row_expanded = true;       //回到卡池界面时保持展开，方便直接看到刚改的按钮
+                ApplyButtonRowExpanded();
+                RefreshButtonRowSquares();
+            }
+            SetStatus("按钮已更新（名称/背景/描述/自定义参数 + 按钮图 → buttons.json）");
         }
 
         protected override void Update()
@@ -570,7 +1128,7 @@ namespace TcgEngine.UI
         ///   右侧列：变量配置（增益 / 种族 / 关键词 / 按钮），纵向排列，后续追加只需往列表里加一行
         ///
         /// 为什么放在运行时归位、而不是逐个改生成工具：本页的控件由 CardEditorBuilder、
-        /// BattleButtonBuilder、BuffPanelBuilder 等多处生成，运行时按引用收集最稳，
+        /// BattleButtonBuilder 等多处生成，运行时按引用收集最稳，
         /// 也不会因为以后重跑某一个工具又被打散；重复调用有 layout_applied 保护。
         /// </summary>
         private void ApplyEditorLayout()
@@ -643,9 +1201,10 @@ namespace TcgEngine.UI
             crt.anchorMin = new Vector2(0f, 1f);
             crt.anchorMax = new Vector2(1f, 1f);
             crt.pivot = new Vector2(0.5f, 1f);
+            //右端留出 ×（收起变量配置）的位置：标题与按钮列都收窄到 -72，避免与 × 重叠
             crt.offsetMin = new Vector2(16f, crt.offsetMin.y);
             crt.offsetMax = new Vector2(-16f, crt.offsetMax.y);
-            crt.sizeDelta = new Vector2(-32f, 40f);
+            crt.sizeDelta = new Vector2(-88f, 40f);
             crt.anchoredPosition = new Vector2(0f, -10f);
 
             side_config_bar = CreateBar("SideConfigBar", side_parent, false, 10f);
@@ -654,34 +1213,43 @@ namespace TcgEngine.UI
             side_config_bar.pivot = new Vector2(0.5f, 1f);
             side_config_bar.offsetMin = new Vector2(16f, side_config_bar.offsetMin.y);
             side_config_bar.offsetMax = new Vector2(-16f, side_config_bar.offsetMax.y);
-            side_config_bar.sizeDelta = new Vector2(-32f, 10f);
+            side_config_bar.sizeDelta = new Vector2(-88f, 10f);   //右侧留 72px 给 ×，四组按钮整体左移
             side_config_bar.anchoredPosition = new Vector2(0f, -56f);
 
             if (btn_buff == null)
             {
                 btn_buff = CreateLayoutButton("BuffBtn", "增益", ColPurple, font, 22);
-                btn_buff.onClick.AddListener(OnOpenBuffEditor);
             }
             if (btn_trait == null)
             {
                 btn_trait = CreateLayoutButton("TraitBtn", "种族", ColGreen, font, 22);
-                btn_trait.onClick.AddListener(OnOpenTraitEditor);
             }
             if (btn_keyword == null)
             {
                 btn_keyword = CreateLayoutButton("KeywordBtn", "关键词", ColBlue, font, 22);
-                btn_keyword.onClick.AddListener(OnOpenKeywordEditor);
             }
             if (btn_buttons == null)
             {
                 btn_buttons = CreateLayoutButton("ButtonsBtn", "按钮", ColPink, font, 22);
-                btn_buttons.onClick.AddListener(OnOpenButtonEditor);
             }
+            //四个入口一律走选择弹框（旧式"直接跳管理页面"已弃用）
+            RewireVariableButton(btn_buff, VariableSelectPopup.Kind.Buff);
+            RewireVariableButton(btn_trait, VariableSelectPopup.Kind.Trait);
+            RewireVariableButton(btn_keyword, VariableSelectPopup.Kind.Keyword);
+            RewireVariableButton(btn_buttons, VariableSelectPopup.Kind.Button);   //「按钮」入口保持原样（按钮栏在对战界面）
 
             MoveToBar(side_config_bar, btn_buff, new Vector2(0f, 46f));
             MoveToBar(side_config_bar, btn_trait, new Vector2(0f, 46f));
             MoveToBar(side_config_bar, btn_keyword, new Vector2(0f, 46f));
             MoveToBar(side_config_bar, btn_buttons, new Vector2(0f, 46f));
+
+            //注：卡池界面的「按钮」入口保持原样（编辑器不做按钮栏）；
+            //    "左侧方块展开/收起 + 一排方形按钮"是**对战界面**的功能，见 GameUI.EnsureBattleBar()。
+            //变量配置列右上角的 × 已按要求移除（不再提供收起/展开整列），并把可能残留的旧按钮清掉
+            RemoveSideCloseButton();
+            //场景里可能还留着旧的关闭按钮（锚在面板右侧中部）→ 正好压在四组按钮上：统一挪到面板右上角
+            ParkForeignCloseButtons();
+            StartCoroutine(ParkForeignCloseNextFrame());   //等一帧布局稳定后再判一次（LayoutGroup 首帧才定尺寸）
 
             //5) 选中提示移到右列底部，避免和配置按钮抢位置
             if (editor_hint != null)
@@ -719,37 +1287,15 @@ namespace TcgEngine.UI
             editor_area_root = area.gameObject;
         }
 
-        // ---------------- 配置入口 ----------------
-
-        /// <summary>「种族」：项目目前没有独立的种族页（种族在规则编辑器里以多选弹层编辑），
-        /// 这里给出统一入口与明确提示，后续做出种族页（继承 UIPanel 的 TraitPanel）后在此接上即可。</summary>
-        private void OnOpenTraitEditor()
-        {
-            if (trait_editor_opener != null)
-            {
-                trait_editor_opener.Invoke();
-                return;
-            }
-            SetStatus("种族配置页尚未创建：种族目前是 Resources 资产（TraitData），可在规则编辑器里点「种族」多选增减");
-        }
-
-        /// <summary>种族页打开钩子：后续新增 TraitPanel 时注册进来即可，不需要改本页布局代码</summary>
-        public static System.Action trait_editor_opener;
-
-        /// <summary>「关键词」：打开关键词管理页（KeywordPanel）</summary>
-        private void OnOpenKeywordEditor()
-        {
-            KeywordPanel panel = KeywordPanel.Get();
-            if (panel == null)
-                panel = FindObjectOfType<KeywordPanel>(true);
-            if (panel == null)
-            {
-                SetStatus("未找到关键词管理页，请先运行「TcgEngine/卡牌编辑器/生成关键词管理页面到主菜单场景」");
-                return;
-            }
-            Hide();
-            panel.Show();
-        }
+        // ---------------- 配置入口（已统一到弹框，见上方「变量配置」区） ----------------
+        //
+        // 旧入口已弃用并删除：
+        //   · OnOpenBuffEditor()        —— 原来点「增益」直接跳增益管理页 → 现在走选择弹框，编辑才进 BuffPanel.EditBuff(id)
+        //   · OnOpenTraitEditor()       —— 原来弹提示/走外部钩子           → 现在走选择弹框（种族弹框内改名）
+        //   · OnOpenKeywordEditor()     —— 原来点「关键词」直接跳关键词页   → 现在走选择弹框，编辑才进 KeywordPanel.EditKeyword(id)
+        // 已弃用：OnOpenButtonEditor()（旧的内嵌按钮列表页）
+        //   现在「按钮」类的编辑落地页 = **按钮编辑器**（规则编辑器面板的按钮模式，右列「按钮参数」），
+        //   入口：选择弹框「编辑」→ OpenButtonEditor(id)；返回：按钮编辑器 × → NotifyButtonGraphClosed()。
 
         // ---------------- 布局/控件小工具 ----------------
 
@@ -1102,7 +1648,7 @@ namespace TcgEngine.UI
                     GraphPin p = node.pins[i];
                     if (i > 0)
                         s += " ";
-                    s += (p.is_output ? "▸" : "◂") + p.display_name;
+                    s += (p.is_output ? "→" : "←") + p.display_name;
                 }
                 s += "]";
             }
