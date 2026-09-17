@@ -749,3 +749,15 @@ $t =(New-Object IO.StreamReader($fs,[Text.Encoding]::UTF8)).ReadToEnd(); $fs.Clo
 **④ 性能验证的落地套路（"用数据说话"）**：在热点函数里留两个 `public static int` 计数器（调用数 / 真正执行数），
 再放个探针每 2 秒报差值 —— 无需 Profiler、无需肉眼。本轮 P1 实测：**每 2 秒 ~1205 次调用（≈600 次/秒 ≈10 次/帧），
 实际重建仅 15 次/80 秒 → 跳过率 99.97%**。
+
+**⑤ 写 `.ps1` 脚本必须带 UTF-8 BOM —— 否则中文会"吃掉"紧跟其后的引号，整个脚本语法崩。**
+Windows PowerShell 5.1 对**无 BOM 的 UTF-8** 按 ANSI(GBK) 解析：中文字节会与后一个 ASCII 字节凑成一个 GBK 字符，
+于是 `"用法: call <tool> '<json>'"` 里的引号被吞 → 报 `Unexpected token ':'`、`Missing closing '}'`、`'<' operator is reserved`
+一堆莫名其妙的语法错（看着像脚本写错了，其实是编码）。
+**修法**：写完立刻补 BOM（`[IO.File]::WriteAllText($p,$t,(New-Object Text.UTF8Encoding($true)))`），
+或干脆让脚本内容全 ASCII。**每次用编辑器/工具改过 `.ps1` 后都要重补一次 BOM**（多数写文件工具默认写无 BOM）。
+
+**⑥ 自动化脚本的"等待产物"必须**先删旧产物**。**
+本轮 `mcp.ps1 autobattle` 的等待循环是"报告文件里出现 `done=1` 就认为跑完"——
+上一次留下的报告里本来就有 `done=1` → 循环立刻退出，打印的是**上一次的结果**（时间戳/配置都对不上，极易误判为"验证通过"）。
+**规则**：等文件出现前先删掉它；并把"产物时间戳/关键配置"一起打印出来做交叉核对。
