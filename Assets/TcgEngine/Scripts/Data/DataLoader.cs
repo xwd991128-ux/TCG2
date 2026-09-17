@@ -65,6 +65,7 @@ namespace TcgEngine
         //Make sure the data is valid
         private void CheckCardData()
         {
+            List<string> null_trait_cards = new List<string>();   //traits 里有空槽的卡（收集后统一报 + 就地剔除）
             card_ids.Clear();
             foreach (CardData card in CardData.GetAll())
             {
@@ -78,10 +79,29 @@ namespace TcgEngine
                 if (card.rarity == null)
                     Debug.LogError(card.id + " rarity is null");
 
-                foreach (TraitData trait in card.traits)
+                //★ 种族数组里的空槽（该槽引用的 TraitData 已被删除/未填）：
+                //  旧实现在这里逐个 LogError → 本工程有 17 张卡命中，每次进场景刷 17 条；
+                //  而空槽会一路传到 CardUI / 规则图（各处虽已判空，但留着仍是隐患）。
+                //  改为：收集 → 统一报一条 → **就地剔除空槽**（只改本局内存，不动资产文件）。
+                if (card.traits != null)
                 {
-                    if (trait == null)
-                        Debug.LogError(card.id + " has null trait");
+                    int null_count = 0;
+                    foreach (TraitData trait in card.traits)
+                    {
+                        if (trait == null)
+                            null_count++;
+                    }
+                    if (null_count > 0)
+                    {
+                        null_trait_cards.Add(card.id + "(" + null_count + ")");
+                        List<TraitData> kept = new List<TraitData>(card.traits.Length - null_count);
+                        foreach (TraitData trait in card.traits)
+                        {
+                            if (trait != null)
+                                kept.Add(trait);
+                        }
+                        card.traits = kept.ToArray();
+                    }
                 }
 
                 if (card.stats != null)
@@ -101,6 +121,11 @@ namespace TcgEngine
 
                 card_ids.Add(card.id);
             }
+
+            //空槽统一报一条（原来是逐张 LogError）；根治办法是在编辑器里把那些卡的 Traits 空槽清掉并保存资产
+            if (null_trait_cards.Count > 0)
+                Debug.LogError("[数据检查] " + null_trait_cards.Count + " 张卡的 traits 有空槽（引用了已删除/未填的 TraitData），"
+                    + "本局已在内存中剔除（未改动资产文件）：" + string.Join("、", null_trait_cards.ToArray()));
         }
 
         //Make sure the data is valid

@@ -58,6 +58,9 @@ namespace TcgEngine.FX
             client.onAbilityEnd -= OnAbilityAfter;
         }
         
+        private int last_status_sig;                                                            //上次的状态签名（状态没变就不对账特效）
+        private readonly List<StatusType> status_remove_buffer = new List<StatusType>();        //复用缓冲（避免每帧 new List）
+
         void Update()
         {
             if (!GameClient.Get().IsReady())
@@ -65,32 +68,41 @@ namespace TcgEngine.FX
 
             Card card = bcard.GetCard();
 
-            //Status FX
-            List<CardStatus> status_all = card.GetAllStatus();
-            foreach (CardStatus status in status_all)
+            //★ 状态特效只在「状态集合变了」时才对账：原来每帧都 GetAllStatus()（新建 List）、
+            //  逐条查 StatusData.Get（线性）、再新建 remove_list —— 每张战场卡每秒 60 次无用分配。
+            //  签名用加法混合（与顺序无关），数值变化（如护甲 2→3）也会被识别。
+            int status_sig = card.StatusSignature();
+            if (status_sig != last_status_sig)
             {
-                StatusData istatus = StatusData.Get(status.type);
-                if (istatus != null && !status_fx_list.ContainsKey(status.type) && istatus.status_fx != null)
-                {
-                    GameObject fx = Instantiate(istatus.status_fx, transform);
-                    fx.transform.localPosition = Vector3.zero;
-                    status_fx_list[istatus.effect] = fx;
-                }
-            }
+                last_status_sig = status_sig;
 
-            //Remove status FX
-            List<StatusType> remove_list = new List<StatusType>();
-            foreach (KeyValuePair<StatusType, GameObject> pair in status_fx_list)
-            {
-                if (!card.HasStatus(pair.Key))
+                //Status FX
+                List<CardStatus> status_all = card.GetAllStatus();
+                foreach (CardStatus status in status_all)
                 {
-                    remove_list.Add(pair.Key);
-                    Destroy(pair.Value);
+                    StatusData istatus = StatusData.Get(status.type);
+                    if (istatus != null && !status_fx_list.ContainsKey(status.type) && istatus.status_fx != null)
+                    {
+                        GameObject fx = Instantiate(istatus.status_fx, transform);
+                        fx.transform.localPosition = Vector3.zero;
+                        status_fx_list[istatus.effect] = fx;
+                    }
                 }
-            }
 
-            foreach (StatusType status in remove_list)
-                status_fx_list.Remove(status);
+                //Remove status FX（复用缓冲，避免每帧新建 List）
+                status_remove_buffer.Clear();
+                foreach (KeyValuePair<StatusType, GameObject> pair in status_fx_list)
+                {
+                    if (!card.HasStatus(pair.Key))
+                    {
+                        status_remove_buffer.Add(pair.Key);
+                        Destroy(pair.Value);
+                    }
+                }
+
+                foreach (StatusType status in status_remove_buffer)
+                    status_fx_list.Remove(status);
+            }
 
             //Exhausted add/remove
             if (exhausted_fx != null && !exhausted_fx.isPlaying && card.exhausted)

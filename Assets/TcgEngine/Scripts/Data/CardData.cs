@@ -321,14 +321,10 @@ namespace TcgEngine
         {
             foreach (AbilityData ability in abilities)
             {
-                if (ability)
-                {
-                    Debug.Log($"HasAbility: checking ability {ability.id}, trigger={ability.trigger}, target={ability.target}");
-                    if (ability.trigger == trigger && ability.target == target)
-                        return true;
-                }
+                //数据查询方法里不应打日志（原此处每查一次就打 1~N 条，卡牌条件/UI 判断会反复触发）
+                if (ability && ability.trigger == trigger && ability.target == target)
+                    return true;
             }
-            Debug.Log($"HasAbility: no matching ability found for trigger={trigger}, target={target}");
             return false;
         }
 

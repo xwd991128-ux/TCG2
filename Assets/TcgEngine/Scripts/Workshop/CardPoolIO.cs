@@ -501,6 +501,17 @@ namespace TcgEngine.Workshop
                 return;
 
             string json = File.ReadAllText(path);
+
+            //★ 只处理「卡池」JSON：Workshop 目录下还并存 buffs.json / buttons.json / bgm_library.json 等其它数据文件。
+            //  它们没有 "cards" 字段，JsonUtility 会得到「name 默认值 MyCardPool + 空卡列表」→ 旧实现于是每个都报
+            //  「已导入卡池「MyCardPool」，新增 0 张卡」（实测 3 条误报）。这里用一次廉价字符串检查直接跳过。
+            if (json.IndexOf("\"cards\"", StringComparison.Ordinal) < 0)
+            {
+                if (grantOwnership)
+                    Debug.LogWarning("[卡池] 这不是卡池文件（缺少 cards 字段），已跳过: " + path);
+                return;
+            }
+
             CardPoolData pool = JsonUtility.FromJson<CardPoolData>(json);
             if (pool == null)
             {

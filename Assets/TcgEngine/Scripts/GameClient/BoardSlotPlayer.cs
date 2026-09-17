@@ -64,18 +64,12 @@ namespace TcgEngine.Client
             {
                 target_alpha = 0f;
 
-                Debug.Log($"BoardSlotPlayer (self): your_turn={your_turn}, drag_card={(drag_card != null ? drag_card.CardData.id : "null")}");
-                
                 if (your_turn && drag_card != null)
                 {
-                    bool is_valid = gdata.IsPlayTargetValid(drag_card.GetCard(), GetPlayer());
-                    Debug.Log($"BoardSlotPlayer (self): card={drag_card.CardData.id}, type={drag_card.CardData.type}, IsPlayTargetValid={is_valid}");
-                    
-                    if (is_valid)
-                    {
-                        Debug.Log($"BoardSlotPlayer (self): Setting target_alpha to 1f");
-                        target_alpha = 1f; // 高亮当卡牌可以以玩家为目标时
-                    }
+                    //高亮当卡牌可以以玩家为目标时
+                    //（原此处有 3 条无条件的 Debug.Log：在 Update 里 → 每帧刷屏 + 每帧做字符串插值分配，已移除）
+                    if (gdata.IsPlayTargetValid(drag_card.GetCard(), GetPlayer()))
+                        target_alpha = 1f;
                 }
 
                 if (gdata.selector == SelectorType.SelectTarget)

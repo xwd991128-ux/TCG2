@@ -31,6 +31,8 @@ namespace TcgEngine
         public DeckData[] reward_decks;
 
         public static List<LevelData> level_list = new List<LevelData>();
+        private static Dictionary<string, LevelData> level_dict = new Dictionary<string, LevelData>();  //id → 数据（O(1) 查找）
+        private static int level_dict_count = -1;                                                        //建索引时的列表条数（用于检测外部增删）
 
         public static void Load(string folder = "")
         {
@@ -39,6 +41,19 @@ namespace TcgEngine
                 level_list.AddRange(Resources.LoadAll<LevelData>(folder));
                 level_list.Sort((LevelData a, LevelData b) => { return a.level.CompareTo(b.level); });
             }
+            RebuildDict();
+        }
+
+        /// <summary>重建 id 索引（幂等；列表条数变化或首次访问时自动调用）</summary>
+        public static void RebuildDict()
+        {
+            level_dict.Clear();
+            foreach (LevelData l in level_list)
+            {
+                if (l != null && !string.IsNullOrEmpty(l.id))
+                    level_dict[l.id] = l;
+            }
+            level_dict_count = level_list.Count;
         }
 
         public string GetTitle()
@@ -46,14 +61,14 @@ namespace TcgEngine
             return title;
         }
 
+        /// <summary>按 id 取（O(1)）：原来线性扫描，冒险模式/关卡选择反复调用。</summary>
         public static LevelData Get(string id)
         {
-            foreach (LevelData level in GetAll())
-            {
-                if (level.id == id)
-                    return level;
-            }
-            return null;
+            if (string.IsNullOrEmpty(id))
+                return null;
+            if (level_dict_count != level_list.Count)
+                RebuildDict();
+            return level_dict.TryGetValue(id, out LevelData l) ? l : null;
         }
 
         public static List<LevelData> GetAll()

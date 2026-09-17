@@ -86,12 +86,8 @@ namespace TcgEngine.Client
 
         public virtual bool IsInside(Vector3 wpos)
         {
-            bool is_inside = bounds.Contains(wpos);
-            if (!is_inside && this is BoardSlotPlayer)
-            {
-                Debug.Log($"BoardSlotPlayer.IsInside: pos={wpos}, bounds.center={bounds.center}, bounds.size={bounds.size}, is_inside={is_inside}");
-            }
-            return is_inside;
+            //（原实现在未命中时打 Debug.Log；而 GetNearest 会对所有槽位逐个调用它 → 拖拽时每帧刷屏，已移除）
+            return bounds.Contains(wpos);
         }
 
         public static BSlot GetNearest(Vector3 pos)

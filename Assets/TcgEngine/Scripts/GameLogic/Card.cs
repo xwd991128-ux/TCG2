@@ -394,6 +394,30 @@ namespace TcgEngine
             return all_status;
         }
 
+        /// <summary>状态集合签名（**零分配**）：把「永久状态 + 持续状态」的类型与数值混成一个 int，
+        /// 供每帧刷新的 UI/FX 做"状态没变就不重建"判断（BoardCardFX.Update 每帧对每张卡调用）。
+        /// 用加法混合 → 与列表顺序无关，避免同样一组状态因顺序差异被判成"变了"。</summary>
+        public int StatusSignature()
+        {
+            unchecked
+            {
+                int h = 17;
+                if (status != null)
+                {
+                    h += status.Count * 31;
+                    for (int i = 0; i < status.Count; i++)
+                        h += (int)status[i].type * 37 + status[i].value * 53;
+                }
+                if (ongoing_status != null)
+                {
+                    h += ongoing_status.Count * 41;
+                    for (int i = 0; i < ongoing_status.Count; i++)
+                        h += (int)ongoing_status[i].type * 43 + ongoing_status[i].value * 59;
+                }
+                return h;
+            }
+        }
+
         public bool HasStatus(StatusType type)
         {
             return GetStatus(type) != null || GetOngoingStatus(type) != null;

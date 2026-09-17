@@ -48,21 +48,38 @@ namespace TcgEngine
         }
 
         public static List<KeywordData> keyword_list = new List<KeywordData>();
+        private static Dictionary<string, KeywordData> keyword_dict = new Dictionary<string, KeywordData>();  //id → 数据（O(1) 查找）
+        private static int keyword_dict_count = -1;                                                           //建索引时的列表条数（用于检测外部增删）
 
         public static void Load(string folder = "")
         {
             if (keyword_list.Count == 0)
                 keyword_list.AddRange(Resources.LoadAll<KeywordData>(folder));
+            RebuildDict();
         }
 
+        /// <summary>重建 id 索引（幂等）。列表条数变化或首次访问时自动调用，
+        /// 兼容运行时增删（KeywordPanel/VariableSelectPopup 的新建与删除）。</summary>
+        public static void RebuildDict()
+        {
+            keyword_dict.Clear();
+            foreach (KeywordData k in keyword_list)
+            {
+                if (k != null && !string.IsNullOrEmpty(k.id))
+                    keyword_dict[k.id] = k;
+            }
+            keyword_dict_count = keyword_list.Count;
+        }
+
+        /// <summary>按 id 取（O(1)）：原来线性扫描，而卡池导入（每张卡每个关键词）、
+        /// 战斗里 BuffRuntime / GameLogic.TriggerKeywords 会按关键词 id 反复调用 → O(N×M)。</summary>
         public static KeywordData Get(string id)
         {
-            foreach (KeywordData keyword in GetAll())
-            {
-                if (keyword.id == id)
-                    return keyword;
-            }
-            return null;
+            if (string.IsNullOrEmpty(id))
+                return null;
+            if (keyword_dict_count != keyword_list.Count)   //列表被增删过 → 先重建（新建后立刻可用、删除后立刻失效）
+                RebuildDict();
+            return keyword_dict.TryGetValue(id, out KeywordData k) ? k : null;
         }
 
         public static List<KeywordData> GetAll()

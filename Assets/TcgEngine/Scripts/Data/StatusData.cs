@@ -95,20 +95,34 @@ namespace TcgEngine
             return des;
         }
 
+        private static Dictionary<StatusType, StatusData> status_dict = new Dictionary<StatusType, StatusData>();  //类型 → 数据（O(1) 查找）
+        private static int status_dict_count = -1;                                                                 //建索引时的列表条数（用于检测外部增删）
+
         public static void Load(string folder = "")
         {
             if (status_list.Count == 0)
                 status_list.AddRange(Resources.LoadAll<StatusData>(folder));
+            RebuildDict();
         }
 
+        /// <summary>重建类型索引（幂等；列表条数变化或首次访问时自动调用）</summary>
+        public static void RebuildDict()
+        {
+            status_dict.Clear();
+            foreach (StatusData s in status_list)
+            {
+                if (s != null)
+                    status_dict[s.effect] = s;
+            }
+            status_dict_count = status_list.Count;
+        }
+
+        /// <summary>按状态类型取（O(1)）：原来线性扫描，而 BoardCardFX.Update 每帧对每张卡都会查。</summary>
         public static StatusData Get(StatusType effect)
         {
-            foreach (StatusData status in GetAll())
-            {
-                if (status.effect == effect)
-                    return status;
-            }
-            return null;
+            if (status_dict_count != status_list.Count)
+                RebuildDict();
+            return status_dict.TryGetValue(effect, out StatusData s) ? s : null;
         }
 
         public static List<StatusData> GetAll()

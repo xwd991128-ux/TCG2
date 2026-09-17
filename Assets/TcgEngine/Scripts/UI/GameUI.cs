@@ -136,6 +136,7 @@ namespace TcgEngine.UI
         public float bar_square_size = 60f;     //方形按钮边长
         private bool bar_expanded = false;      //默认收起（先进战斗只看到方块）
         private string bar_signature;           //本局按钮栏快照（用于检测「增加/删除按钮」生效后重建）
+        private float bar_check_timer;          //快照检查节流计时（0.25s 一次，替代原「每帧 string.Join+ToArray」）
         private bool bar_diag_pending;          //待做一次"谁吃掉了按钮栏射线"的诊断（悬浮/点击没反应的排查用）
         private bool bar_diag_done;
         private float connecting_stuck_timer;   //卡在 Connecting 的累计时间（超 8 秒打一次诊断）
@@ -364,7 +365,7 @@ namespace TcgEngine.UI
             List<string> ids = (me != null && me.battle_buttons != null)
                 ? new List<string>(me.battle_buttons)
                 : new List<string>();
-            bar_signature = string.Join(",", ids.ToArray());
+            bar_signature = string.Join(",", ids);
             for (int i = 0; i < ids.Count; i++)
             {
                 BattleButtonData b = BattleButtonIO.Get(ids[i]);
@@ -546,14 +547,21 @@ namespace TcgEngine.UI
                 menu_panel.Toggle();
 
             //本局按钮栏变化（「增加/删除按钮」节点生效）→ 重建按钮栏
-            Player bar_player = client.GetPlayer();        //未开局时返回 null（GetPlayer 已做空值保护）
-            string bar_now = (bar_player != null && bar_player.battle_buttons != null)
-                ? string.Join(",", bar_player.battle_buttons.ToArray())
-                : "";
-            if (bar_now != bar_signature)
+            //  性能：原写法每帧 string.Join + ToArray（1 帧 2 次字符串/数组分配），而按钮增删是低频事件 →
+            //  改为每 0.25 秒检查一次，且不再 ToArray 中转（HUD 观感无差别，每帧分配降到约 0）。
+            bar_check_timer += Time.deltaTime;
+            if (bar_check_timer >= 0.25f)
             {
-                EnsureBattleBar();
-                RefreshBattleBar();
+                bar_check_timer = 0f;
+                Player bar_player = client.GetPlayer();        //未开局时返回 null（GetPlayer 已做空值保护）
+                string bar_now = (bar_player != null && bar_player.battle_buttons != null)
+                    ? string.Join(",", bar_player.battle_buttons)
+                    : "";
+                if (bar_now != bar_signature)
+                {
+                    EnsureBattleBar();
+                    RefreshBattleBar();
+                }
             }
 
             //卡在开局诊断：在 Connecting 停留超过 8 秒 → 一次性打出"到底缺什么"（避免只看到 Connecting 干等）

@@ -43,6 +43,16 @@ namespace TcgEngine.UI
         private CardData card;
         private VariantData variant;
 
+        //★ 脏标记（性能）：BoardCard.Update / HandCard.Update 每帧都会调 SetCard(card)，
+        //  而 SetCard 内部会写一堆 TMP 文本与图标（每次写 .text 都会让 TMP 组件标脏并重建网格）。
+        //  用「运行时会变的显示输入」做一个不分配的签名，签名没变就整套跳过。
+        private Card last_card;      //上次刷新的卡实例
+        private int last_sig;        //上次的显示签名
+        private bool sig_valid;      //是否已有有效签名（首帧必须刷新一次）
+
+        public static int stat_calls;      //诊断：SetCard(Card) 被调用次数（累计）
+        public static int stat_rebuilds;   //诊断：其中真正重建卡面的次数（stat_calls - stat_rebuilds = 省下的次数）
+
         void Awake()
         {
 
@@ -52,6 +62,19 @@ namespace TcgEngine.UI
         {
             if (card == null)
                 return;
+
+            stat_calls++;
+
+            //★ 脏标记快速路径：同一张卡、显示签名未变、且自身已激活 → 直接返回。
+            //  （自身未激活时不走快速路径，保证下面 SetCard(CardData,VariantData) 里的 SetActive(true) 仍会执行）
+            int sig = CalcSignature(card);
+            if (sig_valid && card == last_card && sig == last_sig && gameObject.activeSelf)
+                return;
+
+            sig_valid = true;
+            last_card = card;
+            last_sig = sig;
+            stat_rebuilds++;
 
             SetCard(card.CardData, card.VariantData);
 
@@ -66,6 +89,35 @@ namespace TcgEngine.UI
 
             foreach (TraitUI stat in stats)
                 stat.SetCard(card);
+        }
+
+        /// <summary>卡面显示签名（**零分配**，只做整数混合）：覆盖 SetCard(Card) 里所有「运行时会变」的输入 ——
+        /// 卡/变体实例、当前法力、攻击、生命，以及每个 TraitUI 关注的「是否拥有 + 数值」。
+        /// 其余输入（卡名/描述/卡图/图标/种族文本）都来自 CardData，对同一个卡实例是静态的，故不进签名。</summary>
+        private int CalcSignature(Card card)
+        {
+            unchecked
+            {
+                int h = 17;
+                h = h * 31 + (card.CardData != null ? card.CardData.GetInstanceID() : 0);
+                h = h * 31 + (card.VariantData != null ? card.VariantData.GetInstanceID() : 0);
+                h = h * 31 + card.GetMana();
+                h = h * 31 + card.GetAttack();
+                h = h * 31 + card.GetHP();
+                if (stats != null)
+                {
+                    for (int i = 0; i < stats.Length; i++)
+                    {
+                        TraitUI stat = stats[i];
+                        if (stat == null || stat.trait == null)
+                            continue;
+                        h = h * 31 + stat.trait.GetInstanceID();
+                        h = h * 31 + (card.HasTrait(stat.trait) ? 1 : 0);
+                        h = h * 31 + card.GetTraitValue(stat.trait);
+                    }
+                }
+                return h;
+            }
         }
 
         public void SetCard(CardData card, VariantData variant)

@@ -109,10 +109,6 @@ namespace TcgEngine.UI
 
         public void Refresh()
         {
-            Debug.Log("Refresh: player = " + (player != null ? player.username : "null"));
-            Debug.Log("Refresh: content = " + (content != null ? "not null" : "null"));
-            Debug.Log("Refresh: card_line_prefab = " + (card_line_prefab != null ? "not null" : "null"));
-            
             foreach (CardLine line in line_objects)
             {
                 if (line != null)
@@ -131,9 +127,6 @@ namespace TcgEngine.UI
 
         private void RefreshCards()
         {
-            Debug.Log("RefreshCards: player.cards_board count = " + player.cards_board.Count);
-            Debug.Log("RefreshCards: player.cards_discard count = " + player.cards_discard.Count);
-            
             Dictionary<string, int> card_counts = new Dictionary<string, int>();
             Dictionary<string, CardData> card_data_map = new Dictionary<string, CardData>();
 
@@ -144,7 +137,6 @@ namespace TcgEngine.UI
             foreach (Card card in all_cards)
             {
                 CardData card_data = card.CardData;
-                Debug.Log("RefreshCards: card = " + (card_data != null ? card_data.title : "null"));
                 if (card_data != null)
                 {
                     string card_id = card_data.id;
@@ -160,8 +152,6 @@ namespace TcgEngine.UI
                 }
             }
 
-            Debug.Log("RefreshCards: unique cards count = " + card_counts.Count);
-            
             List<CardData> sorted_cards = new List<CardData>(card_data_map.Values);
             sorted_cards.Sort((a, b) => a.mana.CompareTo(b.mana));
 
@@ -181,7 +171,8 @@ namespace TcgEngine.UI
             }
 
             UpdateContentSize(y);
-            Debug.Log("RefreshCards: total lines created = " + line_objects.Count);
+            //汇总为一条（原实现一次刷新打 8 条日志：3 条空值检查 + 逐卡打印 + 3 条计数日志）
+            Debug.Log("[已出牌面板] 卡牌 " + sorted_cards.Count + " 种、显示 " + line_objects.Count + " 行");
         }
 
         private void RefreshAbilities()
