@@ -149,7 +149,7 @@ namespace TcgEngine.Gameplay
                     if (p.remain <= 0f)
                     {
                         p.delay_done = true;
-                        Debug.Log("[起动触发] 延迟结束 " + p.label + " 条件=" + p.config
+                        GameLog.Log("[起动触发] 延迟结束 " + p.label + " 条件=" + p.config
                             + "（对局时间 " + game_time.ToString("0.00") + "s）");
                     }
                 }
@@ -172,7 +172,7 @@ namespace TcgEngine.Gameplay
                 if (p != null && p.has_wait && !p.wait_done && p.wait_event == action)
                 {
                     p.wait_done = true;
-                    Debug.Log("[起动触发] 等待的事件已到达 " + p.label + " ← " + action);
+                    GameLog.Log("[起动触发] 等待的事件已到达 " + p.label + " ← " + action);
                 }
             }
         }
@@ -210,7 +210,7 @@ namespace TcgEngine.Gameplay
                 label = action + " card=" + host_id,
             };
             pending_triggers.Add(p);
-            Debug.Log("[起动触发] 已入队：" + p.label + " 条件=" + p.config
+            GameLog.Log("[起动触发] 已入队：" + p.label + " 条件=" + p.config
                 + "（就绪后在 Update 中执行一次；对局结束/重开会清空）");
         }
 
@@ -244,7 +244,7 @@ namespace TcgEngine.Gameplay
             ctx.turn = game_data != null ? game_data.turn_count : 0;
             try
             {
-                Debug.Log("[起动触发] 执行 " + p.label + "（" + reason + "；条件=" + p.config + "）");
+                GameLog.Log("[起动触发] 执行 " + p.label + "（" + reason + "；条件=" + p.config + "）");
                 NodeDocRunner.RunEvent(this, p.graph, p.host, ctx);
             }
             catch (System.Exception e)
@@ -1520,7 +1520,7 @@ namespace TcgEngine.Gameplay
             ctx.value = ability.mana_cost;           //事件值=本次灵力费用（只读提示；实际扣费仍按能力定义）
             bool cancelled = EmitGraphEvent(ctx, caster);
             if (cancelled)
-                Debug.Log("[起动触发] " + (caster.CardData != null ? caster.CardData.id : "?")
+                GameLog.Log("[起动触发] " + (caster.CardData != null ? caster.CardData.id : "?")
                     + " 的起动被「阻止本事件」取消（本次不扣灵力、不结算）");
             return !cancelled;
         }
@@ -2578,26 +2578,26 @@ namespace TcgEngine.Gameplay
 
         protected virtual void ResolveCardAbilityPlayTarget(AbilityData iability, Card caster)
         {
-            Debug.Log($"ResolveCardAbilityPlayTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target={iability?.target}, multi={iability?.multi_target}");
+            GameLog.Log($"ResolveCardAbilityPlayTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target={iability?.target}, multi={iability?.multi_target}");
             
             if (iability.target == AbilityTarget.PlayTarget)
             {
                 Slot slot = caster.slot;
-                Debug.Log($"ResolveCardAbilityPlayTarget: slot={slot}, IsPlayerSlot={slot.IsPlayerSlot()}");
+                GameLog.Log($"ResolveCardAbilityPlayTarget: slot={slot}, IsPlayerSlot={slot.IsPlayerSlot()}");
                 
                 Card slot_card = game_data.GetSlotCard(slot);
                 if (slot.IsPlayerSlot())
                 {
                     Player tplayer = game_data.GetPlayer(slot.p);
-                    Debug.Log($"ResolveCardAbilityPlayTarget: tplayer={tplayer?.player_id}");
+                    GameLog.Log($"ResolveCardAbilityPlayTarget: tplayer={tplayer?.player_id}");
                     if (iability.CanTarget(game_data, caster, tplayer))
                     {
-                        Debug.Log($"ResolveCardAbilityPlayTarget: calling ResolveEffectTarget for player {tplayer.player_id}");
+                        GameLog.Log($"ResolveCardAbilityPlayTarget: calling ResolveEffectTarget for player {tplayer.player_id}");
                         ResolveEffectTarget(iability, caster, tplayer);
                     }
                     else
                     {
-                        Debug.Log($"ResolveCardAbilityPlayTarget: CanTarget returned false for player {tplayer?.player_id}");
+                        GameLog.Log($"ResolveCardAbilityPlayTarget: CanTarget returned false for player {tplayer?.player_id}");
                     }
                 }
                 else if (slot_card != null)
@@ -2672,9 +2672,9 @@ namespace TcgEngine.Gameplay
 
         protected virtual void ResolveEffectTarget(AbilityData iability, Card caster, Player target)
         {
-            Debug.Log($"ResolveEffectTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target_player={target?.player_id}");
+            GameLog.Log($"ResolveEffectTarget called: iability={iability?.id}, caster={caster?.CardData.id}, target_player={target?.player_id}");
             iability.DoEffects(this, caster, target);
-            Debug.Log($"ResolveEffectTarget: DoEffects completed");
+            GameLog.Log($"ResolveEffectTarget: DoEffects completed");
 
             onAbilityTargetPlayer?.Invoke(iability, caster, target);
         }
@@ -3326,7 +3326,7 @@ namespace TcgEngine.Gameplay
                     if (!CanSelectForSlot(ability, caster, target, node_slot))
                         return;
                     StoreCurrentSlotResult(target.uid);
-                    Debug.Log("[多目标] 目标" + node_slot + " 选中 " + target.CardData?.id);
+                    GameLog.Log("[多目标] 目标" + node_slot + " 选中 " + target.CardData?.id);
                     return;
                 }
 
@@ -3378,7 +3378,7 @@ namespace TcgEngine.Gameplay
                     if (hero == null || !CanSelectForSlot(ability, caster, hero, node_slot))
                         return;
                     StoreCurrentSlotResult(hero.uid);
-                    Debug.Log("[多目标] 目标" + node_slot + " 选中英雄 p" + target.player_id);
+                    GameLog.Log("[多目标] 目标" + node_slot + " 选中英雄 p" + target.player_id);
                     return;
                 }
 
@@ -3422,7 +3422,7 @@ namespace TcgEngine.Gameplay
                     if (slot_card == null || !CanSelectForSlot(ability, caster, slot_card, node_slot))
                         return;
                     StoreCurrentSlotResult(slot_card.uid);
-                    Debug.Log("[多目标] 目标" + node_slot + " 选中 " + slot_card.CardData?.id + " @" + target);
+                    GameLog.Log("[多目标] 目标" + node_slot + " 选中 " + slot_card.CardData?.id + " @" + target);
                     return;
                 }
 
@@ -3690,7 +3690,7 @@ namespace TcgEngine.Gameplay
                 }
                 AbilityTargetSlot spec = ability.GetTargetSlot(node_slot);
                 string err = spec != null ? spec.error : "";
-                Debug.Log("[多目标] 目标" + node_slot + " 无合法目标，已跳过" + (string.IsNullOrEmpty(err) ? "" : "（" + err + "）"));
+                GameLog.Log("[多目标] 目标" + node_slot + " 无合法目标，已跳过" + (string.IsNullOrEmpty(err) ? "" : "（" + err + "）"));
                 game_data.selector_selected_uids[game_data.selector_slot_index] = null;
                 game_data.selector_slot_index++;
             }
@@ -3709,7 +3709,7 @@ namespace TcgEngine.Gameplay
             if (game_data.selector_slot_index < 0 || game_data.selector_slot_index >= game_data.selector_selected_uids.Length)
                 return;
             int node_slot = game_data.selector_slot_nodes[game_data.selector_slot_index];
-            Debug.Log("[多目标] 目标" + node_slot + " 被跳过");
+            GameLog.Log("[多目标] 目标" + node_slot + " 被跳过");
             game_data.selector_selected_uids[game_data.selector_slot_index] = null;
             game_data.selector_slot_index++;
             AdvanceSelectSlot(ability, caster);

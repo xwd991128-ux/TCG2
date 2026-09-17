@@ -20,6 +20,11 @@ namespace TcgEngine.Client
         public Text discard_value;
 
         private bool hover = false;
+
+        //★ 脏检查（Update 每帧调 Refresh，原来是每帧 ToString + 文本/贴图赋值）
+        private string last_cardback;
+        private int last_deck = -1;
+        private int last_discard = -1;
         
         void Start()
         {
@@ -44,13 +49,25 @@ namespace TcgEngine.Client
                 return;
 
             CardbackData cb = CardbackData.Get(player.cardback);
-            if (deck_render != null && cb != null)
+            if (deck_render != null && cb != null && cb.id != last_cardback)   //卡背 id 变了才换图
+            {
+                last_cardback = cb.id;
                 deck_render.sprite = cb.deck;
+            }
 
-            if (deck_value != null)
-                deck_value.text = player.cards_deck.Count.ToString();
-            if (discard_value != null)
-                discard_value.text = player.cards_discard.Count.ToString();
+            int deck_n = player.cards_deck != null ? player.cards_deck.Count : 0;
+            if (deck_value != null && deck_n != last_deck)
+            {
+                last_deck = deck_n;
+                deck_value.text = deck_n.ToString();
+            }
+
+            int discard_n = player.cards_discard != null ? player.cards_discard.Count : 0;
+            if (discard_value != null && discard_n != last_discard)
+            {
+                last_discard = discard_n;
+                discard_value.text = discard_n.ToString();
+            }
         }
 
         public void ShowDeckCards()

@@ -12,6 +12,9 @@ namespace TcgEngine.FX
     {
         public float speed = 20f;
 
+        private Camera cam;                                        //缓存：原来每帧 Camera.main（内部是标签查找）
+        private Plane plane = new Plane(Vector3.forward, 0f);      //平面固定，不必每帧 new
+
         void Start()
         {
 
@@ -20,8 +23,12 @@ namespace TcgEngine.FX
         // Update is called once per frame
         void Update()
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            Plane plane = new Plane(Vector3.forward, 0f);
+            if (cam == null)
+                cam = Camera.main;
+            if (cam == null)
+                return;
+
+            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
             plane.Raycast(ray, out float dist);
             Vector3 tpos = ray.GetPoint(dist);
             transform.position = Vector3.Lerp(transform.position, tpos, speed * Time.deltaTime);

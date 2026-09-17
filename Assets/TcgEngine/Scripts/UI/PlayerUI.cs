@@ -43,6 +43,14 @@ namespace TcgEngine.UI
         private int prev_hp = 0;
         private float delayed_damage_timer = 0f;
 
+        //★ 脏检查（Update 每帧写这些文本：字符串拼接 + TMP 赋值）
+        private string last_avatar_id;
+        private int last_mana = int.MinValue;
+        private int last_mana_max = int.MinValue;
+        private int last_mana_total = int.MinValue;
+        private int last_hp_shown = int.MinValue;
+        private int last_hp_max = int.MinValue;
+
         private static List<PlayerUI> ui_list = new List<PlayerUI>();
 
         private void Awake()
@@ -80,20 +88,42 @@ namespace TcgEngine.UI
             {
                 pname.text = player.username;
                 //三套灵力：当前灵力 / 灵力上限 / 最大灵力值（实时刷新）
+                //★ 脏检查：值没变就不拼字符串、不写 TMP（原来每帧 3 次字符串拼接 + 赋值）
+                int mana_total = player.GetManaMaxTotal();
                 if (mana_txt != null)
-                    mana_txt.text = player.mana + " / " + player.mana_max + " / " + player.GetManaMaxTotal();
+                {
+                    if (player.mana != last_mana || player.mana_max != last_mana_max || mana_total != last_mana_total)
+                    {
+                        last_mana = player.mana;
+                        last_mana_max = player.mana_max;
+                        last_mana_total = mana_total;
+                        mana_txt.text = last_mana + " / " + last_mana_max + " / " + last_mana_total;
+                    }
+                }
                 else if (mana_bar != null)
                 {
                     //兜底：TMP 文本创建失败时退回旧圆点显示，避免灵力完全不显示
                     mana_bar.value = player.mana;
                     mana_bar.max_value = player.mana_max;
                 }
-                hp_txt.text = prev_hp.ToString();
-                hp_max_txt.text = "/" + player.hp_max.ToString();
+
+                if (prev_hp != last_hp_shown)
+                {
+                    last_hp_shown = prev_hp;
+                    hp_txt.text = last_hp_shown.ToString();
+                }
+                if (player.hp_max != last_hp_max)
+                {
+                    last_hp_max = player.hp_max;
+                    hp_max_txt.text = "/" + last_hp_max.ToString();
+                }
 
                 AvatarData adata = AvatarData.Get(player.avatar);
-                if (avatar != null && adata != null && !killed)
+                if (avatar != null && adata != null && !killed && adata.id != last_avatar_id)
+                {
+                    last_avatar_id = adata.id;
                     avatar.SetAvatar(adata);
+                }
 
                 delayed_damage_timer -= Time.deltaTime;
                 if (!IsDamagedDelayed())

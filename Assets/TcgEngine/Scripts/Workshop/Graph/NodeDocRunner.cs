@@ -484,7 +484,7 @@ namespace TcgEngine.Workshop
                 {
                     if (node.action == "212006") loop_break = true;
                     else loop_continue = true;
-                    Debug.Log("[NodeDoc] " + (node.action == "212006" ? "停止重复动作(break)" : "跳过重复动作(continue)"));
+                    GameLog.Log("[NodeDoc] " + (node.action == "212006" ? "停止重复动作(break)" : "跳过重复动作(continue)"));
                 }
                 else
                     Debug.LogWarning("[NodeDoc] " + node.action + " 不在循环体内，已忽略");
@@ -517,7 +517,7 @@ namespace TcgEngine.Workshop
                 bool is_true = GetBoolInput(logic, graph, node, "isTrue", caster, target_card, target_player,
                     GraphRuntime.GetFieldString(node, "isTrue", "true") == "true");
                 chosen_branch = is_true ? "thenAction" : "elseAction";
-                Debug.Log("[NodeDoc] 分支动作 isTrue=" + is_true + " → 走 " + (is_true ? "动作" : "否则动作"));
+                GameLog.Log("[NodeDoc] 分支动作 isTrue=" + is_true + " → 走 " + (is_true ? "动作" : "否则动作"));
             }
             foreach (GraphLink link in graph.GetOutgoing(node.id))
             {
@@ -550,7 +550,7 @@ namespace TcgEngine.Workshop
                 GraphRuntime.GetFieldInt(node, "count", 0));
             for (int i = 1; i <= count; i++)
             {
-                Debug.Log("[NodeDoc] 重复动作 第 " + i + "/" + count + " 次");
+                GameLog.Log("[NodeDoc] 重复动作 第 " + i + "/" + count + " 次");
                 loops.Add(new LoopCtx { node_id = node.id, iter = i });
                 WalkFlowOutputs(logic, graph, node, "action", caster, target_card, target_player, new HashSet<string>(), ref executed);
                 loops.RemoveAt(loops.Count - 1);
@@ -571,7 +571,7 @@ namespace TcgEngine.Workshop
             if (loop_continue)
             {
                 loop_continue = false;
-                Debug.Log("[NodeDoc] 跳过本轮剩余部分（continue）");
+                GameLog.Log("[NodeDoc] 跳过本轮剩余部分（continue）");
             }
             return false;
         }
@@ -596,7 +596,7 @@ namespace TcgEngine.Workshop
                 if (cond)
                     break;
                 i++;
-                Debug.Log("[NodeDoc] 重复动作直到 第 " + i + " 次（上限 " + (max > 0 ? max.ToString() : "不限") + "）");
+                GameLog.Log("[NodeDoc] 重复动作直到 第 " + i + " 次（上限 " + (max > 0 ? max.ToString() : "不限") + "）");
                 loops.Add(new LoopCtx { node_id = node.id, iter = i });
                 WalkFlowOutputs(logic, graph, node, "action", caster, target_card, target_player, new HashSet<string>(), ref executed);
                 loops.RemoveAt(loops.Count - 1);
@@ -642,7 +642,7 @@ namespace TcgEngine.Workshop
                 if (ConsumeLoopFlags())         //212006 停止
                     break;
             }
-            Debug.Log("[NodeDoc] 211001 遍历完成 元素种类=" + kind + " 元素数=" + i);
+            GameLog.Log("[NodeDoc] 211001 遍历完成 元素种类=" + kind + " 元素数=" + i);
             WalkFlowOutputs(logic, graph, node, "out", caster, target_card, target_player, visited, ref executed);
         }
 
@@ -2043,7 +2043,7 @@ namespace TcgEngine.Workshop
                 if (vfx_trigger_logs < 20)
                 {
                     vfx_trigger_logs++;
-                    Debug.Log("[VFX] 节点 " + node.action + " 触发特效（" + (is_event_node ? "事件节点" : "动作节点")
+                    GameLog.Log("[VFX] 节点 " + node.action + " 触发特效（" + (is_event_node ? "事件节点" : "动作节点")
                         + " 绑定=" + cfg.bind + " 素材="
                         + (cfg.HasSheet
                             ? ("序列图 " + cfg.sheet_path + " [" + cfg.sheet_cols + "×" + cfg.sheet_rows + "]")
@@ -2091,7 +2091,7 @@ namespace TcgEngine.Workshop
                         GraphRuntime.GetFieldString(act, "damagetype", "false") == "true");
                     Card source = ResolveInputCard(logic, graph, act, "damageSource", caster, target_card, target_player) ?? caster;
                     List<Card> targets = ResolveInputCards(logic, graph, act, "targets", caster, target_card);
-                    Debug.Log("[NodeDoc] 202041 造成伤害 value=" + value + " spell=" + spell + " 目标数=" + targets.Count
+                    GameLog.Log("[NodeDoc] 202041 造成伤害 value=" + value + " spell=" + spell + " 目标数=" + targets.Count
                         + (targets.Count > 0 ? " 首目标=" + targets[0].CardData?.id : (target_player != null ? " 玩家目标=p" + target_player.player_id : " 无目标")));
                     if (targets.Count > 0)
                     {
@@ -2146,7 +2146,7 @@ namespace TcgEngine.Workshop
                             if (t == null)
                                 continue;
                             logic.HealCard(t, value);   //英雄卡在 HealCard 内部路由为 HealPlayer（落到玩家 hp）
-                            Debug.Log("[NodeDoc] 202013 治疗 " + value + " → 卡 " + t.CardData?.id
+                            GameLog.Log("[NodeDoc] 202013 治疗 " + value + " → 卡 " + t.CardData?.id
                                 + (t.CardData != null && t.CardData.type == CardType.Hero
                                     ? "（英雄卡→玩家 p" + t.player_id + " hp）" : ""));
                         }
@@ -2157,7 +2157,7 @@ namespace TcgEngine.Workshop
                         if (tplayer != null)
                         {
                             logic.HealPlayer(tplayer, value);
-                            Debug.Log("[NodeDoc] 202013 治疗 " + value + " → 玩家 p" + tplayer.player_id);
+                            GameLog.Log("[NodeDoc] 202013 治疗 " + value + " → 玩家 p" + tplayer.player_id);
                         }
                         else
                             Debug.LogWarning("[NodeDoc] 202013 治疗失败：目标卡牌解析为空（检查 目标卡牌 取值线）");
@@ -2208,7 +2208,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     logic.DrawCard(player, 1);
-                    Debug.Log("[NodeDoc] 210001 简单抽牌 → 玩家 p" + player.player_id + "（手牌 " + player.cards_hand.Count + "）");
+                    GameLog.Log("[NodeDoc] 210001 简单抽牌 → 玩家 p" + player.player_id + "（手牌 " + player.cards_hand.Count + "）");
                     break;
                 }
                 case "201003":   //抽目标卡牌：把取值线解析出的目标卡从其拥有者的卡库抽到手牌（检索类动作）
@@ -2230,12 +2230,12 @@ namespace TcgEngine.Workshop
                     {
                         owner.cards_hand.Add(tcard);
                         logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
-                        Debug.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " → 玩家 p" + owner.player_id);
+                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " → 玩家 p" + owner.player_id);
                     }
                     else
                     {
                         owner.cards_discard.Add(tcard);     //手牌满：直接进墓地（爆牌）
-                        Debug.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " 手牌满 → 爆牌进墓地");
+                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " 手牌满 → 爆牌进墓地");
                     }
                     break;
                 }
@@ -2268,7 +2268,7 @@ namespace TcgEngine.Workshop
                         BuffRuntime.RunGraph(logic, tcard, bdef2, "OnBuffRemoving", caster, left);
                         BuffRuntime.RemoveBuff(tcard, buff_id);
                         BuffRuntime.RunGraph(logic, tcard, bdef2, "OnBuffRemoved", caster, 0);
-                        Debug.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " buff_id=" + buff_id);
+                        GameLog.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " buff_id=" + buff_id);
                         break;
                     }
                     string prop = GraphRuntime.GetFieldString(act, "prop", "全部");
@@ -2276,7 +2276,7 @@ namespace TcgEngine.Workshop
                         tcard.RemoveStatus(StatusType.AddAttack);
                     if (prop != "攻击")
                         tcard.RemoveStatus(StatusType.AddHP);
-                    Debug.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " prop=" + prop);
+                    GameLog.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " prop=" + prop);
                     break;
                 }
                 case "206003":   //设置增益属性：增益口(buffs, Buff[]) / 属性名(propName) + 值 → 写 Buff 实例（原生映射同步）；
@@ -2312,7 +2312,7 @@ namespace TcgEngine.Workshop
                             BuffRuntime.SetPropValue(tc, id, prop, value);
                             applied++;
                         }
-                        Debug.Log("[NodeDoc] 206003 设置增益属性 " + prop + "=" + value + " 增益数=" + applied);
+                        GameLog.Log("[NodeDoc] 206003 设置增益属性 " + prop + "=" + value + " 增益数=" + applied);
                         break;
                     }
                     Card tcard = ResolveInputCard(logic, graph, act, "card", caster, target_card, target_player);
@@ -2330,7 +2330,7 @@ namespace TcgEngine.Workshop
                             break;
                         }
                         BuffRuntime.SetPropByTarget(tcard, buff_id, target, value);
-                        Debug.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + buff_id + "." + target + "=" + value);
+                        GameLog.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + buff_id + "." + target + "=" + value);
                         break;
                     }
                     StatusType type = prop == "生命加成" ? StatusType.AddHP : StatusType.AddAttack;
@@ -2358,7 +2358,7 @@ namespace TcgEngine.Workshop
                     {
                         st.value = value;
                     }
-                    Debug.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + prop + "=" + value);
+                    GameLog.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + prop + "=" + value);
                     break;
                 }
                 case "210002":   //卡牌置入战场：任意牌堆（牌库/墓地/手牌/自定义堆）→ 拥有者一侧空位；
@@ -2390,7 +2390,7 @@ namespace TcgEngine.Workshop
                             continue;
                         }
                         bool ok = logic.PlaceCardOnBoard(c, slot);
-                        Debug.Log("[NodeDoc] 210002 卡牌置入战场 " + c.CardData?.id + " → 玩家 p" + owner.player_id + " " + slot
+                        GameLog.Log("[NodeDoc] 210002 卡牌置入战场 " + c.CardData?.id + " → 玩家 p" + owner.player_id + " " + slot
                             + (ok ? " 成功" : " 失败"));
                     }
                     break;
@@ -2425,7 +2425,7 @@ namespace TcgEngine.Workshop
                             BuffRuntime.AddBuff(t, bdef, dur);
                             BuffRuntime.RunGraph(logic, t, bdef, "OnBuffAdded", caster, dur);
                         }
-                        Debug.Log("[NodeDoc] 206001 添加增益 " + bdef.title + " 目标数=" + targets.Count + " dur=" + dur);
+                        GameLog.Log("[NodeDoc] 206001 添加增益 " + bdef.title + " 目标数=" + targets.Count + " dur=" + dur);
                         break;
                     }
                     int atk = GraphRuntime.GetFieldInt(act, "attack_add", 0);
@@ -2442,7 +2442,7 @@ namespace TcgEngine.Workshop
                         if (atk == 0 && hp == 0)
                             Debug.LogWarning("[NodeDoc] 206001 添加增益：攻击/生命加成都是 0，未生效");
                     }
-                    Debug.Log("[NodeDoc] 206001 添加增益 atk=" + atk + " hp=" + hp + " dur=" + dur2 + " 目标数=" + targets.Count);
+                    GameLog.Log("[NodeDoc] 206001 添加增益 atk=" + atk + " hp=" + hp + " dur=" + dur2 + " 目标数=" + targets.Count);
                     break;
                 }
                 case "202037":   //设置卡牌属性：直接设置基础值（攻击/生命/法力费用；常驻修正保留，实值随 Get* 重算）
@@ -2469,7 +2469,7 @@ namespace TcgEngine.Workshop
                             tcard.attack = Mathf.Max(value, 0);
                             break;
                     }
-                    Debug.Log("[NodeDoc] 202037 设置卡牌属性 " + tcard.CardData?.id + " " + prop + "=" + value);
+                    GameLog.Log("[NodeDoc] 202037 设置卡牌属性 " + tcard.CardData?.id + " " + prop + "=" + value);
                     break;
                 }
                 case "202003":   //创建衍生卡并置入战场（卡牌定义口 v1 为卡牌 id 字段或定义取值线；自动找该玩家一侧第一个空位）
@@ -2496,7 +2496,7 @@ namespace TcgEngine.Workshop
                             break;
                         }
                         Card created = logic.SummonCard(player, define, VariantData.GetDefault(), slot);
-                        Debug.Log("[NodeDoc] 202003 创建衍生卡 " + define.id + " → 战场 " + slot + (created != null ? " 成功" : " 失败"));
+                        GameLog.Log("[NodeDoc] 202003 创建衍生卡 " + define.id + " → 战场 " + slot + (created != null ? " 成功" : " 失败"));
                     }
                     else
                     {
@@ -2506,7 +2506,7 @@ namespace TcgEngine.Workshop
                             break;
                         }
                         Card created = logic.SummonCardHand(player, define, VariantData.GetDefault());
-                        Debug.Log("[NodeDoc] 202004 创建衍生卡 " + define.id + " → 手牌（现有 " + player.cards_hand.Count + " 张）");
+                        GameLog.Log("[NodeDoc] 202004 创建衍生卡 " + define.id + " → 手牌（现有 " + player.cards_hand.Count + " 张）");
                     }
                     break;
                 }
@@ -2519,7 +2519,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     temp_vars[var_name] = GetObjectInput(logic, graph, act, "value", caster, target_card, target_player);
-                    Debug.Log("[NodeDoc] 212004 设置临时变量 " + var_name);
+                    GameLog.Log("[NodeDoc] 212004 设置临时变量 " + var_name);
                     break;
                 }
                 case "202015":   //沉默：v1=清空卡牌身上所有状态/特性/持续效果（TCG2 无逐效果沉默概念）
@@ -2533,7 +2533,7 @@ namespace TcgEngine.Workshop
                             t.RemoveStatus(st.type);
                         t.traits.Clear();
                         t.ClearOngoing();
-                        Debug.Log("[NodeDoc] 202015 沉默 " + t.CardData?.id);
+                        GameLog.Log("[NodeDoc] 202015 沉默 " + t.CardData?.id);
                     }
                     break;
                 }
@@ -2548,7 +2548,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     logic.ChangeOwner(tcard, player);
-                    Debug.Log("[NodeDoc] 202028 获得控制权 " + tcard.CardData?.id + " → 玩家 p" + player.player_id);
+                    GameLog.Log("[NodeDoc] 202028 获得控制权 " + tcard.CardData?.id + " → 玩家 p" + player.player_id);
                     break;
                 }
                 case "202029":   //变形为卡牌定义：卡牌口 + 卡牌定义（id 字段或定义取值线） + isreset 忽略（v1 不重置）
@@ -2570,7 +2570,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     Card transformed = logic.TransformCard(tcard, define);
-                    Debug.Log("[NodeDoc] 202029 变形 " + tcard.CardData?.id + " → " + define.id + (transformed != null ? " 成功" : " 失败"));
+                    GameLog.Log("[NodeDoc] 202029 变形 " + tcard.CardData?.id + " → " + define.id + (transformed != null ? " 成功" : " 失败"));
                     break;
                 }
                 case "202002":   //（旧版变体，与 202038 同参：hands 手牌集合；旧图兼容）
@@ -2582,7 +2582,7 @@ namespace TcgEngine.Workshop
                         if (c != null)
                             logic.DiscardCard(c);
                     }
-                    Debug.Log("[NodeDoc] 202038 丢弃卡牌 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 202038 丢弃卡牌 " + cards.Count + " 张");
                     break;
                 }
                 case "202044":   //复制卡牌：按目标牌堆下拉（手牌/战场/牌库）复制一份
@@ -2613,7 +2613,7 @@ namespace TcgEngine.Workshop
                     {
                         copy = logic.SummonCopyHand(owner, src);
                     }
-                    Debug.Log("[NodeDoc] 202044 复制卡牌 " + src.CardData?.id + " → " + pile + (copy != null ? " 成功" : " 失败"));
+                    GameLog.Log("[NodeDoc] 202044 复制卡牌 " + src.CardData?.id + " → " + pile + (copy != null ? " 成功" : " 失败"));
                     break;
                 }
                 case "202005":   //创建衍生卡并洗入牌库（卡牌定义口 v1 为卡牌 id 字段或定义取值线）
@@ -2632,7 +2632,7 @@ namespace TcgEngine.Workshop
                     }
                     Card created = logic.AddCardDeck(player, define, VariantData.GetDefault());
                     logic.ShuffleDeck(player.cards_deck);
-                    Debug.Log("[NodeDoc] 202005 创建衍生卡 " + define.id + " → 洗入牌库" + (created != null ? " 成功" : " 失败"));
+                    GameLog.Log("[NodeDoc] 202005 创建衍生卡 " + define.id + " → 洗入牌库" + (created != null ? " 成功" : " 失败"));
                     break;
                 }
                 case "210003":   //卡牌移回手牌：从当前位置移回拥有者手牌（手牌满则跳过并警告）
@@ -2653,7 +2653,7 @@ namespace TcgEngine.Workshop
                         owner.RemoveCardFromAllGroups(c);
                         owner.cards_hand.Add(c);
                         logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
-                        Debug.Log("[NodeDoc] 210003 卡牌移回手牌 " + c.CardData?.id + " → 玩家 p" + owner.player_id);
+                        GameLog.Log("[NodeDoc] 210003 卡牌移回手牌 " + c.CardData?.id + " → 玩家 p" + owner.player_id);
                     }
                     break;
                 }
@@ -2674,7 +2674,7 @@ namespace TcgEngine.Workshop
                             owner.cards_deck.Insert(0, c);
                         else
                             owner.cards_deck.Add(c);
-                        Debug.Log("[NodeDoc] 210004 卡牌洗入牌库 " + c.CardData?.id + " → 玩家 p" + owner.player_id + (top ? "（牌库顶）" : ""));
+                        GameLog.Log("[NodeDoc] 210004 卡牌洗入牌库 " + c.CardData?.id + " → 玩家 p" + owner.player_id + (top ? "（牌库顶）" : ""));
                     }
                     if (!top)
                     {
@@ -2698,7 +2698,7 @@ namespace TcgEngine.Workshop
                         if (c != null)
                             logic.DiscardCard(c);
                     }
-                    Debug.Log("[NodeDoc] 210005 卡牌置入墓地 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 210005 卡牌置入墓地 " + cards.Count + " 张");
                     break;
                 }
                 case "201008":   //增加当前灵力值（不超过灵力上限）
@@ -2710,7 +2710,7 @@ namespace TcgEngine.Workshop
                     if (player != null)
                     {
                         player.mana = Mathf.Clamp(player.mana + count, 0, player.mana_max);
-                        Debug.Log("[NodeDoc] 201008 增加当前灵力值 p" + player.player_id + " +" + count + " → " + player.mana + "/" + player.mana_max);
+                        GameLog.Log("[NodeDoc] 201008 增加当前灵力值 p" + player.player_id + " +" + count + " → " + player.mana + "/" + player.mana_max);
                     }
                     break;
                 }
@@ -2724,7 +2724,7 @@ namespace TcgEngine.Workshop
                     {
                         player.mana_max = Mathf.Max(player.mana_max + count, 0);
                         player.mana = Mathf.Clamp(player.mana + count, 0, player.mana_max);
-                        Debug.Log("[NodeDoc] 201010 增加灵力上限 p" + player.player_id + " +" + count + " → " + player.mana + "/" + player.mana_max);
+                        GameLog.Log("[NodeDoc] 201010 增加灵力上限 p" + player.player_id + " +" + count + " → " + player.mana + "/" + player.mana_max);
                     }
                     break;
                 }
@@ -2737,7 +2737,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     tc.AddStatus(StatusType.Freezing, 1, 0);
-                    Debug.Log("[NodeDoc] 202014 禁锢 " + tc.CardData?.id);
+                    GameLog.Log("[NodeDoc] 202014 禁锢 " + tc.CardData?.id);
                     break;
                 }
                 case "202040":   //封印（zmcs）= 施加 Silenced（禁用能力）
@@ -2752,7 +2752,7 @@ namespace TcgEngine.Workshop
                             n++;
                         }
                     }
-                    Debug.Log("[NodeDoc] 202040 封印 " + n + " 张");
+                    GameLog.Log("[NodeDoc] 202040 封印 " + n + " 张");
                     break;
                 }
                 case "202018":   //增加护甲（护甲=StatusType.Armor，加在玩家英雄上）
@@ -2767,7 +2767,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     pl.hero.AddStatus(StatusType.Armor, Mathf.Max(count, 0), 0);
-                    Debug.Log("[NodeDoc] " + act.action + " 护甲 +" + count + " → " + pl.hero.CardData?.id);
+                    GameLog.Log("[NodeDoc] " + act.action + " 护甲 +" + count + " → " + pl.hero.CardData?.id);
                     break;
                 }
                 case "202020":   //失去护甲
@@ -2785,7 +2785,7 @@ namespace TcgEngine.Workshop
                     h.RemoveStatus(StatusType.Armor);
                     if (cur > count)
                         h.AddStatus(StatusType.Armor, cur - count, 0);
-                    Debug.Log("[NodeDoc] 202020 护甲 -" + count + " → " + Mathf.Max(cur - count, 0));
+                    GameLog.Log("[NodeDoc] 202020 护甲 -" + count + " → " + Mathf.Max(cur - count, 0));
                     break;
                 }
                 case "SetManaMaxTotal":   //设置最大灵力值（项目内节点：灵力上限的增长硬顶）
@@ -2797,7 +2797,7 @@ namespace TcgEngine.Workshop
                     {
                         pl.mana_max_total = Mathf.Max(v, 0);
                         pl.ClampMana();   //上限/当前按新硬顶收敛
-                        Debug.Log("[NodeDoc] 设置最大灵力值 → p" + pl.player_id + " 最大=" + pl.mana_max_total
+                        GameLog.Log("[NodeDoc] 设置最大灵力值 → p" + pl.player_id + " 最大=" + pl.mana_max_total
                             + "（当前/上限 " + pl.mana + "/" + pl.mana_max + "）");
                     }
                     break;
@@ -2810,7 +2810,7 @@ namespace TcgEngine.Workshop
                     if (pl != null)
                     {
                         pl.mana = Mathf.Clamp(v, 0, pl.mana_max);
-                        Debug.Log("[NodeDoc] 201001 设置当前灵力值 → " + pl.mana + "/" + pl.mana_max);
+                        GameLog.Log("[NodeDoc] 201001 设置当前灵力值 → " + pl.mana + "/" + pl.mana_max);
                     }
                     break;
                 }
@@ -2823,7 +2823,7 @@ namespace TcgEngine.Workshop
                     {
                         pl.mana_max = Mathf.Max(v, 0);
                         pl.mana = Mathf.Min(pl.mana, pl.mana_max);
-                        Debug.Log("[NodeDoc] 201009 设置灵力上限 → " + pl.mana + "/" + pl.mana_max);
+                        GameLog.Log("[NodeDoc] 201009 设置灵力上限 → " + pl.mana + "/" + pl.mana_max);
                     }
                     break;
                 }
@@ -2837,7 +2837,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     logic.EquipCard(pl.hero, eq);
-                    Debug.Log("[NodeDoc] 210007 装备 " + eq.CardData?.id + " → 英雄");
+                    GameLog.Log("[NodeDoc] 210007 装备 " + eq.CardData?.id + " → 英雄");
                     break;
                 }
                 case "202006":   //创建衍生卡并装备到道具栏
@@ -2855,7 +2855,7 @@ namespace TcgEngine.Workshop
                     Card created = logic.SummonCardHand(pl, define, VariantData.GetDefault());
                     if (created != null)
                         logic.EquipCard(pl.hero, created);
-                    Debug.Log("[NodeDoc] 202006 创建并装备 " + define.id);
+                    GameLog.Log("[NodeDoc] 202006 创建并装备 " + define.id);
                     break;
                 }
                 case "200001":   //使玩家获胜：直接结束对局，该玩家为赢家
@@ -2867,7 +2867,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     logic.EndGame(w.player_id);
-                    Debug.Log("[NodeDoc] 200001 使玩家获胜 p" + w.player_id);
+                    GameLog.Log("[NodeDoc] 200001 使玩家获胜 p" + w.player_id);
                     break;
                 }
                 case "200002":   //使玩家失败：结束对局，其余玩家获胜
@@ -2890,7 +2890,7 @@ namespace TcgEngine.Workshop
                     if (winner != null)
                     {
                         logic.EndGame(winner.player_id);
-                        Debug.Log("[NodeDoc] 200002 使玩家失败 p" + l.player_id + "（获胜 p" + winner.player_id + "）");
+                        GameLog.Log("[NodeDoc] 200002 使玩家失败 p" + l.player_id + "（获胜 p" + winner.player_id + "）");
                     }
                     else
                         Debug.LogWarning("[NodeDoc] 200002 使玩家失败：找不到可获胜的对手");
@@ -2913,7 +2913,7 @@ namespace TcgEngine.Workshop
                         if (owner != null)
                             owner.RemoveCardFromAllGroups(c);
                         player.cards_secret.Add(c);
-                        Debug.Log("[NodeDoc] 210006 卡牌置入延迟区 " + c.CardData?.id + " → 玩家 p" + player.player_id);
+                        GameLog.Log("[NodeDoc] 210006 卡牌置入延迟区 " + c.CardData?.id + " → 玩家 p" + player.player_id);
                     }
                     break;
                 }
@@ -2932,7 +2932,7 @@ namespace TcgEngine.Workshop
                     }
                     Card created = Card.Create(define, VariantData.GetDefault(), player);
                     player.cards_secret.Add(created);
-                    Debug.Log("[NodeDoc] 202045 创建衍生卡置入延迟区 " + define.id + " → 玩家 p" + player.player_id);
+                    GameLog.Log("[NodeDoc] 202045 创建衍生卡置入延迟区 " + define.id + " → 玩家 p" + player.player_id);
                     break;
                 }
                 // ---- T3 卡牌动作 / 多目标伤害 / 杂项 ----
@@ -2958,12 +2958,12 @@ namespace TcgEngine.Workshop
                         for (int i = 0; i < value; i++)   //总伤害逐点随机分配（zmcs 原为玩家分配，v1 近似随机）
                             logic.DamageCard(caster, targets[GraphRuntime.RandInt(0, targets.Count)], 1, true);
                     }
-                    Debug.Log("[NodeDoc] " + act.action + " 法术伤害 value=" + value + " 目标数=" + targets.Count);
+                    GameLog.Log("[NodeDoc] " + act.action + " 法术伤害 value=" + value + " 目标数=" + targets.Count);
                     break;
                 }
                 case "202017":   //强制更新游戏状态（≈刷新数据/持续效果结算）
                     logic.RefreshData();
-                    Debug.Log("[NodeDoc] 202017 强制更新游戏状态");
+                    GameLog.Log("[NodeDoc] 202017 强制更新游戏状态");
                     break;
                 case "202021":   //触发卡牌宣言（≈触发卡 OnPlay 能力）
                 case "202023":   //触发法术或技能卡牌效果（近似：同按 OnPlay 能力触发）
@@ -2974,7 +2974,7 @@ namespace TcgEngine.Workshop
                     foreach (Card c in cards)
                         if (c != null)
                             logic.TriggerCardAbilityType(AbilityTrigger.OnPlay, c, trg);
-                    Debug.Log("[NodeDoc] " + act.action + " 触发宣言 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] " + act.action + " 触发宣言 " + cards.Count + " 张");
                     break;
                 }
                 case "202022":   //触发卡牌遗言（≈触发卡 OnDeath 能力）
@@ -2983,7 +2983,7 @@ namespace TcgEngine.Workshop
                     foreach (Card c in cards)
                         if (c != null)
                             logic.TriggerCardAbilityType(AbilityTrigger.OnDeath, c);
-                    Debug.Log("[NodeDoc] 202022 触发遗言 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 202022 触发遗言 " + cards.Count + " 张");
                     break;
                 }
                 case "202024":   //重置卡牌（清空加成/状态/增益并复位基础值）
@@ -2992,7 +2992,7 @@ namespace TcgEngine.Workshop
                     foreach (Card c in cards)
                         if (c != null)
                             c.Clear();
-                    Debug.Log("[NodeDoc] 202024 重置卡牌 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 202024 重置卡牌 " + cards.Count + " 张");
                     break;
                 }
                 case "202025":   //强制攻击目标（逐张对首个目标卡或选中玩家发起攻击，走正常战斗结算）
@@ -3008,7 +3008,7 @@ namespace TcgEngine.Workshop
                         else if (target_player != null)
                             logic.AttackPlayer(atk, target_player);
                     }
-                    Debug.Log("[NodeDoc] 202025 强制攻击 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 202025 强制攻击 " + cards.Count + " 张");
                     break;
                 }
                 case "202026":   //本回合攻击次数增加一次（移除一次已攻击记录 → 可再攻击）
@@ -3017,7 +3017,7 @@ namespace TcgEngine.Workshop
                     foreach (Card c in cards)
                         if (c != null)
                             logic.GameData.cards_attacked.Remove(c.uid);
-                    Debug.Log("[NodeDoc] 202026 攻击次数+1 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 202026 攻击次数+1 " + cards.Count + " 张");
                     break;
                 }
                 case "202027":   //揭示卡牌（TCG2 无独立揭示表现：奥秘区卡移出进墓地走正常结算）
@@ -3029,10 +3029,10 @@ namespace TcgEngine.Workshop
                         if (owner != null && owner.cards_secret.Contains(c))
                         {
                             logic.DiscardCard(c);
-                            Debug.Log("[NodeDoc] 202027 揭示卡牌（奥秘→墓地）" + c.CardData?.id);
+                            GameLog.Log("[NodeDoc] 202027 揭示卡牌（奥秘→墓地）" + c.CardData?.id);
                         }
                         else
-                            Debug.Log("[NodeDoc] 202027 揭示卡牌 " + c.CardData?.id + "（不在奥秘区，仅记录）");
+                            GameLog.Log("[NodeDoc] 202027 揭示卡牌 " + c.CardData?.id + "（不在奥秘区，仅记录）");
                     }
                     break;
                 }
@@ -3049,7 +3049,7 @@ namespace TcgEngine.Workshop
                             owner.RemoveCardFromAllGroups(c);
                         player.cards_temp.Add(c);
                     }
-                    Debug.Log("[NodeDoc] 210008 卡牌移动到暂存区 " + cards.Count + " 张");
+                    GameLog.Log("[NodeDoc] 210008 卡牌移动到暂存区 " + cards.Count + " 张");
                     break;
                 }
                 case "202035":   //造成伤害或法伤并分配给目标（近似：总伤害在目标间尽量均分，余数给前面的目标）
@@ -3073,7 +3073,7 @@ namespace TcgEngine.Workshop
                             if (dmg > 0 && targets[i] != null)
                                 logic.DamageCard(source, targets[i], dmg, spell);
                         }
-                        Debug.Log("[NodeDoc] " + act.action + " 分配伤害 total=" + total + " 目标数=" + targets.Count);
+                        GameLog.Log("[NodeDoc] " + act.action + " 分配伤害 total=" + total + " 目标数=" + targets.Count);
                     }
                     else if (total > 0)
                     {
@@ -3106,7 +3106,7 @@ namespace TcgEngine.Workshop
                         if (t != null)
                             logic.DamageCard(source, t, value, spell);
                     }
-                    Debug.Log("[NodeDoc] " + act.action + " 随机目标伤害 count=" + count + " value=" + value);
+                    GameLog.Log("[NodeDoc] " + act.action + " 随机目标伤害 count=" + count + " value=" + value);
                     break;
                 }
                 case "201002":   //设置玩家属性（玩家 + 属性名 + 值；与 101002 取值一一对应）
@@ -3150,14 +3150,14 @@ namespace TcgEngine.Workshop
                             player.hp = Mathf.Max(value, 0);
                             break;
                     }
-                    Debug.Log("[NodeDoc] 201002 设置玩家属性 p" + player.player_id + " " + prop + "=" + value);
+                    GameLog.Log("[NodeDoc] 201002 设置玩家属性 p" + player.player_id + " " + prop + "=" + value);
                     break;
                 }
                 case "200004":   //创建牌堆：TCG2 无自定义牌堆 → 近似=不实际创建，输出口由 ResolveValuePile 返回该玩家固定区域句柄
                 {
                     Player player = ResolveInputPlayer(logic, graph, act, "player", caster, target_player) ?? PlayerOf(logic, caster);
                     string pileName = PileNormalize(GraphRuntime.GetFieldString(act, "pileName", "牌库"));
-                    Debug.Log("[NodeDoc] 200004 创建牌堆（TCG2 近似=固定区域）p"
+                    GameLog.Log("[NodeDoc] 200004 创建牌堆（TCG2 近似=固定区域）p"
                         + (player != null ? player.player_id.ToString() : "?") + " " + pileName);
                     break;
                 }
@@ -3184,7 +3184,7 @@ namespace TcgEngine.Workshop
                         else
                             owner.RemoveCardFromAllGroups(c);
                     }
-                    Debug.Log("[NodeDoc] 200005 删除牌堆 " + pid + "|" + pile + " 清空 " + snapshot.Count + " 张");
+                    GameLog.Log("[NodeDoc] 200005 删除牌堆 " + pid + "|" + pile + " 清空 " + snapshot.Count + " 张");
                     break;
                 }
                 case "200006":   //从牌堆将卡牌移动到目标牌堆（Pile 值通道；fromPile 仅作语义标注，实际按卡当前所在区摘出）
@@ -3204,7 +3204,7 @@ namespace TcgEngine.Workshop
                     int pos = GetIntInput(logic, graph, act, "position", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(act, "position", -1));
                     bool ok = PileMoveCard(logic, c, logic.GameData.GetPlayer(tpid), tpile, pos);
-                    Debug.Log("[NodeDoc] 200006 移动卡牌 " + c.CardData?.id + " → " + tpid + "|" + tpile + (ok ? " 成功" : " 失败"));
+                    GameLog.Log("[NodeDoc] 200006 移动卡牌 " + c.CardData?.id + " → " + tpid + "|" + tpile + (ok ? " 成功" : " 失败"));
                     break;
                 }
                 case "202046":   //创建衍生卡并置入牌堆（Pile 值通道；战场走自动空位；未提供牌堆→暂存区，不进入任何可打出区域）
@@ -3225,7 +3225,7 @@ namespace TcgEngine.Workshop
                         Card temp = owner != null ? Card.Create(define, VariantData.GetDefault(), owner) : null;
                         if (temp != null)
                             owner.cards_temp.Add(temp);
-                        Debug.Log("[NodeDoc] 202046 创建衍生卡（未提供牌堆→暂存区）" + define.id);
+                        GameLog.Log("[NodeDoc] 202046 创建衍生卡（未提供牌堆→暂存区）" + define.id);
                         break;
                     }
                     Player toPlayer = logic.GameData.GetPlayer(pid);
@@ -3261,7 +3261,7 @@ namespace TcgEngine.Workshop
                         created = Card.Create(define, VariantData.GetDefault(), toPlayer);
                         list.Insert(pos < 0 ? list.Count : Mathf.Clamp(pos, 0, list.Count), created);
                     }
-                    Debug.Log("[NodeDoc] 202046 创建衍生卡 " + define.id + " → " + pid + "|" + pile + (created != null ? " 成功" : " 失败"));
+                    GameLog.Log("[NodeDoc] 202046 创建衍生卡 " + define.id + " → " + pid + "|" + pile + (created != null ? " 成功" : " 失败"));
                     break;
                 }
                 case "201007":   //摧毁道具：移除玩家英雄身上的装备（近似映射：道具=cards_equip/英雄 equipped_uid）
@@ -3282,7 +3282,7 @@ namespace TcgEngine.Workshop
                         if (e != null && e != equip)
                             logic.DiscardCard(e);
                     }
-                    Debug.Log("[NodeDoc] 201007 摧毁道具 玩家 p" + player.player_id);
+                    GameLog.Log("[NodeDoc] 201007 摧毁道具 玩家 p" + player.player_id);
                     break;
                 }
                 case "201006":   //复原技能：让该玩家的技能本回合可以再次发动
@@ -3326,7 +3326,7 @@ namespace TcgEngine.Workshop
                         }
                     }
 
-                    Debug.Log("[NodeDoc] 201006 复原技能 玩家 p" + player.player_id
+                    GameLog.Log("[NodeDoc] 201006 复原技能 玩家 p" + player.player_id
                         + "：英雄已刷新，清空本回合「已发动」技能记录 " + cleared + " 条"
                         + (player.hero == null ? "（警告：该玩家没有英雄卡）" : ""));
                     break;
@@ -3346,7 +3346,7 @@ namespace TcgEngine.Workshop
                         player.SetTrait(FATIGUE_TRAIT, value);
                     else
                         player.AddTrait(FATIGUE_TRAIT, value);
-                    Debug.Log("[NodeDoc] " + act.action + " 疲劳层数 p" + player.player_id + " " + player.GetTraitValue(FATIGUE_TRAIT));
+                    GameLog.Log("[NodeDoc] " + act.action + " 疲劳层数 p" + player.player_id + " " + player.GetTraitValue(FATIGUE_TRAIT));
                     break;
                 }
                 case "201015":   //受到疲劳伤害：伤害值 = 当前疲劳层数
@@ -3360,7 +3360,7 @@ namespace TcgEngine.Workshop
                     int value = player.GetTraitValue(FATIGUE_TRAIT);
                     if (value > 0)
                         logic.DamagePlayer(caster, player, value);
-                    Debug.Log("[NodeDoc] 201015 受到疲劳伤害 p" + player.player_id + " value=" + value);
+                    GameLog.Log("[NodeDoc] 201015 受到疲劳伤害 p" + player.player_id + " value=" + value);
                     break;
                 }
                 case "202048":   //设置卡牌属性可见性（近似映射：写入 Card 的 vis:{pid}:{prop} 特性；只存不发）
@@ -3382,7 +3382,7 @@ namespace TcgEngine.Workshop
                         if (c != null)
                             c.SetTrait(key, visible ? 1 : 0);
                     }
-                    Debug.Log("[NodeDoc] " + act.action + " 设置可见性 玩家 p" + viewer.player_id
+                    GameLog.Log("[NodeDoc] " + act.action + " 设置可见性 玩家 p" + viewer.player_id
                         + " " + key + "=" + visible + " 目标数=" + cards.Count);
                     break;
                 }
@@ -3427,7 +3427,7 @@ namespace TcgEngine.Workshop
                             }
                         }
                     }
-                    Debug.Log("[NodeDoc] " + act.action + " 触发定义能力 " + dfn.id + " 载体数=" + carriers.Count + " 触发次数=" + fired);
+                    GameLog.Log("[NodeDoc] " + act.action + " 触发定义能力 " + dfn.id + " 载体数=" + carriers.Count + " 触发次数=" + fired);
                     break;
                 }
                 case "203001":   //展示卡牌定义：TCG2 无"揭示给指定玩家"的界面机制，v1=记录日志（表现层待接入）
@@ -3435,7 +3435,7 @@ namespace TcgEngine.Workshop
                     CardData dfn = ResolveInputDefine(logic, graph, act, "cardDefine", caster, target_card, target_player);
                     Player who = HasInputPin(graph, act, "player")
                         ? ResolveInputPlayer(logic, graph, act, "player", caster, target_player) : null;
-                    Debug.Log("[NodeDoc] 203001 展示卡牌定义 " + (dfn != null ? dfn.id : "(空)")
+                    GameLog.Log("[NodeDoc] 203001 展示卡牌定义 " + (dfn != null ? dfn.id : "(空)")
                         + " → " + (who != null ? ("玩家 p" + who.player_id) : "双方") + "（表现层暂未接入界面）");
                     break;
                 }
@@ -3467,7 +3467,7 @@ namespace TcgEngine.Workshop
                                     ed.DoEffect(logic, effect, src, t);
                         }
                     }
-                    Debug.Log("[NodeDoc] 207001 发动效果 " + effect.id + " 来源=" + (src != null ? src.CardData?.id : "null")
+                    GameLog.Log("[NodeDoc] 207001 发动效果 " + effect.id + " 来源=" + (src != null ? src.CardData?.id : "null")
                         + " 目标数=" + targets.Count);
                     break;
                 }
@@ -3490,12 +3490,12 @@ namespace TcgEngine.Workshop
                     {
                         object mv = GetObjectInput(logic, graph, act, "value", caster, target_card, target_player);
                         map[mk] = mv;
-                        Debug.Log("[NodeDoc] 213001 设置映射 " + mk + "=" + (mv != null ? mv.ToString() : "null"));
+                        GameLog.Log("[NodeDoc] 213001 设置映射 " + mk + "=" + (mv != null ? mv.ToString() : "null"));
                     }
                     else
                     {
                         map.Remove(mk);
-                        Debug.Log("[NodeDoc] 213002 移除映射 " + mk);
+                        GameLog.Log("[NodeDoc] 213002 移除映射 " + mk);
                     }
                     break;
                 }
@@ -3514,7 +3514,7 @@ namespace TcgEngine.Workshop
                         r.card.SetTrait(BuffVisKey(BuffRefId(r), prop, vp.player_id), visible ? 1 : 0);
                         n++;
                     }
-                    Debug.Log("[NodeDoc] 206004 设置增益属性可见性 " + prop + " → p"
+                    GameLog.Log("[NodeDoc] 206004 设置增益属性可见性 " + prop + " → p"
                         + (vp != null ? vp.player_id.ToString() : "?") + " visible=" + visible + "（" + n + " 个增益）");
                     break;
                 }
@@ -3528,7 +3528,7 @@ namespace TcgEngine.Workshop
                     }
                     e.repeat = GetIntInput(logic, graph, act, "times", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(act, "times", 0));
-                    Debug.Log("[NodeDoc] 208009 设置事件重复次数 " + e.action + " repeat=" + e.repeat);
+                    GameLog.Log("[NodeDoc] 208009 设置事件重复次数 " + e.action + " repeat=" + e.repeat);
                     break;
                 }
                 case "208002":   //阻止事件（zmcs）：等价「阻止本事件」，仅「X 时」有效
@@ -3562,7 +3562,7 @@ namespace TcgEngine.Workshop
                     cur_event.target_card = tc;
                     //引擎限制：TCG2 的"攻击/打出"实际目标由流程参数决定，不是事件字段 → 图上改写只进事件上下文
                     //（供图内「获取变量·目标卡牌」等读取），不会改变本次实际目标；需改实际目标请用引擎侧配置
-                    Debug.Log("[NodeDoc] " + act.action + " 改写事件目标卡 = " + (tc.CardData != null ? tc.CardData.id : "?")
+                    GameLog.Log("[NodeDoc] " + act.action + " 改写事件目标卡 = " + (tc.CardData != null ? tc.CardData.id : "?")
                         + "（写入事件上下文，供图内读取）");
                     break;
                 }
@@ -3580,7 +3580,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     cur_event.card = tc;
-                    Debug.Log("[NodeDoc] 208005 更改受伤卡牌 = " + (tc.CardData != null ? tc.CardData.id : "?")
+                    GameLog.Log("[NodeDoc] 208005 更改受伤卡牌 = " + (tc.CardData != null ? tc.CardData.id : "?")
                         + "（「伤害时」事件内生效：实际结算改打到该卡）");
                     break;
                 }
@@ -3598,7 +3598,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     cur_event.source_card = sc;
-                    Debug.Log("[NodeDoc] 208006 更改伤害源 = " + (sc.CardData != null ? sc.CardData.id : "?")
+                    GameLog.Log("[NodeDoc] 208006 更改伤害源 = " + (sc.CardData != null ? sc.CardData.id : "?")
                         + "（「伤害时」事件内生效：归因/吸血按新来源）");
                     break;
                 }
@@ -3613,7 +3613,7 @@ namespace TcgEngine.Workshop
                     int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(act, "value", 0));
                     cur_event.value = v;
-                    Debug.Log("[NodeDoc] " + act.action + " 改写事件数值 = " + v + "（「伤害时/治疗时」事件内生效）");
+                    GameLog.Log("[NodeDoc] " + act.action + " 改写事件数值 = " + v + "（「伤害时/治疗时」事件内生效）");
                     break;
                 }
                 case "208001":   //设置变量（zmcs）：按变量名写回当前事件上下文
@@ -3635,7 +3635,7 @@ namespace TcgEngine.Workshop
                         cur_event.target_card = ResolveInputCard(logic, graph, act, "value", caster, target_card, target_player);
                     else    //卡牌
                         cur_event.card = ResolveInputCard(logic, graph, act, "value", caster, target_card, target_player);
-                    Debug.Log("[NodeDoc] 208001 设置变量 " + vn);
+                    GameLog.Log("[NodeDoc] 208001 设置变量 " + vn);
                     break;
                 }
                 case "BlockEvent":   //阻止本事件：仅「X 时」广播内有效——取消本次原动作（先到先得，后续监听者不再收到）

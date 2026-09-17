@@ -137,6 +137,8 @@ namespace TcgEngine.UI
         private bool bar_expanded = false;      //默认收起（先进战斗只看到方块）
         private string bar_signature;           //本局按钮栏快照（用于检测「增加/删除按钮」生效后重建）
         private float bar_check_timer;          //快照检查节流计时（0.25s 一次，替代原「每帧 string.Join+ToArray」）
+        private int last_turn_count = int.MinValue;    //回合数脏检查（原每帧 "Turn "+n 拼接）
+        private int last_turn_seconds = int.MinValue;  //倒计时秒数脏检查（原每帧 Mathf.RoundToInt().ToString()）
         private bool bar_diag_pending;          //待做一次"谁吃掉了按钮栏射线"的诊断（悬浮/点击没反应的排查用）
         private bool bar_diag_done;
         private float connecting_stuck_timer;   //卡在 Connecting 的累计时间（超 8 秒打一次诊断）
@@ -599,10 +601,19 @@ namespace TcgEngine.UI
             end_turn_timer += Time.deltaTime;
             selector_timer += Time.deltaTime;
 
-            //Timer
-            turn_count.text = "Turn " + data.turn_count.ToString();
+            //Timer（★ 脏检查：原来每帧字符串拼接 + TMP 赋值）
+            if (data.turn_count != last_turn_count)
+            {
+                last_turn_count = data.turn_count;
+                turn_count.text = "Turn " + last_turn_count.ToString();
+            }
+            int turn_sec = Mathf.RoundToInt(data.turn_timer);
+            if (turn_sec != last_turn_seconds)
+            {
+                last_turn_seconds = turn_sec;
+                turn_timer.text = turn_sec.ToString();
+            }
             turn_timer.enabled = data.turn_timer > 0f;
-            turn_timer.text = Mathf.RoundToInt(data.turn_timer).ToString();
             turn_timer.enabled = data.turn_timer < 999f;
 
             //Simulate timer
