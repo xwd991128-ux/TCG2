@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
@@ -57,11 +58,183 @@ namespace TcgEngine.UI
             if (select_none_btn != null) select_none_btn.onClick.AddListener(() => SetAllSelected(false));
             if (import_btn != null) import_btn.onClick.AddListener(OnImport);
             if (export_btn != null) export_btn.onClick.AddListener(OnExportSelected);
+
+            EnsureBackButton();   //★ 场景没绑 close_btn 时运行时补「返回」（Builder 版漏绑 → 页面没有出口）
+        }
+
+        /// <summary>保证本页有「返回」出口（自愈，不依赖 Inspector 绑定）：
+        /// ① 场景已绑 close_btn → 只确保它激活；
+        /// ② 未绑（Builder 漏绑/引用丢失）→ 运行时在**左上角**补一个「返回」按钮。
+        /// 为什么必须自愈：本面板是 UIPanel（全屏 + CanvasGroup 吃射线、盖住下层），
+        /// 一旦没有关闭入口，玩家就只能强退——所以不能"等场景里有人绑"。
+        /// 样式对齐项目规范：TMP + UIFonts 字体管线 + UITheme 配色（CtrlStrong 即"返回键等主要操作"的既定底色）。</summary>
+        private void EnsureBackButton()
+        {
+            if (close_btn != null)
+            {
+                if (!close_btn.gameObject.activeSelf)
+                    close_btn.gameObject.SetActive(true);
+                SelfHealButtonLabel(close_btn);        //★ 场景里往往"按钮在、字不在"（TMP 无字体 → 标签不渲染）
+                return;
+            }
+
+            RectTransform parent = transform as RectTransform;
+            if (parent == null)
+                return;
+
+            GameObject go = new GameObject("BackBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(0f, 1f);        //左上角：截图里该区域为空，不会压标题/列表/底部按钮
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(16f, -14f);
+            rt.sizeDelta = new Vector2(96f, 40f);
+
+            Image img = go.GetComponent<Image>();
+            img.color = UITheme.CtrlStrong;
+
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.transition = Selectable.Transition.ColorTint;
+            ColorBlock cb = btn.colors;
+            cb.normalColor = UITheme.BtnTintNormal;
+            cb.highlightedColor = UITheme.BtnTintHighlight;
+            cb.pressedColor = UITheme.BtnTintPressed;
+            btn.colors = cb;
+
+            CreateLabel(rt);                           //文字走同一套构建函数
+            btn.onClick.AddListener(() => Hide());
+            go.transform.SetAsLastSibling();           //保证在其它内容之上，能点到
+            close_btn = btn;
+
+            Debug.Log("[卡池管理] 场景未绑定 close_btn → 已在左上角补建「返回」按钮（点击关闭本页）");
+        }
+
+        /// <summary>场景里那颗返回按钮的"自愈 + 显眼化"（幂等）。
+        /// 2026-09 实测：场景里的 BackBtn 客观存在（屏幕矩形在视口内、25% 白底、可点、文字也渲染出 2 个字形），
+        /// 但**尺寸 96x40 贴在面板最左上角、深色背景下与其它按钮不连贯** → 玩家一眼扫过去就是"这页没有返回按钮"。
+        /// 所以这里三件事一起做：① 缺字体/空文字则补齐（走 UIFonts 管线）；② 统一放大到 116x44 并往内挪；
+        /// ③ 底框确保可见（CtrlStrong = UITheme 里"返回键等主要操作"的既定底色）。</summary>
+        private void SelfHealButtonLabel(Button btn)
+        {
+            if (btn == null)
+                return;
+
+            int fixed_bits = 0;
+
+            // ---- ① 尺寸/位置（往面板内侧挪一点，避免贴着最外角显得像"游离的小方块"）----
+            RectTransform rt = btn.transform as RectTransform;
+            if (rt != null)
+            {
+                if (Mathf.Abs(rt.sizeDelta.x - 116f) > 0.5f || Mathf.Abs(rt.sizeDelta.y - 44f) > 0.5f)
+                    fixed_bits++;
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 1f);
+                rt.anchoredPosition = new Vector2(24f, -20f);
+                rt.sizeDelta = new Vector2(116f, 44f);
+            }
+
+            // ---- ② 底框可见 ----
+            Image img = btn.GetComponent<Image>();
+            if (img != null)
+            {
+                if (!img.enabled)
+                {
+                    img.enabled = true;
+                    fixed_bits++;
+                }
+                if (img.color.a < 0.3f)
+                {
+                    img.color = UITheme.CtrlStrong;
+                    fixed_bits++;
+                }
+                img.raycastTarget = true;
+            }
+
+            // ---- ③ 文字（字体/内容/颜色/字号）----
+            TextMeshProUGUI[] texts = btn.GetComponentsInChildren<TextMeshProUGUI>(true);
+            if (texts == null || texts.Length == 0)
+            {
+                TextMeshProUGUI made = CreateLabel(rt);
+                if (made != null)
+                    made.fontSize = 22f;
+                Debug.Log("[卡池管理] 返回按钮自愈：原来没有文字对象 → 已补「返回」标签");
+            }
+            else
+            {
+                for (int i = 0; i < texts.Length; i++)
+                {
+                    TextMeshProUGUI t = texts[i];
+                    if (t == null)
+                        continue;
+
+                    if (t.font == null)                    //没有字体资源 → 文字不渲染
+                    {
+                        UIFonts.ApplyFont(t);
+                        fixed_bits++;
+                    }
+                    if (string.IsNullOrEmpty(t.text))
+                    {
+                        t.text = "返回";
+                        fixed_bits++;
+                    }
+                    if (t.color.a < 0.9f)
+                    {
+                        t.color = UITheme.TextTitle;
+                        fixed_bits++;
+                    }
+                    if (t.fontSize < 21f)
+                    {
+                        t.fontSize = 22f;                  //原来 20，放大一点
+                        fixed_bits++;
+                    }
+                    t.raycastTarget = false;
+                }
+            }
+
+            if (fixed_bits > 0)
+                Debug.Log("[卡池管理] 返回按钮自愈：修正 " + fixed_bits
+                    + " 项（尺寸/位置按 116x44@(24,-20)、底框 CtrlStrong、文字字体/字号/颜色）→ 现在位于面板左上角，点击关闭本页");
+        }
+
+        /// <summary>Esc 作为第二出口（仅本页可见时生效）</summary>
+        protected override void Update()
+        {
+            base.Update();
+
+            if (visible && Input.GetKeyDown(KeyCode.Escape))
+                Hide();
+        }
+
+        /// <summary>按钮文字（TMP + UIFonts 字体管线，居中铺满父级）</summary>
+        private TextMeshProUGUI CreateLabel(RectTransform parent)
+        {
+            GameObject tgo = new GameObject("Text", typeof(RectTransform));
+            RectTransform trt = tgo.GetComponent<RectTransform>();
+            trt.SetParent(parent, false);
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI txt = tgo.AddComponent<TextMeshProUGUI>();
+            txt.text = "返回";
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.fontSize = 20f;
+            txt.color = UITheme.TextTitle;
+            txt.raycastTarget = false;
+            UIFonts.ApplyFont(txt);                    //★ 必须走项目字体管线（否则字体不一致/发糊/缺字）
+            return txt;
         }
 
         public override void Show(bool instant = false)
         {
             base.Show(instant);
+            //★ 每次打开都自愈一次（幂等）：Awake 只在对象首次激活时跑一次，
+            //  而返回按钮的问题（漏绑/字看不见）往往在"之后某次打开"才暴露 → 必须挂在 Show 上才可靠。
+            EnsureBackButton();
             RefreshList();
         }
 
