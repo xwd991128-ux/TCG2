@@ -47,11 +47,18 @@ namespace TcgEngine.UI
 
         }
 
+        //★ 结算奖励加载的重试控制（原来 Update 每秒调一次 async void RefreshRewards：
+        //  ① 请求在途时定时器会再发一个 → 同一个 URL 叠发多份；② 失败后无限重试）
+        private bool reward_requesting;                 //请求进行中
+        private bool reward_give_up;                    //连续失败达到上限 → 停止重试
+        private int reward_retry;
+        private const int REWARD_MAX_RETRY = 8;
+
         protected override void Update()
         {
             base.Update();
 
-            if (!reward_loaded && IsVisible())
+            if (!reward_loaded && !reward_requesting && !reward_give_up && IsVisible())
             {
                 timer += Time.deltaTime;
                 if (timer > 1f)
@@ -109,36 +116,55 @@ namespace TcgEngine.UI
 
         private async void RefreshRewards()
         {
-            //Online rewards
-            if (GameClient.game_settings.IsOnline())
+            if (reward_requesting)
+                return;                     //★ 上一次请求还没回来 → 不再发（避免同 URL 叠发）
+            reward_requesting = true;
+            try
             {
-                string url = ApiClient.ServerURL + "/matches/" + GameClient.game_settings.game_uid;
-                WebResponse res = await ApiClient.Get().SendGetRequest(url);
-                if (res.success)
+                //Online rewards
+                if (GameClient.game_settings.IsOnline())
                 {
-                    reward_loaded = true;
-                    MatchResponse match = ApiTool.JsonToObject<MatchResponse>(res.data);
-                    string username = ApiClient.Get().Username.ToLower();
-                    foreach (MatchDataResponse data in match.udata)
+                    string url = ApiClient.ServerURL + "/matches/" + GameClient.game_settings.game_uid;
+                    WebResponse res = await ApiClient.Get().SendGetRequest(url);
+                    if (res.success)
                     {
-                        if (data.username.ToLower() == username)
+                        reward_loaded = true;
+                        MatchResponse match = ApiTool.JsonToObject<MatchResponse>(res.data);
+                        string username = ApiClient.Get().Username.ToLower();
+                        foreach (MatchDataResponse data in match.udata)
                         {
-                            target_coins = data.reward.coins;
-                            target_xp = data.reward.xp;
+                            if (data.username.ToLower() == username)
+                            {
+                                target_coins = data.reward.coins;
+                                target_xp = data.reward.xp;
+                            }
                         }
                     }
                 }
-            }
 
-            //Adventure Rewards
-            if (GameClient.game_settings.game_type == GameType.Adventure)
-            {
-                LevelData lvl = LevelData.Get(GameClient.game_settings.level);
-                if (lvl != null && RewardManager.Get().IsRewardGained())
+                //Adventure Rewards
+                if (GameClient.game_settings.game_type == GameType.Adventure)
                 {
-                    target_coins = lvl.reward_coins;
-                    target_xp = lvl.reward_xp;
-                    reward_loaded = true;
+                    LevelData lvl = LevelData.Get(GameClient.game_settings.level);
+                    if (lvl != null && RewardManager.Get().IsRewardGained())
+                    {
+                        target_coins = lvl.reward_coins;
+                        target_xp = lvl.reward_xp;
+                        reward_loaded = true;
+                    }
+                }
+            }
+            finally
+            {
+                reward_requesting = false;
+                //★ 重试上限：失败（或本模式没有奖励可拿）时不再无限每帧重试
+                if (!reward_loaded && !reward_give_up && ++reward_retry >= REWARD_MAX_RETRY)
+                {
+                    reward_give_up = true;
+                    //只有"本该有奖励"的联网模式才提示；单机（Solo）本来就拿不到奖励，静默停止即可
+                    if (GameClient.game_settings.IsOnline())
+                        Debug.LogWarning("[结算] 奖励加载连续 " + REWARD_MAX_RETRY + " 次未成功，已停止重试"
+                            + "（mode=" + GameClient.game_settings.game_type + "）；重新打开结算面板会重置");
                 }
             }
         }
@@ -146,6 +172,8 @@ namespace TcgEngine.UI
         public void ShowEnd(int winner)
         {
             reward_loaded = false;
+            reward_retry = 0;          //重新打开结算面板 → 重置重试计数/放弃标记
+            reward_give_up = false;
             RefreshPanel(winner);
             RefreshRewards();
             Show();
