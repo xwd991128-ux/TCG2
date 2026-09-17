@@ -40,6 +40,9 @@ description: Unity 项目（TCG2）工作台/卡牌编辑器类界面的高频�
 | 卡图"蒙灰" / 界面出现白方块 | 坑 17、坑 18 |
 | 弹框点空白处误关、点穿到背后 | 坑 19 |
 | 数据改造后老数据丢了 / 删掉的行又复活 | 坑 15 |
+| **MCP：点 ▶ 进不去 Play / `play_mode_start` 一直"排队"** | 附录 D-1（先查 CS 错误）、D-3 |
+| **MCP：`get_script_errors` 报 0 但其实有错 / 日志搜不到、统计恒 0** | 附录 D-1、D-2 |
+| **MCP：想验证运行时 UI 但看不到画面 / 查不到深层对象** | 附录 D-4、D-5（探针 SOP） |
 
 ## 坑 11：UI 射线结果的 API 记混 → CS1061
 
@@ -79,6 +82,16 @@ depth / sortingLayer / sortingOrder / worldPosition / screenPosition`。
   （保留原点击逻辑，不删对象）。
 - `Awake` 里判一次 + `yield return null` 一帧后再判一次（LayoutGroup/ContentSizeFitter 首帧才定尺寸，
   Awake 时矩形可能还是 0）。
+
+**实战案例（2026-09 主菜单）**：运行时注入的「音乐库 / 界面BGM配置 / 局域网对战」三个入口按钮被场景里已有的
+`UICanvasTop/HomePanel/Logo`（151×113 的图片，还带 `Selectable`）压住 —— 用户描述"右上角一堆图标挡住后面的东西"。
+用**临时探针的"区域清点"**（遍历根画布所有 RectTransform、把与右上角区域相交的 UI 按路径+屏幕矩形打出来）一次定位：
+区域里 12 个 UI 的矩形一列出来，谁压着谁一目了然
+（`Logo[1353,849]~[1484,946]` vs `MusicLibraryBtn[1361,905]~[1475,937]` vs `LanBtn[1345,865]~[1475,898]`）。
+结论：**运行时注入的元素必须避让场景既有元素**（挪位置，或运行时隐藏场景里那个）；
+"这堆东西都是谁"优先用区域清点（不依赖鼠标精度），指针采样适合"某个点到底是谁"；
+定完位把探针删掉，最终解决方式是**在编辑器里把那个场景对象删掉**（本例删 `HomePanel/Logo`）。
+另：`Menu.unity` 里同名 `Logo` 有 **5 个**（每个页面面板各一个）→ 按名字处理时**必须限定在目标面板下**再找。
 
 **检查点**：`GetWorldCorners` 求世界矩形做相交判断；把自己新建的按钮排除在"外来按钮"之外，
 否则会把自己的 × 挪走。
@@ -174,7 +187,11 @@ VariableSelectPopup.cs(784,22): error CS0029: Cannot implicitly convert type
 `CS0019: Operator '==' cannot be applied to operands of type 'TraitStat' and '<null>'` —— **结构体不能判 null**，
 加防空时要先确认类型是 class 还是 struct（本项目 `TraitStat` 是 struct：`struct TraitStat { TraitData trait; int value; }`）；
 `CS1503: cannot convert from 'UserDeckData' to 'DeckData'` —— 给已有方法包 try/catch 外壳时**先看它有几个重载**
-（`GameLogic.SetPlayerDeck` 就有 `DeckData` / `UserDeckData` 两个），外壳要按类型各包一层。
+（`GameLogic.SetPlayerDeck` 就有 `DeckData` / `UserDeckData` 两个），外壳要按类型各包一层；
+`CS0246: 'TMP_InputField' could not be found` —— 新文件里用到 TMP 类型要 `using TMPro;`
+（`TMP_Text`/`TextMeshProUGUI`/`TMP_InputField` 都在 `TMPro`；`Image`/`Selectable`/`ScrollRect`/
+`RectMask2D`/`Mask` 在 `UnityEngine.UI`；`EventSystem`/`PointerEventData`/`RaycastResult`/
+`EventTrigger` 在 `UnityEngine.EventSystems`）。新建排查工具类时最容易漏 using。
 
 **修法/预防**
 - 改函数返回类型后，先全仓搜**旧类型 + 变量名**：`(^|[^A-Za-z_])Text[ >]`、`AddComponent<Text>()`、
@@ -544,6 +561,16 @@ Console 无报错。
 
 好处：把"悬浮没反应"从"我猜"变成 Console 里一条明确结论（谁挡住了），而不是反复试错。
 
+**写法（临时探针，用完即删）**：新加一个静态类，两个入口就够——
+① **指针采样**（F9 之类）：`EventSystem.current.RaycastAll(ped, hits)`，打印 `hits[0]` 起每条的
+**完整层级路径 + 关键组件 + 锚点/pivot/anchoredPosition/sizeDelta/世界矩形**（#0=最上层，要删的一般就是它或它父级）；
+② **区域清点**（F10 之类）：遍历根画布的 `GetComponentsInChildren<RectTransform>(false)`，
+用 `GetWorldCorners` + `WorldToScreenPoint` 求**屏幕矩形**，把与目标区域相交的对象按路径排序打出来
+（不依赖鼠标精度，专门回答"这堆东西都是谁"；本项目 2026-09 排查主菜单图标遮挡就是靠它一步定位）。
+**注意**：这类探针是**排查用临时件**——定位完就删掉（含 `.meta`），别留在正式代码里。
+**更别用手改 `.unity` 场景 YAML 去删对象**（fileID/父子引用/meta 极易改坏）：
+要么在编辑器里删，要么由代码在运行时 `SetActive(false)` 收敛。
+
 ---
 
 # 附录：本项目"卡牌/增益编辑器"开发复盘与问题统计（2026-09）
@@ -585,7 +612,7 @@ Console 无报错。
 
 ## C. 交付前自查（本项目定制，配合上面"验收清单"）
 
-1. **编译**：Unity Console 无 CS 报错（lint 干净 ≠ 能编译）。
+1. **编译**：Unity Console 无 CS 报错（lint 干净 ≠ 能编译）。装了 MCP 后的口径：`compile_scripts` → 等域重载 → **拉全量 Console 日志自己筛 `error CS`**（`get_script_errors` 会漏报，见附录 D-1）。
 2. **结构日志**：与控件布局有关的功能，收尾打一行结构日志（名称/父级/锚点/激活/文字），核对"1 个 input、1 个 pick、1 个 diy、1 个 play"。
 3. **幂等**：连续打开同一页面 3 次（或在同一帧触发两次刷新），区块数量不增加。
 4. **空态**：无数据（无图 / 无自定义属性 / 无增益）时，不该可点、不该报错、不该出现空壳。
@@ -599,3 +626,126 @@ Console 无报错。
 2. 四类弹框都能打开；行选中是"蓝底 + √ "样式，与既有多选弹层一致；卡牌已配置项默认预选中。
 3. 新增 → 留在弹框且新项出现并被选中；编辑 → 进入对应编辑器且改动生效；删除 → 有二次确认。
 4. 无 `Missing script`/`NullReferenceException`；重新编译无 CS1061 类报错。
+
+---
+
+# 附录 D：MCP 直连 Unity 编辑器的实测坑与验收口径（2026-09）
+
+已注册服务器 **`ch-unity-mcp`**（`url = http://localhost:9123/mcp`，76 个工具；配置写在 `~/.codebuddy/mcp.json` 的 `mcpServers` 里，改完**下一轮对话**会被 IDE 重新读取，日志里出现 `[MCP:TokenRefresh] Rescan completed: tracking 1 server(s), newly registered: [ch-unity-mcp]`、`[MCP:HealthPatrol] Healthy: 1 [ch-unity-mcp]` 即注册成功）。
+
+常用工具：`get_editor_status` / `compile_scripts` / `get_script_errors` / `get_unity_logs` / `get_play_mode_status` / `play_mode_start` / `play_mode_stop` / `simulate_input` / `find_gameobject` / `get_gameobject_info` / `get_component_properties` / `list_scenes` / `list_prefabs`。
+
+## D-1 坑：`get_script_errors` 会**漏报**真实编译错误（最坑，会把 Play 卡死）
+
+实测：探针脚本里写了 `cfg.buttons.Count`（应是 `.Length`）→ Unity Console 明确有
+`error CS1061: 'BattleButtonData[]' does not contain a definition for 'Count'`，
+而 `get_script_errors` 返回 **`Errors: 0, Warnings: 0`**。
+
+**后果**：有编译错误时 Unity **拒绝进入 Play 模式** —— 点 ▶ 没反应/报错，`play_mode_start` 也永远只回"已加入异步执行队列"。
+**规则**：判定"能编译"必须**两条都查**：`compile_scripts` + 拉**全量** `get_unity_logs` 自己筛 `error CS`；
+一旦"进不去 Play"或 `play_mode_start` 反复排队，**第一件事是查 CS 错误，别怀疑 MCP 坏了**。
+
+## D-2 坑：`get_unity_logs` 的 `logLevel` / `searchText` 过滤**不可靠**
+
+实测：`searchText:"error CS"` 搜不到那条真实存在的 CS1061；`logLevel":"error"` 返回 0 条；
+`get_unity_log_stats` 永远返回 `info:0/warning:0/error:0`；而且 LogError 条目在返回里 `level` 也被标成 `"Info"`。
+**规则**：只信**全量**拉取（`maxCount` 给大、`searchText:""`）+ 自己按 `message` 文本筛。
+
+## D-3 坑：Play 相关调用会"排队 + 断连"，重试即可
+
+- `play_mode_start` / `play_mode_stop` 常直接回 **"操作「…」已加入异步执行队列，请10秒后重试"** —— 这是**正常**的排队响应，
+  等 10~20 秒再 `get_play_mode_status` 看结果；**不要连续猛调**（每次调用可能重置它的排队窗口）。
+- 脚本编译会触发**域重载**，期间 MCP 连接会断：报 `fetch failed` / `Streamable HTTP error: Unexpected content type: null` / `无法连接到远程服务器`。
+  实测域重载后 **20~35 秒**才恢复；可用 `curl` 探活（`POST http://localhost:9123/mcp`，`Host` 必须是 `localhost:9123`，写 `127.0.0.1` 会被 `400 Invalid host` 拒），恢复后再继续调用。
+
+## D-4 坑：场景查询工具**只能看根对象**
+
+`find_gameobject("Canvas")` → 0 条（根其实叫 `UICanvas`）；`get_gameobject_info("UICanvas/TopBar")` → `GameObject not found`（**不支持路径**）。
+`get_gameobject_info(根名)` 只能列出**一级**子对象名。所以：
+- 想数节点上的 `InlineField_*` 这类**深层**控件 → 这些工具**做不到**，必须用 D-5 的探针；
+- 想快速知道"哪个画布挂了哪些面板" → `get_current_scene_info`（列根 + 子对象数量）够用，例如 `UICanvasTop` 的子对象里能看到 `GraphEditorPanel`。
+- `raycast` 是**物理**射线，打不到 UGUI（验证 UI 遮挡仍用 `EventSystem.RaycastAll` 探针，见坑 31）。
+
+## D-5 探针 SOP：**不用眼睛**验证运行时 UI（这一步很值）
+
+目标：把"节点上到底有几个「按钮」行 / 区块重复没重复"变成 Console 里的**数据**。步骤：
+
+1. 写临时脚本（放 `Assets/TcgEngine/Scripts/__TempProbe/`，名字带 `__TempProbe` 便于收尾删除）：
+   - 入口用 `[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]`（每次进 Play 自动跑，**不需要人点任何 UI**）；
+   - 找面板：`Resources.FindObjectsOfTypeAll<GraphEditorPanel>()`（**能拿到未激活对象**；`GameObject.Find` 拿不到 inactive）；
+   - 自动打开目标页：直接调 `panel.OpenButtons(BattleButtonIO.GetConfig())` 之类的公开入口，**不用调 `Show()`**
+     （`RebuildCanvas` 不依赖可见性；而且 `GraphEditorPanel.Show()` 并非 public，探针里调会 CS0122）；
+   - 清点：`panel.GetComponentsInChildren<Transform>(true)` 按名字前缀统计（如 `InlineField_`），**按签名去重后** `Debug.Log`（内容变化才打，避免刷屏）。
+2. `compile_scripts` → 等域重载 → `play_mode_start` → 拉全量日志筛 `[探针]` 前缀读结论。
+3. **用完立刻删**：删掉整个 `__TempProbe` 目录（**含 `InlineFieldProbe.cs.meta`**）→ 再 `compile_scripts`，让工程回到原样。
+
+**写探针时踩过的两个编译坑（都会挡住 Play）**：
+- `BattleButtonConfig.buttons` 是**数组** → 用 `.Length`，写 `.Count` 就是 CS1061；
+- 探针要类型化调用时确认成员可见性（`OpenButtons` public ✓、`Show()` 不是 public ✗）。
+
+**实测收益**（同一套 SOP 跑出来的）：
+- 按钮「二合一」验证 → 全图**没有任何** `InlineField_button`/`InlineField_button_id`，且那个已接线的节点只剩端口一行 = 需求达成（不靠肉眼）；
+- 启动日志治理前后对比 → **37 条 → 14 条**（17 条 null trait 汇总成 1 条、3 条卡池误报消失、TeamData 刷屏消失）。
+
+## D-6 顺带沉淀：启动期日志噪音的固定套路
+
+- **别在 `Update()` / `IsInside()` / 数据查询方法里留 `Debug.Log`**：本次一次抓到 4 处（`BoardSlotPlayer.Update` 每帧 3 条、`BSlot.IsInside` 未命中打、`CardData.HasAbility` 查询打、`TeamData.GetAll` 每次调用打），全是排查残留。
+- 逐项 `LogError` 的校验（如 `DataLoader.CheckCardData`）要**先收集再汇总成 1 条**（本次 17 条 → 1 条，且保留明细），否则卡池一涨就刷屏。
+- 目录里"扫全部 `*.json`"的加载器必须**先判别文件类型**（本次 `CardPoolIO.LoadCustomPools` 把 `buffs.json`/`buttons.json`/`bgm_library.json` 都当卡池，误报「MyCardPool 新增 0 张卡」；用 `json.IndexOf("\"cards\"")` 一眼区分）。
+
+## D-7 坑：用命令行直连 MCP 时，PowerShell 会把 UTF-8 响应解成乱码
+
+当 IDE 侧工具没注册（报 `tool does not exist or is not registered`）但服务端还在（`HTTP 200`）时，可以**直接用 HTTP 调 MCP**（等价于原生工具，本轮就是这么把 P0 验证跑完的）：
+
+```
+POST http://localhost:9123/mcp
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_unity_logs","arguments":{"maxCount":60,"logLevel":"all","includeStackTrace":false,"searchText":""}}}
+```
+
+**坑**：`Invoke-WebRequest` 默认按 ANSI(GBK) 解码 UTF-8 响应 → 返回的中文全是乱码，**按中文关键字检索（如 `[探针]`、`error CS` 之外的任何中文）会永远匹配不到**，看起来"探针没跑"。
+**正确做法**：`-OutFile` 落盘**原始字节**，再 `[System.IO.File]::ReadAllText($f,[System.Text.Encoding]::UTF8)` 后检索。
+
+**同类前科（同一个编码坑，换了个马甲）**：用 `Get-Content -Raw` 读 `buttons.json` 这类 UTF-8 JSON → GBK 双字节会把 `"` 吃掉 → `ConvertFrom-Json` 报"传入的对象无效"；
+**凡读非 ASCII 文件/响应，一律显式指定 UTF-8**。
+
+## D-8 坑：驱动游戏流程 / 读编辑器日志 / 工具注册失效（2026-09 实测补充）
+
+**① 要驱动游戏流程（比如自动进一局对战）——直接调游戏自己的 API，别去模拟鼠标点菜单。**
+探针在 Play 后 3 秒干这些事就能自动开一局人机（等价于菜单「单人 → 开始」），**全程无需人点任何 UI**：
+
+```csharp
+GameplayData g = GameplayData.Get();
+GameClient.game_settings.game_type = GameType.Solo;        // Solo/Adventure = IsOffline()，本地对局
+GameClient.game_settings.game_mode = GameMode.Casual;
+GameClient.game_settings.scene = (g.arena_list != null && g.arena_list.Length > 0) ? g.arena_list[0] : "Game";
+GameClient.game_settings.test_full_mana = true;            // 测试用：开局法力直接上限，更容易出牌
+GameClient.player_settings.deck = new UserDeckData(g.test_deck != null ? g.test_deck : g.free_decks[0]);
+GameClient.ai_settings.deck     = new UserDeckData(g.test_deck_ai != null ? g.test_deck_ai : g.ai_decks[0]);
+GameClient.ai_settings.ai_level = g.ai_level;
+MainMenu.Get().StartGame(GameType.Solo, GameMode.Casual);  // → FadeToScene(game_settings.GetScene())
+```
+
+`GameplayData.test_deck / test_deck_ai` 就是「从 Unity 场景直接开局」的官方测试卡组；`LevelUI.OnClick()` 是另一条同构路径（`GameType.Adventure` + `level.scene`）。
+实测：Play 后 3 秒调用 → 场景自动切到 `Game.unity` → `GameClient.Get().IsReady()==True` → 正常对局 80 秒无异常。
+（比 `simulate_input` 盲点坐标可靠得多——UGUI 的屏幕坐标换算受 Canvas 模式/缩放影响，很容易点空。）
+
+**② 读 `Editor.log` 必须**共享读**，`ReadAllText` 会抛 IOException。**
+Unity 进程是**独占**打开 `%LOCALAPPDATA%\Unity\Editor\Editor.log` 的：
+`[IO.File]::ReadAllText($log)` → `IOException：文件正由另一进程使用，因此该进程无法访问此文件`。正确姿势：
+
+```powershell
+$fs=[IO.File]::Open($log,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+$t =(New-Object IO.StreamReader($fs,[Text.Encoding]::UTF8)).ReadToEnd(); $fs.Close()
+```
+
+这条路在 MCP 日志过滤不可靠时最有用（可直接统计 `NullReferenceException` / `error CS` 出现次数）。
+实测本轮 80 秒自动对局：`NullReferenceException=0；error CS=0；IndexOutOfRangeException=0`。
+
+**③ IDE 侧工具注册会失效，但服务端还活着 → 用 HTTP 直连顶上。**
+现象：`mcp_call_tool` 报 `tool does not exist or is not registered`，而 `curl` 打 `9123` 仍是 `HTTP 200`。
+处理：改走 `POST http://localhost:9123/mcp`（`{"method":"tools/call",...}`）完成全部操作（本轮就是这么跑完 P0/P1 验证的）；
+**要让原生工具回来必须重载 IDE 窗口**（重载后工具才重新注册）。
+
+**④ 性能验证的落地套路（"用数据说话"）**：在热点函数里留两个 `public static int` 计数器（调用数 / 真正执行数），
+再放个探针每 2 秒报差值 —— 无需 Profiler、无需肉眼。本轮 P1 实测：**每 2 秒 ~1205 次调用（≈600 次/秒 ≈10 次/帧），
+实际重建仅 15 次/80 秒 → 跳过率 99.97%**。
