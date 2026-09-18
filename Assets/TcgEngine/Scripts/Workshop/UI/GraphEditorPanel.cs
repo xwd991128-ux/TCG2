@@ -1189,9 +1189,10 @@ namespace TcgEngine.UI
                     continue;
                 if ((p.action == "106004" || p.action == "206003") && ip.name == "propName")
                     continue;
-                //111013 排序 / 111031 属性映射：zmcs 用条件/选择器表达式当排序键/属性选择，v1 不支持 lambda，
-                //这两个口不生成，改用 prop 属性下拉字段（见下方字段区）
-                if ((p.action == "111013" && ip.name == "condition") || (p.action == "111031" && ip.name == "selector"))
+                //111013 排序的 条件 口是 lambda 排序键（v1 不支持）→ 不生成，改用 prop 属性下拉字段。
+                //★ 111031 的「选择的属性(selector)」口**已恢复**：运行期按元素逐个求值该选择器表达式
+                //  （配合「元素(element)」输出口 = 当前遍历元素），prop 下拉仍作为未连线时的兜底（用户 2026-09 确认补齐）。
+                if (p.action == "111013" && ip.name == "condition")
                     continue;
                 //103002 获取卡牌定义：DefineReference 引用口不生成，换成卡牌选择字段（下方字段区）
                 if (p.action == "103002" && ip.type == NodeValueType.DefineReference)
@@ -1214,8 +1215,9 @@ namespace TcgEngine.UI
             }
             foreach (NodeDocPort op in d.outputs)
             {
-                //111013/111031 的 元素 口是 lambda 表达式的输出口（v1 不支持，见上方输入口说明）
-                if ((p.action == "111013" || p.action == "111031") && op.name == "element")
+                //111013 的 元素 口是 lambda 排序键的输出口（v1 不支持）；★ 111031 的「元素(element)」**已恢复**
+                //（= 当前遍历元素，配合 selector 选择器表达式逐元素求值；运行期在 Object/Card 通道解析）
+                if (p.action == "111013" && op.name == "element")
                     continue;
                 //outputs 段的 ActionNode 同样是分支口（212001 动作/否则动作）→ 执行流输出口
                 if (op.type == NodeValueType.ActionNode)
@@ -1918,6 +1920,7 @@ namespace TcgEngine.UI
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+                ObsoleteActionMigration.Apply(n);     //★ 旧图自愈：已删除的过时/占位 action → 新版节点
             }
             RefreshForm();
             RefreshPanelArtRow();
@@ -2006,6 +2009,7 @@ namespace TcgEngine.UI
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+                ObsoleteActionMigration.Apply(n);     //★ 旧图自愈：已删除的过时/占位 action → 新版节点
             }
             RebuildCanvas();
             ResetView();
@@ -2200,6 +2204,10 @@ namespace TcgEngine.UI
             editing_keyword = keyword;
             editing_rule = rule;
             editing_button_config = null;   //退出按钮模式
+            //★ 必须清掉增益模式：否则"先编辑过增益、再编辑关键词"时，编辑区会按增益模式收尾
+            //  （右列显示增益参数、保存走增益分支写错文件，退出还落到卡牌编辑器）——
+            //  与 1869 行那处"漏了 editing_buff = null"是同一类模式串台漏洞。
+            editing_buff = null;
 
             graph = rule.graph;
             if (graph == null)
@@ -2218,6 +2226,7 @@ namespace TcgEngine.UI
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+                ObsoleteActionMigration.Apply(n);     //★ 旧图自愈：已删除的过时/占位 action → 新版节点
             }
             RefreshForm();
             RefreshPanelArtRow();
@@ -2261,6 +2270,7 @@ namespace TcgEngine.UI
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+                ObsoleteActionMigration.Apply(n);     //★ 旧图自愈：已删除的过时/占位 action → 新版节点
             }
             RefreshForm();
             RefreshPanelArtRow();
@@ -4018,6 +4028,7 @@ namespace TcgEngine.UI
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
                 MigratePins(n);
+                ObsoleteActionMigration.Apply(n);     //★ 旧图自愈：已删除的过时/占位 action → 新版节点
             }
             RefreshForm();
             RefreshPanelArtRow();
@@ -11710,6 +11721,10 @@ namespace TcgEngine.UI
         /// <summary>关闭并返回卡牌编辑器</summary>
         private void OnClose()
         {
+            //★ 本方法已经**显式**把"上一页"显示出来了，所以要清掉 return_to ——
+            //  否则 AfterHide 里的黑屏兜底会再消费一次陈旧值（实测：关键词退规则图时被陈旧的
+            //  "卡牌编辑器"顶掉，落点错了一层）。
+            return_to = null;
             Hide();
             if (editing_button_config != null)
             {
@@ -11726,16 +11741,31 @@ namespace TcgEngine.UI
             }
             if (editing_buff != null)
             {
-                //增益模式：返回增益编辑器（BuffPanel）
-                BuffPanel panel = BuffPanel.Get();
-                if (panel == null)
-                    panel = FindObjectOfType<BuffPanel>(true);
-                if (panel != null)
+                //★ 导航修复：**不能**再 Show() 增益管理页（BuffPanel 已作废；而且 EditBuff 设的 opened_for_edit=true
+                //  会绕过作废拦截，于是"点 × 又回到增益管理页"——用户实报）。
+                //  增益的完整编辑已统一到本编辑器的「增益参数」，所以退出即回到**变量配置的宿主**（卡牌编辑器）。
+                CardEditorPanel host = return_to as CardEditorPanel;
+                if (host == null)
+                    host = CardEditorPanel.Get();
+                if (host == null)
+                    host = FindObjectOfType<CardEditorPanel>(true);
+                if (host != null)
                 {
-                    panel.Show();
-                    panel.NotifyGraphClosed();
+                    host.Show();
+                    host.NotifyGraphClosed();
                 }
                 return;
+            }
+            if (editing_keyword != null)
+            {
+                //★ 导航修复：关键词模式原先**漏了这一支** → 从「关键词管理」进入规则图后点「返回」，
+                //  会一路落到最后的 CardEditorPanel 分支 = 回到卡牌编辑器，等于"回不到上一页"。
+                KeywordPanel kpanel = FindObjectOfType<KeywordPanel>(true);
+                if (kpanel != null)
+                {
+                    kpanel.Show();
+                    return;
+                }
             }
             CardEditorPanel editor = CardEditorPanel.Get();
             if (editor == null)

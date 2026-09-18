@@ -750,6 +750,145 @@ $t =(New-Object IO.StreamReader($fs,[Text.Encoding]::UTF8)).ReadToEnd(); $fs.Clo
 再放个探针每 2 秒报差值 —— 无需 Profiler、无需肉眼。本轮 P1 实测：**每 2 秒 ~1205 次调用（≈600 次/秒 ≈10 次/帧），
 实际重建仅 15 次/80 秒 → 跳过率 99.97%**。
 
+## D-9 坑：全站"页面能进能出"审计的实测结论（2026-09）
+
+1. **`get_unity_logs` 不返回 `LogWarning` 条目**（实测：探针用 `Debug.LogWarning` 打的 8 条全部收不到，`Debug.Log` 的都收得到）。
+   → **诊断/探针日志一律用 `Debug.Log`**，否则数据静默丢失（接 D-2）。
+2. **读 UnityEvent 的"运行时监听"必须读 `InvokableCallList.m_RuntimeCalls`**：`UnityEventBase.m_Calls` 是 `InvokableCallList`
+   对象，直接读它（或读它的 `m_Calls` 字段内容）**永远是空的** → 会把 `AddListener` 注册的按钮误判成"死按钮"（我踩过，导致 4 个 `HomeReturnBtn` 假报死按钮）。
+   正确路径：`GetField("m_Calls")` → 结果对象的 `m_RuntimeCalls`（`IList`）→ 每项 `InvokableCall` 的私有字段 `Delegate`。
+3. **`GetComponentInParent<T>()` 默认跳过未激活对象** → 判断"按钮属于哪个面板"要**手写向上遍历**；
+   否则面板未激活时会把已有出口按钮判成"不存在" → 重复补建 → 页面上两个 ×（坑 12 的成因之一）。
+4. **页面的 `UIPanel` 组件可能处于 disabled**（本项目确实有，见 `MainMenu.ForceHideModalPanels` 的注释）→
+   在 `Show()` 里用 `StartCoroutine` 做延时自愈**不会执行**；自愈要**同步**做。
+5. **`TabButton.ui_panel == null` 会黑屏**：`Activate()` 原本"先 `SetAll(group,false)` 再 Show 自己的页"，
+   ui_panel 为空就变成"隐藏整组、什么都不显示"（场景实测 4 个，如 `TabFriend`）。
+   修法：`ui_panel == null` 时**保持现状 + 报错**，别先隐藏整组。
+6. **"关闭按钮绑错对象"是真实存在的**：实测 `PackZoomPanel.CloseArea` 的 Inspector 监听目标为 **null（对象已丢）**、`FilterCloseBtn` 无任何监听
+   → 点击毫无反应（正是用户说的"点了没反应"）。通用自愈 `UIPanel.RepairExitButtons()`：对"按名字像出口"的按钮，
+   若 Inspector 目标不是本页且无运行时监听 → 补 `Hide()`（跳过名字含 `del` 的行内 ✕；挂了 `HomeReturnButton` 的跳过——它的监听在 `Start()` 里注册）。
+7. **判定"能不能退出"不能只看代码**：本工程大量页面的关闭按钮是**场景 Inspector 直接绑** `XxxPanel.Hide`（代码里搜不到）
+   → 纯静态审计会误报"没有出口"（本轮静态审计给出 3 个假阳性：SoloPanel / AdventurePanel / StarterDeck 等其实都有 Close）。
+8. **全站验收脚本（探针 SOP 的扩展）**：对每个页面 `Show(true)` → 找出口按钮（**按名字优先，再按文字**，避免节点行上的 ✕ 冒充页面出口）
+   → **真的点一下** → 断言 `IsVisible()==false`；点之前用白名单过滤（监听含 `Quit/Logout/Scene/GoTo/StartGame` 的不点）。
+   本轮结果：24 个页面 → 出口可用 19、死按钮 0、无出口 1（`MatchmakingPanel` 实为漏判：它唯一的按钮名为 `Quit`，已绑 `OnClickCancel`）。
+
+## D-10 坑：NodeDoc 节点实现 / MCP 验证的 11 条硬经验（2026-09）
+
+1. **`Compilation Status: Errors: 0` 会说谎，而"Play 永远起不来"的根因往往就是编译错误。**
+   实测：`AbilityTrigger` 里写了不存在的 `OnAfterPlay`（CS0117）+ `GraphData` 写成复数 `GetIncomingLinks`（CS1061）→ 程序集加载失败 → `play_mode_start` 只回"已加入异步执行队列"、`get_play_mode_status` 恒为 Stopped、`autobattle` 永远"等不到报告"。
+   **排查顺序：先 grep 源文件确认可疑符号是否真的存在，再看日志。**
+2. **`clear_unity_logs` 清不掉历史编译错误** → 日志交叉验证会把**上一轮**的错误当成新的报出来（"还是失败"要先 grep 源文件复核）；
+   并且 **`get_unity_logs` 偶发整段为空**（返回约 100 字符）→ **探针结论必须写盘**才可靠。
+3. **探针结果写盘要写进项目内**（`Application.dataPath + "/../tools/xxx.txt"`）：写 `persistentDataPath`（`C:\Users\...\LocalLow\...`）会触发**授权弹窗**，用户不在时会超时失败。
+4. **"当前事件/当前效果"上下文只在 `NodeDocRunner.Run` 期间存在**（`cur_event` / `ctx_ability`）→ 取值类节点的断言必须在**真实 Run 内**做，否则恒为空/假。
+   把布尔结果变成可观测量的通用套路：`Run(OnPlay → 212001 分支动作(isTrue ← 被测节点)，thenAction→伤害7 / elseAction→伤害1)`，断言扣血即可（同帧读取，不会被 AI 行动插空）。
+5. **整数口不认识"Object 通道"节点**：`GetIntInput` 走 `ResolveNodeInt` 的白名单，像「获取事件记录变量」这种 Object 节点喂 `212002.count` 会**静默回落成字段默认值 0**。修法：在 `GetIntInput` 里对特定 Object 节点加兜底 `ToInt(GetObjectInput(...))`。
+6. **`Card` 的构造函数是 `(card_id, uid, player_id)`**，`Card.CardData` 是**只读属性**（不能赋值；用同一 `card_id` 构造即解析到同一定义）。做卡牌快照时踩过 CS7036/CS0200。
+7. **`GameLogic` 在 `TcgEngine.Gameplay`**（不是 `TcgEngine`）；写跨程序集工具/探针时要 `using TcgEngine.Gameplay;`。
+8. **PowerShell 对 `NodeDoc.xml` 做 XML 往返会重排格式** → git diff 会显示上万行变化（**不是丢节点**，回读节点数即可确认）。改 XML 前先 `Copy-Item` 备份。
+9. **运行期"写入类"节点必须防污染**：改卡牌定义一律**先克隆**（`ScriptableObject.Instantiate`）、且**按节点 id 缓存**（否则"复制→改属性→再取"每次都是新副本，改动留不住）；已是副本的输入要**原地改**。对资产原件要**拒绝 + 明确警告**。
+10. **编辑器 `CanConnect` 有两条放宽**：`Object` / `NodeValueRef` 是**万能多态槽**、且**不校验数组性** → 端口类型写错**也能连上**（所以"接不上"往往不是类型问题，而是运行期没读该口）；但类型声明仍应与实际返回值一致，否则误导使用者。
+11. **`TabButton.ui_panel == null` 点击=黑屏**（先 `SetAll(group,false)` 隐藏整组、无页面顶上）；生成工具 `AddReturnButton` 对**已存在**的按钮只改样式、**不补 `HomeReturnButton` 组件** → 死按钮。两处都已在生成工具侧根治（补组件 + 空绑定 TabButton 补绑/移除）。
+
+## D-10 坑：全站"返回 → 黑屏"的机制与修法（2026-09 第二轮，用户实报）
+
+**现象**：从首页模块进入某页（如卡池管理），点页内「返回」→ 整屏变黑、点哪都没反应、只能强退。
+**机制**：首页模块页由 `TabButton.Activate()` → `SetAll(group,false)` **互斥隐藏**同组页面后再显示自己；
+而这些页的「返回」多是裸 `Hide()`（场景 Inspector 绑 `XxxPanel.Hide`，或代码 `() => Hide()`）→
+藏完身后同组页面全是隐藏状态 → **屏幕上没有任何页面 = 黑屏**。
+
+修法（已落地在 `UIPanel` / `TabButton`）：
+
+1. **兜底判定放在 `AfterHide()`**（不是 `Hide()`）：`Hide()` 是渐隐，调用方常有"Hide 本页 + 立刻 Show 下一页"
+   （卡池管理 → 编辑 → 卡牌编辑器），等淡出结束再判定才不会误伤。
+2. 判定条件：本页是 `TabButton.ui_panel`（模块页）**且** `!TabButton.IsSwitchingGroups`（切组中不插手）
+   **且** `HomePanel` 存在、不是自己、当前不可见 **且** 没有其它可见页面 → `HomePanel.ReturnHome()`。
+3. **"还有没有页面"必须只认根级页面**（父物体是 `UICanvas`/`UICanvasTop`/`Canvas*`）：
+   `TabButton` 也被用在**页内子块**上（`CardZoomPanel/Box/TradeArea/BuyArea`，组 `card_trade`），
+   父页隐藏时子块 `visible` 仍为 true → 会把兜底整个吞掉（**实测就是这么漏的**，诊断日志抓到 `BuyArea(组=card_trade)`）。
+   同理 `TabButton.GetAll()` 只收录 Awake 跑过的，**未激活**层级里的 TabButton（隐藏的旧顶部导航栏）要用
+   `Resources.FindObjectsOfTypeAll<TabButton>()` 才看得到。
+4. **旧导航组（menu）的页面不能只调 `ReturnHome()`**：`PlayerPanel` 属 `menu` 组，`ReturnHome()` 里的
+   `SetAll("home",false)` 不覆盖它 → 它会一直盖在首页之上（实测"点了没关掉"）。正确顺序：**先 `Hide()` 自己，再 `ReturnHome()`**。
+5. 出口按钮自愈顺带修掉两类"点了没反应"：Inspector 监听目标为 **null（对象已丢）**（`PackZoomPanel.CloseArea`）、
+   完全没有监听（`FilterCloseBtn`）→ `UIPanel.RepairExitButtons()` 同步补 `Hide()`。
+   名字判定要排除 `Cardback`/`card_back`（"卡背"含 back，实测被当成返回）。
+
+**验收探针（升级版，必须这样测）**：
+
+- 每个用例前**状态归一化**（回首页 + 等 0.45s），否则上一轮残留的可见页面会让"是否黑屏"失真；
+- 点「返回」后**等 0.8s** 再断言（渐隐 ≈0.25s，而且兜底在 `AfterHide` 里才执行）——只等 2~3 帧会误报"黑屏"；
+- 断言两条：①本页 `IsVisible()==false` ②**除本页外仍有可见的根级页面**（否则就是黑屏）；
+- 结果：16 个页面 **16/16 通过**，日志实证 `[导航] CardPoolPanel 隐藏后屏幕上没有任何页面 → 自动回首页`。
+
+**写探针时的新踩坑**：探针在**全局命名空间**里直接写 `TabButton` 会被 Packages 里的同名类型遮蔽 →
+`CS0117 'TabButton' does not contain a definition for 'GetAll'` / `CS1061 ui_panel`；
+用 `using TabBtn = TcgEngine.UI.TabButton;` 或全限定名即可（`TcgEngine.UI` 命名空间内的脚本不受影响）。
+
+**已作废页面（增益管理 `BuffPanel`）的移除方式**：不要删场景物体（它仍是"单条增益"的编辑落地页、被弹框引用），
+而是让 `Show()` 在 `!opened_for_edit` 时**一律重定向**（用 `FindObjectOfType<CardEditorPanel>(true)` 判定宿主，
+别用 `Get()` —— 编辑器默认失活、Awake 没跑、`Get()` 返回 null，会漏拦而把作废页弹出来），宿主不存在就**保持隐藏**。
+
+## D-11 坑：「返回上一页」原语与两类"模式串台"（2026-09 第三轮，用户实报）
+
+**实报症状 1**：从增益编辑器（规则编辑器的「增益参数」）点 ✕ → **又回到已作废的"增益管理页"**。
+链路：`CardEditorPanel.OpenVariableEditor(Buff)` → 先 `Hide()` 掉卡牌编辑器 → `BuffPanel.EditBuff()`（设 `opened_for_edit=true`
+后把活交给规则编辑器）→ 用户点 ✕ → `GraphEditorPanel.OnClose` 的**增益分支写着 `BuffPanel.Show()`** → 而
+`opened_for_edit` 仍是 true（粘滞）→ 绕过作废拦截 → 旧页回来了。
+修法三条：①`OnClose` 增益分支改为回**卡牌编辑器**（变量配置的宿主）；②`EditBuff` 转交后 `opened_for_edit = false`
+（别留粘滞标志）；③作废页只做"落地页兜底"。
+
+**实报症状 2**：关键词编辑器点「返回」→ **黑屏**。原因：宿主（卡牌编辑器）在进入变量编辑器时就被 `Hide()` 了，
+关键词页裸 `Hide()` 之后身后空无一页。
+
+**通用修法：`UIPanel.return_to`（一级"上一页"原语）**
+- 打开方在"宿主先 Hide 再打开子页"时登记：`child.return_to = this;`
+- 子页**彻底隐藏**后（`AfterHide`）若 `return_to` 有值 → `return_to.Show()`（消费一次，置 null）；
+- **向前导航**（再进下一层，如关键词 → 规则图）必须 `return_to = null;`，否则 `Hide()` 会把上层弹回来；
+- 自己**显式**处理完返回时也要清 `return_to`，否则 `AfterHide` 会二次消费陈旧值（实测：关键词退规则图落点被陈旧的"卡牌编辑器"顶掉一层）。
+
+**模式串台（Mode leak）**：`GraphEditorPanel` 的各个 `Open*` 必须把**其它模式的标志全部清掉**。
+实测 `OpenForKeyword()` 漏了 `editing_buff = null;` → "先编辑增益、再编辑关键词"时右列显示增益参数、
+保存走增益分支、退出还落到卡牌编辑器（与 1869 行那处注释记载的漏洞同类）。
+
+**出口按钮名字匹配不能用裸 `back` / `return` 做包含判断**（都实测误判过）：
+- `Cardback`（"选择卡背"）含 back；
+- `Lib_OnBeforeTurnStart`（节点库按钮）含 **befo·return·start** ← 会被当成"返回"，轻则漏判"本页没出口"，
+  重则把 `Hide()` 挂到节点按钮上。只认 `close` / `cancel` / `backbtn` / `_back` / `back_` / `backzone` / `exitbtn` / `returnbtn` / `home`。
+
+**复现"用户实报链路"的探针要求（这轮教训）**：
+- 走**真实入口**（私有入口方法可用反射调，如 `CardEditorPanel.OpenVariableEditor(Kind.Buff, id)`）；
+- 断言**落点正确**，不能只断言"没黑屏"（黑屏修完了，落错页面照样是 bug）；
+- 每步之间等够（渐隐 0.25s + `AfterHide` 才有兜底/return_to 动作，取 0.8~1.0s）；
+- 本轮结果：A 增益→✕ 落点=卡牌编辑器且旧页不再出现 ✅；B 关键词→返回 落点=卡牌编辑器 ✅；C 关键词→规则图→✕ 落点=关键词编辑器 ✅。
+
+## D-12 铁律：MCP"连不上"的归因表（2026-09 用户点名自查后固化）
+
+**前提事实（实测取证）**：Unity 侧 `McpServer`（`Packages/com.unity.ai-mcp-trae/Editor/McpServer.cs`）与 IDE 侧健康检查**通常一直是好的**：
+
+- Editor.log 里反复出现 `[McpServer] 启动MCP服务器，端口: 9123` / `MCP服务器启动成功，端口: 9123 (尝试 1/3)`
+  —— 这是**域重载后重建监听**，不是崩溃；
+- IDE 日志 `[MCP:HealthPatrol] Checked: 1, Healthy: 1 [ch-unity-mcp]`、`[MCP:TokenRefresh] Rescan completed: tracking 1 server(s)`
+  —— 客户端始终认为它健康；
+- 实测：`http://localhost:9123/mcp` → HTTP 200 / 15ms / **85 个工具**；Unity 进程 PID 从 9/17 起未变过。
+
+| 现象 | 真实原因 | 正确处置（以及**别再做的事**） |
+|---|---|---|
+| `fetch failed` / 无法连接 / `Unexpected content type: null` | **域重载窗口**：compile / play / stop 都会重建监听，十几秒不可达 | **轮询等待到恢复**（`tools/mcp.ps1 wait`）；不要"固定 sleep 后单次尝试就判服务挂了"，**更不要让人去重启服务** |
+| `HTTP 400 错误的请求` | **Host 头不匹配**：Mono `HttpListener` 只注册 `localhost:9123`；用 `127.0.0.1` 请求必须显式带 `Host: localhost:9123` | 用 `localhost` 或带 Host 头（`tools/mcp.ps1` 已默认带）；别当成"服务不可达" |
+| `tool does not exist or is not registered` | **IDE 侧工具表陈旧**（与服务无关） | 立刻改用 `tools/mcp.ps1` HTTP 直连继续干活；不要怀疑服务器、不要动服务 |
+| 点 ▶ 进不去 Play / `play_mode_start` 永远只回"已加入异步队列" | **存在编译错误**（Unity 拒绝进 Play）；注意 `get_script_errors` 会**漏报** | 先 `compile_scripts` + **拉全量日志筛 `error CS`**；`tools/mcp.ps1 play` 现在会轮询到真 `Is Playing: True`，超时则提示查 CS |
+
+**工具化（已落地 `tools/mcp.ps1`）**：`probe`（进程 / 端口 / 三种请求方式对照 / IDE 健康日志 + 归因）、`wait [秒]`（轮询到恢复）、
+`compile`（触发 → 轮询 → 官方状态 + 全量日志双查）、`play` / `stop`（轮询到状态真的变化，超时提示查编译错误）。
+
+**写 .ps1 工具的坑（这两次都踩了）**：
+
+- `Write-Output ("A" ␤ + "B")` 这种**跨行 `+` 续行**会被 PowerShell 当成新语句 → `Missing closing ')'`。**提示串一律写成单行**；
+- 多段输出别混进管道（会被 `Show-Text` 的正则吃掉）→ 进度/提示用 **`Write-Host`**；
+- `⚠` 等 GBK 以外字符 + UTF-8 无 BOM 会出玄学解析错 → 脚本存 **UTF-8 with BOM**，提示串尽量用 ASCII 符号（`[!]`）。
+
 **⑤ 写 `.ps1` 脚本必须带 UTF-8 BOM —— 否则中文会"吃掉"紧跟其后的引号，整个脚本语法崩。**
 Windows PowerShell 5.1 对**无 BOM 的 UTF-8** 按 ANSI(GBK) 解析：中文字节会与后一个 ASCII 字节凑成一个 GBK 字符，
 于是 `"用法: call <tool> '<json>'"` 里的引号被吞 → 报 `Unexpected token ':'`、`Missing closing '}'`、`'<' operator is reserved`
