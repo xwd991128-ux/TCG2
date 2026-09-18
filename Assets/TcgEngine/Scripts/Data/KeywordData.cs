@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TcgEngine.Gameplay;
 using TcgEngine.Workshop;
 using UnityEngine;
 
@@ -31,6 +32,54 @@ namespace TcgEngine
 
         public bool HasRules => rules != null && rules.Count > 0;
         public bool HasMechanic => status_type != StatusType.None || HasRules;
+
+        // ==================== 法术伤害（2026-09：由 TraitData 特性迁移到关键词） ====================
+        // 迁移口径：**概念**是关键词（本类，id=spell_damage），**数值**由该关键词绑定的状态值承载
+        //（StatusType.SpellDamage）—— 与工程既有约定一致（armor→Armor、taunt→Protection 同理）。
+        // 旧承载 TraitData("spell_damage") 已废弃删除；旧规则图里的 trait_id 字段由节点读取时兼容回退。
+
+        /// <summary>「法术伤害」关键词的默认 id（与 Resources/Keywords/spell_damage.asset 一致）</summary>
+        public const string SPELL_DAMAGE_ID = "spell_damage";
+
+        /// <summary>取法术伤害加成的**统一入口**（EffectDamage 与 NodeDoc 节点共用）：
+        /// 关键词绑定的状态值之和（卡 + 玩家的普通/持续状态都算，与迁移前 GetTraitValue 的口径一致）。
+        /// keyword_id 为空/未配置时按默认 spell_damage；关键词不存在或未绑状态时回退 StatusType.SpellDamage。</summary>
+        public static int GetSpellDamageValue(string keyword_id, Card c, Player p)
+        {
+            KeywordData kw = Get(string.IsNullOrEmpty(keyword_id) ? SPELL_DAMAGE_ID : keyword_id);
+            StatusType st = (kw != null && kw.status_type != StatusType.None) ? kw.status_type : StatusType.SpellDamage;
+            int v = 0;
+            if (c != null)
+            {
+                CardStatus cs = c.GetStatus(st);
+                if (cs != null) v += cs.value;
+                CardStatus co = c.GetOngoingStatus(st);
+                if (co != null) v += co.value;
+            }
+            if (p != null)
+            {
+                CardStatus ps = p.GetStatus(st);
+                if (ps != null) v += ps.value;
+                CardStatus po = p.GetOngoingStatus(st);
+                if (po != null) v += po.value;
+            }
+            return v;
+        }
+
+        /// <summary>卡牌**定义**是否声明了某关键词：定义层没有状态值，只判"有/无"
+        /// （供「获取卡牌定义法术伤害」节点用：声明了该关键词返回 1，否则 0）。</summary>
+        public static bool DefineHasKeyword(CardData d, string keyword_id)
+        {
+            if (d == null || d.keywords == null)
+                return false;
+            string id = string.IsNullOrEmpty(keyword_id) ? SPELL_DAMAGE_ID : keyword_id;
+            foreach (KeywordData k in d.keywords)
+            {
+                if (k != null && k.id == id)
+                    return true;
+            }
+            return false;
+        }
 
         /// <summary>按触发时机取规则（trigger_action 为空 = 匹配任意时机）</summary>
         public KeywordRule GetRule(string trigger_action)

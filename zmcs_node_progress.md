@@ -81,7 +81,7 @@ $vis=0;$todo=0; foreach($d in $all){$hidden=($d.id.StartsWith('-')) -or ($keep[$
 | `Scripts/Workshop/Graph/GraphEventContext.cs` | **T2 新增字段**：`turn`/`repeat`/`parent`/`children`/`card_before`/`card_after` |
 | `Scripts/GameLogic/GameLogic.cs` | **T2**：`EmitGraphEvent` 落事件日志（父/子链/回合/前后快照）+ `GetEventLog/GetTurnEvents/GetRangeEvents` |
 | `Scripts/Effects/EffectRunGraph.cs` | 5 处 `Run(...)` 透传 `ability`（效果上下文） |
-| `Resources/Traits/spell_damage.asset` + `.meta` | **新增**：法术伤害 TraitData（id `spell_damage`，名称"法术伤害"，guid `b7e4c1a2d9f3405681ca2be5f0d39c74`） |
+| ~~`Resources/Traits/spell_damage.asset`~~ → `Resources/Keywords/spell_damage.asset` | **2026-09 迁移**：法术伤害由 **TraitData 特性**改为 **KeywordData 关键词**（id `spell_damage`，绑定 `StatusType.SpellDamage=60` 承载数值）；旧特性资产与其 guid 已删除，原引用它的效果资产已重指到关键词 |
 | `Resources/Effects/{add_spell_damage,damage,damage_player,damage_equal_to_atk,damage_equal_to_mana_max}.asset` | 修复 `bonus_damage` 悬空引用（旧 guid `50116f13...` → 新 guid） |
 | `Scripts/Tools/MainThreadUtil.cs` | **新增**：主线程判定（`RuntimeInitializeOnLoadMethod` 捕获主线程 id）。AI 推演跑在后台线程（`AILogic.Execute → ThreadStart`）会执行同一张图，表现层必须先判主线程再碰 Unity API |
 | `Scripts/VFX/VFXRuntime.cs` | `Trigger`/`IsClientView` 增主线程守卫（非主线程直接返回）——修复 AI 推演线程上 `transform` 跨线程访问导致的 `UnityException` 与「[AI] 推演线程异常，已终止本次计算」 |
@@ -117,7 +117,7 @@ $vis=0;$todo=0; foreach($d in $all){$hidden=($d.id.StartsWith('-')) -or ($keep[$
 | zmcs 概念 | TCG2 载体 | 备注 |
 |---|---|---|
 | 效果 Effect | `AbilityData`（内含 `EffectData[]`） | `NodeDocRunner.Run(..., ability:)` 注入 `ctx_ability` |
-| 法术伤害加成 | `TraitData`（id `spell_damage`） | 与 `EffectDamage.bonus_damage` 同源；节点用 `trait_id` 字段读取 |
+| 法术伤害加成 | **`KeywordData`**（id `spell_damage`）+ 其绑定状态 `StatusType.SpellDamage` 承载数值 | 2026-09 由 `TraitData` 迁移；`EffectDamage.bonus_keyword` 与节点 `keyword_id` 字段同源（旧图 `trait_id` 仍兼容）；统一取值入口 `KeywordData.GetSpellDamageValue` |
 | 延迟区 | `Player.cards_secret`（奥秘区） | |
 | 道具 | `Player.cards_equip` / 英雄 `equipped_uid` | |
 | 英雄技能 | 英雄卡本身 + `exhausted` + `Game.ability_played` | 复原技能（201006）=清除英雄已行动 **且清空该玩家卡上「本回合已发动」记录**：`once_per_turn` 靠 `ability_played`+`ConditionOnce` 判定，只清 `exhausted` 会出现"看着已刷新、点了没反应" |

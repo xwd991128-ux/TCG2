@@ -43,6 +43,8 @@ namespace TcgEngine
         Vitality = 52,       //英雄的攻击力等同于生命值
         Overload = 54,       //过载，每点过载使英雄失去1点法力值
         Doomed = 56,         //回合结束时死亡
+        SpellDamage = 60,    //★ 法术伤害加成（数值=加成量）。承载者：「法术伤害」关键词（KeywordData id=spell_damage）
+                             //  —— 2026-09 由旧的 TraitData(spell_damage) 迁移而来：概念改成关键词，数值仍走状态值。
 
 
         HeroNewTurn =102 //have new turn

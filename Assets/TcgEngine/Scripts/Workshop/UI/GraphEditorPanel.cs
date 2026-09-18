@@ -1376,10 +1376,11 @@ namespace TcgEngine.UI
                 BuildParamSlots(p, "arg", 1, true);
             if (p.action == "112005")
                 BuildParamSlots(p, "value", 1, false);
-            //法术伤害家族：法术伤害加成在 TCG2 里由卡牌/玩家身上的 TraitData 特性承载（EffectDamage.bonus_damage 同源），
-            //用 trait_id 指定该特性（与 Resources/Effects/add_spell_damage 的命名一致）
+            //法术伤害家族：★ 2026-09 迁移 —— 法术伤害由**关键词**承载（不再是 TraitData 特性），
+            //数值由该关键词绑定的状态值（StatusType.SpellDamage）承载；这里用关键词下拉选关键词
+            //（默认 spell_damage；旧规则图里的 trait_id 字段运行时仍兼容读取，不用重拖）
             if (p.action == "101016" || p.action == "102011" || p.action == "103013")
-                p.fields.Add(new FieldDef("trait_id", "法术伤害特性", FieldEditType.Input, null, "spell_damage"));
+                p.fields.Add(new FieldDef("keyword_id", "法术伤害关键词", FieldEditType.KeywordSelect, null, "spell_damage"));
             //标签家族（102033/103004/104018）：zmcs 的 CardTagName 口在 TCG2 用文本标签（关键词/特性 id 或标题）
             if (p.action == "102033" || p.action == "103004" || p.action == "104018")
                 p.fields.Add(new FieldDef("tag", "标签", FieldEditType.Input, null, ""));

@@ -170,6 +170,10 @@ switch ($Cmd.ToLower()) {
         Show-Text (Invoke-Mcp "compile_scripts")
         Write-Output "== 等待域重载（轮询到恢复为止，不猜时间）=="
         Wait-Mcp 200 | Out-Null
+        #★ 固定等待（必补）：编译**失败**时不会触发域重载 → Wait-Mcp 立刻返回，
+        #  日志检查就会在 Unity 真正开始编译前执行；若此刻日志刚被清空，就会误报 "PASS：error CS = 0"，
+        #  从而把"程序集编译不过 → Play 无法启动"误判成"没问题"（2026-09 实测踩过：探针缺方法，导致一整轮排查跑偏）。
+        Start-Sleep -Seconds 8
         Write-Output "== 官方状态（不可全信：实测会漏报 CS 错误）=="
         $off = Invoke-Mcp "get_script_errors"
         if ($off -eq "FAILED") { Write-Output "（官方状态没读到：服务仍在重载，下面用全量日志为准）" }

@@ -259,6 +259,7 @@ namespace TcgEngine.UI
                 (int)StatusType.Deathtouch, (int)StatusType.LifeSteal, (int)StatusType.FirstStrike,
                 (int)StatusType.Trample, (int)StatusType.SpellImmunity, (int)StatusType.Armor,
                 (int)StatusType.Immunity, (int)StatusType.Regenerate,
+                (int)StatusType.SpellDamage,   //法术伤害（由「法术伤害」关键词绑定，数值=加成量）
             };
         }
 

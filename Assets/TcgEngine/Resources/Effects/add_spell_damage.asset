@@ -9,7 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b77611b0961c0b418cc7d0bc67a574b, type: 3}
+  m_Script: {fileID: 11500000, guid: 238b6e67120d7044ba2ee159631c1487, type: 3}
   m_Name: add_spell_damage
   m_EditorClassIdentifier: 
-  trait: {fileID: 11400000, guid: b7e4c1a2d9f3405681ca2be5f0d39c74, type: 2}
+  keyword: {fileID: 11400000, guid: a1c7f3e2b45d48908f6e2c3d1b7a9e50, type: 2}
+  value: 1
+  duration: 0

@@ -1543,33 +1543,28 @@ namespace TcgEngine.Workshop
                     CardData d = ResolveValueDefine(logic, graph, src, caster, target_card, target_player);
                     return d != null ? d.hp : (int?)null;
                 }
-                case "101016":   //获取法术伤害：玩家法术伤害加成 + 基础值(baseDamage) + 法术牌自身加成
+                case "101016":   //获取法术伤害：法术伤害加成（关键词绑定状态值，卡+玩家）+ 基础值(baseDamage)
                 {
-                    string trait_id = GraphRuntime.GetFieldString(src, "trait_id", "spell_damage");
+                    string kw_id = SpellDamageKeywordId(src);
                     int basev = GetIntInput(logic, graph, src, "baseDamage", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(src, "baseDamage", 0));
-                    int sum = basev;
                     Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
-                    if (p != null)
-                        sum += p.GetTraitValue(trait_id);
                     Card sc = ResolveInputCard(logic, graph, src, "spellCard", caster, target_card, target_player);
-                    if (sc != null)
-                        sum += sc.GetTraitValue(trait_id);
-                    return sum;
+                    return basev + KeywordData.GetSpellDamageValue(kw_id, sc, p);
                 }
-                case "102011":   //获取卡牌法术伤害：该卡自身的法术伤害加成特性值
+                case "102011":   //获取卡牌法术伤害：该卡身上的法术伤害加成（「法术伤害」关键词绑定状态值）
                 {
                     Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
                     if (c == null)
                         return null;
-                    return c.GetTraitValue(GraphRuntime.GetFieldString(src, "trait_id", "spell_damage"));
+                    return KeywordData.GetSpellDamageValue(SpellDamageKeywordId(src), c, null);
                 }
-                case "103013":   //获取卡牌定义法术伤害：该定义属性表(stats)里的法术伤害特性值
+                case "103013":   //获取卡牌定义法术伤害：该定义是否声明了「法术伤害」关键词（定义层无数值 → 有=1，无=0）
                 {
                     CardData d = ResolveInputDefine(logic, graph, src, "card", caster, target_card, target_player);
                     if (d == null)
                         return null;
-                    return d.GetStat(GraphRuntime.GetFieldString(src, "trait_id", "spell_damage"));
+                    return KeywordData.DefineHasKeyword(d, SpellDamageKeywordId(src)) ? 1 : 0;
                 }
                 case "112010":
                 {
@@ -6012,6 +6007,16 @@ namespace TcgEngine.Workshop
             if (System.Enum.TryParse<CardType>(s, true, out parsed))
                 return parsed;
             return fallback;
+        }
+
+        /// <summary>法术伤害类节点（101016 获取法术伤害 / 102011 获取卡牌法术伤害 / 103013 获取卡牌定义法术伤害）的关键词 id：
+        /// 新字段 `keyword_id` 优先；兼容 2026-09 迁移前的旧字段 `trait_id`（旧规则图不用重拖）；都为空则用默认 spell_damage。</summary>
+        private static string SpellDamageKeywordId(GraphNode node)
+        {
+            string id = GraphRuntime.GetFieldString(node, "keyword_id", "");
+            if (string.IsNullOrEmpty(id))
+                id = GraphRuntime.GetFieldString(node, "trait_id", "");
+            return string.IsNullOrEmpty(id) ? KeywordData.SPELL_DAMAGE_ID : id;
         }
 
         // ==================== 效果元数据族（107002 标签 / 107008 类型 / 107010 事件类型） ====================
