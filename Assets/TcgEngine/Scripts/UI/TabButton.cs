@@ -57,19 +57,44 @@ namespace TcgEngine.UI
 
         public void Activate()
         {
-            SetAll(group, false);
-            active = true;
-            if (ui_panel != null)
-                ui_panel.Show();
-            else
-                Debug.LogWarning("TabButton「" + gameObject.name + "」未绑定 ui_panel：点击后其它页面被隐藏，但没有任何页面显示（表现为黑屏）。请重新运行对应的生成工具修复绑定。");
+            //★ 没绑定 ui_panel 时**不能**先隐藏整组：那会把当前页面也藏掉却没有任何页面顶上 → 直接黑屏
+            //  （2026-09 审计：Menu.unity 里有 4 个 TabButton 的 ui_panel = {fileID: 0}）。
+            //  正解是"保持现状 + 明确报错"，玩家至少不会掉进黑屏。
+            if (ui_panel == null)
+            {
+                Debug.LogError("[导航] TabButton「" + gameObject.name + "」未绑定 ui_panel：已**保持当前页面不变**"
+                    + "（原实现会隐藏整组导致黑屏）。请运行对应生成工具修复该按钮的绑定。");
+                return;
+            }
+
+            //切换分组期间置位：这期间各页的 Hide() 不应触发 UIPanel 的"黑屏兜底→回首页"，否则会打架
+            switching_depth++;
+            try
+            {
+                SetAll(group, false);
+                active = true;
+                if (ui_panel != null)
+                    ui_panel.Show();
+            }
+            finally
+            {
+                switching_depth--;
+            }
         }
 
         public void Deactivate()
         {
-            active = false;
-            if (ui_panel != null)
-                ui_panel.Hide();
+            switching_depth++;
+            try
+            {
+                active = false;
+                if (ui_panel != null)
+                    ui_panel.Hide();
+            }
+            finally
+            {
+                switching_depth--;
+            }
         }
 
         public bool IsActive()
@@ -77,16 +102,28 @@ namespace TcgEngine.UI
             return active;
         }
 
+        /// <summary>是否正在"切分组/切页"（UIPanel 的黑屏兜底会看这个标志，避免和切页流程互相打架）</summary>
+        private static int switching_depth;
+        public static bool IsSwitchingGroups { get { return switching_depth > 0; } }
+
         public static void SetAll(string group, bool act)
         {
-            foreach (TabButton btn in tab_list)
+            switching_depth++;
+            try
             {
-                if (btn.group == group)
+                foreach (TabButton btn in tab_list)
                 {
-                    btn.active = act;
-                    if(btn.ui_panel != null)
-                        btn.ui_panel.SetVisible(act);
+                    if (btn.group == group)
+                    {
+                        btn.active = act;
+                        if (btn.ui_panel != null)
+                            btn.ui_panel.SetVisible(act);
+                    }
                 }
+            }
+            finally
+            {
+                switching_depth--;
             }
         }
 

@@ -21,6 +21,17 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：本页是主菜单的一个全屏模块页，原先**没有任何退出路径**（只有「开始」），
+            //  玩家点进来就只能强退。补一个「返回首页」（与 CollectionPanel/PackPanel 的 HomeReturnBtn 同语义）。
+            EnsureExitButton("返回首页", () =>
+            {
+                HomePanel home = HomePanel.Get();
+                if (home != null)
+                    home.ReturnHome();
+                else
+                    Hide();
+            });
         }
 
         protected override void Start()

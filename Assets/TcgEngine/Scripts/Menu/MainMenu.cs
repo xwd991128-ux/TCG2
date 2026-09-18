@@ -28,6 +28,7 @@ namespace TcgEngine.UI
         public DeckDisplay deck_preview;
 
         private bool starting = false;
+        private float starting_time = 0f;    //「进入对局」锁的起始时间（用于超时自愈复位）
 
         private static MainMenu instance;
 
@@ -66,6 +67,17 @@ namespace TcgEngine.UI
 
         void Update()
         {
+            //★ 导航修复：「进入对局」锁的超时自愈（兜底）。
+            //  正常流程由场景加载接管；但若某次 StartGame 中途失败/被打断，锁会一直挂着 →
+            //  玩家之后点任何入口都"没反应"。这里超过 25 秒就自动解锁。
+            if (starting)
+            {
+                if (starting_time <= 0f)
+                    starting_time = Time.realtimeSinceStartup;
+                else if (Time.realtimeSinceStartup - starting_time > 25f)
+                    ResetStarting();
+            }
+
             UserData udata = Authenticator.Get().UserData;
             if (udata != null && credits_txt != null)
             {
@@ -359,10 +371,33 @@ namespace TcgEngine.UI
 
         private IEnumerator FadeToRun(string scene)
         {
+            //★ 导航修复：目标场景不存在（未加入 Build Settings / 名字拼错）时**不能**进黑屏 ——
+            //  BlackPanel 是全屏且自身没有任何出口，GoTo 失败就永久黑屏，玩家只能强退游戏。
+            if (!SceneNav.DoSceneExist(scene))
+            {
+                Debug.LogError("[导航] 目标场景不存在，已取消跳转：" + scene
+                    + "（检查 Build Settings 的场景列表 / 场景名拼写）");
+                ResetStarting();
+                BlackPanel.Get().Hide(true);
+                yield break;
+            }
+
             BlackPanel.Get().Show();
             AudioTool.Get().FadeOutMusic("music");
             yield return new WaitForSeconds(1f);
             SceneNav.GoTo(scene);
+        }
+
+        /// <summary>复位「进入对局」锁（失败/超时时调用）。
+        /// 原实现 `starting` 一旦置 true 就**再不复位**，于是之后点任何"开始/进入"入口都会被
+        /// `StartGame` 开头那句 `if (!starting)` 静默挡掉 —— 表现就是"点了没反应"。</summary>
+        private void ResetStarting()
+        {
+            if (!starting)
+                return;
+            starting = false;
+            starting_time = 0f;
+            Debug.LogWarning("[导航] 已复位『进入对局』锁（原实现置位后永不复位 → 之后所有跳转静默失效）");
         }
 
         public void OnClickLogout()

@@ -22,6 +22,9 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：原来选完卡组才会 Hide()，没有"暂时不选/取消"的出口。
+            EnsureExitButton("取消");
         }
 
         private void RefreshPanel()

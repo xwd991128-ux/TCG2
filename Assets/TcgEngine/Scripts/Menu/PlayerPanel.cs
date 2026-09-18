@@ -59,6 +59,18 @@ namespace TcgEngine.UI
             base.Awake();
             instance = this;
 
+            //★ 导航兜底：本页原属旧顶部导航栏的 menu 组（该导航栏现已隐藏），页内没有任何"返回/关闭"，
+            //  万一从任何残留入口进来就会出不去。补一个「返回首页」（与其它模块页同语义）。
+            EnsureExitButton("返回首页", () =>
+            {
+                //★ 先关掉自己：本页属旧导航的 menu 组，`HomePanel.ReturnHome()` 里的 `SetAll("home", false)`
+                //  不会隐藏 menu 组 → 只调 ReturnHome 的话本页会一直盖在首页之上（实测"点了没关掉"）。
+                Hide();
+                HomePanel home = HomePanel.Get();
+                if (home != null)
+                    home.ReturnHome();
+            });
+
             foreach (AvatarUI icon in avatars)
                 icon.onClick += OnClickAvatar;
 
@@ -241,12 +253,22 @@ namespace TcgEngine.UI
 
         public void OnClickFriends()
         {
-            FriendPanel.Get().Show();
+            //★ 导航修复：本页是全屏页，打开子页面时必须保证子页面在**自己之上**，
+            //  否则（同级 Canvas 里顺序在前）会被本页挡住 → 看起来"点了没反应"。
+            FriendPanel panel = FriendPanel.Get();
+            if (panel == null)
+                return;
+            panel.transform.SetAsLastSibling();
+            panel.Show();
         }
 
         public void OnClickDuplicates()
         {
-            SellDuplicatePanel.Get().Show();
+            SellDuplicatePanel panel = SellDuplicatePanel.Get();
+            if (panel == null)
+                return;
+            panel.transform.SetAsLastSibling();
+            panel.Show();
         }
 
         public void OnClickEdit()

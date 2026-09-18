@@ -53,6 +53,7 @@ namespace TcgEngine.UI
             BindMainMenu(home);
             HideTopBar();
             AddReturnButtons();
+            FixOrphanTabButtons();
             SetupCanvasScaler();
 
             EditorSceneManager.SaveScene(scene);
@@ -414,6 +415,48 @@ namespace TcgEngine.UI
             }
         }
 
+        /// <summary>根治"点击黑屏"：清理 `ui_panel == null` 的 TabButton —— 点它会先 `SetAll(group,false)`
+        /// 隐藏整组、却没有页面顶上来（实测 TabFriend 就是这种）。处理策略：
+        ///   ① 按名字猜出目标页（TabFriend → FriendPanel）并**补绑**；
+        ///   ② 猜不到就**移除该 TabButton 组件**（宁可没功能，也不能掉进黑屏）。</summary>
+        private static void FixOrphanTabButtons()
+        {
+            TabButton[] tabs = Object.FindObjectsOfType<TabButton>(true);
+            UIPanel[] panels = Object.FindObjectsOfType<UIPanel>(true);
+            int bound = 0, removed = 0;
+            foreach (TabButton tab in tabs)
+            {
+                if (tab == null || tab.ui_panel != null)
+                    continue;
+                string guess = tab.gameObject.name.StartsWith("Tab") ? tab.gameObject.name.Substring(3) : tab.gameObject.name;
+                UIPanel target = null;
+                foreach (UIPanel p in panels)
+                {
+                    if (p == null)
+                        continue;
+                    string tn = p.GetType().Name;
+                    if (tn == guess + "Panel" || tn == guess)
+                    {
+                        target = p;
+                        break;
+                    }
+                }
+                if (target != null)
+                {
+                    tab.ui_panel = target;
+                    bound++;
+                    Debug.Log("主菜单重构：TabButton「" + tab.gameObject.name + "」补绑页面 " + target.GetType().Name);
+                }
+                else
+                {
+                    Object.DestroyImmediate(tab, true);
+                    removed++;
+                    Debug.Log("主菜单重构：TabButton「" + tab.gameObject.name + "」找不到对应页面 → 已移除组件（原先点击=黑屏）");
+                }
+            }
+            Debug.Log("主菜单重构：空绑定 TabButton 处理完毕（补绑 " + bound + "，移除 " + removed + "）");
+        }
+
         // ---------------- 各页面返回按钮 ----------------
 
         private static void AddReturnButtons()
@@ -440,6 +483,13 @@ namespace TcgEngine.UI
             {
                 rt = exist.GetComponent<RectTransform>();
                 ApplyExitIcon(exist.gameObject);
+                //★ 根治"死按钮"：旧版本只改样式、**不补 HomeReturnButton 组件** → 按钮长得对但点了没反应
+                //（运行期探针实测：PackPanel/CollectionPanel/LeaderboardPanel/SettingsPanel 的返回按钮就是这样）。
+                if (exist.GetComponent<HomeReturnButton>() == null)
+                {
+                    exist.gameObject.AddComponent<HomeReturnButton>();
+                    Debug.Log("主菜单重构：为已存在的 HomeReturnBtn 补上 HomeReturnButton 组件（" + panel_root.name + "）");
+                }
             }
             else
             {

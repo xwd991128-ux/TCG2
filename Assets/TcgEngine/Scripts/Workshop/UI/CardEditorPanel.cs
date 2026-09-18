@@ -465,6 +465,7 @@ namespace TcgEngine.UI
                         return;
                     }
                     Hide();
+                    panel.return_to = this;    //★ 上一页 = 卡牌编辑器（本页刚被 Hide，编辑器隐藏后要回到这里，否则黑屏）
                     panel.EditBuff(id);        //打开并选中该增益（BuffPanel 仍是"单条增益"的编辑落地页）
                     return;
                 }
@@ -479,6 +480,7 @@ namespace TcgEngine.UI
                         return;
                     }
                     Hide();
+                    panel.return_to = this;    //★ 同上：关键词编辑器隐藏后回到卡牌编辑器（原来会直接黑屏）
                     panel.EditKeyword(id);
                     return;
                 }

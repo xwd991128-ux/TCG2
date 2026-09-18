@@ -15,6 +15,9 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：原来只有「卖掉」才会 Hide()（卖成功才关）→ 不想卖就只能卡在这页。
+            EnsureExitButton("取消");
         }
 
         public async void OnClickSell()

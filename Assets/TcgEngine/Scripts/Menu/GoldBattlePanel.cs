@@ -21,6 +21,9 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：原来只有「加入金币对战」成功才 Hide()，没有取消出口。
+            EnsureExitButton("取消");
         }
 
         protected override void Update()

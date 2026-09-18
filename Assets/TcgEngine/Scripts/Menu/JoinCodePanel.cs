@@ -21,6 +21,9 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：原来只有「加入」成功才 Hide()，输错/不想加入时没有退出路径。
+            EnsureExitButton("取消");
         }
 
         protected override void Update()

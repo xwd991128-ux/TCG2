@@ -180,6 +180,8 @@ namespace TcgEngine.UI
                 SetStatus("未找到规则编辑器面板，请先运行「生成规则编辑器页面」工具");
                 return;
             }
+            editor.return_to = this;      //★ 上一页 = 本页（规则编辑器被隐藏后回到关键词编辑器，而不是空白）
+            return_to = null;             //★ 这是"向前导航"（进规则图），清掉本页的上一页，避免 Hide() 时把卡牌编辑器弹回来
             editor.OpenForKeyword(kw, rule);
             editor.Show();
             Hide();

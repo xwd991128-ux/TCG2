@@ -71,6 +71,10 @@ namespace TcgEngine.UI
                         editing_buff.category = BUFF_CATEGORIES[v];
                 });
             }
+
+            //★ 导航修复：本页未绑定任何关闭按钮（只有新增/复制/删除/保存/编辑规则），进得来出不去。
+            //  Hide() 的语义在两种进入方式下都对：独立打开→回主菜单；由卡牌编辑器托管→回到编辑器。
+            EnsureExitButton("返回");
         }
 
         public override void Show(bool instant = false)
@@ -79,13 +83,25 @@ namespace TcgEngine.UI
             //让"旧的增益管理页面"不再作为入口出现（弹框里点「编辑」再回到本页编辑单条增益）。
             if (!opened_for_edit)
             {
+                //★ 之前只在 `CardEditorPanel.Get() != null` 时才重定向 —— 而编辑器默认是**失活**的，
+                //  Awake 没跑 → Get() 返回 null → 于是"增益管理"这个作废页面照样弹出来（2026-09 用户截图确认）。
+                //  改用 FindObjectOfType(..., true)（含失活对象）判定；宿主确实不存在时**直接不显示**，绝不落地成独立页。
                 CardEditorPanel host = CardEditorPanel.Get();
+                if (host == null)
+                    host = FindObjectOfType<CardEditorPanel>(true);
+
                 if (host != null)
                 {
                     Debug.Log("[增益] 独立管理页已弃用 → 重定向到「变量配置 → 增益」选择弹框");
                     VariableSelectPopup.Open(VariableSelectPopup.Kind.Buff);
-                    return;
                 }
+                else
+                {
+                    Debug.Log("[增益] 独立管理页已弃用且找不到卡牌编辑器宿主 → 保持隐藏（不再作为独立页面出现）");
+                }
+                if (gameObject.activeSelf)
+                    gameObject.SetActive(false);
+                return;
             }
             opened_for_edit = false;
             base.Show(instant);
@@ -208,9 +224,14 @@ namespace TcgEngine.UI
                 }
                 return;
             }
+            editor.return_to = return_to;          //★ 把"变量配置的宿主"透传下去（退出规则图时回到那里）
+            return_to = null;                      //本页不再持有（已交给规则编辑器）
             editor.OpenBuff(b);     //→ 增益编辑页：右侧「增益参数」Tab（名称/描述/特效/属性修改/自定义参数）
             editor.Show();
             Hide();
+            //★ 清零"编辑模式"标志：它只用于"允许本页作为落地页显示"的兜底分支，
+            //  留成 true 会让**已作废的增益管理页**在别处被 Show() 时绕过拦截（用户实报的"点 × 又回到增益管理页"）。
+            opened_for_edit = false;
         }
 
         /// <summary>选中增益：加载到右侧编辑区</summary>

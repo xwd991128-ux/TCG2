@@ -17,6 +17,16 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+
+            //★ 导航修复：本页原先同样没有任何退出路径（点进来只能选关开局），补「返回首页」。
+            EnsureExitButton("返回首页", () =>
+            {
+                HomePanel home = HomePanel.Get();
+                if (home != null)
+                    home.ReturnHome();
+                else
+                    Hide();
+            });
         }
 
         protected override void Start()
