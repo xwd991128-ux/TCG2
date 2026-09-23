@@ -15,11 +15,6 @@ namespace TcgEngine.FX
         private Camera cam;                                        //缓存：原来每帧 Camera.main（内部是标签查找）
         private Plane plane = new Plane(Vector3.forward, 0f);      //平面固定，不必每帧 new
 
-        void Start()
-        {
-
-        }
-
         // Update is called once per frame
         void Update()
         {

@@ -23,6 +23,16 @@ namespace TcgEngine.FX
             client.onValueRolled += OnRoll;
         }
 
+        private void OnDestroy()
+        {
+            GameClient client = GameClient.Get();
+            client.onNewTurn -= OnNewTurn;
+            client.onCardPlayed -= OnPlayCard;
+            client.onAbilityStart -= OnAbility;
+            client.onSecretTrigger -= OnSecret;
+            client.onValueRolled -= OnRoll;
+        }
+
         void OnNewTurn(int player_id)
         {
             AudioTool.Get().PlaySFX("turn", AssetData.Get().new_turn_audio);

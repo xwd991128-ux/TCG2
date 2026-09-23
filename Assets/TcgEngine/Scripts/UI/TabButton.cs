@@ -55,6 +55,25 @@ namespace TcgEngine.UI
             onClickAny?.Invoke(this);
         }
 
+        /// <summary>
+        /// 按面板程序化切换选项卡（返回 true = 已切换）。给「返回调整」这类**跨面板跳转**用：
+        /// 与点按钮同一条路径（含分组互斥 + 高亮同步），比直接 ui_panel.Show() 安全（不会留下两页重叠）。
+        /// </summary>
+        public static bool ActivatePanel(UIPanel panel)
+        {
+            if (panel == null)
+                return false;
+            foreach (TabButton tab in tab_list)
+            {
+                if (tab != null && tab.ui_panel == panel)
+                {
+                    tab.Activate();
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void Activate()
         {
             //★ 没绑定 ui_panel 时**不能**先隐藏整组：那会把当前页面也藏掉却没有任何页面顶上 → 直接黑屏

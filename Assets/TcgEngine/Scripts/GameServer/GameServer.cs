@@ -135,6 +135,8 @@ namespace TcgEngine.Server
             gameplay.onAttackPlayerEnd -= OnAttackPlayerEnd;
             gameplay.onCardDamaged -= OnCardDamaged;
             gameplay.onPlayerDamaged -= OnPlayerDamaged;
+            gameplay.onCardHealed -= OnCardHealed;
+            gameplay.onPlayerHealed -= OnPlayerHealed;
 
             gameplay.onSecretTrigger -= OnSecretTriggered;
             gameplay.onSecretResolve -= OnSecretResolved;
@@ -528,6 +530,14 @@ namespace TcgEngine.Server
                 UserDeckData udeck = user?.GetDeck(deck.tid);
                 if (user != null && udeck != null)
                 {
+                    //构筑规则校验（服务端权威）：与客户端对局前拦截用同一个入口，规则取自对局设置
+                    List<DeckError> derrors = DeckValidator.Validate(udeck, game_data.settings);
+                    if (derrors.Count > 0)
+                    {
+                        RejectPlayerDeck(player, user.username, DeckValidator.JoinMessages(derrors, "；"));
+                        return;
+                    }
+
                     if (user.IsDeckValid(udeck))
                     {
                         SafeSetPlayerDeck(player, udeck);
@@ -536,7 +546,7 @@ namespace TcgEngine.Server
                     }
                     else
                     {
-                        Debug.Log(user.username + " deck is invalid: " + udeck.title);
+                        RejectPlayerDeck(player, user.username, "卡组不完整或数量不足（不足 " + GameplayData.Get().deck_size + " 张）。");
                         return;
                     }
                 }
@@ -546,16 +556,74 @@ namespace TcgEngine.Server
                 if (cdeck != null)
                     SafeSetPlayerDeck(player, cdeck);
 
-                //Trust client in test mode
+                //Trust client in test mode：★采信客户端卡组**也要过构筑规则校验**
+                //（联机时这是"卡组 tid 既不在账号里也不是预置卡组"的伪造路径；单机同一份代码，
+                //  在这里放行等于改包只在联机能测出问题，单机永远测不出来）
                 else if (Authenticator.Get().IsTest())
+                {
+                    List<DeckError> derrors = DeckValidator.Validate(deck, game_data.settings);
+                    if (derrors.Count > 0)
+                    {
+                        RejectPlayerDeck(player, player.username, DeckValidator.JoinMessages(derrors, "；"));
+                        return;
+                    }
                     SafeSetPlayerDeck(player, deck);
+                }
 
-                //Deck not found
+                //Deck not found：原来这里"打日志 + 继续 SendPlayerReady"，
+                //但空卡组不会就绪（Player.IsReady 要求 cards_all 非空）→ 玩家只会无限卡在 Connecting，
+                //所以这里改为**明确拒绝并告知原因**。
                 else
-                    Debug.Log("Player " + player_id + " deck not found: " + deck.tid);
+                {
+                    RejectPlayerDeck(player, player.username, "找不到卡组（" + deck.tid + "）。");
+                    return;
+                }
 
                 SendPlayerReady(player);
             }
+        }
+
+        /// <summary>
+        /// 服务端权威拒绝一个玩家的卡组：记日志 + 把**中文原因**回给该玩家。
+        /// 为什么必须回消息：拒绝后服务端只是不把该玩家标成就绪，对局会永远停在 Connecting；
+        /// 客户端那侧原先看不到任何原因，表现为"卡住不动"。
+        /// </summary>
+        private void RejectPlayerDeck(Player player, string who, string reason)
+        {
+            Debug.LogError("[构筑规则] 拒绝 " + who + " 的卡组：" + reason);
+            if (player == null)
+                return;
+            ClientData client = FindClientByPlayer(player);
+            if (client == null)
+                return;   //AI 玩家没有连接，只记日志
+            SendMsgToClient(client.client_id, "卡组不符合构筑规则，无法开始对局：\n" + reason);
+        }
+
+        /// <summary>
+        /// 给指定客户端发一条系统消息（客户端侧对应 GameClient.onServerMsg）。
+        /// 线格式与 ServerManager.SendMsgToClient 一致（GameAction.ServerMessage + 裸字符串）；
+        /// 放在 GameServer 里是为了**本机模式也能用**（ServerManagerLocal 没有这个方法）。
+        /// </summary>
+        public void SendMsgToClient(ulong client_id, string msg)
+        {
+            FastBufferWriter writer = new FastBufferWriter(128, Unity.Collections.Allocator.Temp, TcgNetwork.MsgSizeMax);
+            writer.WriteValueSafe(GameAction.ServerMessage);
+            writer.WriteValueSafe(msg);
+            Messaging.Send("refresh", client_id, writer, NetworkDelivery.Reliable);
+            writer.Dispose();
+        }
+
+        /// <summary>Player → 它的网络连接（AI 玩家没有连接，返回 null）</summary>
+        private ClientData FindClientByPlayer(Player player)
+        {
+            if (player == null)
+                return null;
+            foreach (ClientData client in connected_clients)
+            {
+                if (client != null && FindPlayerID(client.user_id) == player.player_id)
+                    return client;
+            }
+            return null;
         }
 
         public virtual void SetPlayerSettings(int player_id, PlayerSettings psettings)

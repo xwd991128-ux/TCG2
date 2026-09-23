@@ -14,16 +14,6 @@ namespace TcgEngine.FX
     {
         public Text text_value;
 
-        void Start()
-        {
-
-        }
-
-        void Update()
-        {
-
-        }
-
         public void SetValue(int value)
         {
             if (text_value != null)

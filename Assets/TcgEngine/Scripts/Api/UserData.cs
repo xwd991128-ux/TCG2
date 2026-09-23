@@ -331,6 +331,26 @@ namespace TcgEngine
         }
     }
 
+    /// <summary>额外区在玩家卡组里的存储（如 ETC 的「乐队」）：与主卡分开存，独立校验/统计</summary>
+    [System.Serializable]
+    public class UserDeckZone : INetworkSerializable
+    {
+        public string zone_id;
+        public UserCardData[] cards;
+
+        public UserDeckZone()
+        {
+            zone_id = "";
+            cards = new UserCardData[0];
+        }
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref zone_id);
+            NetworkTool.NetSerializeArray(serializer, ref cards);
+        }
+    }
+
     [System.Serializable]
     public class UserDeckData : INetworkSerializable
     {
@@ -338,6 +358,7 @@ namespace TcgEngine
         public string title;
         public UserCardData hero;
         public UserCardData[] cards;
+        public UserDeckZone[] zones = new UserDeckZone[0];   //额外区（主卡之外，独立存储/校验/统计）
 
         public UserDeckData() {}
 
@@ -380,6 +401,7 @@ namespace TcgEngine
             serializer.SerializeValue(ref title);
             serializer.SerializeValue(ref hero);
             NetworkTool.NetSerializeArray(serializer, ref cards);
+            NetworkTool.NetSerializeArray(serializer, ref zones);   //额外区随卡组一起存档/联机
         }
 
         public static UserDeckData Default

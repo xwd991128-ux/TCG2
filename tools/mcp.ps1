@@ -18,6 +18,12 @@
 #                                    并**不要**让人去重启 MCP 服务（它本来就开着）。
 #      诊断入口：`powershell -File tools/mcp.ps1 probe`
 #
+#  ★ 2026-09 起：域重载后的自愈改由 Assets/TcgEngine/Scripts/Editor/McpKeepAlive.cs 负责 ——
+#     按 10 秒间隔轮询端口，发现没监听就调 McpServerWindow.StartServerStatic() 重连
+#     （菜单「TcgEngine/工具/MCP 连接守护」可开关，EditorPrefs: TcgEngine.McpKeepAlive.Enabled）。
+#     实测：触发编译后监听消失，约 6 秒自动恢复，无需人工点面板。
+#     所以"端口未监听"先 wait 一轮再判定，别急着让人重启服务。
+#
 #  用法（在项目根目录）：
 #    powershell -File tools/mcp.ps1 probe        # ★ 连接诊断：进程/端口/三种请求方式/tools 数
 #    powershell -File tools/mcp.ps1 wait [秒]    # ★ 轮询等待恢复（默认最多 180 秒）
@@ -121,7 +127,7 @@ switch ($Cmd.ToLower()) {
             Select-Object Id, StartTime | Format-Table -AutoSize | Out-String).Trim()
         Write-Output "== 2) 9123 监听状态 =="
         $ns = @(netstat -ano | Select-String ":9123")
-        if ($ns.Count -eq 0) { Write-Output "未监听 → 服务端确实没起（去 Unity 的 MCP 面板点启动）" }
+        if ($ns.Count -eq 0) { Write-Output "未监听 → 项目守护 McpKeepAlive 会在 10 秒内自动拉起；先 wait 一轮再判定，不要让人去点面板" }
         else { $ns | Select-Object -First 4 | ForEach-Object { $_.Line.Trim() } }
         Write-Output "== 3) 请求方式对照（区分 Host 问题 vs 真断连）=="
         $body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
@@ -174,6 +180,12 @@ switch ($Cmd.ToLower()) {
         #  日志检查就会在 Unity 真正开始编译前执行；若此刻日志刚被清空，就会误报 "PASS：error CS = 0"，
         #  从而把"程序集编译不过 → Play 无法启动"误判成"没问题"（2026-09 实测踩过：探针缺方法，导致一整轮排查跑偏）。
         Start-Sleep -Seconds 8
+        #★ 再轮询官方 Is Compiling，直到编译**真正结束**（编译失败时不会触发域重载，仅靠 Wait-Mcp 会读早）
+        for ($i = 0; $i -lt 20; $i++) {
+            $st = Invoke-Mcp "get_script_errors"
+            if ($st -eq "FAILED" -or $st -match "Is Compiling: False") { break }
+            Start-Sleep -Seconds 3
+        }
         Write-Output "== 官方状态（不可全信：实测会漏报 CS 错误）=="
         $off = Invoke-Mcp "get_script_errors"
         if ($off -eq "FAILED") { Write-Output "（官方状态没读到：服务仍在重载，下面用全量日志为准）" }

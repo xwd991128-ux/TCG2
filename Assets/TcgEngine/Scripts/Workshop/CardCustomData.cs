@@ -150,6 +150,41 @@ namespace TcgEngine.Workshop
     {
         public string name = "效果1";   // 展示名（编辑器 tab 标题）
         public GraphData graph;         // 该效果的规则图（入口节点 + 动作链）
+
+        /// <summary>★迁移期新增（内置卡迁移 D 批）：「数据型目标过滤器」。
+        /// 为什么不做成节点：过滤器（随机取1/最低攻/首个…）要**看整个目标集合**才能算，
+        /// 而图是"目标相对"的（引擎解析出目标集合后逐目标 Run 一次图，图内不得自枚举集合，
+        /// 否则动作会被重复施加）。引擎本来就在解析目标集合时应用它：
+        /// AbilityData.GetCardTargets/GetPlayerTargets/GetSlotTargets 里逐个 FilterTargets()。
+        /// 因此按"数据进 DTO"原则原样保留（同 status_ids 的思路），编译侧还原到 ab.filters_target
+        /// → 与旧能力逐行一致。空/缺省 = 不过滤（旧图行为完全不变）。</summary>
+        public List<ComponentCustomData> filters_target;
+
+        /// <summary>★迁移期新增（内置卡迁移 D 批）：「数据型条件」。
+        /// 条件本来由引擎判定（发动前 `AreTriggerConditionsMet`、解析目标集合 `AreTargetConditionsMet`），
+        /// 图是"目标相对"的（引擎先解析目标集合，再逐目标 Run 一次图）→ 条件既可以进图做守卫，
+        /// 也可以原样交给引擎。**图里表达不了的条件**（ConditionCount / ConditionSlotRange /
+        /// 类型含阵营·种族 / ConditionSelectedValue…）走这里，避免整条能力作废：
+        ///   - 行为与旧能力**逐行一致**（同一批 ConditionData 交回同一套引擎判定）；
+        ///   - CardSelector 的**候选列表**（GetCardTargets）+ 选择校验（IsCardSelectionValid）也才筛得对
+        ///     —— 这部分图守卫替代不了（守卫只能事后挡，候选列表会全列出来）。
+        /// 空/缺省 = 条件只由图守卫表达（旧图行为完全不变）。</summary>
+        public List<ComponentCustomData> conditions_target;
+        public List<ComponentCustomData> conditions_trigger;
+
+        /// <summary>★迁移期新增（内置卡迁移 B 批）：「能力自带的状态」（旧系统"状态 + 效果混合"能力）。
+        /// 旧引擎在 `AbilityData.DoEffects(logic, caster, target)` 里把 `status` 施加到**每个已解析目标**上
+        /// （在效果结算之后），所以走 DTO 直通即可逐行等价（与 filters/conditions 同一思路）；
+        /// 图里不新增"添加状态"节点。取值 = `StatusType` 枚举名（与 AbilityCustomData.status_ids 同口径）。</summary>
+        public List<string> status_ids;
+
+        /// <summary>★迁移期新增（内置卡迁移 C 批 = 批6 连锁）：连锁能力 id 列表（旧 `AbilityData.chain_abilities`）。
+        /// 旧引擎在 `AfterAbilityResolved` 里 `foreach chain_abilities → TriggerCardAbility(chain, caster)`
+        /// （ChoiceSelector 目标除外——那时 chain_abilities 是选择菜单的选项，由 SelectChoice 消费）。
+        /// 这是**引擎侧**行为、与图无关 → 原样带走即可逐行等价（同 filters/conditions/status 的思路）；
+        /// 被引用的连锁能力资产走"池内 id 引用"（同 EffectAddAbility，Phase 5 打包时随池打）。
+        /// 空/缺省 = 无连锁（旧图行为完全不变）。</summary>
+        public List<string> chain_ability_ids;
     }
 
     /// <summary>

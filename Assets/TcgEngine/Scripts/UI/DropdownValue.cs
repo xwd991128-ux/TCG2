@@ -32,11 +32,6 @@ namespace TcgEngine.UI
             dropdown.onValueChanged.AddListener(OnChangeValue);
         }
 
-        private void Start()
-        {
-
-        }
-
         public void AddOption(string id, string text)
         {
             Dropdown.OptionData option = new Dropdown.OptionData(text);

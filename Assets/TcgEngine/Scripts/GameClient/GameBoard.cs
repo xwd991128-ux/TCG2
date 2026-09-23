@@ -29,11 +29,6 @@ namespace TcgEngine.Client
             _instance = this;
         }
 
-        private void Start()
-        {
-            
-        }
-
         void Update()
         {
             if (!GameClient.Get().IsReady())
@@ -125,7 +120,7 @@ namespace TcgEngine.Client
                 Instantiate(AssetData.Get().win_fx, Vector3.zero, Quaternion.identity);
             else if (tied && AssetData.Get().tied_fx != null)
                 Instantiate(AssetData.Get().tied_fx, Vector3.zero, Quaternion.identity);
-            else if (tied && AssetData.Get().lose_fx != null)
+            else if (!win && !tied && AssetData.Get().lose_fx != null)   //原来误写成 tied &&，导致失败玩家永远看不到 lose_fx
                 Instantiate(AssetData.Get().lose_fx, Vector3.zero, Quaternion.identity);
 
             if (win)

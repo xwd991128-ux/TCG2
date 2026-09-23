@@ -22,6 +22,11 @@ namespace TcgEngine.Client
             Debug.Log("RewardManager: Subscribed to onGameEnd");
         }
 
+        private void OnDestroy()
+        {
+            GameClient.Get().onGameEnd -= OnGameEnd;
+        }
+
         void OnGameEnd(int winner)
         {
             int player_id = GameClient.Get().GetPlayerID();
@@ -57,6 +62,8 @@ namespace TcgEngine.Client
             if (GameClient.game_settings.game_type == GameType.Adventure && winner == player_id)
             {
                 UserData udata = Authenticator.Get().UserData;
+                if (udata == null)
+                    return;   //API 模式未连接时 LoadUserData 会返回 null，不结算奖励
                 LevelData level = LevelData.Get(GameClient.game_settings.level);
                 if (level != null && !udata.HasReward(level.id) && !reward_gained)
                 {
@@ -71,6 +78,8 @@ namespace TcgEngine.Client
         private async void GainGoldBattleRewardTest(bool is_winner)
         {
             UserData udata = Authenticator.Get().UserData;
+            if (udata == null)
+                return;
             if (is_winner)
             {
                 udata.coins += 100;
@@ -107,6 +116,8 @@ namespace TcgEngine.Client
         {
             VariantData variant = VariantData.GetDefault();
             UserData udata = Authenticator.Get().UserData;
+            if (udata == null)
+                return;
             udata.coins += level.reward_coins;
             udata.xp += level.reward_xp;
             udata.AddReward(level.id);

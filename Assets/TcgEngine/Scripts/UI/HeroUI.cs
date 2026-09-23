@@ -32,15 +32,23 @@ namespace TcgEngine.UI
         private void OnDestroy()
         {
             ui_list.Remove(this);
+
+            if (power_button != null)
+                power_button.onClick.RemoveListener(OnClickPower);
         }
 
         void Start()
         {
-            power_area.SetActive(false);
             if (power_button != null)
                 power_button.onClick.AddListener(OnClickPower);
 
+            if (power_area == null)
+                return;   //未绑定 power_area 时保持静默（原来下面两行会直接空引用崩溃）
+
+            power_area.SetActive(false);
             EventTrigger trigger = power_area.GetComponent<EventTrigger>();
+            if (trigger == null)
+                return;   //没有 EventTrigger 就跳过悬停监听（不在代码里动态创建 UI 组件）
             EventTrigger.Entry entry = new EventTrigger.Entry();
             entry.eventID = EventTriggerType.PointerEnter;
             entry.callback.AddListener((eventData) => { OnEnterMouse(); });

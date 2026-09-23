@@ -1,0 +1,8 @@
+# 自定义事件节点探针  at=2026-09-21 20:52:57
+PASS	① 事件入口 action 按监听事件归一（时=OnBeforeDamage / 后=OnAfterDamage）	when=OnBeforeDamage after=OnAfterDamage｜定义里 listen=OnAfterDamage base=OnBeforeDamage after=OnAfterDamage
+PASS	①b 两张入口都是事件类型且带动作流输出
+PASS	② 未配置监听事件时退回 custom_id_when/_after	custom_cn_0628ed5c_when / custom_cn_0628ed5c_after
+PASS	③ 广播入口空参/无 logic 安全返回 0（不炸）	null/空上下文返回=0/0
+PASS	④ 节点库「事件」入口候选非空（可轮换选择监听事件）	候选数=28
+# 已清理测试节点：cn_0628ed5c
+# 汇总：PASS=5 FAIL=0

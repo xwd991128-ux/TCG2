@@ -1,0 +1,53 @@
+kind	class	refs	abilities	cards	sample_cards
+Abilities	AbilityData	7	7	0	
+Cards	CardData	1	1	0	
+Condition	ConditionCardType	85	79	45	reaper,bay,trap_spike,potion_red,killer_whale
+Condition	ConditionOwner	81	80	33	bay,trap_spike,potion_blue,potion_red,killer_whale
+Condition	ConditionSelf	38	38	19	phoenix,killer_whale,spell_burn,snake_venom,sea_monster
+Condition	ConditionCardPile	31	31	13	necromancer,divine_blessing,dark_blessing,holy_blessing,strength_blessing
+Condition	ConditionSlotEmpty	30	30	19	holy_light,light_blessing,spell_armageddon,shadow_arrow,phoenix
+Condition	ConditionOwnerAI	28	28	17	spell_armageddon,shadow_arrow,phoenix,hero_fire,spell_burn
+Condition	ConditionTarget	25	25	8	potion_blue,spell_extinct,spell_wave,potion_green,crab_mana
+Condition	ConditionOnce	8	8	3	hero_fire,hero_forest,hero_water
+Condition	ConditionStatus	7	6	2	potion_green,large_eagle
+Condition	ConditionTurn	6	6	2	world_tree_seedling,pufferfish
+Condition	ConditionStat	6	6	1	killer_whale
+Condition	ConditionCount	4	4	4	sasquatch,raccoon,ghoul,firefox
+Condition	ConditionRolled	2	2	0	
+Condition	ConditionSelectedValue	2	2	1	spell_projectiles
+Condition	ConditionSlotRange	1	1	1	wolf_alpha
+Condition	ConditionOtherCardWithStatus	1	1	1	small_bird
+Condition	ConditionDeckbuilding	1	1	1	dragon_egg
+Condition	ConditionTrait	1	1	0	
+Effect	EffectAddStat	65	50	28	sea_monster,town_underwater,pufferfish,town_volcano,divine_blessing
+Effect	EffectDamage	31	31	17	spell_armageddon,shadow_arrow,phoenix,hero_fire,spell_burn
+Effect	EffectSummon	24	19	9	dragon_black,wolf_alpha,spell_aerial_strike,dragon_knight,fire_chicken
+Effect	EffectHeal	22	22	10	holy_light,light_blessing,potion_blue,holy_saintess,hero_forest
+Effect	EffectDraw	18	18	11	bay,shark,graveyard,spell_stones,hero_water
+Effect	EffectDestroy	16	16	5	reaper,killer_whale,curse_trap,spell_stomp,soul_harvest
+Effect	EffectSendPile	15	15	6	spell_treasure,spell_wave,spell_storm,raccoon,firefox
+Effect	EffectMana	7	7	4	equip_ring,world_tree_seedling,crab_mana,coin
+Effect	EffectClearStatus	7	7	3	sasquatch,owl,purification_priest
+Effect	EffectPlay	6	6	2	necromancer,resurrection
+Effect	EffectTransform	5	5	3	phoenix_egg,trap_fish,fire_chicken_egg
+Effect	EffectRepeat	4	4	1	spell_projectiles
+Effect	EffectDiscard	4	4	0	
+Effect	EffectAddAbility	4	4	2	spell_extinct,spell_submerge
+Effect	EffectRoll	3	3	2	octopus,gorilla
+Effect	EffectCreate	3	3	1	dragon_egg
+Effect	EffectResetStat	3	3	2	owl,purification_priest
+Effect	EffectExhaust	2	2	2	flame_eagle,kraken
+Effect	EffectAddHeroAbility	2	2	0	
+Effect	EffectSetStat	2	2	2	spell_flood,eel
+Effect	EffectSetAtkEqualHpReal	1	1	0	
+Effect	EffectDrawType	1	1	0	
+Effect	EffectAddStatRoll	1	1	0	
+Effect	EffectSetHeroAbility	1	1	0	
+Effect	EffectAddTrait	1	1	0	
+Effect	EffectAddKeyword	1	1	1	bull_heat
+Effect	EffectClearTemp	1	1	0	
+Filter	FilterRandom	12	12	5	necromancer,wolf_alpha,spell_stomp,dragon_egg,Plague_Rat
+Filter	FilterFirst	6	6	1	fishing_rod
+Filter	FilterLowestStat	2	2	2	reaper,spell_stomp
+Status	StatusData	59	56	50	equip_shield,trap_spike,potion_red,equip_sword,snake_venom
+Unknown	?	4	4	0	

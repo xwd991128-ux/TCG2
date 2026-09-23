@@ -76,7 +76,7 @@ namespace TcgEngine.Client
             new_card?.SetActive(false);
 
             UserData udata = Authenticator.Get().GetUserData();
-            is_new = !udata.HasCard(icard.id, variant.id);
+            is_new = udata != null && !udata.HasCard(icard.id, variant.id);   //没有用户数据时不臆造「新卡」标记
         }
 
         public void SetTarget(Vector3 pos)

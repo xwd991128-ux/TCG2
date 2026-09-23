@@ -26,7 +26,7 @@ namespace TcgEngine
             if (type == EffectStatType.HP)
             {
                 target.hp += val;
-                target.hp_max += ability.value;
+                target.hp_max += val;   //原来误写成 ability.value：卡数>1 时血量增量与上限增量不一致，血量会超过上限
             }
 
             if (type == EffectStatType.Mana)

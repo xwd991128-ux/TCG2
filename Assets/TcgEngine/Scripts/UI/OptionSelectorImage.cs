@@ -36,11 +36,6 @@ namespace TcgEngine.UI
             SetIndex(0);
         }
 
-        void Update()
-        {
-
-        }
-
         private void AfterChangeOption()
         {
             if (select_img != null)

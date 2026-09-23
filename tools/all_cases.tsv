@@ -1,0 +1,311 @@
+# TITLE: full pass FINAL4
+# cols: id|assert|expect|fields|src1|dst1|note|src2|src2_const|child_action|child_field|child_value
+112001|value_notnull|||||auto
+112002|value_notnull|||||auto
+112003|value_notnull|||||auto
+112004|value_notnull|||||auto
+112005|value_notnull|||||auto
+111012|value_notnull|||||auto
+212004|exec|||||auto
+212001|exec|||||auto
+112008|value_notnull|||||auto
+112009|value_notnull|||||auto
+200001|exec|||||auto
+200002|exec|||||auto
+200005|exec|||||auto
+200006|exec|||||auto
+101002|value_notnull|||||auto
+201002|exec|||||auto
+101003|value_notnull|||||auto
+101004|value_notnull|||||auto
+101005|value_notnull|||||auto
+101022|value_notnull|||||auto
+101006|value_notnull|||||auto
+101007|value_notnull|||||auto
+201003|exec|||||auto
+101016|value_notnull|||||auto
+101009|value_notnull|||||auto
+101010|value_notnull|||||auto
+209201|exec|||||auto
+209202|exec|||||auto
+209203|exec|||||auto
+119002|value_notnull|||||auto
+119003|value_notnull|||||auto
+119004|value_notnull|||||auto
+201006|exec|||||auto
+101011|value_notnull|||||auto
+101012|value_notnull|||||auto
+201007|exec|||||auto
+101013|value_notnull|||||auto
+101014|value_notnull|||||auto
+101015|value_notnull|||||auto
+201001|exec|||||auto
+201008|exec|||||auto
+201009|exec|||||auto
+201010|exec|||||auto
+101020|value_notnull|||||auto
+101018|value_notnull|||||auto
+101019|value_notnull|||||auto
+101021|value_notnull|||||auto
+201013|exec|||||auto
+201014|exec|||||auto
+201015|exec|||||auto
+105001|value_notnull|||||auto
+105005|value_notnull|||||auto
+206002|exec|||||auto
+206003|exec|||||auto
+206004|exec|||||auto
+106007|value_notnull|||||auto
+210001|exec|||||auto
+210003|exec|||||auto
+210004|exec|||||auto
+210005|exec|||||auto
+210006|exec|||||auto
+210007|exec|||||auto
+210008|exec|||||auto
+102002|value_notnull|||||auto
+102032|value_notnull|||||auto
+102003|value_notnull|||||auto
+202003|exec|||||auto
+202004|exec|||||auto
+202005|exec|||||auto
+202006|exec|||||auto
+202045|exec|||||auto
+202046|exec|||||auto
+202044|exec|||||auto
+102001|value_notnull|||||auto
+102027|value_notnull|||||auto
+202037|exec|||||auto
+102035|value_notnull|||||auto
+102004|value_notnull|||||auto
+202007|exec|||||auto
+102005|value_notnull|||||auto
+102006|value_notnull|||||auto
+102007|value_notnull|||||auto
+102008|value_notnull|||||auto
+102033|value_notnull|||||auto
+202002|exec|||||auto
+202038|exec|||||auto
+202019|exec|||||auto
+202018|exec|||||auto
+202020|exec|||||auto
+102010|value_notnull|||||auto
+102011|value_notnull|||||auto
+-14|value_notnull|||||auto
+202001|exec|||||auto
+202034|exec|||||auto
+202041|exec|||||auto
+202035|exec|||||auto
+202042|exec|||||auto
+202036|exec|||||auto
+202043|exec|||||auto
+202011|exec|||||auto
+202012|exec|||||auto
+202013|exec|||||auto
+202039|exec|||||auto
+202047|exec|||||auto
+102012|value_notnull|||||auto
+102013|value_notnull|||||auto
+102014|value_notnull|||||auto
+102015|value_notnull|||||auto
+102016|value_notnull|||||auto
+102017|value_notnull|||||auto
+202014|exec|||||auto
+202015|exec|||||auto
+202040|exec|||||auto
+202016|exec|||||auto
+202017|exec|||||auto
+102019|value_notnull|||||auto
+102020|value_notnull|||||auto
+102021|value_notnull|||||auto
+202021|exec|||||auto
+102022|value_notnull|||||auto
+202022|exec|||||auto
+202023|exec|||||auto
+102028|value_notnull|||||auto
+202024|exec|||||auto
+202025|exec|||||auto
+202026|exec|||||auto
+102023|value_notnull|||||auto
+102024|value_notnull|||||auto
+202027|exec|||||auto
+202028|exec|||||auto
+202048|exec|||||auto
+106030|value_notnull|||||auto
+202049|exec|||||auto
+106031|value_notnull|||||auto
+103004|value_notnull|||||auto
+103005|value_notnull|||||auto
+103024|value_notnull|||||auto
+103006|value_notnull|||||auto
+103008|value_notnull|||||auto
+202029|exec|||||auto
+103020|value_notnull|||||auto
+103012|value_notnull|||||auto
+103013|value_notnull|||||auto
+103014|value_notnull|||||auto
+103015|value_notnull|||||auto
+202030|exec|||||auto
+103017|value_notnull|||||auto
+202031|exec|||||auto
+103018|value_notnull|||||auto
+202032|exec|||||auto
+103021|value_notnull|||||auto
+103022|value_notnull|||||auto
+103023|value_notnull|||||auto
+103025|value_notnull|||||auto
+203001|exec|||||auto
+203002|value_notnull|||||auto
+203003|exec|||||auto
+203004|value_notnull|||||auto
+104003|value_notnull|||||auto
+104017|value_notnull|||||auto
+104004|value_notnull|||||auto
+104018|value_notnull|||||auto
+104010|value_notnull|||||auto
+104015|value_notnull|||||auto
+104016|value_notnull|||||auto
+111001|value_notnull|||||auto
+111002|value_notnull|||||auto
+111004|value_notnull|||||auto
+111005|value_notnull|||||auto
+111013|value_notnull|||||auto
+111009|value_notnull|||||auto
+111010|value_notnull|||||auto
+111011|value_notnull|||||auto
+111014|value_notnull|||||auto
+111015|value_notnull|||||auto
+111016|value_notnull|||||auto
+111017|value_notnull|||||auto
+111018|value_notnull|||||auto
+111019|value_notnull|||||auto
+111020|value_notnull|||||auto
+111021|value_notnull|||||auto
+111022|value_notnull|||||auto
+111023|value_notnull|||||auto
+111026|value_notnull|||||auto
+111027|value_notnull|||||auto
+111029|value_notnull|||||auto
+111030|value_notnull|||||auto
+111028|value_notnull|||||auto
+111031|value_notnull|||||auto
+111032|value_notnull|||||auto
+111033|value_notnull|||||auto
+111034|value_notnull|||||auto
+111035|value_notnull|||||auto
+111036|value_notnull|||||auto
+107001|value_notnull|||||auto
+107002|value_notnull|||||auto
+107005|value_notnull|||||auto
+107006|value_notnull|||||auto
+107007|value_notnull|||||auto
+107008|value_notnull|||||auto
+107010|value_notnull|||||auto
+207001|exec|||||auto
+109004|value_notnull|||||auto
+109005|value_notnull|||||auto
+109006|value_notnull|||||auto
+109007|value_notnull|||||auto
+108001|value_notnull|||||auto
+108002|value_notnull|||||auto
+208001|exec|||||auto
+208002|exec|||||auto
+208003|exec|||||auto
+208004|exec|||||auto
+208005|exec|||||auto
+208006|exec|||||auto
+208007|exec|||||auto
+208008|exec|||||auto
+108004|value_notnull|||||auto
+108008|value_notnull|||||auto
+108009|value_notnull|||||auto
+108010|value_notnull|||||auto
+208009|exec|||||auto
+109008|value_notnull|||||auto
+213001|exec|||||auto
+213002|exec|||||auto
+113002|value_notnull|||||auto
+209101|exec|||||auto
+209102|exec|||||auto
+105002|list_count|1||PILE_CARD||F4：pile←102029(施法卡=英雄) → 英雄区恰 1 张
+105002|list_count_either|deck||PILE||F4 对照：pile←101017(玩家1牌库) → 记录个数（该夹具玩家1牌库=0，故对空集恒真）
+105003|value_notnull|||PILE||F4：牌堆名（实测「牌库」）
+105004|value_notnull|||PILE||F4：牌堆所属玩家
+101017|value_notnull||pileName=装备区|||区域名归一：装备区 → 装备
+101017|value_notnull||pileName=奥秘区|||区域名归一：奥秘区 → 奥秘
+101017|value_notnull||pileName=暂存区|||区域名：暂存区
+106002|value_notnull||buffDefine=buff_8c5cfda5|||F11：BuffSelect 池 id → BuffData
+106002|value_any|||||F11 负向对照：空字段 → 期望 null（记录）
+206001|buff_applied|buff_8c5cfda5|buff_id=buff_8c5cfda5;duration=99|EV_CARD||F11：施加增益（字段 buff_id 路径；duration=99 让它不过期）
+206001|buff_applied|buff_8c5cfda5|duration=99|EV_CARD||F11：施加增益（buffDefine←106002 接线路径）|BUFFDEF
+106003|value_bool|true|buff_id=buff_8c5cfda5|EV_CARD||F11：上面施加后，施法卡应「具有增益」
+112006|value_notnull||value=hello|||字符串常量：字段 value=hello
+212002|damage|2|count=2|||重复 2 次 + 循环体伤害1 → 伤害 2|||202001|value|1
+212005|damage|2|maxRepeatTime=2|CONST_BOOL||重复直到：条件恒假、上限2 → 迭代2次 → 伤害 2|||202001|value|1
+212006|nobreak|||NONE||停止重复动作：不在循环体内 → 应忽略且不报错
+212007|nobreak|||NONE||跳过重复动作：不在循环体内 → 应忽略且不报错
+211001|damage_either|hand||HAND||遍历：array←手牌、循环体=伤害1 → 总伤害==手牌数|||202001|value|1
+104005|value_any|||SNAPSHOT||快照属性：card←快照 → 记录观测
+102034|value_any|||EV_CARD||卡牌标签列表（String）：该卡无标签 → 记录观测
+102009|value_any|||EV_CARD||唯一属性名（String）→ 记录观测
+103019|value_any|||DEFINE_OF_CASTER||定义标签列表（String）→ 记录观测
+104019|value_any|||SNAPSHOT||快照标签列表（String）→ 记录观测
+107003|value_any|||EV_CARD||效果属性：本探针无 Effect 来源 → 记录观测
+113003|value_any|||MAP||映射值：空映射取键 → 期望 null（记录）
+113004|value_any|||MAP||映射所有键：空映射 → 记录观测
+113005|value_any|||MAP||映射所有值：空映射 → 记录观测
+101008|value_notnull|||||F2：单值卡通道取牌库首张（真实 Card）
+102029|value_any|||EV_CARD||F3：英雄卡 → Pile 通道（记录，应= 玩家id|英雄）
+113001|value_notnull|||||F5：映射走 Object 通道返回映射本身
+103003|value_any|||DEFINE_OF_CASTER||F6：不再栈溢出
+103010|value_notnull|||DEFINE_OF_CASTER||F7：取到定义（非 null）
+103011|value_notnull|||DEFINE_OF_CASTER||F7：取到定义（非 null）
+104001|value_notnull|||SNAPSHOT||F8：快照→卡牌（真实 Card）
+104002|value_notnull|||SNAPSHOT||F8：快照→卡牌定义
+104011|value_int|0||SNAPSHOT||F8：快照护甲值
+104014|value_bool|false||SNAPSHOT||F8：快照具有宣言
+112007|value_any||variableName=probe_tmp|||F12：Object 通道不再「未支持动作」
+108011|run_int|turn||EVENT||F10：事件回合 == 当前回合数（同时产生一条事件记录）
+109002|value_notnull||varName=事件类型|RECORD||F9：记录变量（最近一条）
+109003|value_bool|true|argRef=OnPlay|RECORD||F9：记录类型判断 = OnPlay
+109009|value_notnull||eventReference=OnDeath|RECORD||F9：转换记录类型返回新记录
+200004|value_notnull||pileName=probe_pile;capacity=5|||游戏：创建牌堆
+119001|dyn|turn||||回合：回合数
+119005|value_bool|true||||回合：是否为第一回合
+107004|value_notnull|||EV_CARD||效果：卡牌的所有效果
+210002|hand_to_board|||HAND||行动：卡牌置入战场（某一方 手牌-、战场+）
+102018|value_dying_owner_hp|||SELF_CARD||F1/F13：英雄存活（双方 HP=30）→ 不濒死
+102018|value_dying_owner_hp_dying|||SELF_CARD||F1/F13：英雄濒死（双方 HP=0）→ 濒死
+106006|value_buff_diag|||SELF_CARD||自证：自带前提 + 链路（caster.buffs / 解析卡 / 列表长度）
+106006|list_notempty|||SELF_CARD||F14：卡上所有增益（用例内自带施加前提）→ 应非空
+103001|list_notempty|||||卡牌定义：获取所有卡牌定义（定义集合通道）
+103002|value_notnull||cardRef=lava_beast|||卡牌定义：按 id 取定义（下拉字段路径）
+103007|value_any|||EV_CARD||定义列表：目标卡牌的定义列表 → 记录观测
+103016|value_notnull|||HERO_DEFINE||定义→角色：英雄定义应有对应角色
+104006|value_notnull|||SNAPSHOT||快照花费
+104007|dyn|caster.attack||SNAPSHOT||快照攻击力 == 施法卡攻击（同一张卡的快照）
+104008|value_notnull|||SNAPSHOT||快照最大生命值
+104009|value_notnull|||SNAPSHOT||快照当前生命值
+111007|value_any|||HAND||取第 0 个元素（来源=选中玩家手牌，本夹具下会时有时空 → 记录观测）|CONST_INT|0
+111008|value_any|||HAND||集合中的随机元素（来源同上 → 记录观测）
+111024|value_any|||HAND||获取第一个元素（来源同上 → 记录观测）
+111025|value_any|||HAND||获取最后一个元素（来源同上 → 记录观测）
+112010|value_any|||CONST_BOOL||按条件选值：Object 通道返回空（需条件/取值上下文）→ 记录观测
+201005|value_notnull|||||从定义池选一张（不需交互）
+201017|value_notnull|||||从定义池选一张（带玩家口，不需交互）
+201004|value_any|||HAND||选卡：卡牌版需交互选择 → 记录观测
+201016|value_any|||HAND||选卡：卡牌版需交互选择 → 记录观测
+106001|value_any|||||该增益：仅增益图上下文有值 → 记录观测
+106004|value_any|||||增益属性：需 Buff 来源（Buff 值通道）→ 记录观测
+106005|value_any|||||单个增益定义：需 Buff 来源（增益图上下文）→ 记录观测
+106006|value_any|||SELF_CARD||F11 待查：卡上所有增益读 `Card.buffs` 为空（206001 施加后 HasBuff=true）→ 记录观测
+107009|value_any|||EV_CARD||效果所属定义：需 Effect 来源 → 记录观测
+108003|value_any|||||转换事件类型：需 Run 内事件上下文 → 记录观测
+108005|value_any|||||本局游戏事件：本夹具事件表为空 → 记录观测
+108006|value_any|||||本回合事件：本夹具事件表为空 → 记录观测
+108007|value_any|||||前X-Y回合事件：需回合区间上下文 → 记录观测
+108012|value_any|||||父事件：需 Run 内事件上下文 → 记录观测
+108013|value_any|||||子事件：需 Run 内事件上下文 → 记录观测
+108014|value_any|||||事件链：需 Run 内事件上下文 → 记录观测
+108015|value_any|||||事件发生时引发的事件：需 Run 内上下文 → 记录观测
+108016|value_any|||||事件发生后引发的事件：需 Run 内上下文 → 记录观测

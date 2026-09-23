@@ -24,11 +24,6 @@ namespace TcgEngine.UI
             Clear();
         }
 
-        void Update()
-        {
-
-        }
-
         public void Clear()
         {
             if (deck_title != null)

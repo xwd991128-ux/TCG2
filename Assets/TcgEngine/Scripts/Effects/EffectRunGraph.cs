@@ -34,6 +34,18 @@ namespace TcgEngine
             NodeDocRunner.Run(logic, graph, caster, target, null, trigger_action, ability: ability);
         }
 
+        /// <summary>★卡牌定义目标（AbilityTarget.AllCardData）：引擎在 ResolveCardAbilityCardData 里
+        /// **逐定义**调 `DoEffects(logic, caster, CardData)`。此前 EffectRunGraph 没有这个重载 →
+        /// 落到基类空实现 → 这类图能力**静默不执行**（图里动作一个都不跑，也不报错）。
+        /// 现在把"本次定义"带给解释器（ctx_target_define），定义口未接线的动作即可取到它
+        /// （如旧 EffectCreate：从目标定义创建衍生卡）。</summary>
+        public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, CardData target)
+        {
+            Debug.Log("[RunGraph] 图执行触发(卡牌定义目标) action=" + trigger_action + " caster="
+                + (caster != null ? caster.CardData?.id : "null") + " 定义=" + (target != null ? target.id : "无"));
+            NodeDocRunner.Run(logic, graph, caster, null, null, trigger_action, ability: ability, target_define: target);
+        }
+
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Player target)
         {
             Debug.Log("[RunGraph] 图执行触发(玩家目标) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
@@ -56,7 +68,8 @@ namespace TcgEngine
             {
                 Debug.Log("[RunGraph] 图执行触发(格子目标) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
                     + " 格内卡=" + (slot_card.CardData != null ? slot_card.CardData.id : "null"));
-                NodeDocRunner.Run(logic, graph, caster, slot_card, null, trigger_action, ability: ability);
+                //★D 批：把槽位一并带入 —— AllSlots/落点结算时引擎已选好槽，召唤类动作要落到这个槽
+                NodeDocRunner.Run(logic, graph, caster, slot_card, null, trigger_action, ability: ability, target_slot: target);
             }
             else
             {
@@ -64,7 +77,7 @@ namespace TcgEngine
                 Card hero = tplayer != null ? tplayer.hero : null;   //同上：打脸也把英雄卡作为目标卡传入
                 Debug.Log("[RunGraph] 图执行触发(空格/打脸) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
                     + " 目标玩家=p" + (tplayer != null ? tplayer.player_id.ToString() : "null"));
-                NodeDocRunner.Run(logic, graph, caster, hero, tplayer, trigger_action, ability: ability);
+                NodeDocRunner.Run(logic, graph, caster, hero, tplayer, trigger_action, ability: ability, target_slot: target);
             }
         }
     }

@@ -14,11 +14,6 @@ namespace TcgEngine.UI
         public bool is_opponent;
         public TurnHistoryLine[] history_lines;
 
-        void Start()
-        {
-
-        }
-
         void Update()
         {
             if (!GameClient.Get().IsReady())

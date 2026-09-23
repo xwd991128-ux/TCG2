@@ -13,11 +13,6 @@ namespace TcgEngine.FX
         public Transform target;
         public Vector3 offset = Vector3.zero;
 
-        void Start()
-        {
-
-        }
-
         void Update()
         {
             if (target == null)

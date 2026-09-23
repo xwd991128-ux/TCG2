@@ -78,6 +78,15 @@ namespace TcgEngine.UI
                 icon.onClick += OnClickCardback;
         }
 
+        private void OnDestroy()
+        {
+            foreach (AvatarUI icon in avatars)
+                icon.onClick -= OnClickAvatar;
+
+            foreach (CardbackUI icon in cardbacks)
+                icon.onClick -= OnClickCardback;
+        }
+
         protected override void Update()
         {
             base.Update();

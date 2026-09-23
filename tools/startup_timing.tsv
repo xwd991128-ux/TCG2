@@ -1,0 +1,15 @@
+# 启动耗时打点（列：阶段｜realtimeSinceStartup｜墙钟｜自进Play秒｜自BeforeScene秒）
+# realtimeSinceStartup 在进 Play 时从 0 起算 → 它就是「进 Play 到现在」的秒数
+BeforeSceneLoad	2.456	07:16:46.027	since_play=2.456	since_beforeScene=0.000
+AfterSceneLoad	5.685	07:16:49.255	since_play=5.685	since_beforeScene=3.229
++1s	7.022	07:16:50.592	since_play=7.022	since_beforeScene=4.566
++3s	8.692	07:16:52.262	since_play=8.692	since_beforeScene=6.235
+AfterSceneLoad	1.166	07:17:25.235	since_play=1.166	since_beforeScene=1.007
++1s	2.171	07:17:26.239	since_play=2.171	since_beforeScene=2.013
++3s	4.173	07:17:28.242	since_play=4.173	since_beforeScene=4.015
+AfterSceneLoad	1.184	07:18:58.110	since_play=1.185	since_beforeScene=1.021
++1s	2.188	07:18:59.114	since_play=2.188	since_beforeScene=2.024
++3s	4.188	07:19:01.114	since_play=4.188	since_beforeScene=4.025
+AfterSceneLoad	1.165	07:21:38.405	since_play=1.165	since_beforeScene=1.004
++1s	4.482	07:21:41.722	since_play=4.482	since_beforeScene=4.321
++3s	4.496	07:21:41.734	since_play=4.496	since_beforeScene=4.334

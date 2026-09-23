@@ -119,7 +119,8 @@ namespace TcgEngine.Client
             if (equipment != null && equipment.IsFocus())
                 target_alpha = 0f;
 
-            Color ccolor = player.player_id == card.player_id ? glow_ally : glow_enemy;
+            //观察者/本地玩家尚未就绪时 GetPlayer() 返回 null，不能直接取 player_id
+            Color ccolor = (player != null && player.player_id == card.player_id) ? glow_ally : glow_enemy;
             float calpha = Mathf.MoveTowards(card_glow.color.a, target_alpha * ccolor.a, 4f * Time.deltaTime);
             card_glow.color = new Color(ccolor.r, ccolor.g, ccolor.b, calpha);
             card_shadow.enabled = !destroyed && timer > 0.4f;
@@ -181,7 +182,7 @@ namespace TcgEngine.Client
             foreach (AbilityButton button in buttons)
                 button.Hide();
 
-            if (selected && card.player_id == player.player_id)
+            if (selected && player != null && card.player_id == player.player_id)
             {
                 int index = 0;
                 List<AbilityData> abilities = card.GetAbilities();

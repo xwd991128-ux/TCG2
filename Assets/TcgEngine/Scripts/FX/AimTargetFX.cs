@@ -13,11 +13,6 @@ namespace TcgEngine.FX
     {
         public GameObject fx;
 
-        void Start()
-        {
-
-        }
-
         void Update()
         {
             bool visible = false;

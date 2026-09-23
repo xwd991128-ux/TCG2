@@ -35,6 +35,13 @@ namespace TcgEngine.UI
             SetLoadText("Connecting to server...");
         }
 
+        private void OnDestroy()
+        {
+            GameClient.Get().onConnectGame -= OnConnect;
+            GameClient.Get().onPlayerReady -= OnReady;
+            GameClient.Get().onGameStart -= OnStart;
+        }
+
         private void OnConnect()
         {
             SetLoadText("Sending player data...");

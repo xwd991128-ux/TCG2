@@ -37,7 +37,8 @@ namespace TcgEngine.UI
 
         private void Awake()
         {
-            default_avat = avatar.sprite;
+            if (avatar != null)
+                default_avat = avatar.sprite;
 
             if (accept_btn != null)
                 accept_btn.onClick.AddListener(() => { onClickAccept?.Invoke(this); });
@@ -53,10 +54,11 @@ namespace TcgEngine.UI
         {
             fdata = user;
             username.text = user.username;
-            avatar.sprite = default_avat;
 
             if (avatar != null)
             {
+                avatar.sprite = default_avat;
+
                 AvatarData avat = AvatarData.Get(user.avatar);
                 if (avat != null)
                     avatar.sprite = avat.avatar;

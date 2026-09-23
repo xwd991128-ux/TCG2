@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ffe471ca39ebd8498e7bf9c2bc441f9, type: 3}
+  m_Name: brawl_09
+  m_EditorClassIdentifier: 
+  id: brawl_09
+  title: "\u4E71\u6597 \xB7 \u7CBE\u7B80\u724C\u7EC4"
+  desc: "\u4E3B\u5361 25 \u5F20\uFF1B\u540C\u540D \u22643\uFF1B\u4F20\u8BF4 \u22641\u3002\u4E3B\u5361\u6700\u591A
+    9 \u79CD\u4E0D\u540C\u7684\u5361\u3002"
+  deck_size: 25
+  max_copies: 3
+  max_legendary: 1
+  zones: []
+  constraints:
+  - scope: 10
+    zone_id: 
+    attr: 10
+    op: 0
+    value: 9
+    attr_id: 
+    message: "\u4E71\u6597\u89C4\u5219\uFF1A\u4E3B\u5361\u6700\u591A\u53EA\u80FD\u7528
+      9 \u79CD\u4E0D\u540C\u7684\u5361\u3002"
+  optional_modifiers: []
+  predicates: []

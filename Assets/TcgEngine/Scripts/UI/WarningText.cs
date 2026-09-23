@@ -27,11 +27,6 @@ namespace TcgEngine.UI
             canvas_group.alpha = 0f;
         }
 
-        void Update()
-        {
-
-        }
-
         public void Show(string txt)
         {
             text.text = txt;

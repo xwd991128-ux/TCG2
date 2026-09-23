@@ -33,11 +33,6 @@ namespace TcgEngine.Client
                 AudioTool.Get().PlaySFX("ambience", game_ambience[Random.Range(0, game_ambience.Length)], 0.5f, true);
         }
 
-        void Update()
-        {
-
-        }
-
         public static SceneSettings Get()
         {
             return instance;

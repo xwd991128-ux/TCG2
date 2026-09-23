@@ -863,6 +863,9 @@ namespace TcgEngine.Gameplay
                 //主体卡「广播后」快照（108009 用）
                 if (ctx.card != null)
                     ctx.card_after = Card.CloneNew(ctx.card);
+                //★玩家自定义事件节点（DIY「事件声明」）：XX时 / XX后 两段编排随同一次广播执行
+                //  （内部按 listen_action 匹配 + 异常隔离，坏图不影响对局；不配置监听事件的定义不参与）
+                NodeDocRunner.RunCustomEventDefs(this, ctx);
                 return ctx.cancelled;
             }
             finally
@@ -2292,9 +2295,7 @@ namespace TcgEngine.Gameplay
         //A card that kills another card
         public virtual void KillCard(Card attacker, Card target)
         {
-
-
-            if (attacker == null || target == null)
+            if (target == null)
                 return;
 
             if (!game_data.IsOnBoard(target) && !game_data.IsEquipped(target))
@@ -2303,12 +2304,20 @@ namespace TcgEngine.Gameplay
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Cant be killed
 
-            Player pattacker = game_data.GetPlayer(attacker.player_id);
-            if (attacker.player_id != target.player_id)
-                pattacker.kill_count++;
-                DiscardCard(target, CardDiscardReason.Death);
+            //attacker 为 null = 规则致死（EndTurn 结算 Doomed / Freezing 就是这么调的）：不计击杀数
+            if (attacker != null)
+            {
+                Player pattacker = game_data.GetPlayer(attacker.player_id);
+                if (pattacker != null && attacker.player_id != target.player_id)
+                    pattacker.kill_count++;
+            }
 
-            TriggerCardAbilityType(AbilityTrigger.OnKill, attacker, target);
+            DiscardCard(target, CardDiscardReason.Death);
+
+            //OnKill 只在确有击杀者时触发：TriggerCardAbilityType 第一步就是 caster.GetAbilities()，
+            //传 null 会直接空引用（原先那句 attacker==null 早退其实是在掩盖这里）
+            if (attacker != null)
+                TriggerCardAbilityType(AbilityTrigger.OnKill, attacker, target);
         }
 
         //Send card into discard（reason 区分 死亡/弃置，用于图事件 弃牌时/后、死亡时/后）
@@ -2566,11 +2575,6 @@ namespace TcgEngine.Gameplay
             else if (iability.target == AbilityTarget.ChoiceSelector)
             {
                 GoToSelectorChoice(iability, caster);
-                return true;
-            }
-            else if (iability.target == AbilityTarget.ChoiceSelector)
-            {
-                GoToSelectorChoice2(iability, caster);
                 return true;
             }
             return false;
@@ -3763,16 +3767,6 @@ namespace TcgEngine.Gameplay
         protected virtual void GoToSelectorChoice(AbilityData iability, Card caster)
         {
             game_data.selector = SelectorType.SelectorChoice;
-            game_data.selector_player_id = caster.player_id;
-            game_data.selector_ability_id = iability.id;
-            game_data.selector_caster_uid = caster.uid;
-            RefreshData();
-        }
-
-
-        protected virtual void GoToSelectorChoice2(AbilityData iability, Card caster)
-        {
-            game_data.selector = SelectorType.SelectorChoice2;
             game_data.selector_player_id = caster.player_id;
             game_data.selector_ability_id = iability.id;
             game_data.selector_caster_uid = caster.uid;

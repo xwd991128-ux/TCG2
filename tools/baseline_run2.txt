@@ -1,0 +1,376 @@
+# BaselineRecorder  seed=12345  started=2026-09-19 13:41:10
+# 说明：不含 uid（不可复现）；卡按 card_id 排序；同 seed 两次运行必须逐字节相同
+# format: T<seq> <event> ... | S<seq> turn=.. cur=.. P0[..] P1[..] <zone>:<id>,hp,atk,mana,dmg,exh,sig;...
+S1 turn=0 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=0/0 mana=0/0/0 kills=0 skip=0 n=0/0/0/0/0/0/0
+  P1 hp=0/0 mana=0/0/0 kills=0 skip=0 n=0/0/0/0/0/0/0
+
+T0 card_drawn player=5
+T1 card_drawn player=5
+T2 card_drawn player=0
+T3 card_drawn player=0
+S2 turn=1 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=30/30 mana=2/2/12 kills=0 skip=0 n=25/6/0/0/0/0/0
+    hand:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=30/30 mana=3/3/12 kills=0 skip=0 n=0/4/0/0/0/0/0
+    hand:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T4 card_played card=woodland@P1 slot=TcgEngine.Slot
+T5 card_drawn player=1
+S3 turn=1 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=30/30 mana=3/3/12 kills=0 skip=0 n=24/7/0/0/0/0/0
+    hand:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=30/30 mana=1/3/12 kills=0 skip=0 n=0/3/1/0/0/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T6 card_played card=cave@P0 slot=TcgEngine.Slot
+T7 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T8 player_damaged player=P1 value=2
+T9 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T10 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T11 card_drawn player=1
+S4 turn=2 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=30/30 mana=0/3/12 kills=0 skip=0 n=24/6/1/0/0/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=28/30 mana=4/4/12 kills=0 skip=0 n=0/3/1/0/0/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T12 ability_start ab=turn_green_heal caster=woodland@P1
+T13 card_healed card=woodland@P1 value=3
+T14 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T15 ability_end ab=turn_green_heal caster=woodland@P1
+T16 card_played card=woodland@P1 slot=TcgEngine.Slot
+T17 card_played card=woodland@P1 slot=TcgEngine.Slot
+T18 card_drawn player=1
+S5 turn=2 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=30/30 mana=4/4/12 kills=0 skip=0 n=23/7/1/0/0/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=28/30 mana=0/4/12 kills=0 skip=0 n=0/1/3/0/0/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T19 card_played card=spell_burn@P0 slot=TcgEngine.Slot
+T20 ability_start ab=play_deal_damage5 caster=spell_burn@P0
+T21 card_damaged card=woodland@P1 value=5
+T22 card_discarded card=woodland@P1
+T23 ability_target_card ab=play_deal_damage5 caster=spell_burn@P0 target=woodland@P1
+T24 ability_end ab=play_deal_damage5 caster=spell_burn@P0
+T25 card_played card=coin@P0 slot=TcgEngine.Slot
+T26 ability_start ab=spell_coin caster=coin@P0
+T27 ability_target_player ab=spell_coin caster=coin@P0 target=P0
+T28 ability_end ab=spell_coin caster=coin@P0
+T29 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T30 player_damaged player=P1 value=2
+T31 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T32 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T33 card_drawn player=1
+S6 turn=3 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=30/30 mana=1/4/12 kills=1 skip=0 n=23/5/1/0/2/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=26/30 mana=5/5/12 kills=0 skip=0 n=0/1/2/0/1/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T34 ability_start ab=turn_green_heal caster=woodland@P1
+T35 card_healed card=woodland@P1 value=3
+T36 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T37 card_healed card=woodland@P1 value=3
+T38 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T39 ability_end ab=turn_green_heal caster=woodland@P1
+T40 ability_start ab=turn_green_heal caster=woodland@P1
+T41 card_healed card=woodland@P1 value=3
+T42 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T43 card_healed card=woodland@P1 value=3
+T44 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T45 ability_end ab=turn_green_heal caster=woodland@P1
+T46 card_played card=woodland@P1 slot=TcgEngine.Slot
+T47 ability_start ab=activate_fire caster=hero_fire@P1
+T48 player_damaged player=P0 value=1
+T49 ability_target_player ab=activate_fire caster=hero_fire@P1 target=P0
+T50 ability_end ab=activate_fire caster=hero_fire@P1
+T51 card_drawn player=1
+S7 turn=3 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=29/30 mana=5/5/12 kills=1 skip=0 n=22/6/1/0/2/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=26/30 mana=1/5/12 kills=0 skip=0 n=0/0/3/0/1/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T52 card_played card=imp@P0 slot=TcgEngine.Slot
+T53 ability_start ab=play_deal_damage1 caster=imp@P0
+T54 card_damaged card=woodland@P1 value=1
+T55 ability_target_card ab=play_deal_damage1 caster=imp@P0 target=woodland@P1
+T56 ability_end ab=play_deal_damage1 caster=imp@P0
+T57 ability_start ab=activate_fire caster=hero_fire@P0
+T58 card_damaged card=cave@P0 value=1
+T59 ability_target_card ab=activate_fire caster=hero_fire@P0 target=cave@P0
+T60 ability_end ab=activate_fire caster=hero_fire@P0
+T61 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T62 player_damaged player=P1 value=2
+T63 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T64 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T65 card_drawn player=1
+S8 turn=4 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=29/30 mana=2/5/12 kills=1 skip=0 n=22/5/2/0/2/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=24/30 mana=6/6/12 kills=0 skip=0 n=0/0/3/0/1/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=1,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T66 ability_start ab=turn_green_heal caster=woodland@P1
+T67 card_healed card=woodland@P1 value=3
+T68 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T69 card_healed card=woodland@P1 value=3
+T70 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T71 card_healed card=woodland@P1 value=3
+T72 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T73 ability_end ab=turn_green_heal caster=woodland@P1
+T74 ability_start ab=turn_green_heal caster=woodland@P1
+T75 card_healed card=woodland@P1 value=3
+T76 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T77 card_healed card=woodland@P1 value=3
+T78 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T79 card_healed card=woodland@P1 value=3
+T80 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T81 ability_end ab=turn_green_heal caster=woodland@P1
+T82 ability_start ab=turn_green_heal caster=woodland@P1
+T83 card_healed card=woodland@P1 value=3
+T84 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T85 card_healed card=woodland@P1 value=3
+T86 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T87 card_healed card=woodland@P1 value=3
+T88 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T89 ability_end ab=turn_green_heal caster=woodland@P1
+T90 ability_start ab=activate_fire caster=hero_fire@P1
+T91 card_damaged card=imp@P0 value=1
+T92 ability_target_card ab=activate_fire caster=hero_fire@P1 target=imp@P0
+T93 card_discarded card=imp@P0
+T94 ability_end ab=activate_fire caster=hero_fire@P1
+T95 card_drawn player=1
+S9 turn=4 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=29/30 mana=6/6/12 kills=1 skip=0 n=21/6/1/0/3/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=24/30 mana=4/6/12 kills=0 skip=0 n=0/0/3/0/1/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T96 ability_start ab=activate_fire caster=hero_fire@P0
+T97 player_damaged player=P0 value=1
+T98 ability_target_player ab=activate_fire caster=hero_fire@P0 target=P0
+T99 ability_end ab=activate_fire caster=hero_fire@P0
+T100 card_played card=spell_burn@P0 slot=TcgEngine.Slot
+T101 ability_start ab=play_deal_damage5 caster=spell_burn@P0
+T102 card_damaged card=woodland@P1 value=5
+T103 card_discarded card=woodland@P1
+T104 ability_target_card ab=play_deal_damage5 caster=spell_burn@P0 target=woodland@P1
+T105 ability_end ab=play_deal_damage5 caster=spell_burn@P0
+T106 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T107 player_damaged player=P1 value=2
+T108 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T109 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T110 card_drawn player=1
+S10 turn=5 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=28/30 mana=0/6/12 kills=2 skip=0 n=21/5/1/0/4/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=22/30 mana=7/7/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T111 ability_start ab=turn_green_heal caster=woodland@P1
+T112 card_healed card=woodland@P1 value=3
+T113 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T114 card_healed card=woodland@P1 value=3
+T115 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T116 ability_end ab=turn_green_heal caster=woodland@P1
+T117 ability_start ab=turn_green_heal caster=woodland@P1
+T118 card_healed card=woodland@P1 value=3
+T119 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T120 card_healed card=woodland@P1 value=3
+T121 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T122 ability_end ab=turn_green_heal caster=woodland@P1
+T123 ability_start ab=activate_fire caster=hero_fire@P1
+T124 player_damaged player=P0 value=1
+T125 ability_target_player ab=activate_fire caster=hero_fire@P1 target=P0
+T126 ability_end ab=activate_fire caster=hero_fire@P1
+T127 card_drawn player=1
+S11 turn=5 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=27/30 mana=7/7/12 kills=2 skip=0 n=20/6/1/0/4/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=22/30 mana=5/7/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T128 card_played card=spell_armageddon@P0 slot=TcgEngine.Slot
+T129 ability_start ab=spell_damage4 caster=spell_armageddon@P0
+T130 player_damaged player=P1 value=4
+T131 ability_target_player ab=spell_damage4 caster=spell_armageddon@P0 target=P1
+T132 ability_end ab=spell_damage4 caster=spell_armageddon@P0
+T133 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T134 player_damaged player=P1 value=2
+T135 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T136 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T137 card_drawn player=1
+S12 turn=6 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=27/30 mana=0/7/12 kills=2 skip=0 n=20/5/1/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=16/30 mana=8/8/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T138 ability_start ab=turn_green_heal caster=woodland@P1
+T139 card_healed card=woodland@P1 value=3
+T140 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T141 card_healed card=woodland@P1 value=3
+T142 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T143 ability_end ab=turn_green_heal caster=woodland@P1
+T144 ability_start ab=turn_green_heal caster=woodland@P1
+T145 card_healed card=woodland@P1 value=3
+T146 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T147 card_healed card=woodland@P1 value=3
+T148 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T149 ability_end ab=turn_green_heal caster=woodland@P1
+T150 ability_start ab=activate_fire caster=hero_fire@P1
+T151 player_damaged player=P0 value=1
+T152 ability_target_player ab=activate_fire caster=hero_fire@P1 target=P0
+T153 ability_end ab=activate_fire caster=hero_fire@P1
+T154 card_drawn player=1
+S13 turn=6 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=26/30 mana=8/8/12 kills=2 skip=0 n=19/6/1/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=16/30 mana=6/8/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T155 card_played card=firefox@P0 slot=TcgEngine.Slot
+T156 card_played card=town_volcano@P0 slot=TcgEngine.Slot
+T157 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T158 player_damaged player=P1 value=2
+T159 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T160 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T161 card_drawn player=1
+S14 turn=7 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=26/30 mana=0/8/12 kills=2 skip=0 n=19/4/3/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=2/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=14/30 mana=9/9/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T162 ability_start ab=turn_green_heal caster=woodland@P1
+T163 card_healed card=woodland@P1 value=3
+T164 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T165 card_healed card=woodland@P1 value=3
+T166 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T167 ability_end ab=turn_green_heal caster=woodland@P1
+T168 ability_start ab=turn_green_heal caster=woodland@P1
+T169 card_healed card=woodland@P1 value=3
+T170 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T171 card_healed card=woodland@P1 value=3
+T172 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T173 ability_end ab=turn_green_heal caster=woodland@P1
+T174 ability_start ab=activate_fire caster=hero_fire@P1
+T175 player_damaged player=P0 value=1
+T176 ability_target_player ab=activate_fire caster=hero_fire@P1 target=P0
+T177 ability_end ab=activate_fire caster=hero_fire@P1
+T178 card_drawn player=1
+S15 turn=7 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=25/30 mana=9/9/12 kills=2 skip=0 n=18/5/3/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=2/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=14/30 mana=7/9/12 kills=0 skip=0 n=0/0/2/0/2/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T179 attack_start attacker=firefox@P0 defender=woodland@P1
+T180 card_damaged card=woodland@P1 value=6
+T181 card_discarded card=woodland@P1
+T182 card_damaged card=firefox@P0 value=0
+T183 attack_end attacker=firefox@P0 defender=woodland@P1
+T184 card_played card=phoenix@P0 slot=TcgEngine.Slot
+T185 ability_start ab=turn_end_damage_hero_2 caster=cave@P0
+T186 player_damaged player=P1 value=2
+T187 ability_target_player ab=turn_end_damage_hero_2 caster=cave@P0 target=P1
+T188 ability_end ab=turn_end_damage_hero_2 caster=cave@P0
+T189 card_drawn player=1
+S16 turn=8 cur=1 rolled=0 selected=0 reason=turn
+  P0 hp=25/30 mana=3/9/12 kills=3 skip=0 n=18/4/4/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=1,on=2/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=2/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=12/30 mana=10/10/12 kills=0 skip=0 n=0/0/1/0/3/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T190 ability_start ab=turn_green_heal caster=woodland@P1
+T191 card_healed card=woodland@P1 value=3
+T192 ability_target_card ab=turn_green_heal caster=woodland@P1 target=woodland@P1
+T193 ability_end ab=turn_green_heal caster=woodland@P1
+T194 ability_start ab=activate_fire caster=hero_fire@P1
+T195 player_damaged player=P0 value=1
+T196 ability_target_player ab=activate_fire caster=hero_fire@P1 target=P0
+T197 ability_end ab=activate_fire caster=hero_fire@P1
+T198 card_drawn player=1
+S17 turn=8 cur=0 rolled=0 selected=0 reason=turn
+  P0 hp=24/30 mana=10/10/12 kills=3 skip=0 n=17/5/4/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=2/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=2/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=12/30 mana=8/10/12 kills=0 skip=0 n=0/0/1/0/3/0/0
+    board:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+T199 player_damaged player=P1 value=8
+T200 attack_start attacker=firefox@P0 defender=woodland@P1
+T201 card_damaged card=woodland@P1 value=6
+T202 card_discarded card=woodland@P1
+T203 card_damaged card=firefox@P0 value=0
+T204 attack_end attacker=firefox@P0 defender=woodland@P1
+S18 turn=8 cur=0 rolled=0 selected=0 reason=game_end
+  P0 hp=24/30 mana=10/10/12 kills=4 skip=0 n=17/5/4/0/5/0/0
+    board:cave,hp=5,atk=0,mana=3,dmg=1,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=1,on=2/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=1,on=2/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    hand:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;dragon_red,hp=7,atk=9,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17
+    discard:coin,hp=0,atk=0,mana=0,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;spell_burn,hp=0,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+    deck:ashes_snake,hp=3,atk=5,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;fire_chicken,hp=1,atk=2,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;fire_element,hp=3,atk=4,mana=5,dmg=0,exh=0,on=0/0/0,sig=17;firefox,hp=4,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;hell_hound,hp=2,atk=4,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;imp,hp=1,atk=1,mana=1,dmg=0,exh=0,on=0/0/0,sig=17;lava_beast,hp=3,atk=2,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;phoenix,hp=6,atk=6,mana=6,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;potion_red,hp=0,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;spell_armageddon,hp=0,atk=0,mana=7,dmg=0,exh=0,on=0/0/0,sig=17;town_volcano,hp=7,atk=0,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;trap_explosive,hp=0,atk=0,mana=3,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17;wolf_furious,hp=4,atk=2,mana=4,dmg=0,exh=0,on=0/0/0,sig=17
+  P1 hp=4/30 mana=8/10/12 kills=0 skip=0 n=0/0/0/0/4/0/0
+    discard:woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17;woodland,hp=5,atk=0,mana=2,dmg=0,exh=0,on=0/0/0,sig=17
+
+# END reason=ended dumps=18 seq=205 at=2026-09-19 13:42:05

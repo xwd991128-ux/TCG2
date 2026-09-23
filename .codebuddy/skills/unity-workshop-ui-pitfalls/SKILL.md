@@ -573,6 +573,53 @@ Console 无报错。
 
 ---
 
+## 坑 32：节点编辑器的「框选 / Shift 多选 / 批量操作」（2026-09 新增，用户点名要的）
+
+四件事的落点与坑（`GraphEditorPanel` + `GraphCanvas`，卡牌/增益/按钮/关键词四种模式共用同一个面板 → 改一处全覆盖）：
+
+1. **左键拖空白 = 框选** ⇒ **平移必须让位给中键/右键**：`GraphCanvas.OnBeginDrag` 里按 `eventData.button` 分流
+   （中/右键拖=平移；左键在 `content` 子对象上=交给 `NodeDragger/NodePin`；左键在空白=框选）。
+   直接照旧"左键拖空白=平移"再加框选会**互相抢**；同时 `OnPointerClick` 要限定左键，否则右键平移收尾还会触发"取消选中"。
+2. **选框自己会截断拖拽**：选框 `Image.raycastTarget = false`，否则拖拽中途鼠标压到选框上，事件被它吃掉、框不再更新
+   （表现是"框选拉一下就卡住"）。选框挂**画布视口**下（不是 `content` 下）+ `SetAsLastSibling()`：不受 `content.localScale` 影响、永远画在节点之上。
+3. **命中判定在 `content` 局部坐标**：`ScreenToContent` 换算选框两角 → `Rect.MinMaxRect` → 每个节点矩形用
+   `new Rect(rt.anchoredPosition + rt.rect.position, rt.rect.size)`（`rect` 是相对 pivot 的局部矩形；直接用 `sizeDelta` 会错）。
+4. **"多选集合"与"主选中"是两个概念**：`selected_nodes`（HashSet，批量删除/复制/整组拖动）+ `selected_node`（主选中，
+   右侧参数面板/缺输入提示用它）。高亮分四级：主选中深蓝 > 多选次蓝 > 缺输入暗红 > 默认灰。
+   **所有"清选中"的地方都要清集合**（`RebuildCanvas`、`DeselectNode`、节点收起 `SetCollapsed`、删节点），
+   否则会出现"看不见但还被选中"的幽灵节点——之后一按 Delete 就把刚删掉的东西又删一遍。
+5. **复制缓冲存 JSON 快照，不存引用**：撤销/重做走 `JsonUtility.FromJsonOverwrite(graph)` → 图里的对象会被换掉，存引用会指向"已不在图里"的对象。
+   批量粘贴要顺带还原**块内连线**（`GraphLink` 的引脚 id = `节点id_引脚名` → 用"旧 id → 新 id"映射重建），
+   否则"复制一整块"粘出来是散件。
+6. **打字时不能抢快捷键**：`HandleShortcuts` 先判 `EventSystem.current.currentSelectedGameObject` 是不是
+   `TMP_InputField/InputField/TMP_Dropdown/Dropdown` → 是就直接 return。否则在卡名框里按 Delete 会删节点、Ctrl+V 会把卡名粘成节点。
+7. **「清空」按钮运行时自建**：场景由生成工具生成，直接加场景按钮要动 `.unity`（坑：见坑 31 末尾）。做法=照 `btn_reset` 的
+   `anchor/pivot/sizeDelta/Image.sprite` 复制一份放它右边，父级有 `LayoutGroup` 时补 `LayoutElement`（否则被压成 0）；文本走 `MakeNodeTmpText`（TMP + 项目字体）。
+   行为必须 `PushUndo()` 后再清（可 Ctrl+Z），且只清**当前效果图**（`graph` == 当前 tab 那张）。
+
+**验证方式（不靠眼睛，可回归）**：`tools/probe/GraphSelectionProbe.cs`（临时探针，建 `tools/graph_sel_flag.txt` → 进 Play）：
+找面板实例 → 注入合成 GraphData（**不碰任何资产、不调 OnSave**）→ 用面板自己的 `AddNodeFromPreset` 建 3 个真节点（引脚由真实代码生成）
+→ 位置拉开 → 加 2 条连线 → 反射调 `SelectNode/OnRubberBandEnd/DeleteSelectedNodes/Copy+Paste/OnClearEffect/Undo`，
+写 `tools/graph_selection_result.tsv`。**当前 16 项断言全 PASS**：框选只命中框内节点、未拖动不选、批量删除连着一并删、撤销整批还原、
+复制粘贴后"块内连线"也还原（3→6 节点、2→4 连线）、清空→0/0 且可撤销。
+> 探针里"Shift 点击"不便模拟 → 直接操作 `selected_nodes` 集合；鼠标路径靠 `OnRubberBandEnd(屏幕矩形)` 走真实几何换算。
+
+---
+
+## 坑 33：新增一类"变量配置"编辑器（自定义节点，2026-09）——接缝清单
+
+规矩：**一类变量 = 数据类 + IO + `VariableSelectPopup.Kind` + 卡池编辑器入口 + `GraphEditorPanel` 一个模式**。少登记任何一处都会"点了没反应/保存写错文件/模式串台"。
+
+1. **数据 + IO**：照 `BattleButtonData`/`BattleButtonConfig`（多图用 `List<CardEffectData> graphs` + `EnsureGraphs()`）与 `BattleButtonIO`（独立 `Workshop/xxx.json` + `GetAll/Get/Add/Remove/New/Duplicate/SaveAll`）；**`DataLoader` 里加 `LoadAll()`**（否则启动后缓存里没有）。
+2. **弹框**：`VariableSelectPopup.Kind` 加一项，并补 **4处**：`KindName`、`KindColor`、`LoadEntries`、`CreateItem`/`DeleteItem`（都是 switch，漏了就是"列表空/新增无效"）。
+3. **卡池编辑器入口**：`CardEditorPanel` 加 `public Button btn_xxx` + `ApplyEditorLayout` 里 `CreateLayoutButton(...)` + `RewireVariableButton(btn, Kind.X)` + `MoveToBar(...)`；`OpenVariableEditor` 加 case → 一个 `OpenXxxEditor(id)`（照 `OpenButtonEditor`：`LoadAll()` 兜底 → `FindObjectOfType<GraphEditorPanel>(true)` → `VariableSelectPopup.CloseAll(); Hide(); panel.return_to = this; panel.OpenXxx(...)`）。**`return_to`/`Hide` 少一个 = 返回黑屏**。
+4. **`GraphEditorPanel` 新模式**：字段 `editing_xxx` + `IsXxxMode` + **在其它 4 个 `OpenXXX` 里全部清空**（模式串台的经典来源）+ `CardEffects()` 分支 + `SyncLegacyGraphField()` 分支 + `ApplyBuffModeUI()` 的 Tab 名/面板显隐 + `OnSave()` 分支 + `OnClose()` 分支。
+5. **数据驱动的端口**（自定义节点的关键）：画布渲染**只读 `GraphNode.pins`**（`CreateNodeUI → foreach(node.pins) → CreatePinUI`），`NodePreset.pins` 只在建节点时经 `BuildPins` 转一次 → 所以"端口由玩家定"只需把端口写进 `GraphNode.pins`（引脚 id = `节点id_端口名`，名字不变则连线保留）。
+6. **节点库注册**：`AllPresets()` 里 `AddRange(BuildXxxPresets())`；注意它是**静态缓存** → 新建/保存后要 `all_presets_cache = null;` 再 `RefreshNodeLib()`（否则"新建了节点库里还是看不到"）。
+7. **验收探针**：`tools/probe/CustomNodeProbe.cs`（建 `tools/custom_node_flag.txt` → 进 Play）——12 项断言全 PASS：新建/端口增删移/蓝图块引脚/类型切换/事件自动生成 XX时·XX后并各自成图/校验抓空端口名/保存落盘+重载/节点库注册。**探针会清理自己造的测试节点，不留脏数据。**
+
+---
+
 # 附录：本项目"卡牌/增益编辑器"开发复盘与问题统计（2026-09）
 
 ## A. 功能清单（本轮开发产出）

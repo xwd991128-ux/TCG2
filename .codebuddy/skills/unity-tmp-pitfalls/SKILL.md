@@ -60,6 +60,29 @@ UnityEngine.UI.CanvasUpdateRegistry.PerformUpdate ()
 **修法**：绑定完组件后（未聚焦时）重启一次 `enabled`，并设 `caretColor = Color.white` —— 已在
 `TmpInputUtil.Guard` 内实现。
 
+## 坑 4：单行输入框文字**贴顶**（不垂直居中）+ 打字后**多一个空格**（2026-09 用户实报）
+
+两个症状一个共同来源：**旧版 uGUI `InputField` → `TMP_InputField` 的转换**（`GraphEditorPanel.ConvertInputToTMP`）。
+
+**① 文字贴顶**：旧版 Text 的对齐常是 `UpperLeft`，`ToTmpAlignment` 会映射成 TMP 的 `TopLeft`（贴顶）；
+而 TMP 里"垂直居中"的枚举是 **`TextAlignmentOptions.Left`（= MidlineLeft）**，不是 `TopLeft`。
+另外旧框的文本 rect 常是"下留 4 / 上留 0"的不对称内边距（实测 `offsetMin=(10,4) offsetMax=(0,0)`、高 32 vs 框 36）→ 叠加起来看着明显偏上。
+**修法**：`TmpInputUtil.NormalizeLayout(inp)` —— **单行**框强制 `alignment = Left`，并把文本 rect 上下留白改成对称
+（`pad = min(|min.y|,|max.y|)`，保证不裁字）；多行框（卡牌文本/描述）保持顶端对齐**不动**。已挂在 `Guard()` 里 → 全项目输入框统一生效。
+
+**② 多一个空格**：`TmpInputUtil` 为了绕开坑 1（空文本越界崩溃）会给**空输入框写一个空格占位**，
+用户接着打字时这个空格会留在文本里（"abc" 变成 " abc"/"abc "）；如果这个值再被当成**搜索关键词**，
+筛选就永远搜不到东西。
+**修法**：`Guard()` 里给 `onSelect` 挂 `BeginEdit(inp)` —— **聚焦瞬间**把"只有占位空白"的文本清成真空串
+（此时处于聚焦态，不会触发坑 1 的崩溃路径；失焦时 `onEndEdit→EnsureNotEmpty` 立刻补回占位兜底）。
+业务侧读取一律用 `TmpInputUtil.Read()`（占位/首尾空白 → 空串），例如节点库搜索框。
+
+**诊断手法（不要靠眼睛）**：`tools/probe/InputLayoutProbe.cs`（临时探针，建 `tools/input_probe_flag.txt` → 进 Play）
+打开面板 → 调 `EnsureTmpUI` + **`GuardAllInputs`**（不跑这个，修复不会生效，会误判"没修好"）→
+dump 每个输入框的 `alignment` / 文本 rect 的 anchors+offsets / **字符码点**（空格=32、零宽空格=8203 一眼看穿）
+→ 写 `tools/input_layout.tsv`。修复后自检 5 项全 PASS：两个框 `alignment=Left` 且相对中心偏移=0、
+聚焦后文本清空、失焦兜底补回占位、写入 `abc` 读回仍是 `abc`（无多余空格）。
+
 ## 字体解析的两级探测（`UIFonts`）
 
 - `FontProbe`（核心）：中文 + `√×`；**不合格即弃用**（避免半屏方块）。

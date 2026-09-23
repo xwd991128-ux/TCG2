@@ -41,9 +41,12 @@ namespace TcgEngine.AI
         private NodeState first_node = null;
         private NodeState best_move = null;
 
-        private bool running = false;
-        private int nb_calculated = 0;
-        private int reached_depth = 0;
+        //★ 跨线程状态：worker 线程写、主线程读（AIPlayerMM 用 while(IsRunning()) 轮询，再调各种 Get 接口）。
+        //  volatile 保证可见性；running 同时承担"结果已发布"的屏障职责（Execute 里先写 best_move，最后才置 running=false）。
+        private volatile bool running = false;
+        private volatile bool stop_requested = false;   //协作式取消：Stop() 只置此标记，由搜索循环自己退出
+        private volatile int nb_calculated = 0;
+        private volatile int reached_depth = 0;
 
         private System.Random random_gen;
 
@@ -79,21 +82,35 @@ namespace TcgEngine.AI
             first_node = null;
             reached_depth = 0;
             nb_calculated = 0;
+            stop_requested = false;                     //★ 新一轮开始，清掉上一轮的取消请求
             running = true;
 
             //Uncomment these lines to run on separate thread (and comment Execute()), better for production so it doesn't freeze the UI while calculating the AI
             ai_thread = new Thread(Execute);
+            ai_thread.IsBackground = true;               //★ 后台线程：某次搜索拖很久时也不会卡住 Unity 退出
             ai_thread.Start();
 
             //Uncomment this line to run on main thread (and comment the thread one), better for debuging since you will be able to use breakpoints, profiler and Debug.Log
             //Execute();
         }
 
+        /// <summary>
+        /// 请求停止本轮搜索（协作式取消）。
+        ///
+        /// 不再使用 Thread.Abort()：
+        ///  ① 它在 CoreCLR/.NET 5+ 上直接抛 PlatformNotSupportedException（Mono 上可用但已属弃用）；
+        ///  ② 即使可用，它会把 worker 杀在 pool / game_logic 的中间状态里；
+        ///  ③ 它**返回时 worker 并没有真正结束** —— 而旧实现同时把 running 置了 false，
+        ///     于是 AIPlayerMM 的 while(IsRunning()) 立刻退出，主线程紧接着读 best_move、调 ClearMemory()，
+        ///     与仍在跑的 worker 抢同一批对象。
+        ///
+        /// 现在只置取消标记，由搜索循环自己退出；running 交由 Execute 的 finally 复位。
+        /// 这样 IsRunning() 会一直为 true 直到 worker 真正结束：既给轮询方正确的信号，
+        /// 也让 RunAI 开头的 `if (running) return;` 天然成为"两次搜索不会并发"的互斥锁。
+        /// </summary>
         public void Stop()
         {
-            running = false;
-            if (ai_thread != null && ai_thread.IsAlive)
-                ai_thread.Abort();
+            stop_requested = true;
         }
 
         private void Execute()
@@ -135,6 +152,9 @@ namespace TcgEngine.AI
         //Add list of all possible orders and search in all of them
         private void CalculateNode(Game data, NodeState node)
         {
+            if (stop_requested)
+                return;   //★ 协作式取消：在本轮节点开始处退出（此时还没创建任何临时对象，无需清理）
+
             Profiler.BeginSample("Add Actions");
             Player player = data.GetPlayer(data.current_player);
             List<AIAction> action_list = list_pool.Create();
@@ -240,6 +260,9 @@ namespace TcgEngine.AI
         {
             if (action.type == GameAction.None)
                 return;
+
+            if (stop_requested)
+                return;   //★ 取消时不再 Clone 数据、不再执行动作，尽快退出（第 2 个检查点）
 
             int player_id = data.current_player;
 

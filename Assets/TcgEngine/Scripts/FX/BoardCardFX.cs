@@ -56,6 +56,9 @@ namespace TcgEngine.FX
             client.onAbilityStart -= OnAbilityStart;
             client.onAbilityTargetCard -= OnAbilityEffect;
             client.onAbilityEnd -= OnAbilityAfter;
+
+            if (bcard != null)
+                bcard.onKill -= OnKill;
         }
         
         private int last_status_sig;                                                            //上次的状态签名（状态没变就不对账特效）

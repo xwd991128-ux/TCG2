@@ -74,8 +74,50 @@ namespace TcgEngine.UI
                     inp.enabled = true;
                 }
                 inp.onEndEdit.AddListener(_ => EnsureNotEmpty(inp));   //失焦即兜底：此刻补占位不会污染数据
+                inp.onSelect.AddListener(_ => BeginEdit(inp));         //★点进来先清占位空格，否则打字会多出一个空格
             }
+            NormalizeLayout(inp);    //★单行输入框统一垂直居中（旧版 UpperLeft → TMP TopLeft，文字贴顶）
             EnsureNotEmpty(inp);
+        }
+
+        /// <summary>★获得焦点时：若当前只有占位空白，先清成真空串 —— 否则用户打字后会出现"多一个空格"
+        /// （占位空格留在文本里跟着一起提交）。清空只发生在**聚焦态**：TMP 的空文本越界崩溃只出现在
+        /// "空文本 + 失焦后仍处选择态"，而失焦那一刻 QueueGuard 会立刻补回占位，所以这里安全。</summary>
+        public static void BeginEdit(TMP_InputField inp)
+        {
+            if (inp == null || inp.textComponent == null)
+                return;
+            if (!string.IsNullOrEmpty(inp.text) && inp.text.Trim().Length > 0)
+                return;                                   //有真实内容 → 不动
+            if (inp.text != "")                           //只有空白（占位）→ 清掉
+            {
+                inp.SetTextWithoutNotify("");
+                inp.ForceLabelUpdate();
+            }
+        }
+
+        /// <summary>★单行输入框统一"文字垂直居中"：旧版 uGUI Text 的 UpperLeft 会被映射成 TMP 的
+        /// TopLeft（贴顶），且文本 rect 常是"下留 4 / 上留 0"的不对称内边距 → 看上去字偏上。
+        /// 这里对**单行**框强制 mid-left（TMP 的 Left 即中线左对齐）并把上下留白改成对称；
+        /// 多行框（卡牌文本/描述）保持顶端对齐不动。</summary>
+        public static void NormalizeLayout(TMP_InputField inp)
+        {
+            if (inp == null || inp.textComponent == null)
+                return;
+            if (inp.lineType == TMP_InputField.LineType.MultiLineNewline
+                || inp.lineType == TMP_InputField.LineType.MultiLineSubmit)
+                return;
+            TMP_Text tc = inp.textComponent;
+            if (tc.alignment != TextAlignmentOptions.Left)
+                tc.alignment = TextAlignmentOptions.Left;      //= MidlineLeft：垂直居中 + 左对齐
+            RectTransform rt = tc.rectTransform;
+            Vector2 min = rt.offsetMin, max = rt.offsetMax;
+            float pad = Mathf.Min(Mathf.Abs(min.y), Mathf.Abs(max.y));   //两侧取小的，保证不裁字
+            if (!Mathf.Approximately(min.y, pad) || !Mathf.Approximately(max.y, -pad))
+            {
+                rt.offsetMin = new Vector2(min.x, pad);
+                rt.offsetMax = new Vector2(max.x, -pad);
+            }
         }
 
         /// <summary>空文本兜底：写入占位，彻底绕开 characterCount == 0 的越界路径</summary>

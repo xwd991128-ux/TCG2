@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ffe471ca39ebd8498e7bf9c2bc441f9, type: 3}
+  m_Name: brawl_05
+  m_EditorClassIdentifier: 
+  id: brawl_05
+  title: "\u4E71\u6597 \xB7 \u4E50\u961F\u4E4B\u591C"
+  desc: "\u4E3B\u5361 40 \u5F20\uFF1B\u540C\u540D \u22644\uFF1B\u4F20\u8BF4\u4E0D\u9650\u3002\u989D\u5916\u5E26\u4E00\u4E2A\u5FC5\u586B\u300C\u4E50\u961F\u300D\u533A\uFF081-3
+    \u5F20\uFF09\u3002"
+  deck_size: 40
+  max_copies: 4
+  max_legendary: 0
+  zones:
+  - id: band
+    title: "\u4E50\u961F"
+    desc: "\u4E71\u6597\uFF1A\u5361\u7EC4\u5916\u53E6\u9009\u82E5\u5E72\u5F20\u4F5C\u4E3A\u4E50\u961F"
+    min_count: 1
+    max_count: 3
+    per_card_max: 1
+    required: 1
+  constraints: []
+  optional_modifiers: []
+  predicates: []

@@ -161,7 +161,7 @@ namespace TcgEngine.Client
 
         //--------------------
 
-        public virtual void ConnectToAPI()
+        public virtual async void ConnectToAPI()
         {
             //Should already be logged in from the menu
             //If not connected, start in test mode (this means game scene was launched directly from Unity)
@@ -179,6 +179,11 @@ namespace TcgEngine.Client
                     ai_settings.deck = new UserDeckData(GameplayData.Get().test_deck_ai);
                     ai_settings.ai_level = GameplayData.Get().ai_level;
                 }
+
+                //直接启动游戏场景时只做了假登录，UserData 尚未加载；
+                //不补这一次加载，结算/开包（RewardManager、PackCard、HandPack）会拿到 null 的 UserData 抛空引用。
+                //放在卡组默认值之后，保持这些默认值的赋值仍是同步完成（ConnectToServer 紧随其后被调用）。
+                await Authenticator.Get().LoadUserData();
             }
 
             //Set avatar, cardback based on your api data

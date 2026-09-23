@@ -29,7 +29,7 @@ namespace TcgEngine.UI
 
         void OnDestroy()
         {
-            line_list.Add(this);
+            line_list.Remove(this);   //原来误写成 Add：静态列表只增不减，销毁过的对象会一直留在表里
         }
 
         void Start()
@@ -50,7 +50,8 @@ namespace TcgEngine.UI
             Player ptarget = gdata.GetPlayer(history.target_id);
             CardData icard = CardData.Get(history.card_id);
             CardData itarget = CardData.Get(target?.card_id);
-            VariantData variant = acard.VariantData;
+            //acard 可能已被移出所有区域（衍生物被消灭等），GetCard 返回 null
+            VariantData variant = acard != null ? acard.VariantData : null;
             AbilityData iability = AbilityData.Get(history.ability_id);
             card = acard;
 

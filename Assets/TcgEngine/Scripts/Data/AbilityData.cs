@@ -74,8 +74,14 @@ namespace TcgEngine
             {
                 ability_list.AddRange(Resources.LoadAll<AbilityData>(folder));
 
+                //索引只在首次加载时建一次（重复 id 先到先得），与原来的 ability_dict.Add 语义完全一致；
+                //唯一区别：撞 key 时跳过而不是抛 ArgumentException 中断整条加载链（CheckAbilityData 会另行报重复）。
                 foreach (AbilityData ability in ability_list)
+                {
+                    if (ability == null || string.IsNullOrEmpty(ability.id) || ability_dict.ContainsKey(ability.id))
+                        continue;
                     ability_dict.Add(ability.id, ability);
+                }
             }
         }
 

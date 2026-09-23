@@ -61,6 +61,9 @@ namespace TcgEngine.UI
         private void OnDestroy()
         {
             ui_list.Remove(this);
+
+            avatar.onClick -= OnClickAvatar;
+            GameClient.Get().onSecretTrigger -= OnSecretTrigger;
         }
 
         void Start()

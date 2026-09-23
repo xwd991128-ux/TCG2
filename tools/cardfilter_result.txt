@@ -1,0 +1,36 @@
+批次： 筛选语法自测｜可组卡卡牌数：153
+✅	空条件=全部｜查询「」命中 153，期望 153（池 153）
+✅	费用<=3｜查询「mana<=3」命中 87，期望 >0
+✅	费用区间 2-4｜查询「mana:2-4」命中 103，期望 >0
+✅	类型=法术｜查询「type:法术」命中 33，期望 >0
+✅	类型=随从(中文)｜查询「type:随从」命中 90，期望 >0
+✅	取反 -type:法术｜查询「-type:法术」命中 120，期望 >0
+✅	攻击>=1｜查询「atk>=1」命中 95，期望 >0
+✅	裸词模糊(法术名)｜查询「spell」命中 15，期望 >0
+✅	id 匹配（真实 id：ashes_snake）｜查询「id:ashes_snake」命中 1，期望 >0
+✅	多个条件与｜查询「mana<=5 atk>=1」命中 76，期望 >0
+✅	种族 trait:dragon｜查询「trait:dragon」命中 4，期望 >0
+✅	关键词 kw:charge｜查询「kw:charge」命中 1，期望 >0
+✅	阵营 team:fire｜查询「team:fire」命中 41，期望 >0
+✅	稀有度 rarity:common｜查询「rarity:common」命中 108，期望 >0
+⚠ 当前没有自定义参数声明，p: 用例跳过（把带自定义参数的卡池放进 Workshop 目录即可覆盖）
+✅	p:参数存在｜p:元素 应命中探针卡
+✅	p:文本=值｜p:元素=火 应命中
+✅	p:文本不匹配｜p:元素=水 不应命中
+✅	p:数值比较>=｜p:强度>=5 应命中（强度=7）
+✅	p:数值比较<｜p:强度<3 不应命中
+✅	p:取反｜-p:元素 不应命中
+✅	不可能同时满足｜查询「type:法术 type:随从」命中 0，期望 0
+
+批次： 预设读写自测
+✅	保存并读回｜name=mana<=3 type:法术 query=mana<=3 type:法术
+✅	最近使用置顶｜recent[0]=mana<=3 type:法术
+✅	导出到分享目录｜C:/Users/xwd99/AppData/LocalLow/DefaultCompany/TCG2\Workshop\presets\mana_=3 type_法术.json
+✅	从分享目录导入｜导入 1 条
+✅	删除预设｜Remove=True
+
+批次： 筛选助手弹层构建（UI 冒烟）
+✅	弹层打开｜IsOpen=True
+✅	重复打开不报错｜IsOpen=True
+  （构建期错误日志条数：0，0 为正常）
+汇总：通过 28｜失败 0

@@ -25,6 +25,7 @@ namespace TcgEngine.UI
             Trait = 1,     //种族（TraitData 资产；暂无独立编辑页 → 弹框内改名）
             Keyword = 2,   //关键词（KeywordData 资产；编辑页 = KeywordPanel）
             Button = 3,    //按钮（BattleButtonIO / Workshop/buttons.json；编辑页 = 卡牌编辑器内嵌按钮编辑器）
+            CustomNode = 4,//★自定义节点（CustomNodeIO / Workshop/custom_nodes.json；编辑页 = GraphEditorPanel 自定义节点模式）
         }
 
         // ---------------- 宿主注入（避免弹框反向依赖面板） ----------------
@@ -167,6 +168,7 @@ namespace TcgEngine.UI
                     case Kind.Buff: return "增益";
                     case Kind.Trait: return "种族";
                     case Kind.Keyword: return "关键词";
+                    case Kind.CustomNode: return "自定义节点";
                     default: return "按钮";
                 }
             }
@@ -181,8 +183,20 @@ namespace TcgEngine.UI
                     case Kind.Buff: return UITheme.CatPurple;
                     case Kind.Trait: return UITheme.CatGreen;
                     case Kind.Keyword: return UITheme.CatBlue;
+                    case Kind.CustomNode: return UITheme.CatGold;
                     default: return UITheme.CatPink;
                 }
+            }
+        }
+
+        /// <summary>自定义节点类别的中文名（列表标题里标注"动作/函数/事件"）</summary>
+        private static string CustomNodeKindName(CustomNodeKind k)
+        {
+            switch (k)
+            {
+                case CustomNodeKind.Function: return "函数";
+                case CustomNodeKind.Event: return "事件";
+                default: return "动作";
             }
         }
 
@@ -401,6 +415,13 @@ namespace TcgEngine.UI
                             list.Add(new Entry { id = b.id, title = string.IsNullOrEmpty(b.title) ? b.id : b.title });
                     }
                     break;
+                case Kind.CustomNode:
+                    foreach (CustomNodeData n in CustomNodeIO.GetAll())
+                    {
+                        if (n != null && !string.IsNullOrEmpty(n.id))
+                            list.Add(new Entry { id = n.id, title = n.GetTitle() + "（" + CustomNodeKindName(n.Kind) + "）" });
+                    }
+                    break;
             }
             return list;
         }
@@ -478,6 +499,13 @@ namespace TcgEngine.UI
             //新增后**留在当前弹框**（不跳转到编辑器页面）：空项已加入数据源/列表并默认选中，
             //需要完善内容时再点「编辑」进入对应编辑器（增益管理页等旧页面不再被"新增"拉起）。
             SetHint("已在当前列表新增" + KindName + "：" + id + "（需要完善内容时点「编辑」）");
+            //★自定义节点例外：新建后必须进去配类型/端口/编排才有意义 → 直接跳进编辑器
+            if (kind == Kind.CustomNode)
+            {
+                Close();
+                if (open_editor != null)
+                    open_editor.Invoke(kind, id);
+            }
         }
 
         private void OnEditClick()
@@ -563,6 +591,12 @@ namespace TcgEngine.UI
                     BattleButtonIO.SaveAll();
                     return b != null ? b.id : null;
                 }
+                case Kind.CustomNode:
+                {
+                    CustomNodeData n = CustomNodeIO.New(CustomNodeKind.Action);   //默认动作节点（进去后可切类型）
+                    CustomNodeIO.SaveAll();
+                    return n != null ? n.id : null;
+                }
             }
             return null;
         }
@@ -592,6 +626,10 @@ namespace TcgEngine.UI
                 case Kind.Button:
                     BattleButtonIO.Remove(BattleButtonIO.Get(id));
                     BattleButtonIO.SaveAll();
+                    break;
+                case Kind.CustomNode:
+                    CustomNodeIO.Remove(CustomNodeIO.Get(id));
+                    CustomNodeIO.SaveAll();
                     break;
             }
         }

@@ -135,6 +135,7 @@ namespace TcgEngine.UI
         private KeywordRule editing_rule;      // 关键词模式：当前编辑的规则条目（graph 引用其 graph）
         private BuffData editing_buff;         // 增益模式：当前编辑的增益定义（card/pool/关键词均为空，graph 引用其 graph）
         private BattleButtonConfig editing_button_config;   // 按钮模式：当前编辑的全局按钮配置（card/pool/关键词/增益均为空，graph 引用其共享图）
+        private CustomNodeData editing_custom_node;         // ★自定义节点模式：当前编辑的玩家 DIY 节点（Workshop/custom_nodes.json）
         /// <summary>当前卡的规则图（供 NodePin 等组件读取取值）</summary>
         public GraphData Graph { get { return graph; } }
 
@@ -151,7 +152,10 @@ namespace TcgEngine.UI
         private string search_keyword = "";  // 节点库搜索关键词
         private readonly HashSet<string> favs = new HashSet<string>();          // 收藏的节点 action（持久化）
         private readonly List<string> recent_actions = new List<string>();     // 最近使用的节点 action（持久化）
-        private string selected_node;        // 选中的节点 id
+        private string selected_node;        // 主选中节点 id（右侧参数面板 / 删除按钮 / 缺输入提示用它）
+        /// <summary>★多选集合（Shift 点击、空白拖拽框选）：批量删除/复制/整体拖动都基于它；
+        /// selected_node 是其中的"主选中"（右侧参数面板编辑的那一个）。</summary>
+        private readonly HashSet<string> selected_nodes = new HashSet<string>();
         private int node_index = 0;          // 新节点位置偏移计数
 
         //Tier2 保护/防呆：撤销重做（结构操作快照）、节点复制粘贴、空画布引导
@@ -162,7 +166,11 @@ namespace TcgEngine.UI
         /// <summary>节点整体视觉缩放（画布节点按此缩放，1=原始尺寸；0.5 → 面积约 1/4）</summary>
         public const float NodeScale = 0.5f;
         private const string RECENT_KEY = "graph_editor_recent";  // 最近使用节点 action 持久化 key
-        private GraphNode copied_node;       // 复制缓冲（Ctrl+C/V）
+        //★复制缓冲（Ctrl+C/V，支持多选）：存 **JSON 快照**而不是引用 —— 撤销/重做会 FromJsonOverwrite 换掉图里的对象，引用会失效
+        private readonly List<string> copied_nodes = new List<string>();   // 被复制节点的快照
+        private readonly List<string> copied_links = new List<string>();   // 被复制节点**之间**的连线快照（粘贴时按 id 映射还原，整块拷贝不走形）
+        private RectTransform marquee_root;  // ★框选选框（运行时创建，挂画布视口下、置顶绘制）
+        private Button btn_clear_effect;     // ★「清空」按钮（运行时创建在工具栏「复位」右侧；场景没重建时也能用）
         private GameObject empty_hint;       // 空画布引导提示
 
         //运行走线高亮：模拟测试后标出执行路径（走过的节点+连线）
@@ -396,8 +404,92 @@ namespace TcgEngine.UI
                 //项目内灵力节点（分类「玩家」，与 NodeDoc 的 101014/101015 同组同风格）：
                 //zmcs 只有两档灵力（当前/上限），TCG2 三套灵力体系里的"最大灵力值"没有对应 defineId → 这里补项目内节点
                 all_presets_cache.AddRange(BuildManaPresets());
+                //项目内卡牌动作（分类「卡牌」，与 NodeDoc 卡牌动作同组同风格）：
+                //「免费打出卡牌」= 旧 EffectPlay 的等价物（NodeDoc 的 210002 语义不同，见该方法注释）
+                all_presets_cache.AddRange(BuildProjectCardPresets());
+                //★玩家自定义节点（分类「自定义」/事件）：动作/函数各 1 个；事件=「XX时」「XX后」两个入口
+                all_presets_cache.AddRange(BuildCustomNodePresets());
             }
             return all_presets_cache;
+        }
+
+        /// <summary>★玩家自定义节点 → 节点库可用节点（端口用玩家配置，见 CustomNodePreset）</summary>
+        private static List<NodePreset> BuildCustomNodePresets()
+        {
+            List<NodePreset> list = new List<NodePreset>();
+            foreach (CustomNodeData n in CustomNodeIO.GetAll())
+            {
+                if (n == null || string.IsNullOrEmpty(n.id))
+                    continue;
+                if (n.Kind == CustomNodeKind.Event)
+                {
+                    list.Add(CustomNodePreset(n, "时"));
+                    list.Add(CustomNodePreset(n, "后"));
+                }
+                else
+                {
+                    list.Add(CustomNodePreset(n, ""));
+                }
+            }
+            //两个配套的"定义图内部用"节点：读输入端口（取值）/ 设置输出端口（动作）
+            NodePreset get = new NodePreset();
+            get.type = GraphNodeType.Value;
+            get.action = "GetCustomInputRaw";
+            get.title = "读自定义节点输入端口";
+            get.desc = "只在自定义节点的定义图内部用：按端口名取调用方传进来的值（端口名与「自定义节点参数」里配置的一致）";
+            get.category = "自定义";
+            get.supported = true;
+            get.fields.Add(new FieldDef("name", "端口名", FieldEditType.Input, null, ""));
+            get.pins.Add(new PinDef("out", "结果", NodeValueType.Object, true));
+            list.Add(get);
+
+            NodePreset set = new NodePreset();
+            set.type = GraphNodeType.Action;
+            set.action = "SetCustomOutputRaw";
+            set.title = "设置自定义节点输出端口";
+            set.desc = "只在自定义节点的定义图内部用：把结果交给调用方（函数节点靠它返回；端口名与「自定义节点参数」里配置的一致）";
+            set.category = "自定义";
+            set.supported = true;
+            set.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            set.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            set.pins.Add(new PinDef("value", "值", NodeValueType.Object, false));
+            set.fields.Add(new FieldDef("name", "端口名", FieldEditType.Input, null, ""));
+            list.Add(set);
+            return list;
+        }
+
+        /// <summary>一个自定义节点 → NodePreset（动作流/数据端口按类别与玩家配置生成）</summary>
+        private static NodePreset CustomNodePreset(CustomNodeData n, string suffix)
+        {
+            bool is_event = n.Kind == CustomNodeKind.Event;
+            NodePreset p = new NodePreset();
+            p.type = is_event ? GraphNodeType.Event
+                : (n.Kind == CustomNodeKind.Action ? GraphNodeType.Action : GraphNodeType.Value);
+            p.action = is_event ? n.EventEntryAction(suffix == "时" ? 0 : 1) : n.ActionId;
+            p.title = n.GetTitle() + suffix;
+            p.desc = "玩家自定义节点（" + CustomKindName(n.Kind) + "）" + (string.IsNullOrEmpty(n.desc) ? "" : "：" + n.desc);
+            p.category = is_event ? CAT_EVENT : "自定义";
+            p.supported = true;
+            if (is_event)
+            {
+                p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+                p.pins.Add(new PinDef("out", "动作流输出", NodeValueType.Flow, true));
+            }
+            else if (n.Kind == CustomNodeKind.Action)
+            {
+                p.pins.Add(new PinDef("in", "动作流输入", NodeValueType.Flow, false));
+            }
+            if (n.inputs != null)
+                foreach (CustomNodePort cp in n.inputs)
+                    if (cp != null && !string.IsNullOrWhiteSpace(cp.name))
+                        p.pins.Add(new PinDef(cp.name.Trim(), cp.name.Trim(), cp.Type, false, cp.is_array));
+            if (n.outputs != null)
+                foreach (CustomNodePort cp in n.outputs)
+                    if (cp != null && !string.IsNullOrWhiteSpace(cp.name))
+                        p.pins.Add(new PinDef(cp.name.Trim(), cp.name.Trim(), cp.Type, true, cp.is_array));
+            if (n.Kind == CustomNodeKind.Action)
+                p.pins.Add(new PinDef("out", "动作流输出", NodeValueType.Flow, true));
+            return p;
         }
 
         /// <summary>是否从节点库展示中隐藏：过时标注 / 内部负数 defineId / 同名重复（同名只保留 keep 里那个）</summary>
@@ -580,19 +672,13 @@ namespace TcgEngine.UI
             "无", "打出牌", "伤害后", "治疗后", "死亡后", "装备后", "抽卡后", "回合开始后", "回合结束后", "自己起动后"
         };
 
-        /// <summary>区域（牌堆）选项——**与事件入口「生效区域」多选同一套名字**（7 个玩家区域）：
-        /// 战场 / 手牌 / 牌库 / 墓地 / 装备区 / 奥秘区 / 英雄。
-        /// 所有引用区域的节点字段统一用本数组，避免"装备区(编辑器) vs 装备(运行时)"这类叫法不一致导致勾了不生效。</summary>
-        private static readonly string[] ZONE_NAMES =
-        {
-            "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄"
-        };
+        /// <summary>区域（牌堆）选项——**与运行期同一口径**：直接取 `ZoneNames.Display`
+        /// （战场 / 手牌 / 牌库 / 墓地 / 装备区 / 奥秘区 / 英雄），不再各写一份，
+        /// 避免"装备区(编辑器) vs 装备(运行时)"这类叫法不一致导致勾了不生效（实测踩过）。</summary>
+        private static readonly string[] ZONE_NAMES = ZoneNames.Display;
 
         /// <summary>区域选项 + 内部暂存区（仅 Pile 值通道/移动类节点读写：暂存区无 UI、玩家不可见，是衍生卡未归区时的落地处）</summary>
-        private static readonly string[] ZONE_NAMES_WITH_TEMP =
-        {
-            "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄", "暂存区"
-        };
+        private static readonly string[] ZONE_NAMES_WITH_TEMP = ZoneNames.DisplayWithTemp;
 
         /// <summary>图事件入口与动作节点预设（分类「事件」）：全场监听的「X 时/后」入口 + 「阻止本事件」「修改事件值」。
         /// action 名与 AbilityTrigger 枚举名 / GameLogic.EmitGraphEvent 广播名一致（OnBeforePlay/OnBeforeDamage/OnAfterDamage/OnAfterDraw）。</summary>
@@ -740,6 +826,156 @@ namespace TcgEngine.UI
             return presets;
         }
 
+        /// <summary>项目内卡牌动作（非 NodeDoc 定义，分类「卡牌」）：<b>免费打出卡牌</b>。
+        /// 为什么不是 NodeDoc 节点：NodeDoc 只有「卡牌置入战场(210002)」（走 PlaceCardOnBoard：不经过手牌中转、
+        /// 不设 last_played、落点是"首个空位"），而旧 EffectPlay 是"移入施法者方手牌 → **随机**空槽 →
+        /// PlayCard(skip_cost)"，触发/随机性/last_played 都不同 → 迁移必须逐行等价（否则差分比对会红）。
+        /// action 用项目内保留字（与 GetManaMaxTotal/SetManaMaxTotal 同规），由 NodeDocRunner 执行通道实现。</summary>
+        private static List<NodePreset> BuildProjectCardPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+            NodePreset play = new NodePreset();
+            play.type = GraphNodeType.Action;
+            play.action = "PlayCardFree";
+            play.title = "免费打出卡牌";
+            play.desc = "把卡牌免费打出（不扣灵力）：先移入施法者方手牌，再放进随机空位，随后走正常出场流程（入场/战吼、OnPlayOther 都会触发）。卡牌口无连线=本次目标";
+            play.category = "卡牌";
+            play.supported = true;
+            play.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            play.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            play.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            presets.Add(play);
+
+            //设置横置（=旧 EffectExhaust：target.exhausted = exhausted；"解除横置"就是 exhausted=false）
+            NodePreset ex = new NodePreset();
+            ex.type = GraphNodeType.Action;
+            ex.action = "SetCardExhausted";
+            ex.title = "设置横置";
+            ex.desc = "把卡牌设为横置（本回合无法行动）或解除横置。卡牌口无连线=本次目标";
+            ex.category = "卡牌";
+            ex.supported = true;
+            ex.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            ex.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            ex.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            ex.fields.Add(BoolField("exhausted", "横置", "false"));
+            presets.Add(ex);
+
+            //增加当前灵力（不钳制）（=旧 EffectMana increase_value：mana += value; Max(...,0)，**没有上限**）
+            NodePreset mana = new NodePreset();
+            mana.type = GraphNodeType.Action;
+            mana.action = "AddManaNoClamp";
+            mana.title = "增加当前灵力(不钳制)";
+            mana.desc = "给玩家加当前灵力，**不做上限钳制**（满灵力也照加）。与「201008 增加当前灵力值」的差别就在这里：那个会 Clamp(0, 灵力上限)。玩家口无连线=施法卡所属玩家";
+            mana.category = "玩家";
+            mana.supported = true;
+            mana.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            mana.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, false));
+            mana.pins.Add(new PinDef("count", "数量", NodeValueType.Int32, false));
+            mana.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            mana.fields.Add(IntField("count", "数量", "0"));
+            presets.Add(mana);
+
+            //移除状态（=旧 EffectClearStatus：状态名留空=清空全部，否则只移除该状态）
+            NodePreset cls = new NodePreset();
+            cls.type = GraphNodeType.Action;
+            cls.action = "ClearCardStatus";
+            cls.title = "移除状态";
+            cls.desc = "移除卡牌上的状态：状态名留空=清空全部状态；填状态名（如 taunt/stealth）只移除那一个。卡牌口无连线=本次目标";
+            cls.category = "卡牌";
+            cls.supported = true;
+            cls.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            cls.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            cls.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            cls.fields.Add(new FieldDef("status", "状态名(留空=全部)", FieldEditType.Input, null, ""));
+            presets.Add(cls);
+
+            //复位卡牌（=旧 EffectResetStat：SetCard(本卡定义, 变体)，把属性/关键词复位；**不清状态/增益**）
+            NodePreset rst = new NodePreset();
+            rst.type = GraphNodeType.Action;
+            rst.action = "ResetCardToBase";
+            rst.title = "复位卡牌";
+            rst.desc = "把卡牌属性/关键词复位回它自己的卡牌定义（等价旧「重置属性」效果）。注意与「202024 重置卡牌」不同：后者还会清状态/增益/常驻效果。卡牌口无连线=本次目标";
+            rst.category = "卡牌";
+            rst.supported = true;
+            rst.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            rst.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            rst.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            presets.Add(rst);
+
+            //设置生命值(清伤害计数)（=旧 EffectSetStat(HP)：hp = value; damage = 0）
+            NodePreset hp = new NodePreset();
+            hp.type = GraphNodeType.Action;
+            hp.action = "SetCardHpClearDamage";
+            hp.title = "设置生命值(清伤害)";
+            hp.desc = "把卡牌生命值直接设为指定值，并清空已受伤害（=满血到该值）。与「202037 设置卡牌属性」的差别：那个不清伤害计数。卡牌口无连线=本次目标";
+            hp.category = "卡牌";
+            hp.supported = true;
+            hp.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            hp.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            hp.pins.Add(new PinDef("value", "生命值", NodeValueType.Int32, false));
+            hp.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            hp.fields.Add(IntField("value", "生命值", "0"));
+            presets.Add(hp);
+
+            //移入区域(清空状态)：严格等价旧「送入牌堆」(EffectSendPile)——移入 + card.Clear()，不触发抽牌/死亡链
+            NodePreset stp = new NodePreset();
+            stp.type = GraphNodeType.Action;
+            stp.action = "SendToPileRaw";
+            stp.title = "移入区域(清空状态)";
+            stp.desc = "把卡移入指定区域，并清空它身上的状态/增益/常驻（复位到卡牌定义基础值）。严格等价旧「送入牌堆」效果：**不触发**抽牌/死亡/弃牌链。区域只支持 手牌/牌库/墓地/暂存区（旧效果对其它区域什么也不做）。卡牌口无连线=本次目标";
+            stp.category = "卡牌";
+            stp.supported = true;
+            stp.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            stp.pins.Add(new PinDef("cards", "卡牌", NodeValueType.Card, false));
+            stp.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            stp.fields.Add(new FieldDef("pile", "区域", FieldEditType.Dropdown, new string[] { "手牌", "牌库", "墓地", "暂存区" }, "手牌"));
+            presets.Add(stp);
+
+            //按次数触发另一能力：严格等价旧「重复执行效果」(EffectRepeat)
+            NodePreset rep = new NodePreset();
+            rep.type = GraphNodeType.Action;
+            rep.action = "RepeatAbilityById";
+            rep.title = "重复触发技能";
+            rep.desc = "把指定技能按次数重复触发（入队结算，与旧「重复执行效果」一致）。次数来源：选中值=本局当前的选择值（费用选择器等写入）/ 固定值=下面的数量。技能填 AbilityData 的 id（池内 id 引用）";
+            rep.category = "卡牌";
+            rep.supported = true;
+            rep.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            rep.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            rep.fields.Add(new FieldDef("abilityId", "技能 id", FieldEditType.Input, null, ""));
+            rep.fields.Add(new FieldDef("mode", "次数来源", FieldEditType.Dropdown, new string[] { "选中值", "固定值" }, "选中值"));
+            rep.fields.Add(IntField("count", "数量(固定值)", "0"));
+            presets.Add(rep);
+
+            //从卡牌定义创建衍生卡进指定区域：严格等价旧「创建」(EffectCreate)
+            NodePreset ccf = new NodePreset();
+            ccf.type = GraphNodeType.Action;
+            ccf.action = "CreateCardFromDefineRaw";
+            ccf.title = "从定义创建衍生卡";
+            ccf.desc = "按「卡牌定义」创建一张新的衍生卡放进指定区域（与旧「创建」效果一致，含 last_summoned）。定义口不接线 = 用本次结算的卡牌定义（能力目标类型＝卡牌定义时）";
+            ccf.category = "卡牌";
+            ccf.supported = true;
+            ccf.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            ccf.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            ccf.pins.Add(new PinDef("cardDefine", "卡牌定义", NodeValueType.CardDefine, false));
+            ccf.fields.Add(new FieldDef("pile", "区域", FieldEditType.Dropdown, new string[] { "手牌", "牌库", "墓地", "暂存区" }, "暂存区"));
+            ccf.fields.Add(new FieldDef("opponent", "给对手", FieldEditType.Dropdown, new string[] { "false", "true" }, "false"));
+            presets.Add(ccf);
+
+            //掷骰：严格等价旧 EffectRoll（结果写入 rolled_value，供「获取骰子点数」类节点/后续动作读取）
+            NodePreset roll = new NodePreset();
+            roll.type = GraphNodeType.Action;
+            roll.action = "RollValue";
+            roll.title = "掷骰";
+            roll.desc = "掷骰子（面数=下面的骰子），结果写入 rolled_value。战斗界面会按引擎既有流程展示骰子";
+            roll.category = "卡牌";
+            roll.supported = true;
+            roll.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            roll.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            roll.fields.Add(IntField("dice", "骰子面数", "6"));
+            presets.Add(roll);
+            return presets;
+        }
+
         /// <summary>zmcs 风格入口节点（分类「入口」）：主动效果(战吼/法术)/光环/被动(亡语)/事件效果 四入口。
         /// action 与 CardPoolIO 编译保持一致（ActivateEffect/PassiveEffect/AuraEffect/EventEffect），
         /// 拖入后保存卡牌即编译为能力：主动=打出时触发（战吼/法术）、被动=亡语、光环=常驻增益、事件=监听事件。</summary>
@@ -843,6 +1079,36 @@ namespace TcgEngine.UI
             evn.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
             //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
             presets.Add(evn);
+
+            //5) 引擎原生触发入口（无 zmcs 对应名）：他人死亡 / 攻击后 / 击杀
+            //   为什么补：内置卡迁移用到这三个触发（OnDeathOther/OnAfterAttack/OnKill），
+            //   节点库里原先没有入口节点 → 图里会显示成裸 id、玩家不可选。这里登记成正式入口。
+            //   action 与 CardPoolIO.MapGraphTrigger 同名（编译侧已支持），title 与转换器写出的节点标题一致。
+            string[][] native_entries = new string[][]
+            {
+                new string[] { "OnDeathOther", "他人死亡入口", "别的卡死亡时触发（自己不需要在场上）" },
+                new string[] { "OnAfterAttack", "攻击后入口", "攻击结算后、且自己还活着时触发" },
+                new string[] { "OnKill", "击杀入口", "攻击中击杀别的卡时触发" },
+            };
+            foreach (string[] ne in native_entries)
+            {
+                NodePreset np = new NodePreset();
+                np.type = GraphNodeType.Event;
+                np.action = ne[0];
+                np.title = ne[1];
+                np.desc = ne[2];
+                np.category = CAT_ENTRY;
+                np.supported = true;
+                np.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+                np.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
+                np.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
+                np.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+                np.pins.Add(new PinDef("value", "事件值", NodeValueType.Int32, true));
+                np.pins.Add(new PinDef("target", "目标", NodeValueType.Object, true));
+                np.fields.Add(new FieldDef("tags", "效果标签", FieldEditType.Dropdown, new string[] { "无", "战吼", "亡语" }, "无"));
+                np.fields.Add(IntField("priority", "优先级", "0"));
+                presets.Add(np);
+            }
             return presets;
         }
 
@@ -850,6 +1116,9 @@ namespace TcgEngine.UI
         /// 并清理同名的旧变体——如 102002 卡牌类型判断被 102032 取代、202008/202009/202010 已标过时）</summary>
         private static readonly HashSet<string> SupportedNodeIds = new HashSet<string>
         {
+            //内置卡迁移 P0：添加技能（给卡加能力；旧系统 EffectAddAbility/AddHeroAbility/SetHeroAbility 族）
+            "202050",   //添加技能（cards + 技能标识 abilityId → Card.AddAbility）
+            "101030",   //AI限定·目标与施法者同归属（旧 ConditionOwnerAI 等价口径；对真人恒真）
             //回合控制（逻辑层 GameLogic：额外回合=HeroNewTurn 层数、跳过回合=Player.skip_turns）
             "209201",   //结束回合（走 resolve_queue，等本次结算跑完再切回合）
             "209202",   //获得额外回合（目标玩家 HeroNewTurn += value）
@@ -1437,7 +1706,13 @@ namespace TcgEngine.UI
 
             //点击画布空白处取消节点选中
             if (graph_canvas != null)
+            {
                 graph_canvas.onCanvasClick = DeselectNode;
+                //★框选：空白左键拖拽 → 画选框 → 松手选中所有相交节点（按住 Shift = 追加选择）
+                graph_canvas.onRubberBandDrag = OnRubberBandDrag;
+                graph_canvas.onRubberBandEnd = OnRubberBandEnd;
+            }
+            EnsureClearEffectButton();   //★「清空」按钮（运行时补建，兼容"生成工具没重建场景"）
             if (btn_pick_art != null) btn_pick_art.onClick.AddListener(OnPickArt);
             //「选择面板图片」按钮已移除：面板图片改为"选卡图后自动生成并按面板比例裁好"（见 AutoPanelArtFromArtFile），
             //这里把场景里遗留的按钮直接隐藏，避免出现两套入口。
@@ -1496,7 +1771,9 @@ namespace TcgEngine.UI
             {
                 node_search_input.onValueChanged.AddListener((val) =>
                 {
-                    search_keyword = val ?? "";
+                    //统一走 TmpInputUtil.Read：空文本占位（单个空格）与首尾空白一律当空串
+                    //→ 否则"占位空格"会被当成关键词的一部分，搜什么都搜不到
+                    search_keyword = TmpInputUtil.Read(node_search_input);
                     RefreshNodeLib();
                 });
             }
@@ -1542,23 +1819,72 @@ namespace TcgEngine.UI
 
         // ---------------- Tier2：撤销/重做 / 复制粘贴 / 防呆 ----------------
 
-        /// <summary>快捷键：Ctrl+Z 撤销 / Ctrl+Y 重做 / Ctrl+C 复制选中节点 / Ctrl+V 粘贴节点</summary>
+        /// <summary>快捷键：Ctrl+Z 撤销 / Ctrl+Y 重做 / Ctrl+C 复制选中节点（可多选）/ Ctrl+V 粘贴 /
+        /// Ctrl+A 全选 / Delete 批量删除选中节点</summary>
         private void HandleShortcuts()
         {
             //弹框（新建自定义属性）打开时不响应画布快捷键：防止"边填表边删节点 / 撤销"
             if (cp_dialog != null && cp_dialog.activeSelf)
                 return;
-            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            if (!ctrl)
+            //★正在输入框里打字时不响应任何画布快捷键：否则 Delete 会删节点、Ctrl+V 会把卡名粘贴成节点
+            if (IsTypingInField())
                 return;
-            if (Input.GetKeyDown(KeyCode.Z))
-                Undo();
-            else if (Input.GetKeyDown(KeyCode.Y))
-                Redo();
-            else if (Input.GetKeyDown(KeyCode.C))
-                CopySelectedNode();
-            else if (Input.GetKeyDown(KeyCode.V))
-                PasteNode();
+
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (ctrl)
+            {
+                if (Input.GetKeyDown(KeyCode.Z))
+                    Undo();
+                else if (Input.GetKeyDown(KeyCode.Y))
+                    Redo();
+                else if (Input.GetKeyDown(KeyCode.C))
+                    CopySelectedNode();
+                else if (Input.GetKeyDown(KeyCode.V))
+                    PasteNode();
+                else if (Input.GetKeyDown(KeyCode.A))
+                    SelectAllNodes();
+                return;
+            }
+            //Delete：批量删除选中节点（工具栏「删除节点」按钮同效）
+            if (Input.GetKeyDown(KeyCode.Delete))
+                DeleteSelectedNodes();
+        }
+
+        /// <summary>焦点是否在输入框/下拉框里（打字时不抢快捷键；取的是 EventSystem 当前选中对象）</summary>
+        private static bool IsTypingInField()
+        {
+            if (EventSystem.current == null)
+                return false;
+            GameObject go = EventSystem.current.currentSelectedGameObject;
+            if (go == null)
+                return false;
+            return go.GetComponent<TMP_InputField>() != null
+                || go.GetComponent<UnityEngine.UI.InputField>() != null
+                || go.GetComponent<TMP_Dropdown>() != null
+                || go.GetComponent<UnityEngine.UI.Dropdown>() != null;
+        }
+
+        /// <summary>Ctrl+A：全选当前效果图的所有节点（框选/多选的快捷入口）</summary>
+        private void SelectAllNodes()
+        {
+            if (graph == null || graph.nodes.Count == 0)
+            {
+                SetStatus("当前效果图没有节点");
+                return;
+            }
+            selected_nodes.Clear();
+            foreach (GraphNode n in graph.nodes)
+                if (n != null)
+                    selected_nodes.Add(n.id);
+            selected_node = FirstSelectedNode();
+            RefreshSelectionUI(true);
+        }
+
+        /// <summary>清空复制缓冲（切模式/切效果图/重开面板时调用）</summary>
+        private void ClearClipboard()
+        {
+            copied_nodes.Clear();
+            copied_links.Clear();
         }
 
         /// <summary>结构操作前记录当前图快照（添加/删除/连线/移动/粘贴）</summary>
@@ -1602,50 +1928,109 @@ namespace TcgEngine.UI
             SetStatus("已重做 (Ctrl+Y)，记得保存");
         }
 
-        /// <summary>复制选中节点（含字段/引脚，不含连线）到剪贴板</summary>
+        /// <summary>复制选中节点（**支持多选**）：字段/引脚随快照带走；被复制节点**之间**的连线也一起存，
+        /// 粘贴时按 id 映射还原 → 整块子图拷贝不走形（指向"块外"的连线不复制，与旧行为一致）。</summary>
         private void CopySelectedNode()
         {
-            if (graph == null || string.IsNullOrEmpty(selected_node))
+            if (graph == null || selected_nodes.Count == 0)
             {
-                SetStatus("请先选中一个节点再复制 (Ctrl+C)");
+                SetStatus("请先选中节点再复制 (Ctrl+C)：Shift 点击多选 / 空白拖拽框选 / Ctrl+A 全选");
                 return;
             }
-            GraphNode src = graph.GetNode(selected_node);
-            if (src == null)
-                return;
-            copied_node = src;
-            SetStatus("已复制节点: " + src.title + "（Ctrl+V 粘贴）");
+            copied_nodes.Clear();
+            copied_links.Clear();
+            //按 graph.nodes 顺序收集（HashSet 顺序不稳定），保证粘贴时的相对位置一致
+            List<string> ids = new List<string>();
+            foreach (GraphNode n in graph.nodes)
+            {
+                if (n == null || !selected_nodes.Contains(n.id))
+                    continue;
+                ids.Add(n.id);
+                copied_nodes.Add(JsonUtility.ToJson(n));
+            }
+            if (graph.links != null)
+                foreach (GraphLink l in graph.links)
+                {
+                    if (l == null)
+                        continue;
+                    if (ids.Contains(l.from_node) && ids.Contains(l.to_node))
+                        copied_links.Add(JsonUtility.ToJson(l));   //块内连线
+                }
+            SetStatus("已复制 " + copied_nodes.Count + " 个节点（含块内连线 " + copied_links.Count + " 条，Ctrl+V 粘贴）");
         }
 
-        /// <summary>粘贴复制的节点：深拷贝 + 新 id + 偏移位置</summary>
+        /// <summary>粘贴剪贴板里的节点（可整块）：新 id + 偏移位置 + 块内连线按 id 映射还原</summary>
         private void PasteNode()
         {
-            if (graph == null || copied_node == null)
+            if (graph == null || copied_nodes.Count == 0)
             {
-                SetStatus("剪贴板为空（先 Ctrl+C 复制一个节点）");
+                SetStatus("剪贴板为空（先 Ctrl+C 复制节点）");
                 return;
             }
-            //约束：1 个效果只允许 1 个触发节点（粘贴触发节点同样受限；看 type+category 才不会误伤取值节点）
-            string limit_err;
-            if (!CanAddEntryTriggerNode(copied_node.type, copied_node.category, out limit_err))
+            PushUndo();
+            Dictionary<string, string> id_map = new Dictionary<string, string>();   // 旧 id → 新 id
+            List<string> new_ids = new List<string>();
+            int skipped = 0;
+            foreach (string json in copied_nodes)
             {
-                SetStatus(limit_err);
-                return;
+                GraphNode copy = JsonUtility.FromJson<GraphNode>(json);
+                if (copy == null)
+                    continue;
+                //约束：1 个效果只允许 1 个触发节点（粘贴触发节点同样受限；看 type+category 才不会误伤取值节点）
+                //  多选粘贴时：超限的那个跳过，不整批失败（否则"连触发一起框选"就全粘不进来）
+                string limit_err;
+                if (!CanAddEntryTriggerNode(copy.type, copy.category, out limit_err))
+                {
+                    skipped++;
+                    continue;
+                }
+                string old_id = copy.id;
+                copy.id = "n_" + GameTool.GenerateRandomID(6, 10);
+                foreach (GraphPin p in copy.pins)
+                    p.id = copy.id + "_" + p.name;   //保持 id 命名规则，粘贴后连线可用
+                copy.pos = new Vector2Data(copy.pos.x + 60f, copy.pos.y - 60f);
+                graph.nodes.Add(copy);
+                id_map[old_id] = copy.id;
+                new_ids.Add(copy.id);
+            }
+            int links_added = 0;
+            foreach (string json in copied_links)
+            {
+                GraphLink l = JsonUtility.FromJson<GraphLink>(json);
+                if (l == null || !id_map.ContainsKey(l.from_node) || !id_map.ContainsKey(l.to_node))
+                    continue;
+                string nf = id_map[l.from_node];
+                string nt = id_map[l.to_node];
+                graph.links.Add(new GraphLink
+                {
+                    from_node = nf,
+                    from_pin = nf + "_" + PinNameOf(l.from_pin, l.from_node),
+                    to_node = nt,
+                    to_pin = nt + "_" + PinNameOf(l.to_pin, l.to_node),
+                });
+                links_added++;
             }
 
-            GraphNode copy = JsonUtility.FromJson<GraphNode>(JsonUtility.ToJson(copied_node));
-            copy.id = "n_" + GameTool.GenerateRandomID(6, 10);
-            foreach (GraphPin p in copy.pins)
-                p.id = copy.id + "_" + p.name;   //保持 id 命名规则，粘贴后连线可用
-            copy.pos = new Vector2Data(copied_node.pos.x + 60f, copied_node.pos.y - 60f);
-            PushUndo();
-            graph.nodes.Add(copy);
-            CreateNodeUI(copy);
-            SelectNode(copy.id);
+            RebuildCanvas();   //整块粘贴后统一重建（节点 + 连线一次画好）
+            selected_nodes.Clear();
+            foreach (string id in new_ids)
+                selected_nodes.Add(id);
+            selected_node = new_ids.Count > 0 ? new_ids[0] : null;
+            RefreshSelectionUI(true);
             RefreshEmptyHint();
             ApplyValidationMarks();   //粘贴的节点未接动作线时标红提示
             RefreshNodeLib();         //粘贴触发后：节点库触发项灰显（限制看得见）
-            SetStatus("已粘贴节点: " + copy.title + "（记得保存）");
+            SetStatus("已粘贴 " + new_ids.Count + " 个节点" + (links_added > 0 ? "（含块内连线 " + links_added + " 条）" : "")
+                + (skipped > 0 ? "；跳过 " + skipped + " 个触发节点（1 个效果只允许 1 个触发）" : "") + "（记得保存）");
+        }
+
+        /// <summary>引脚 id = 节点id + "_" + 引脚名 → 取出引脚名（粘贴时用新节点 id 重建引脚 id）</summary>
+        private static string PinNameOf(string pin_id, string node_id)
+        {
+            if (string.IsNullOrEmpty(pin_id))
+                return "";
+            string prefix = (node_id ?? "") + "_";
+            return pin_id.StartsWith(prefix) ? pin_id.Substring(prefix.Length) : pin_id;
         }
 
         /// <summary>检测新连线(from→to)是否会沿动作线形成执行环（DFS 从 to 出发能否回到 from）</summary>
@@ -1876,6 +2261,7 @@ namespace TcgEngine.UI
             editing_rule = null;
             editing_button_config = null;   //退出按钮模式
             editing_buff = null;      //退出增益模式（漏了这句 → IsBuffMode 仍为真：右列继续显示"增益参数"、保存走增益分支写错文件）
+            editing_custom_node = null;   //★退出自定义节点模式
             //同一类"隐形遮挡"防护（卡牌模式同样适用）：清掉残留全屏模态 + 立即自检 + 稳定后再自检
             VariableSelectPopup.CloseAll();
             CloseFieldSelectPopup();
@@ -1915,7 +2301,7 @@ namespace TcgEngine.UI
             //换图时清空撤销历史与复制缓冲，避免跨图误撤销
             undo_stack.Clear();
             redo_stack.Clear();
-            copied_node = null;
+            ClearClipboard();
             //旧图端口迁移：旧引脚无类型（type=None），按预设重建端口（id 命名不变，连线保持有效）
             foreach (GraphNode n in graph.nodes)
             {
@@ -1944,6 +2330,8 @@ namespace TcgEngine.UI
         /// </summary>
         private List<CardEffectData> CardEffects()
         {
+            if (editing_custom_node != null)   //★自定义节点：动作/函数=1 张，事件=2 张（XX时 / XX后）
+                return editing_custom_node.EnsureGraphs();
             if (card != null)
                 return card.EnsureEffects();
             if (IsBuffMode && editing_buff != null)
@@ -1963,6 +2351,9 @@ namespace TcgEngine.UI
             if (editing_button_config != null && editing_button_config.graphs != null && editing_button_config.graphs.Count > 0
                 && editing_button_config.graphs[0] != null)
                 editing_button_config.graph = editing_button_config.graphs[0].graph;
+            if (editing_custom_node != null && editing_custom_node.graphs != null && editing_custom_node.graphs.Count > 0
+                && editing_custom_node.graphs[0] != null)
+                editing_custom_node.graph = editing_custom_node.graphs[0].graph;
         }
 
         /// <summary>按入口节点推断效果名（对齐醉梦传说：主动效果/被动效果/光环效果/事件效果）</summary>
@@ -2005,7 +2396,7 @@ namespace TcgEngine.UI
             node_index = 0;
             undo_stack.Clear();
             redo_stack.Clear();
-            copied_node = null;
+            ClearClipboard();
             foreach (GraphNode n in graph.nodes)
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
@@ -2209,6 +2600,7 @@ namespace TcgEngine.UI
             //  （右列显示增益参数、保存走增益分支写错文件，退出还落到卡牌编辑器）——
             //  与 1869 行那处"漏了 editing_buff = null"是同一类模式串台漏洞。
             editing_buff = null;
+            editing_custom_node = null;   //★退出自定义节点模式
 
             graph = rule.graph;
             if (graph == null)
@@ -2222,7 +2614,7 @@ namespace TcgEngine.UI
             node_index = 0;
             undo_stack.Clear();
             redo_stack.Clear();
-            copied_node = null;
+            ClearClipboard();
             foreach (GraphNode n in graph.nodes)
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
@@ -2258,6 +2650,7 @@ namespace TcgEngine.UI
             editing_rule = null;
             editing_buff = buff;
             editing_button_config = null;   //退出按钮模式
+            editing_custom_node = null;     //★退出自定义节点模式
 
             graph = buff.EnsureGraphs()[0].graph;   //多张增益图：打开时先用第一张（左上角多图栏可切换/新增/删除）
             if (string.IsNullOrEmpty(graph.name))
@@ -2266,7 +2659,7 @@ namespace TcgEngine.UI
             node_index = 0;
             undo_stack.Clear();
             redo_stack.Clear();
-            copied_node = null;
+            ClearClipboard();
             foreach (GraphNode n in graph.nodes)
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
@@ -2550,8 +2943,10 @@ namespace TcgEngine.UI
         {
             bool buff_mode = IsBuffMode;
             bool button_mode = IsButtonMode;
-            //右列第一个 Tab 的标题：按钮模式=按钮参数 / 增益模式=增益参数 / 其余=卡牌参数
-            string tab_name = button_mode ? "按钮参数" : (buff_mode ? "增益参数" : "卡牌参数");
+            bool custom_mode = IsCustomNodeMode;
+            //右列第一个 Tab 的标题：自定义节点模式=自定义节点参数 / 按钮模式=按钮参数 / 增益模式=增益参数 / 其余=卡牌参数
+            string tab_name = custom_mode ? "自定义节点参数"
+                : (button_mode ? "按钮参数" : (buff_mode ? "增益参数" : "卡牌参数"));
             if (tab_prop_text != null)
                 tab_prop_text.text = tab_name;
             Transform area = prop_area_rt != null ? prop_area_rt : transform.Find("PropArea");
@@ -2565,15 +2960,689 @@ namespace TcgEngine.UI
                         t.text = tab_name;
                 }
                 Transform card_scroll = area.Find("PropScroll");
-                bool want_card = !buff_mode && !button_mode;
+                bool want_card = !buff_mode && !button_mode && !custom_mode;
                 if (card_scroll != null && card_scroll.gameObject.activeSelf != want_card)
-                    card_scroll.gameObject.SetActive(want_card);   //增益/按钮模式下藏掉卡牌属性表单
+                    card_scroll.gameObject.SetActive(want_card);   //增益/按钮/自定义节点模式下藏掉卡牌属性表单
             }
             if (buff_form_rt != null)
                 buff_form_rt.gameObject.SetActive(buff_mode);
             if (button_form_rt != null)
                 button_form_rt.gameObject.SetActive(button_mode);
+            if (custom_form_rt != null)
+                custom_form_rt.gameObject.SetActive(custom_mode);
         }
+
+        // ==================== ★自定义节点模式（玩家 DIY：动作 / 函数 / 事件） ====================
+        // 数据 = CustomNodeData（Workshop/custom_nodes.json）；端口由玩家自由增删，最终同步成"蓝图块"节点的
+        // GraphNode.pins（画布 100% 数据驱动 → 端口标签/连线点自动出现，见 CreateNodeUI→foreach(node.pins)）。
+        // 动作/函数 = 1 张图；事件 = 2 张（XX时 / XX后，各含一个自动生成的事件入口节点）。
+        // 保存：OnSave → SaveCustomNode（校验 + "再点一次仍保存"二次确认 + CustomNodeIO.SaveAll）。
+
+        private RectTransform custom_form_rt;      //自定义节点参数面板（自建，挂 PropArea，与 BuffForm 同规）
+        private RectTransform custom_content;      //行容器（VerticalLayoutGroup，childControlHeight=true）
+        private TMP_InputField custom_name_input;
+        private TMP_InputField custom_desc_input;
+        private TMP_Text custom_kind_label;
+        private TMP_Text custom_hint_text;
+        private bool custom_form_built;
+        private bool custom_save_warned;           //校验警告的"再点一次仍保存"
+
+        /// <summary>端口类型下拉的候选（按项目 NodeValueType 枚举挑常用的）</summary>
+        private static readonly NodeValueType[] CustomPortTypes = new NodeValueType[]
+        {
+            NodeValueType.Int32, NodeValueType.String, NodeValueType.Boolean, NodeValueType.Object,
+            NodeValueType.Card, NodeValueType.Player, NodeValueType.CardDefine, NodeValueType.Pile,
+            NodeValueType.Buff, NodeValueType.EventArg, NodeValueType.Array,
+        };
+
+        private static string CustomPortTypeLabel(NodeValueType t)
+        {
+            switch (t)
+            {
+                case NodeValueType.Int32: return "数字";
+                case NodeValueType.String: return "文本";
+                case NodeValueType.Boolean: return "布尔";
+                case NodeValueType.Card: return "卡牌";
+                case NodeValueType.Player: return "玩家";
+                case NodeValueType.CardDefine: return "卡牌定义";
+                case NodeValueType.Pile: return "区域";
+                case NodeValueType.Buff: return "增益";
+                case NodeValueType.EventArg: return "事件参数";
+                case NodeValueType.Array: return "数组";
+                default: return "通用Object";
+            }
+        }
+
+        private static string CustomKindName(CustomNodeKind k)
+        {
+            switch (k)
+            {
+                case CustomNodeKind.Function: return "函数节点";
+                case CustomNodeKind.Event: return "事件节点";
+                default: return "动作节点";
+            }
+        }
+
+        /// <summary>进入自定义节点编辑模式（入口：卡池编辑器 → 变量配置 → 自定义节点 → 编辑）</summary>
+        public void OpenCustomNode(CustomNodeData node)
+        {
+            if (node == null)
+                return;
+
+            pool = null;
+            card = null;
+            save_path = null;
+            editing_keyword = null;
+            editing_rule = null;
+            editing_buff = null;
+            editing_button_config = null;
+            editing_button = null;
+            editing_custom_node = node;
+            all_presets_cache = null;   //★节点库要能看到刚新建/刚改过的自定义节点
+
+            node.EnsureGraphs();
+            SyncCustomNodeBlueprint(node);     //蓝图块 / XX时·XX后入口节点按当前类型与端口生成
+            graph = node.graphs[0].graph;
+
+            effect_index = 0;
+            node_index = 0;
+            undo_stack.Clear();
+            redo_stack.Clear();
+            ClearClipboard();
+            custom_save_warned = false;
+
+            RefreshForm();
+            RefreshPanelArtRow();
+            RebuildCanvas();
+            RefreshNodeLib();
+            ResetView();
+            RefreshEffectTabs();
+
+            VariableSelectPopup.CloseAll();
+            CloseFieldSelectPopup();
+            DiagnoseAndFixInput("打开自定义节点页：");
+            ScheduleInputCheck(3);
+
+            ApplyBuffModeUI();
+            RefreshCustomNodeForm();
+            SelectRightTab(true);
+            SetStatus("正在编辑自定义节点：" + node.GetTitle() + "（保存写回自定义节点数据源 custom_nodes.json）");
+        }
+
+        /// <summary>把类型/端口同步到图里的"蓝图块"（动作/函数）与两个事件入口节点（事件）。
+        /// 引脚 id = 节点id + "_" + 引脚名 → 端口名没改的连线保持有效。</summary>
+        private void SyncCustomNodeBlueprint(CustomNodeData n)
+        {
+            if (n == null)
+                return;
+            n.EnsureGraphs();
+            bool is_event = n.Kind == CustomNodeKind.Event;
+            for (int i = 0; i < n.GraphCount; i++)
+            {
+                GraphData g = n.graphs[i].graph;
+                if (g == null)
+                    continue;
+                string action = is_event ? n.EventEntryAction(i) : n.ActionId;
+                string title = is_event ? (n.GetTitle() + (i == 0 ? "时" : "后")) : n.GetTitle();
+
+                GraphNode bn = null;
+                foreach (GraphNode x in g.nodes)
+                {
+                    if (x == null)
+                        continue;
+                    if (x.action == action || x.id == "custom_block" || x.id == "custom_entry")
+                    {
+                        bn = x;
+                        break;
+                    }
+                }
+                if (bn == null)
+                {
+                    bn = new GraphNode();
+                    bn.id = is_event ? "custom_entry" : "custom_block";
+                    bn.pos = new Vector2Data(0f, 0f);
+                    g.nodes.Add(bn);
+                }
+                bn.type = is_event ? GraphNodeType.Event : GraphNodeType.Action;
+                bn.action = action;
+                bn.title = title;
+                bn.category = is_event ? CAT_EVENT : "自定义";
+                bn.pins = BuildCustomNodePins(bn.id, n, is_event);
+            }
+        }
+
+        /// <summary>按数据生成引脚：动作 = 动作流输入 + 自定义输入/输出 + 动作流输出；
+        /// 函数 = 只有自定义输入/输出；事件 = 触发条件 + 动作流输出 + 自定义输入/输出。</summary>
+        private static List<GraphPin> BuildCustomNodePins(string node_id, CustomNodeData n, bool is_event)
+        {
+            List<GraphPin> pins = new List<GraphPin>();
+            if (is_event)
+            {
+                pins.Add(MakeCustomPin(node_id, "cond", "触发条件", NodeValueType.Boolean, false));
+                pins.Add(MakeCustomPin(node_id, "out", "动作流输出", NodeValueType.Flow, true));
+            }
+            else if (n.Kind == CustomNodeKind.Action)
+            {
+                pins.Add(MakeCustomPin(node_id, "in", "动作流输入", NodeValueType.Flow, false));
+            }
+            if (n.inputs != null)
+                foreach (CustomNodePort p in n.inputs)
+                    if (p != null && !string.IsNullOrWhiteSpace(p.name))
+                        pins.Add(MakeCustomPin(node_id, p.name.Trim(), p.name.Trim(), p.Type, false, p.is_array));
+            if (n.outputs != null)
+                foreach (CustomNodePort p in n.outputs)
+                    if (p != null && !string.IsNullOrWhiteSpace(p.name))
+                        pins.Add(MakeCustomPin(node_id, p.name.Trim(), p.name.Trim(), p.Type, true, p.is_array));
+            if (n.Kind == CustomNodeKind.Action)
+                pins.Add(MakeCustomPin(node_id, "out", "动作流输出", NodeValueType.Flow, true));
+            return pins;
+        }
+
+        private static GraphPin MakeCustomPin(string node_id, string name, string display, NodeValueType type, bool output, bool is_array = false)
+        {
+            return new GraphPin
+            {
+                id = node_id + "_" + name,
+                name = name,
+                display_name = display,
+                type = type,
+                is_output = output,
+                is_array = is_array,
+            };
+        }
+
+        /// <summary>「自定义节点参数」面板：名称 / 类型 / 说明 + 输入端口 / 输出端口（增删 + 上移下移 + 改类型）</summary>
+        private void EnsureCustomNodeForm()
+        {
+            if (custom_form_built)
+                return;
+            if (prop_area_rt == null)
+                prop_area_rt = transform.Find("PropArea") as RectTransform;
+            if (prop_area_rt == null)
+                return;
+            custom_form_built = true;
+
+            //先清同名残留（场景可能被"保存过运行时对象"，与 EnsureBuffForm 同款防护）
+            for (int i = prop_area_rt.childCount - 1; i >= 0; i--)
+            {
+                Transform stale = prop_area_rt.GetChild(i);
+                if (stale != null && stale.name == "CustomNodeForm")
+                {
+                    stale.SetParent(null, false);
+                    Destroy(stale.gameObject);
+                    Debug.Log("[自定义节点面板] 清理遗留的旧面板副本：" + stale.name);
+                }
+            }
+
+            GameObject go = new GameObject("CustomNodeForm", typeof(RectTransform), typeof(Image));
+            custom_form_rt = go.GetComponent<RectTransform>();
+            custom_form_rt.SetParent(prop_area_rt, false);
+            custom_form_rt.anchorMin = Vector2.zero;
+            custom_form_rt.anchorMax = Vector2.one;
+            custom_form_rt.offsetMin = Vector2.zero;
+            custom_form_rt.offsetMax = Vector2.zero;
+            Image bg = go.GetComponent<Image>();
+            bg.color = UITheme.BgBlock;
+            bg.raycastTarget = false;
+
+            GameObject scroll_go = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect));
+            RectTransform srt = scroll_go.GetComponent<RectTransform>();
+            srt.SetParent(custom_form_rt, false);
+            srt.anchorMin = Vector2.zero;
+            srt.anchorMax = Vector2.one;
+            srt.offsetMin = new Vector2(10f, 8f);
+            srt.offsetMax = new Vector2(-10f, -46f);
+            ScrollRect scroll = scroll_go.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 25f;
+
+            GameObject view_go = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+            RectTransform vrt = view_go.GetComponent<RectTransform>();
+            vrt.SetParent(srt, false);
+            vrt.anchorMin = Vector2.zero;
+            vrt.anchorMax = Vector2.one;
+            vrt.offsetMin = Vector2.zero;
+            vrt.offsetMax = Vector2.zero;
+            scroll.viewport = vrt;
+
+            GameObject content_go = new GameObject("Content", typeof(RectTransform));
+            custom_content = content_go.GetComponent<RectTransform>();
+            custom_content.SetParent(vrt, false);
+            custom_content.anchorMin = new Vector2(0f, 1f);
+            custom_content.anchorMax = new Vector2(1f, 1f);
+            custom_content.pivot = new Vector2(0.5f, 1f);
+            custom_content.anchoredPosition = Vector2.zero;
+            custom_content.sizeDelta = Vector2.zero;
+            VerticalLayoutGroup vlg = content_go.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 4f;
+            vlg.padding = new RectOffset(2, 2, 2, 2);
+            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;      //★ 必须 true：否则行上的 LayoutElement 被忽略
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            ContentSizeFitter csf = content_go.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = custom_content;
+
+            custom_form_rt.gameObject.SetActive(false);
+            Debug.Log("[自定义节点面板] 构建完成：名称/类型/说明 + 输入·输出端口（增删/上移下移/改类型）→ 写入 CustomNodeData");
+        }
+
+        /// <summary>刷新自定义节点面板（填值 + 重建端口行）</summary>
+        private void RefreshCustomNodeForm()
+        {
+            if (!IsCustomNodeMode)
+                return;
+            EnsureCustomNodeForm();
+            if (custom_form_rt == null)
+                return;
+            ApplyBuffModeUI();
+            CustomNodeData n = editing_custom_node;
+            if (custom_name_input != null)
+                TmpInputUtil.Write(custom_name_input, n.title);
+            if (custom_desc_input != null)
+                TmpInputUtil.Write(custom_desc_input, n.desc);
+            RebuildCustomNodeRows();
+            SetStatus("正在编辑自定义节点：" + n.GetTitle() + "（保存写回自定义节点数据源 custom_nodes.json）");
+        }
+
+        /// <summary>重建面板行（每次增删端口/切类型后调用）</summary>
+        private void RebuildCustomNodeRows()
+        {
+            if (custom_content == null || editing_custom_node == null)
+                return;
+            for (int i = custom_content.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = custom_content.GetChild(i).gameObject;
+                child.SetActive(false);
+                child.transform.SetParent(null, false);   //先脱离层级（Destroy 延迟，避免同名命中）
+                Destroy(child);
+            }
+            CustomNodeData n = editing_custom_node;
+
+            //① 名称 / 类型 / 说明
+            RectTransform row_name = MakeCustomRow("RowName", 40f);
+            MakeCustomLabel(row_name, "节点名称", 0f, 96f);
+            MakeCustomInput(row_name, n.title, v => { n.title = v; RefreshEffectTabs(); });
+            string kind_label = "类型：" + CustomKindName(n.Kind);
+            RectTransform row_kind = MakeCustomRow("RowKind", 40f);
+            MakeCustomCycleButton(row_kind, kind_label, 0f, 0f, 0f, () => CycleCustomKind());
+
+            RectTransform row_desc = MakeCustomRow("RowDesc", 40f);
+            MakeCustomLabel(row_desc, "说明", 0f, 96f);
+            MakeCustomInput(row_desc, n.desc, v => { n.desc = v; });
+
+            MakeCustomLabel(MakeCustomRow("RowTip", 26f), n.Kind == CustomNodeKind.Function
+                ? "函数节点：只有数据端口（无执行流）"
+                : (n.Kind == CustomNodeKind.Event
+                    ? "事件节点：自动生成「XX时 / XX后」两个入口，左上角可切换分别编排"
+                    : "动作节点：带动作流输入/输出，可串在动作流中间"), 0f, 0f);
+
+            //①b 事件节点：监听哪个引擎事件（点一下轮换，来源=节点库「事件」入口）
+            if (n.Kind == CustomNodeKind.Event)
+            {
+                RectTransform row_listen = MakeCustomRow("RowListen", 38f);
+                string listen_label = string.IsNullOrEmpty(n.listen_action)
+                    ? "监听事件：（点一下选择）"
+                    : ("监听事件：" + CustomEventActionLabel(n.listen_action));
+                MakeCustomCycleButton(row_listen, listen_label, 0f, 0f, 0f, () => CycleCustomListenEvent());
+            }
+
+            //② 输入端口
+            BuildCustomPortSection(n, false);
+            //③ 输出端口
+            BuildCustomPortSection(n, true);
+
+            MakeCustomLabel(MakeCustomRow("RowHelp", 56f),
+                "端口名=蓝图块上的标签；改名会让已连的线断开。改完点顶部「保存」。", 0f, 0f);
+        }
+
+        private RectTransform MakeCustomRow(string name, float height)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(custom_content, false);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = height;
+            le.minHeight = height;
+            return rt;
+        }
+
+        /// <summary>左对齐标签（右侧留 left_pad 的空白给后面的控件用）</summary>
+        private TMP_Text MakeCustomLabel(RectTransform row, string text, float left_pad, float label_width)
+        {
+            TMP_Text t = MakeNodeTmpText(row, "Label", text, 16, TextAlignmentOptions.Left);
+            bool full = label_width <= 0.01f && left_pad <= 0.01f;
+            if (full)
+            {
+                SetStretchRect(t.rectTransform, 6, 0, 6, 0);
+            }
+            else if (label_width <= 0.01f)
+            {
+                t.rectTransform.anchorMin = new Vector2(0f, 0f);
+                t.rectTransform.anchorMax = new Vector2(1f, 1f);
+                SetStretchRect(t.rectTransform, left_pad, 0, 6, 0);
+            }
+            else
+            {
+                t.rectTransform.anchorMin = new Vector2(0f, 0f);
+                t.rectTransform.anchorMax = new Vector2(0f, 1f);
+                t.rectTransform.pivot = new Vector2(0f, 0.5f);
+                t.rectTransform.anchoredPosition = new Vector2(left_pad, 0f);
+                t.rectTransform.sizeDelta = new Vector2(label_width, 0f);
+            }
+            UIFonts.ApplyFont(t);
+            return t;
+        }
+
+        /// <summary>运行时单行输入框（同 VariableSelectPopup 建法：textViewport + 光标重启 + TmpInputUtil 兜底）</summary>
+        private TMP_InputField MakeCustomInput(RectTransform row, string init, System.Action<string> on_change)
+        {
+            GameObject go = new GameObject("Input", typeof(RectTransform), typeof(Image));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(row, false);
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(102f, 4f);      //左侧留出标签位
+            rt.offsetMax = new Vector2(-6f, -4f);
+            Image bg = go.GetComponent<Image>();
+            bg.color = UITheme.FieldBg;
+
+            TMP_InputField input = go.AddComponent<TMP_InputField>();
+            input.targetGraphic = bg;
+            GameObject area_go = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+            RectTransform area = area_go.GetComponent<RectTransform>();
+            area.SetParent(rt, false);
+            area.anchorMin = Vector2.zero;
+            area.anchorMax = Vector2.one;
+            area.offsetMin = new Vector2(10f, 0f);
+            area.offsetMax = new Vector2(-10f, 0f);
+            TMP_Text itext = MakeNodeTmpText(area, "Text", init, 16, TextAlignmentOptions.Left);
+            SetStretchRect(itext.rectTransform, 0, 0, 0, 0);
+            itext.richText = false;
+            input.textViewport = area;
+            input.textComponent = itext;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+            TmpInputUtil.Write(input, init);
+            TmpInputUtil.Guard(input);
+            if (on_change != null)
+                input.onValueChanged.AddListener(v => on_change(TmpInputUtil.Read(input)));
+            return input;
+        }
+
+        /// <summary>运行时小按钮（居中一行：文字=标签，点=回调；用于类型切换/端口行操作）</summary>
+        private Button MakeCustomCycleButton(RectTransform row, string label, float left, float width, float height, System.Action on_click)
+        {
+            GameObject go = new GameObject("Btn", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(row, false);
+            if (width <= 0.01f)
+            {
+                rt.anchorMin = new Vector2(0f, 0f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.offsetMin = new Vector2(left, 2f);
+                rt.offsetMax = new Vector2(-6f, -2f);
+            }
+            else
+            {
+                rt.anchorMin = new Vector2(0f, 0.5f);
+                rt.anchorMax = new Vector2(0f, 0.5f);
+                rt.pivot = new Vector2(0f, 0.5f);
+                rt.anchoredPosition = new Vector2(left, 0f);
+                rt.sizeDelta = new Vector2(width, height > 0.01f ? height : row.rect.height - 4f);
+            }
+            Image img = go.GetComponent<Image>();
+            img.color = UITheme.Ctrl;
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Label", label, 15, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 0, 0, 0, 0);
+            if (on_click != null)
+                btn.onClick.AddListener(() => on_click());
+            return btn;
+        }
+
+        /// <summary>一组端口（输入/输出）：标题 + 「+ 添加」 + 每行（端口名 / 类型 / 上移 / 下移 / 删除）</summary>
+        private void BuildCustomPortSection(CustomNodeData n, bool output)
+        {
+            List<CustomNodePort> list = output ? n.outputs : n.inputs;
+            string label = output ? "输出端口" : "输入端口";
+
+            RectTransform head = MakeCustomRow(output ? "OutHead" : "InHead", 34f);
+            MakeCustomLabel(head, label + "（" + (list != null ? list.Count : 0) + "）", 6f, 160f);
+            bool out_flag = output;
+            MakeCustomCycleButton(head, "+ 添加" + label, 170f, 110f, 28f, () => AddCustomPort(out_flag));
+
+            if (list == null || list.Count == 0)
+            {
+                MakeCustomLabel(MakeCustomRow(output ? "OutEmpty" : "InEmpty", 24f), "（暂无" + label + "）", 12f, 0f);
+                return;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                int index = i;
+                CustomNodePort p = list[i];
+                if (p == null)
+                    continue;
+                RectTransform row = MakeCustomRow((output ? "Out" : "In") + i, 38f);
+                //端口名
+                GameObject name_go = new GameObject("PortName", typeof(RectTransform), typeof(Image));
+                RectTransform nrt = name_go.GetComponent<RectTransform>();
+                nrt.SetParent(row, false);
+                nrt.anchorMin = new Vector2(0f, 0f);
+                nrt.anchorMax = new Vector2(0f, 1f);
+                nrt.pivot = new Vector2(0f, 0.5f);
+                nrt.anchoredPosition = new Vector2(6f, 0f);
+                nrt.sizeDelta = new Vector2(120f, -8f);
+                Image nbg = name_go.GetComponent<Image>();
+                nbg.color = UITheme.FieldBg;
+                TMP_InputField name_input = name_go.AddComponent<TMP_InputField>();
+                name_input.targetGraphic = nbg;
+                GameObject parea_go = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+                RectTransform parea = parea_go.GetComponent<RectTransform>();
+                parea.SetParent(nrt, false);
+                parea.anchorMin = Vector2.zero;
+                parea.anchorMax = Vector2.one;
+                parea.offsetMin = new Vector2(8f, 0f);
+                parea.offsetMax = new Vector2(-8f, 0f);
+                TMP_Text ptext = MakeNodeTmpText(parea, "Text", p.name, 15, TextAlignmentOptions.Left);
+                SetStretchRect(ptext.rectTransform, 0, 0, 0, 0);
+                ptext.richText = false;
+                name_input.textViewport = parea;
+                name_input.textComponent = ptext;
+                name_input.lineType = TMP_InputField.LineType.SingleLine;
+                TmpInputUtil.Write(name_input, p.name);
+                TmpInputUtil.Guard(name_input);
+                CustomNodePort port_ref = p;
+                name_input.onValueChanged.AddListener(v => OnCustomPortNameChanged(port_ref, TmpInputUtil.Read(name_input)));
+
+                //类型（点一下轮换）
+                MakeCustomCycleButton(row, "类型：" + CustomPortTypeLabel(p.Type), 132f, 118f, 28f,
+                    () => CycleCustomPortType(port_ref, output, index));
+                //上移 / 下移 / 删除
+                MakeCustomCycleButton(row, "↑", 256f, 30f, 28f, () => MoveCustomPort(output, index, -1));
+                MakeCustomCycleButton(row, "↓", 290f, 30f, 28f, () => MoveCustomPort(output, index, 1));
+                MakeCustomCycleButton(row, "✕", 324f, 30f, 28f, () => RemoveCustomPort(output, index));
+            }
+        }
+
+        // ---------------- 端口编辑动作（改数据 → 重建行 → 同步蓝图 → 重绘画布） ----------------
+
+        private void OnCustomPortNameChanged(CustomNodePort p, string v)
+        {
+            if (p == null)
+                return;
+            p.name = v;
+            SyncCustomBlueprintAndRedraw(false);   //名字边打边同步（不打乱输入焦点）
+        }
+
+        private void AddCustomPort(bool output)
+        {
+            if (editing_custom_node == null)
+                return;
+            editing_custom_node.AddPort(output);
+            SyncCustomBlueprintAndRedraw(true);
+        }
+
+        private void RemoveCustomPort(bool output, int index)
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            List<CustomNodePort> list = output ? n.outputs : n.inputs;
+            if (list == null || index < 0 || index >= list.Count)
+                return;
+            list.RemoveAt(index);
+            SyncCustomBlueprintAndRedraw(true);
+        }
+
+        private void MoveCustomPort(bool output, int index, int delta)
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            n.MovePort(output, index, delta);
+            SyncCustomBlueprintAndRedraw(true);
+        }
+
+        private void CycleCustomPortType(CustomNodePort p, bool output, int index)
+        {
+            if (p == null)
+                return;
+            int at = 0;
+            for (int i = 0; i < CustomPortTypes.Length; i++)
+            {
+                if (CustomPortTypes[i] == p.Type)
+                {
+                    at = i;
+                    break;
+                }
+            }
+            p.type = CustomPortTypes[(at + 1) % CustomPortTypes.Length].ToString();
+            SyncCustomBlueprintAndRedraw(true);
+        }
+
+        private void CycleCustomKind()
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            int next = ((int)n.Kind + 1) % 3;
+            n.kind = next;
+            n.EnsureGraphs();
+            effect_index = Mathf.Clamp(effect_index, 0, n.GraphCount - 1);
+            graph = n.graphs[effect_index].graph;
+            PushUndo();
+            SyncCustomBlueprintAndRedraw(true);
+            RefreshEffectTabs();
+            SelectEffect(effect_index);
+            SetStatus("节点类型已切换为：" + CustomKindName(n.Kind) + "（记得保存）");
+        }
+
+        // ---------------- 事件节点：监听哪个引擎事件 ----------------
+
+        private static List<string> custom_event_actions;   //候选事件 action（来自节点库「事件」入口；排除自定义节点自身）
+
+        private void CycleCustomListenEvent()
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            if (custom_event_actions == null)
+            {
+                custom_event_actions = new List<string>();
+                foreach (NodePreset p in AllPresets())
+                {
+                    if (p == null || p.type != GraphNodeType.Event || p.category != CAT_EVENT)
+                        continue;
+                    if (string.IsNullOrEmpty(p.action) || p.action.StartsWith("custom_"))
+                        continue;
+                    if (!custom_event_actions.Contains(p.action))
+                        custom_event_actions.Add(p.action);
+                }
+            }
+            if (custom_event_actions.Count == 0)
+            {
+                SetStatus("节点库里没有可监听的事件入口");
+                return;
+            }
+            int at = custom_event_actions.IndexOf(n.ListenBase);
+            at = (at + 1) % (custom_event_actions.Count + 1);   //0..n-1=具体事件；n=清空（不参与广播）
+            n.listen_action = at >= custom_event_actions.Count ? "" : custom_event_actions[at];
+            PushUndo();
+            SyncCustomBlueprintAndRedraw(true);
+            SelectEffect(effect_index);
+            SetStatus(string.IsNullOrEmpty(n.listen_action)
+                ? "已清空监听事件：该定义不参与事件广播（记得保存）"
+                : ("监听事件：" + CustomEventActionLabel(n.listen_action) + " → 「" + n.GetTitle() + "时/后」两段编排会随该事件执行（记得保存）"));
+        }
+
+        /// <summary>事件 action → 中文标签（取节点库里同名事件入口的标题）</summary>
+        private string CustomEventActionLabel(string action)
+        {
+            if (string.IsNullOrEmpty(action))
+                return "";
+            string key = action.Replace("OnAfter", "OnBefore");
+            foreach (NodePreset p in AllPresets())
+            {
+                if (p == null || string.IsNullOrEmpty(p.action))
+                    continue;
+                if (p.action.Replace("OnAfter", "OnBefore") != key)
+                    continue;
+                if (!string.IsNullOrEmpty(p.title))
+                    return p.title + "（" + action + "）";
+            }
+            return action;
+        }
+
+        /// <summary>端口/类型改动后：同步所有图的蓝图块、可选重建面板行、重绘画布与多图栏</summary>
+        private void SyncCustomBlueprintAndRedraw(bool rebuild_rows)
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            n.EnsureGraphs();
+            SyncCustomNodeBlueprint(n);
+            if (rebuild_rows)
+                RebuildCustomNodeRows();
+            RebuildCanvas();
+            RefreshEffectTabs();
+        }
+
+        /// <summary>OnSave 的自定义节点分支：读表单 → 校验（警告二次确认）→ 同步蓝图 → 落盘</summary>
+        private void SaveCustomNode()
+        {
+            CustomNodeData n = editing_custom_node;
+            if (n == null)
+                return;
+            if (custom_name_input != null)
+                n.title = TmpInputUtil.Read(custom_name_input);
+            if (custom_desc_input != null)
+                n.desc = TmpInputUtil.Read(custom_desc_input);
+
+            List<string> issues = n.Validate();
+            if (issues.Count > 0 && !custom_save_warned)
+            {
+                custom_save_warned = true;
+                SetStatus("保存前校验：" + string.Join("；", issues) + " —— 再点一次「保存」仍然保存");
+                Debug.LogWarning("[自定义节点] 保存校验未通过：" + string.Join("；", issues));
+                return;
+            }
+            custom_save_warned = false;
+
+            SyncCustomNodeBlueprint(n);
+            SyncLegacyGraphField();
+            CustomNodeIO.Add(n);
+            CustomNodeIO.SaveAll();
+            all_presets_cache = null;   //★保存后节点库立即出现该自定义节点（其它图形引用它）
+            RefreshNodeLib();
+            RefreshEffectTabs();
+            SetStatus("已保存自定义节点：" + n.GetTitle() + " → custom_nodes.json（其它页面引用它时也要各自保存）");
+        }
+
 
         /// <summary>构建增益参数面板（只建一次；重复调用直接返回）</summary>
         private void EnsureBuffForm()
@@ -3418,8 +4487,8 @@ namespace TcgEngine.UI
                     }
                     break;
                 case BuffPropType.Deck:
-                    //牌堆：与「生效区域」同一套名字
-                    foreach (string z in new string[] { "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" })
+                    //牌堆：与「生效区域」同一套名字（统一取 ZoneNames.Display）
+                    foreach (string z in ZoneNames.Display)
                     {
                         opts.Add(z);
                         vals.Add(z);
@@ -4001,6 +5070,9 @@ namespace TcgEngine.UI
         /// <summary>是否处于按钮编辑模式（全局按钮图：一图多按钮）</summary>
         public bool IsButtonMode => editing_button_config != null;
 
+        /// <summary>是否处于自定义节点编辑模式（玩家 DIY 节点：动作/函数/事件）</summary>
+        public bool IsCustomNodeMode => editing_custom_node != null;
+
         /// <summary>打开按钮编辑模式：编辑全局按钮配置的共享按钮图（一图多按钮）。
         /// 保存时写回 buttons.json（BattleButtonIO.SaveAll）。</summary>
         public void OpenButtons(BattleButtonConfig config)
@@ -4015,6 +5087,7 @@ namespace TcgEngine.UI
             editing_rule = null;
             editing_buff = null;
             editing_button_config = config;
+            editing_custom_node = null;   //★退出自定义节点模式
             editing_button = null;   //按钮模式下具体按钮由 OpenButton 指定（OpenButtons 只负责"进入按钮图"）
 
             graph = config.EnsureGraphs()[0].graph;   //多张按钮图：打开时先用第一张（左上角多图栏可切换/新增/删除）
@@ -4024,7 +5097,7 @@ namespace TcgEngine.UI
             node_index = 0;
             undo_stack.Clear();
             redo_stack.Clear();
-            copied_node = null;
+            ClearClipboard();
             foreach (GraphNode n in graph.nodes)
             {
                 MigrateEntryTargetSlots(graph, n);   //入口目标槽：旧的无编号字段/引脚 → 编号化（含连线改写）
@@ -7813,6 +8886,7 @@ namespace TcgEngine.UI
             links.Clear();
             temp_link = null;
             selected_node = null;
+            selected_nodes.Clear();          //★多选集合随画布重建一起清
             collapse_badges.Clear();           //收起角标随节点重建
             hover_tooltip_root = null;         //悬停提示随画布重建，引用置空（EnsureHoverTooltip 会重建）
             hover_tooltip_text = null;
@@ -10015,22 +11089,39 @@ namespace TcgEngine.UI
                 nl.Redraw();
         }
 
-        /// <summary>节点拖拽中：增量移动（除以缩放，保证手感）</summary>
+        /// <summary>节点拖拽中：增量移动（除以缩放，保证手感）。**多选时整组一起动**（按住 Shift 多选后拖其中一个）</summary>
         public void MoveNode(string node_id, RectTransform row, PointerEventData eventData)
         {
-            if (row == null)
+            if (row == null || eventData == null)
                 return;
             float scale = canvas_content != null && canvas_content.localScale.x > 0.001f ? canvas_content.localScale.x : 1f;
-            row.anchoredPosition += eventData.delta / scale;
-            //移动时实时重绘相连的线
+            Vector2 delta = eventData.delta / scale;
+            row.anchoredPosition += delta;
+
+            bool group = selected_nodes.Count > 1 && selected_nodes.Contains(node_id);
+            if (group)
+            {
+                foreach (string id in selected_nodes)
+                {
+                    if (id == node_id)
+                        continue;
+                    RectTransform other;
+                    if (node_rows.TryGetValue(id, out other) && other != null)
+                        other.anchoredPosition += delta;
+                }
+            }
+            //移动时实时重绘相连的线（多选整组移动时，组内节点的线也要重绘）
             foreach (NodeLink nl in links)
             {
-                if (nl.from_node == node_id || nl.to_node == node_id)
+                if (nl == null)
+                    continue;
+                if (nl.from_node == node_id || nl.to_node == node_id
+                    || (group && (selected_nodes.Contains(nl.from_node) || selected_nodes.Contains(nl.to_node))))
                     nl.Redraw();
             }
         }
 
-        /// <summary>节点拖拽结束：写回位置</summary>
+        /// <summary>节点拖拽结束：写回位置（多选整组一起写回，一次撤销即可还原）</summary>
         public void OnNodeMoved(string node_id, Vector2 pos)
         {
             if (graph == null)
@@ -10040,33 +11131,95 @@ namespace TcgEngine.UI
                 return;
             PushUndo();   //记录移动前位置，撤销可还原
             node.pos = new Vector2Data(pos.x, pos.y);
-            SetStatus("节点已移动，记得保存");
+            int n = 1;
+            if (selected_nodes.Count > 1 && selected_nodes.Contains(node_id))
+            {
+                foreach (string id in selected_nodes)
+                {
+                    if (id == node_id)
+                        continue;
+                    RectTransform rt;
+                    if (!node_rows.TryGetValue(id, out rt) || rt == null)
+                        continue;
+                    GraphNode other = graph.GetNode(id);
+                    if (other == null)
+                        continue;
+                    other.pos = new Vector2Data(rt.anchoredPosition.x, rt.anchoredPosition.y);
+                    n++;
+                }
+            }
+            SetStatus(n > 1 ? ("已移动 " + n + " 个节点，记得保存") : "节点已移动，记得保存");
         }
 
-        /// <summary>选中节点并高亮（同时刷新右侧参数编辑区）</summary>
+        /// <summary>选中节点并高亮（同时刷新右侧参数编辑区）。**按住 Shift = 多选**（再点一次取消该节点）</summary>
         private void SelectNode(string node_id)
         {
-            selected_node = node_id;
-            foreach (var kv in node_rows)
-                ApplySelectHighlight(kv.Key);
-            GraphNode node = graph != null ? graph.GetNode(node_id) : null;
-            RefreshNodeFields(node);
-            string hint = MissingInputHint(node_id);
-            SetStatus(string.IsNullOrEmpty(hint)
-                ? "已选中节点，可编辑右侧参数（记得保存）"
-                : "已选中节点，还差：" + hint + "（记得保存）");
+            if (string.IsNullOrEmpty(node_id))
+                return;
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (shift)
+            {
+                if (!selected_nodes.Add(node_id))
+                    selected_nodes.Remove(node_id);       //Shift 再点一次 = 从选择里去掉
+                selected_node = selected_nodes.Contains(node_id) ? node_id : FirstSelectedNode();
+            }
+            else
+            {
+                selected_nodes.Clear();
+                selected_nodes.Add(node_id);
+                selected_node = node_id;
+            }
+            RefreshSelectionUI(true);
         }
 
         /// <summary>取消所有节点选中（点击画布空白处触发）：恢复高亮并回到节点库面板</summary>
         private void DeselectNode()
         {
-            if (string.IsNullOrEmpty(selected_node))
+            if (selected_nodes.Count == 0 && string.IsNullOrEmpty(selected_node))
                 return;
+            selected_nodes.Clear();
             selected_node = null;
+            if (marquee_root != null)
+                marquee_root.gameObject.SetActive(false);
             foreach (var kv in node_rows)
                 ApplySelectHighlight(kv.Key);
             RefreshNodeFields(null);   //无选中节点 → 右下角切回节点库
-            SetStatus("已取消选中节点");
+            SetStatus("已取消选中（Shift 点击可多选 / 空白拖拽可框选 / Ctrl+A 全选）");
+        }
+
+        /// <summary>多选集合里取一个当"主选中"（HashSet 顺序不稳定，仅用于右侧参数面板/缺输入提示）</summary>
+        private string FirstSelectedNode()
+        {
+            foreach (string id in selected_nodes)
+                return id;
+            return null;
+        }
+
+        /// <summary>选中态统一刷新：高亮 + 右侧参数面板（按主选中）+ 状态栏提示（多选时提示批量操作）</summary>
+        private void RefreshSelectionUI(bool refresh_fields)
+        {
+            foreach (var kv in node_rows)
+                ApplySelectHighlight(kv.Key);
+            if (refresh_fields)
+            {
+                GraphNode node = (graph != null && !string.IsNullOrEmpty(selected_node)) ? graph.GetNode(selected_node) : null;
+                RefreshNodeFields(node);
+            }
+            if (selected_nodes.Count == 0)
+            {
+                SetStatus("已取消选中（Shift 点击可多选 / 空白拖拽可框选 / Ctrl+A 全选）");
+            }
+            else if (selected_nodes.Count == 1)
+            {
+                string hint = !string.IsNullOrEmpty(selected_node) ? MissingInputHint(selected_node) : "";
+                SetStatus(string.IsNullOrEmpty(hint)
+                    ? "已选中节点，可编辑右侧参数（Shift 点击多选 · 空白拖拽框选 · 记得保存）"
+                    : "已选中节点，还差：" + hint + "（记得保存）");
+            }
+            else
+            {
+                SetStatus("已选中 " + selected_nodes.Count + " 个节点（Delete 批量删除 · Ctrl+C/V 批量复制 · 拖动整组移动）");
+            }
         }
 
         private void ApplySelectHighlight(string node_id)
@@ -10076,10 +11229,13 @@ namespace TcgEngine.UI
                 Image bg = rect.Find("LineBG")?.GetComponent<Image>();
                 if (bg != null)
                 {
-                    //三级状态：选中蓝 > 缺输入暗红（规格第6.6节）> 默认深灰底；全部不透明
+                    //四级状态：主选中蓝 > 多选其次蓝 > 缺输入暗红（规格第6.6节）> 默认深灰底；全部不透明
                     bool issue = !string.IsNullOrEmpty(MissingInputHint(node_id));
-                    if (node_id == selected_node)
+                    bool sel = selected_nodes.Contains(node_id);
+                    if (sel && node_id == selected_node)
                         bg.color = new Color(0.20f, 0.36f, 0.55f, 1f);
+                    else if (sel)
+                        bg.color = new Color(0.16f, 0.27f, 0.42f, 1f);
                     else if (issue)
                         bg.color = new Color(0.40f, 0.12f, 0.12f, 1f);
                     else
@@ -10936,15 +12092,37 @@ namespace TcgEngine.UI
 
         private void OnDeleteNode()
         {
-            if (graph == null || string.IsNullOrEmpty(selected_node))
+            if (graph == null || selected_nodes.Count == 0)
             {
-                SetStatus("请先在画布中选中一个节点");
+                SetStatus("请先在画布中选中节点（Shift 点击多选 / 空白拖拽框选 / Ctrl+A 全选）");
                 return;
             }
-            OnDeleteNodeId(selected_node);
+            DeleteSelectedNodes();
         }
 
-        /// <summary>删除指定节点及其所有连线（工具栏按钮与节点自带 × 按钮共用；Ctrl+Z 可撤销）</summary>
+        /// <summary>★批量删除：一次撤销快照删掉所有选中节点及其连线（工具栏「删除节点」与 Delete 键共用）</summary>
+        private void DeleteSelectedNodes()
+        {
+            if (graph == null || selected_nodes.Count == 0)
+                return;
+            PushUndo();   //删除前记录一次，Ctrl+Z 整批还原
+            int n = 0;
+            foreach (string id in new List<string>(selected_nodes))
+            {
+                if (string.IsNullOrEmpty(id))
+                    continue;
+                graph.links.RemoveAll(l => l.from_node == id || l.to_node == id);
+                n += graph.nodes.RemoveAll(nd => nd.id == id);
+            }
+            selected_nodes.Clear();
+            selected_node = null;
+            SetStatus("已删除 " + n + " 个节点及其连线（Ctrl+Z 可撤销，记得保存）");
+            RebuildCanvas();
+            RefreshNodeLib();   //删掉触发后：节点库里的触发项恢复可选（同步灰显状态）
+            ApplyValidationMarks();
+        }
+
+        /// <summary>删除指定节点及其所有连线（节点自带 × 按钮用；Ctrl+Z 可撤销）</summary>
         private void OnDeleteNodeId(string node_id)
         {
             if (graph == null || string.IsNullOrEmpty(node_id))
@@ -10952,10 +12130,178 @@ namespace TcgEngine.UI
             PushUndo();   //删除前记录，Ctrl+Z 可恢复
             graph.links.RemoveAll(l => l.from_node == node_id || l.to_node == node_id);
             graph.nodes.RemoveAll(n => n.id == node_id);
+            selected_nodes.Remove(node_id);
+            if (selected_node == node_id)
+                selected_node = FirstSelectedNode();
             SetStatus("已删除节点及其连线（Ctrl+Z 可撤销，记得保存）");
             RebuildCanvas();
             RefreshNodeLib();   //删掉触发后：节点库里的触发项恢复可选（同步灰显状态）
             ApplyValidationMarks();
+        }
+
+        // ---------------- ★框选（空白左键拖拽拉框多选） ----------------
+
+        /// <summary>拖拽中：把选框画在画布视口上（视口坐标 → 不受 content 缩放影响）</summary>
+        private void OnRubberBandDrag(Vector2 screen_a, Vector2 screen_b)
+        {
+            EnsureMarquee();
+            if (marquee_root == null)
+                return;
+            RectTransform parent = marquee_root.parent as RectTransform;
+            Vector2 a, b;
+            if (parent == null || !ScreenToLocalRect(parent, screen_a, out a) || !ScreenToLocalRect(parent, screen_b, out b))
+                return;
+            marquee_root.anchoredPosition = (a + b) * 0.5f;
+            marquee_root.sizeDelta = new Vector2(Mathf.Abs(a.x - b.x), Mathf.Abs(a.y - b.y));
+            if (!marquee_root.gameObject.activeSelf)
+                marquee_root.gameObject.SetActive(true);
+        }
+
+        /// <summary>松手：换算到 content 局部坐标，选中所有与选框相交的节点；按住 Shift = 追加到已有选择</summary>
+        private void OnRubberBandEnd(Vector2 screen_a, Vector2 screen_b)
+        {
+            if (marquee_root != null)
+                marquee_root.gameObject.SetActive(false);
+            if (graph == null)
+                return;
+
+            Vector2 a, b;
+            if (!ScreenToContent(screen_a, out a) || !ScreenToContent(screen_b, out b))
+                return;
+            //没拖动（点一下空白）：交给画布的"取消选中"逻辑处理，这里不动
+            if (Mathf.Abs(a.x - b.x) < 2f && Mathf.Abs(a.y - b.y) < 2f)
+                return;
+
+            Rect sel = Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (!shift)
+                selected_nodes.Clear();
+
+            foreach (var kv in node_rows)
+            {
+                RectTransform rt = kv.Value;
+                if (rt == null)
+                    continue;
+                //节点在 content 里的实际矩形：anchoredPosition + rect（rect 是相对 pivot 的局部矩形）
+                Rect nr = new Rect(rt.anchoredPosition + rt.rect.position, rt.rect.size);
+                if (!sel.Overlaps(nr, true))
+                    continue;
+                selected_nodes.Add(kv.Key);
+            }
+            if (!selected_nodes.Contains(selected_node))
+                selected_node = FirstSelectedNode();
+            RefreshSelectionUI(true);
+            if (selected_nodes.Count == 0)
+                SetStatus("框选未命中节点（可 Shift 点击单个选择）");
+        }
+
+        /// <summary>选框 UI：运行时创建在画布视口下、置顶绘制（raycast 关掉，不能挡住鼠标）</summary>
+        private void EnsureMarquee()
+        {
+            if (marquee_root != null)
+                return;
+            Transform parent = graph_canvas != null ? graph_canvas.transform
+                : (canvas_content != null ? canvas_content.parent : null);
+            if (parent == null)
+                return;
+            GameObject go = new GameObject("SelectionMarquee", typeof(RectTransform), typeof(Image));
+            marquee_root = go.GetComponent<RectTransform>();
+            marquee_root.SetParent(parent, false);
+            marquee_root.SetAsLastSibling();          //画在节点/连线之上
+            marquee_root.anchorMin = new Vector2(0.5f, 0.5f);
+            marquee_root.anchorMax = new Vector2(0.5f, 0.5f);
+            marquee_root.pivot = new Vector2(0.5f, 0.5f);
+            marquee_root.sizeDelta = Vector2.zero;
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(0.35f, 0.65f, 1f, 0.18f);
+            img.raycastTarget = false;                //★不能挡鼠标：否则拖拽会被自己截断
+            go.SetActive(false);
+        }
+
+        /// <summary>屏幕坐标 → 指定 RectTransform 的局部坐标（框选用；与 ScreenToContent 同一套相机规则）</summary>
+        private bool ScreenToLocalRect(RectTransform target, Vector2 screen, out Vector2 local)
+        {
+            local = Vector2.zero;
+            if (target == null)
+                return false;
+            Canvas canvas = target.GetComponentInParent<Canvas>();
+            Camera cam = canvas != null ? canvas.worldCamera : null;
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(target, screen, cam, out local);
+        }
+
+        // ---------------- ★清空当前效果图 ----------------
+
+        /// <summary>「清空」：删掉**当前效果图**里的所有节点与连线（其它效果图/卡属性/增益图不受影响）。
+        /// 只作用于当前编辑的那张图（规则图 tab = effect_index 指向的那张）。</summary>
+        private void OnClearEffect()
+        {
+            if (graph == null)
+                return;
+            int n = graph.nodes != null ? graph.nodes.Count : 0;
+            int ln = graph.links != null ? graph.links.Count : 0;
+            if (n == 0 && ln == 0)
+            {
+                SetStatus("当前效果图已经是空的");
+                return;
+            }
+            PushUndo();   //★可撤销：误点也能 Ctrl+Z 回来
+            graph.nodes.Clear();
+            graph.links.Clear();
+            selected_nodes.Clear();
+            selected_node = null;
+            if (marquee_root != null)
+                marquee_root.gameObject.SetActive(false);
+            RebuildCanvas();
+            RefreshNodeLib();
+            ApplyValidationMarks();
+            SetStatus("已清空当前效果图的 " + n + " 个节点（Ctrl+Z 可撤销，记得保存）");
+        }
+
+        /// <summary>「清空」按钮：运行时补建在工具栏「复位」右侧（场景由生成工具重建后也能用，不用改场景）。
+        /// 与「放大/缩小/复位」同一行、同尺寸、同底图；父级有布局组时给 LayoutElement 防被压成 0。</summary>
+        private void EnsureClearEffectButton()
+        {
+            if (btn_clear_effect != null || btn_reset == null)
+                return;
+            RectTransform src = btn_reset.transform as RectTransform;
+            if (src == null || src.parent == null)
+                return;
+
+            GameObject go = new GameObject("BtnClearEffect", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(src.parent, false);
+            rt.anchorMin = src.anchorMin;
+            rt.anchorMax = src.anchorMax;
+            rt.pivot = src.pivot;
+            rt.sizeDelta = src.sizeDelta;
+            rt.anchoredPosition = src.anchoredPosition + new Vector2(src.sizeDelta.x + 8f, 0f);
+
+            LayoutGroup lg = src.parent.GetComponent<LayoutGroup>();
+            if (lg != null)
+            {
+                LayoutElement le = go.AddComponent<LayoutElement>();
+                le.preferredWidth = src.sizeDelta.x;
+                le.preferredHeight = src.sizeDelta.y;
+            }
+
+            Image img = go.GetComponent<Image>();
+            Image src_img = btn_reset.GetComponent<Image>();
+            if (src_img != null)
+            {
+                img.sprite = src_img.sprite;
+                img.type = src_img.type;
+                img.color = src_img.color;   //与工具栏同色（「复位」已被 ApplyGrayscaleTopBar 压成灰阶）
+            }
+            else
+            {
+                img.color = new Color(0.22f, 0.24f, 0.30f, 1f);
+            }
+            btn_clear_effect = go.GetComponent<Button>();
+            btn_clear_effect.targetGraphic = img;
+            TMP_Text t = MakeNodeTmpText(rt, "Label", "清空", 15, TextAlignmentOptions.Center);
+            SetStretchRect(t.rectTransform, 6, 0, 6, 0);
+            t.color = Color.white;
+            btn_clear_effect.onClick.AddListener(OnClearEffect);
         }
 
         // ---------------- 节点收起/展开（规格第4节） ----------------
@@ -11018,11 +12364,14 @@ namespace TcgEngine.UI
                     nl.Redraw();
             }
 
-            //收起后取消选中，回到节点库显示
-            if (selected_node == node_id)
+            //收起后取消选中，回到节点库显示（多选集合里也要移除，避免"隐形选中"）
+            if (selected_node == node_id || selected_nodes.Contains(node_id))
             {
-                selected_node = "";
-                RefreshNodeFields(null);
+                selected_nodes.Remove(node_id);
+                if (selected_node == node_id)
+                    selected_node = FirstSelectedNode();
+                GraphNode sel = (graph != null && !string.IsNullOrEmpty(selected_node)) ? graph.GetNode(selected_node) : null;
+                RefreshNodeFields(sel);
                 foreach (var kv in node_rows)
                     ApplySelectHighlight(kv.Key);
             }
@@ -11425,6 +12774,12 @@ namespace TcgEngine.UI
 
         private void OnSave()
         {
+            //★自定义节点模式：校验（端口名/类型/动作流）+ 同步蓝图块 + 写回 custom_nodes.json
+            if (editing_custom_node != null)
+            {
+                SaveCustomNode();
+                return;
+            }
             //关键词模式：校验后直接写回关键词资产（无卡池文件/卡牌属性）
             if (editing_keyword != null)
             {
@@ -11738,6 +13093,16 @@ namespace TcgEngine.UI
                     panel.Show();
                     panel.NotifyButtonGraphClosed();
                 }
+                return;
+            }
+            if (editing_custom_node != null)
+            {
+                //★自定义节点模式：返回卡池编辑器（变量配置 → 自定义节点）
+                CardEditorPanel panel = CardEditorPanel.Get();
+                if (panel == null)
+                    panel = FindObjectOfType<CardEditorPanel>(true);
+                if (panel != null)
+                    panel.Show();
                 return;
             }
             if (editing_buff != null)

@@ -40,11 +40,6 @@ namespace TcgEngine.UI
             toggle_list.Remove(this);
         }
 
-        void Start()
-        {
-
-        }
-
         private void Update()
         {
             if (on_if_all_off)

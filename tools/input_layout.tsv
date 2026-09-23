@@ -1,0 +1,32 @@
+# 输入框布局诊断  at=2026-09-20 22:02:56
+=== 节点库搜索框/搜索 ===
+  输入框自身：UICanvasTop/GraphEditorPanel/LibArea/SearchRow/PropInput  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(0.00, 0.00) offsets(min/max)=(0.00, 0.00)/(0.00, 0.00) anchoredPos=(0.00, 0.00) localPos=(0.00, -18.00, 0.00) rect=(x:-184.63, y:-18.00, width:369.25, height:36.00) worldH=0.3333333
+  inp.text = [ ]  长度=1  码点=32
+  placeholder = [搜索节点…]
+  textComponent.text = [ ​]  码点=32,8203  textInfo首字符码点=32
+  失焦兜底占位串 = [ ] 码点=32
+  lineType=SingleLine  isFocused=False  fontSize(设)=14  caretColor=RGBA(1.000, 1.000, 1.000, 1.000)
+  textViewport：UICanvasTop/GraphEditorPanel/LibArea/SearchRow/PropInput  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(0.00, 0.00) offsets(min/max)=(0.00, 0.00)/(0.00, 0.00) anchoredPos=(0.00, 0.00) localPos=(0.00, -18.00, 0.00) rect=(x:-184.63, y:-18.00, width:369.25, height:36.00) worldH=0.3333333
+  文本组件：UICanvasTop/GraphEditorPanel/LibArea/SearchRow/PropInput/Text  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(-10.00, 0.00) offsets(min/max)=(10.00, 0.00)/(0.00, 0.00) anchoredPos=(5.00, 0.00) localPos=(5.00, 0.00, 0.00) rect=(x:-179.63, y:-18.00, width:359.25, height:36.00) worldH=0.3333333
+  文本: alignment=Left  margin=(0.00, 0.00, 0.00, 0.00)  fontSize=16  enableWordWrapping=False  overflow=Overflow
+  font=SimHei_TMP  pointSize=16  fontSizeMin/Max=18/72
+  textInfo: characterCount=2 lineCount=1
+  参考：文本 rect 高=36 vs 输入框高=36（文本 rect 若=输入框高且 alignment 含 Left/Center 则应垂直居中）
+=== 卡名输入框/名称 ===
+  输入框自身：UICanvasTop/GraphEditorPanel/PropArea/PropScroll/Viewport/Content/PropRow/Field/PropInput  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(0.00, 0.00) offsets(min/max)=(0.00, 0.00)/(0.00, 0.00) anchoredPos=(0.00, 0.00) localPos=(0.00, 0.00, 0.00) rect=(x:46.00, y:-20.00, width:-92.00, height:40.00) worldH=0.3703704
+  inp.text = [ ]  长度=1  码点=32
+  placeholder = [请输入卡牌名称]
+  textComponent.text = [ ​]  码点=32,8203  textInfo首字符码点=<无字符>
+  失焦兜底占位串 = [ ] 码点=32
+  lineType=SingleLine  isFocused=False  fontSize(设)=14  caretColor=RGBA(1.000, 1.000, 1.000, 1.000)
+  textViewport：UICanvasTop/GraphEditorPanel/PropArea/PropScroll/Viewport/Content/PropRow/Field/PropInput  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(0.00, 0.00) offsets(min/max)=(0.00, 0.00)/(0.00, 0.00) anchoredPos=(0.00, 0.00) localPos=(0.00, 0.00, 0.00) rect=(x:46.00, y:-20.00, width:-92.00, height:40.00) worldH=0.3703704
+  文本组件：UICanvasTop/GraphEditorPanel/PropArea/PropScroll/Viewport/Content/PropRow/Field/PropInput/Text  anchorMin=(0.00, 0.00) anchorMax=(1.00, 1.00) pivot=(0.50, 0.50) sizeDelta=(-10.00, 0.00) offsets(min/max)=(10.00, 0.00)/(0.00, 0.00) anchoredPos=(5.00, 0.00) localPos=(5.00, 0.00, 0.00) rect=(x:51.00, y:-20.00, width:-102.00, height:40.00) worldH=0.3703704
+  文本: alignment=Left  margin=(0.00, 0.00, 0.00, 0.00)  fontSize=16  enableWordWrapping=False  overflow=Overflow
+  font=SimHei_TMP  pointSize=16  fontSizeMin/Max=18/72
+  textInfo: <尚未生成（无布局）>
+  参考：文本 rect 高=40 vs 输入框高=40（文本 rect 若=输入框高且 alignment 含 Left/Center 则应垂直居中）
+CHECK	节点库搜索框 文字垂直居中	PASS	alignment=Left 上下留白=0/0 相对中心偏移=0
+CHECK	卡名输入框 文字垂直居中	PASS	alignment=Left 上下留白=0/0 相对中心偏移=0
+CHECK	聚焦后文本被清空（打字不会多空格）	PASS	聚焦后=[] 码点=
+CHECK	失焦兜底补回占位（防 TMP 空文本越界）	PASS	兜底后=[ ] 码点=32
+CHECK	写入 abc 后读取干净（无多余空格）	PASS	读回=[abc] 码点=97,98,99

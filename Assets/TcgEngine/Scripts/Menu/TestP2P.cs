@@ -34,11 +34,6 @@ namespace TcgEngine
             error.text = "";
         }
 
-        void Update()
-        {
-
-        }
-
         private async void Login()
         {
             error.text = "";

@@ -77,6 +77,25 @@ namespace TcgEngine.UI
                 btn.onClick += OnClickTab;
         }
 
+        private void OnDestroy()
+        {
+            master_vol.onValueChanged -= RefreshText;
+            music_vol.onValueChanged -= RefreshText;
+            sfx_vol.onValueChanged -= RefreshText;
+            quality.onValueChanged -= RefreshText;
+            resolution.onValueChanged -= RefreshText;
+
+            master_vol.onEndDrag -= OnChangeAudio;
+            music_vol.onEndDrag -= OnChangeAudio;
+            sfx_vol.onEndDrag -= OnChangeAudio;
+            quality.onEndDrag -= OnChangeQuality;
+            resolution.onEndDrag -= OnChangeResolution;
+            windowed.onValueChanged.RemoveListener(OnChangeWindowed);
+
+            foreach (TabButton btn in TabButton.GetAll(tab_group))
+                btn.onClick -= OnClickTab;
+        }
+
         private void RefreshPanel()
         {
             refreshing = true;

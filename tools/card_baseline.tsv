@@ -1,0 +1,191 @@
+card_id	card_type	mana	atk	hp	deckbuilding	abil_seq	abil_id	trigger	target	value	duration	mana_cost	exhaust	status	effects	conditions_trigger	conditions_target	filters_target	fx
+ashes_snake	Character	4	5	3	1	1	stealth	OnPlay	Self	0	0	0	0	stealth(StatusData.effect=10)					
+bull_heat	Character	3	2	5	1	1	add_spell_damage1	Ongoing	PlayerSelf	1	0	0	0		EffectAddKeyword{duration=0;value=1;keyword→[spell_damage]}				
+cave	Artifact	3	0	5	1	1	turn_end_damage_hero_2	EndOfTurn	PlayerOpponent	2	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}				
+dark_stallion	Character	3	3	3	1	1	activate_damage1(2)	Activate	SelectTarget	1	0	1	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionSelf{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+dragon_knight	Character	5	5	5	0	1	death_create_dragon_red	OnDeath	PlayerSelf	1	0	0	0		EffectSummon{summon→[dragon_red]}				
+dragon_knight	Character	5	5	5	0	2	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+dragon_red	Character	7	9	7	1	1	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+dragon's_anger	Spell	11	0	0	1	1	spell_summon_dragon_red_damage	OnPlay	PlayTarget	9	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		
+equip_rock_bow	Equipment	2	3	1	1	0	(无能力)												
+equip_sword	Equipment	2	1	0	1	1	equip_first_strike	Ongoing	EquippedCard	0	0	0	0	first_strike(StatusData.effect=23)					
+fire_chicken	Character	2	2	1	1	1	death_fire_chicken_egg	OnDeath	Self	2	0	0	0		EffectSummon{summon→[fire_chicken_egg]}				caster_fx=(缺失)
+fire_element	Character	5	4	3	1	1	play_damage_all2	OnPlay	AllCardsBoard	2	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1}		target_fx=(缺失)
+firefox	Character	4	4	4	1	1	activate_select_discard_spell	Activate	CardSelector	0	0	4	0		EffectSendPile{pile=20}	ConditionCount{has_team={fileID: 0};has_trait={fileID: 0};has_type=20;oper=2;pile=40;value=1}	ConditionCardPile{oper=0;type=40} + ConditionCardType{has_team=0;has_type=20;oper=0} + ConditionOwner{oper=0}		caster_fx=(缺失)
+hell_hound	Character	4	4	2	1	1	fury	Ongoing	Self	0	0	0	0	fury(StatusData.effect=22)					
+imp	Character	1	1	1	1	1	play_deal_damage1	OnPlay	SelectTarget	1	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1} + ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+lava_beast	Character	3	2	3	1	1	after_spell_attack2	OnPlayOther	Self	2	0	0	0		EffectAddStat{type=10}	ConditionCardType{has_team=0;has_type=20;oper=0} + ConditionOwner{oper=0}			target_fx=(缺失)
+phoenix	Character	6	6	6	1	1	activate_damage2	Activate	SelectTarget	2	0	3	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionSelf{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+phoenix	Character	6	6	6	1	2	death_egg	OnDeath	Self	2	0	0	0		EffectSummon{summon→[phoenix_egg]}				caster_fx=(缺失)
+potion_red	Spell	2	0	0	1	1	spell_attack1	OnPlay	PlayTarget	1	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=0}		target_fx=(缺失)
+potion_red	Spell	2	0	0	1	2	spell_fury	OnPlay	PlayTarget	0	0	0	0	fury(StatusData.effect=22)			ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=0}		
+reaper	Character	6	6	6	1	1	turn_kill_lowest	StartOfTurn	AllCardsBoard	0	0	0	0		EffectDestroy{}		ConditionCardType{has_team=0;has_type=10;oper=0}	FilterLowestStat{stat=10}	target_fx=(缺失)
+spell_aerial_strike	Spell	3	0	0	1	1	spell_summon_eagle	OnPlay	PlayerSelf	0	0	0	0		EffectSummon{summon→[flame_eagle]} + EffectSummon{summon→[flame_eagle]} + EffectSummon{summon→[flame_eagle]}				
+spell_armageddon	Spell	7	0	0	1	1	spell_damage4	OnPlay	PlayTarget	4	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+spell_burn	Spell	4	0	0	1	1	play_deal_damage5	OnPlay	SelectTarget	5	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1} + ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+spell_projectiles	Spell	999	0	0	0	1	spell_projectile1_repeat	OnPlay	None	0	0	0	0		EffectRepeat{type=1;ability→[chain_projectile1]}	ConditionSelectedValue{oper=4;value=0}			
+spell_split	Spell	2	0	0	1	1	play_damage3_creature	OnPlay	SelectTarget	3	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1} + ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+spell_stones	Spell	2	0	0	1	1	spell_damage1	OnPlay	PlayTarget	1	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+spell_stones	Spell	2	0	0	1	2	spell_draw1	OnPlay	PlayerSelf	1	0	0	0		EffectDraw{}				
+town_volcano	Artifact	4	0	7	1	1	town_aura_red	Ongoing	AllCardsBoard	2	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardType{has_trait={fileID: 0};has_type=0;oper=0;has_team→[fire]} + ConditionOwner{oper=0}		
+trap_explosive	Secret	3	0	0	1	1	trap_damage_all2	OnBeforeAttack	AllCardsBoard	2	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}	ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}	ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}		target_fx=(缺失)
+war_girl	Character	4	3	2	1	0	(无能力)												
+wolf_furious	Character	4	2	4	1	1	fury	Ongoing	Self	0	0	0	0	fury(StatusData.effect=22)					
+wolf_furious	Character	4	2	4	1	2	attack_add_attack1	OnBeforeAttack	Self	1	0	0	0		EffectAddStat{type=10}				
+armored_beast	Character	4	3	6	1	1	taunt	Ongoing	Self	0	0	0	0	taunt(StatusData.effect=14)					
+bear	Character	5	4	5	1	1	play_choice_taunt_fury	OnPlay	ChoiceSelector	0	0	0	0						
+dragon_green	Character	7	7	9	1	1	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+equip_shield	Equipment	2	0	0	1	1	equip_armor2	Ongoing	EquippedCard	2	0	0	0	armor(StatusData.effect=16)					
+equip_shield	Equipment	2	0	0	1	2	equip_taunt	Ongoing	EquippedCard	0	0	0	0	taunt(StatusData.effect=14)					
+forest_Axe	Equipment	2	1	2	1	1	equip_lifesteal	Ongoing	EquippedCard	0	0	0	0	lifesteal(StatusData.effect=28)					
+forest_Axe	Equipment	2	1	2	1	2	equip_attack1	Ongoing	EquippedCard	1	0	0	0		EffectAddStat{type=10}				
+forest_Axe	Equipment	2	1	2	1	3	equip_hp2	Ongoing	EquippedCard	2	0	0	0		EffectAddStat{type=20}				
+gorilla	Character	4	0	6	1	1	play_roll_attack	OnPlay	Self	0	0	0	0		EffectRoll{dice=6}				
+holy_saintess	Character	6	3	3	1	1	play_+3+3	OnPlay	SelectTarget	3	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+holy_saintess	Character	6	3	3	1	2	play_recover3	OnPlay	PlayerSelf	3	0	0	0		EffectHeal{}				
+holy_saintess	Character	6	3	3	1	3	play_draw1	OnPlay	Self	1	0	0	0		EffectDraw{}				
+mammoth	Character	6	7	6	1	1	trample	Ongoing	Self	0	0	0	0	trample(StatusData.effect=26)					
+owl	Character	3	2	1	1	1	play_silence	OnPlay	SelectTarget	0	0	0	0	silenced(StatusData.effect=30)	EffectClearStatus{status={fileID: 0}} + EffectResetStat{}		ConditionSelf{oper=1} + ConditionTarget{oper=0;type=10} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+owl	Character	3	2	1	1	2	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+potion_green	Spell	2	0	0	1	1	spell_hp2	OnPlay	PlayTarget	2	0	0	0		EffectAddStat{type=20}		ConditionTarget{oper=0;type=10} + ConditionOwner{oper=0}		target_fx=(缺失)
+potion_green	Spell	2	0	0	1	2	spell_taunt	OnPlay	PlayTarget	0	0	0	0	taunt(StatusData.effect=14)			ConditionTarget{oper=0;type=10} + ConditionOwner{oper=0} + ConditionStatus{has_status=10;oper=1;value=0}		
+raccoon	Character	2	2	3	1	1	play_select_discard	OnPlay	CardSelector	0	0	0	0		EffectSendPile{pile=20}	ConditionCount{has_team={fileID: 0};has_trait={fileID: 0};has_type=10;oper=2;pile=40;value=1}	ConditionCardPile{oper=0;type=40} + ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=0}		
+sasquatch	Character	5	6	4	1	1	turn_stealth	EndOfTurn	Self	0	0	0	0	stealth(StatusData.effect=10)	EffectClearStatus{status→[taunt(StatusData.effect=14)]}	ConditionCount{has_team={fileID: 0};has_trait={fileID: 0};has_type=10;oper=2;pile=10;value=2}			
+snake_venom	Character	2	1	3	1	1	attack_poison	OnBeforeAttack	AbilityTriggerer	1	0	0	0	poisoned(StatusData.effect=34)			ConditionSelf{oper=1} + ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+snake_venom	Character	2	1	3	1	2	defend_poison	OnBeforeDefend	AbilityTriggerer	1	0	0	0	poisoned(StatusData.effect=34)			ConditionSelf{oper=1} + ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+spell_extinct	Spell	2	0	0	1	1	spell_add_play_extinct	OnPlay	PlayTarget	0	0	0	0		EffectAddAbility{gain_ability→[play_other_sacrifice]}		ConditionTarget{oper=0;type=10} + ConditionOwner{oper=1}		target_fx=(缺失)
+spell_growth	Spell	4	0	0	1	1	spell_ally_attack_2	OnPlay	AllCardsBoard	2	0	0	0		EffectAddStat{type=10}		ConditionOwner{oper=0} + ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+spell_growth	Spell	4	0	0	1	2	spell_ally_hp_2	OnPlay	AllCardsBoard	2	0	0	0		EffectAddStat{type=20}		ConditionOwner{oper=0}		
+spell_hibernate	Spell	3	0	0	0	1	spell_hibernate	OnPlay	PlayTarget	4	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+spell_roots	Spell	3	0	0	1	1	spell_paralyse	OnPlay	PlayTarget	0	6	0	0	paralysed(StatusData.effect=32)			ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}		target_fx=(缺失)
+spell_stomp	Spell	2	0	0	1	1	spell_kill_lowest_hp	OnPlay	AllCardsBoard	0	0	0	0		EffectDestroy{}		ConditionCardType{has_team=0;has_type=10;oper=0}	FilterLowestStat{stat=20} + FilterRandom{amount=1}	
+town_forest	Artifact	3	0	7	1	1	town_aura_green	Ongoing	AllCardsBoard	2	0	0	0		EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardType{has_trait={fileID: 0};has_type=0;oper=0;has_team→[forest]} + ConditionOwner{oper=0}		
+trap_spike	Secret	3	0	0	1	1	trap_paralyse3	OnAfterAttack	AbilityTriggerer	0	6	0	0	paralysed(StatusData.effect=32)		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}			target_fx=(缺失)
+tree_angry	Character	3	3	5	1	1	regen_all	StartOfTurn	Self	99	0	0	0		EffectHeal{}				target_fx=(缺失)
+unicorn	Character	6	5	6	1	1	play_boost2	OnPlay	SelectTarget	2	2	0	1	add_attack(StatusData.effect=4),add_hp(StatusData.effect=5)			ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionSelf{oper=1} + ConditionOwnerAI{oper=0}		target_fx=(缺失)
+wolf_alpha	Character	3	3	2	1	1	play_summon_wolf	OnPlay	AllSlots	1	0	0	0		EffectSummon{summon→[wolf_baby]}		ConditionSlotEmpty{oper=0} + ConditionOwner{oper=0} + ConditionSlotRange{range_p=0;range_x=1}	FilterRandom{amount=1}	
+wolf_alpha	Character	3	3	2	1	2	aura_wolf	Ongoing	AllCardsBoard	1	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardType{has_team=0;has_type=0;oper=0;has_trait→[(缺失)]} + ConditionSelf{oper=1} + ConditionOwner{oper=0}		
+wolf_stalker	Character	2	3	2	1	1	stealth	OnPlay	Self	0	0	0	0	stealth(StatusData.effect=10)					
+woodland	Artifact	2	0	5	1	1	turn_green_heal	StartOfTurn	AllCardsBoard	3	0	0	0		EffectHeal{}		ConditionCardType{has_trait={fileID: 0};has_type=0;oper=0;has_team→[forest]} + ConditionOwner{oper=0}		target_fx=(缺失)
+world_tree_seedling	Artifact	4	0	6	1	1	end_turn_blessing	EndOfTurn	PlayerSelf	1	0	0	0		EffectMana{increase_max=0;increase_value=1}	ConditionTurn{oper=0}			
+hero_fire	Hero	0	0	0	0	1	activate_fire	Activate	SelectTarget	1	0	2	1		EffectDamage{bonus_keyword→[spell_damage]}	ConditionOnce{}	ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		projectile_fx=(缺失)
+hero_forest	Hero	0	0	0	0	1	activate_forest	Activate	SelectTarget	2	0	2	1		EffectHeal{}	ConditionOnce{}	ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=0}		target_fx=(缺失)
+hero_water	Hero	0	0	0	0	1	activate_water	Activate	PlayerSelf	1	0	3	1		EffectDraw{}	ConditionOnce{}			
+angel_kiss	Spell	3	0	0	1	1	spell_heal_3	OnPlay	PlayTarget	3	0	0	0		EffectHeal{}		ConditionSlotEmpty{oper=1}		
+blessing	Equipment	2	0	0	1	0	(无能力)												
+blessing_sword	Equipment	3	1	1	1	1	equip_lifesteal	Ongoing	EquippedCard	0	0	0	0	lifesteal(StatusData.effect=28)					
+bravery_blessing	Spell	5	0	0	0	1	spell_buff4	OnPlay	SelectTarget	4	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+bravery_blessing	Spell	5	0	0	0	2	firststrike	Ongoing	Self	0	0	0	0	first_strike(StatusData.effect=23)					
+divine_blessing	Spell	3	0	0	1	1	spell_buff2	OnPlay	SelectTarget	2	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+divine_blessing	Spell	3	0	0	1	2	lifesteal	Ongoing	Self	0	0	0	0	lifesteal(StatusData.effect=28)					
+divine_grace	Spell	5	0	0	1	0	(无能力)												
+divine_healing	Spell	2	0	0	1	1	play_draw3	OnPlay	Self	3	0	0	0		EffectDraw{}				
+divine_judgment	Equipment	6	0	0	1	0	(无能力)												
+divine_shield	Equipment	4	0	0	1	0	(无能力)												
+dragon_white	Character	7	7	7	1	1	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+dragon_white	Character	7	7	7	1	2	death_heal5	OnDeath	PlayerSelf	5	0	0	0		EffectHeal{}				
+guardian_angel	Spell	0	0	0	0	0	(无能力)												
+heal_spell	Spell	2	0	0	1	0	(无能力)												
+holy_angel	Character	5	4	6	1	1	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+holy_blessing	Spell	1	0	0	1	1	spell_buff1	OnPlay	SelectTarget	1	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+holy_blessing	Spell	1	0	0	1	2	trample	Ongoing	Self	0	0	0	0	trample(StatusData.effect=26)					
+holy_griffin	Character	6	5	7	1	1	activate_get+1+2	Activate	Self	1	0	3	0		EffectAddStat{type=10}				target_fx=(缺失)
+holy_light	Spell	3	0	0	1	1	spell_heal_9	OnPlay	PlayTarget	9	0	0	0		EffectHeal{}		ConditionSlotEmpty{oper=1}		
+holy_protection	Equipment	4	0	0	1	0	(无能力)												
+holy_sword	Equipment	4	2	2	1	0	(无能力)												
+holy_temple	Spell	4	0	4	1	0	(无能力)												
+light_blessing	Spell	3	0	0	0	1	spell_heal_9	OnPlay	PlayTarget	9	0	0	0		EffectHeal{}		ConditionSlotEmpty{oper=1}		
+light_sword	Equipment	3	2	0	1	1	lifesteal	Ongoing	Self	0	0	0	0	lifesteal(StatusData.effect=28)					
+paladin	Character	4	4	3	1	1	shell	OnPlay	Self	0	0	0	0	shell(StatusData.effect=13)					
+pegasus_knight	Character	3	2	1	1	0	(无能力)												
+power_blessing	Spell	6	0	0	1	1	spell_buff5	OnPlay	SelectTarget	5	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+power_blessing	Spell	6	0	0	1	2	taunt	Ongoing	Self	0	0	0	0	taunt(StatusData.effect=14)					
+power_blessing	Spell	6	0	0	1	3	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+priest	Character	3	2	3	1	0	(无能力)												
+purification_priest	Character	3	2	2	1	1	play_silence	OnPlay	SelectTarget	0	0	0	0	silenced(StatusData.effect=30)	EffectClearStatus{status={fileID: 0}} + EffectResetStat{}		ConditionSelf{oper=1} + ConditionTarget{oper=0;type=10} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+purify	Equipment	2	0	0	1	0	(无能力)												
+recruit_card	Character	1	1	1	1	0	(无能力)												
+resurrection	Equipment	5	0	0	1	0	(无能力)												
+soldier	Character	2	1	2	1	0	(无能力)												
+strength_blessing	Spell	1	0	0	0	1	spell_buff1	OnPlay	SelectTarget	1	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+strength_blessing	Spell	1	0	0	0	2	trample	Ongoing	Self	0	0	0	0	trample(StatusData.effect=26)					
+temple_guard	Character	3	1	4	1	0	(无能力)												
+temple_knight	Character	5	4	4	1	0	(无能力)												
+white_swan	Character	4	1	7	1	1	activated_(1)_heal3	OnPlay	PlayTarget	3	0	1	1		EffectHeal{}		ConditionSlotEmpty{oper=1}		
+branch	Spell	1	0	0	0	1	play_deal_damage1	OnPlay	SelectTarget	1	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1} + ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+coin	Spell	0	0	0	0	1	spell_coin	OnPlay	PlayerSelf	1	0	0	0		EffectMana{increase_max=0;increase_value=1}				
+dragon_egg	Spell	2	0	0	0	1	spell_dragon_create	OnPlay	AllCardData	0	0	0	0		EffectCreate{create_opponent=0;create_pile=90}		ConditionCardType{has_team=0;has_type=0;oper=0;has_trait→[dragon]} + ConditionDeckbuilding{oper=0}	FilterRandom{amount=4}	
+fire_chicken_egg	Character	0	0	2	0	1	egg_transform_fire_chicken	StartOfTurn	Self	0	0	0	0		EffectTransform{transform_to→[fire_chicken]}				caster_fx=(缺失)
+flame_eagle	Character	1	1	1	0	1	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+flame_eagle	Character	1	1	1	0	2	play_haste	OnPlay	Self	0	0	0	0		EffectExhaust{}				
+phoenix_egg	Character	0	0	4	0	1	egg_transform_phoenix	StartOfTurn	Self	0	0	0	0		EffectTransform{transform_to→[phoenix]}				caster_fx=(缺失)
+recruit	Character	1	1	1	0	0	(无能力)												
+skeleton	Character	1	1	1	0	0	(无能力)												
+skeleton_2	Character	2	2	2	0	0	(无能力)												
+skeleton_3	Character	3	3	3	0	0	(无能力)												
+wolf_baby	Character	1	1	1	0	0	(无能力)												
+black_widow	Character	4	2	4	1	1	attack_poison2	OnBeforeDefend	AbilityTriggerer	0	0	0	0	poisoned(StatusData.effect=34)		ConditionSelf{oper=1}			
+bone_warrior	Character	4	2	4	1	1	death_summon_skeleton	OnDeath	Self	1	0	0	0		EffectSummon{summon→[skeleton]}				
+card_merchant	Character	6	3	3	1	1	play_draw3	OnPlay	Self	3	0	0	0		EffectDraw{}				
+corruption_potion	Spell	2	0	0	1	1	spell_debuff2	None	LastTargeted	-2	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1} + ConditionCardPile{oper=0;type=10}		
+crow	Character	2	2	1	1	1	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+crow	Character	2	2	1	1	2	play_deal_damage1	OnPlay	SelectTarget	1	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSelf{oper=1} + ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+curse_trap	Secret	3	0	0	1	1	trap_destroy	OnBeforeAttack	AbilityTriggerer	0	0	0	0		EffectDestroy{}	ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}			
+cursed_blade	Equipment	2	4	-1	1	0	(无能力)												
+dark_blessing	Spell	3	0	0	1	1	spell_buff2	OnPlay	SelectTarget	2	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionCardPile{oper=0;type=10}		
+death_pact	Spell	3	0	0	1	1	vampire_lord	Ongoing	Self	0	0	0	0	lifesteal(StatusData.effect=28)					
+death_reaper	Character	6	5	5	1	1	deathtouch	Ongoing	Self	0	0	0	0	deathtouch(StatusData.effect=20)					
+dragon_black	Character	7	7	7	1	1	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+dragon_black	Character	7	7	7	1	2	black_dragon_death	OnDeath	Self	1	0	0	0		EffectSummon{summon→[skeleton_3]}				
+ghoul	Character	3	2	3	1	1	play_ghoul_buff	OnPlay	Self	2	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}	ConditionCount{has_team={fileID: 0};has_trait={fileID: 0};has_type=10;oper=2;pile=40;value=1}			
+graveyard	Artifact	4	0	5	1	1	graveyard_draw	?41	PlayerSelf	1	0	0	0		EffectDraw{}	ConditionOwner{oper=0}			
+necromancer	Character	5	4	4	1	1	play_revive_random	OnPlay	CardSelector	0	0	0	0		EffectPlay{}		ConditionOwner{oper=0} + ConditionCardPile{oper=0;type=40} + ConditionCardType{has_team=0;has_type=10;oper=0}	FilterRandom{amount=1}	
+Plague_Rat	Character	1	1	1	1	1	death_debuff_enemy	OnDeath	AllCardsBoard	-1	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}	FilterRandom{amount=1}	
+resurrection_swamp	Spell	5	0	0	1	1	spell_revive	OnPlay	CardSelector	0	0	0	0		EffectPlay{}		ConditionOwner{oper=0} + ConditionCardPile{oper=0;type=40} + ConditionCardType{has_team=0;has_type=10;oper=0}		
+shadow_arrow	Spell	3	0	0	1	1	spell_damage4	OnPlay	PlayTarget	4	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}		ConditionSlotEmpty{oper=1} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+shadow_assassin	Character	4	3	3	1	1	stealth	OnPlay	Self	0	0	0	0	stealth(StatusData.effect=10)					
+shadow_assassin	Character	4	3	3	1	2	stealth_attack_debuff	OnAfterAttack	AbilityTriggerer	-2	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionSelf{oper=1} + ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}		
+shadow_bat	Character	3	2	2	1	1	play_draw1	OnPlay	Self	1	0	0	0		EffectDraw{}				
+sickle_girl	Character	4	1	6	1	1	deathtouch	Ongoing	Self	0	0	0	0	deathtouch(StatusData.effect=20)					
+sickle_girl	Character	4	1	6	1	2	kill_damage3_enemy_hero	OnKill	PlayerOpponent	3	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}	ConditionCardType{has_team=0;has_type=10;oper=0}			
+skeleton_soldier	Character	2	2	2	1	1	death_summon_skeleton	OnDeath	Self	1	0	0	0		EffectSummon{summon→[skeleton]}				
+soul_harvest	Spell	7	0	0	1	1	spell_soul_harvest	OnPlay	AllCardsBoard	0	0	0	0		EffectDestroy{}		ConditionCardType{has_team=0;has_type=10;oper=0}		
+vampire	Character	5	3	4	1	1	vampire_lord	Ongoing	Self	0	0	0	0	lifesteal(StatusData.effect=28)					
+vampire	Character	5	3	4	1	2	kill_damage3_enemy_hero	OnKill	PlayerOpponent	3	0	0	0		EffectDamage{bonus_keyword→[spell_damage]}	ConditionCardType{has_team=0;has_type=10;oper=0}			
+zombie	Character	3	1	5	1	1	play_debuff1	OnPlay	SelectTarget	-1	0	0	0		EffectAddStat{type=10} + EffectAddStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1} + ConditionCardPile{oper=0;type=10}		
+bay	Artifact	2	0	5	1	1	death_blue_draw	OnDeathOther	PlayerSelf	1	0	0	0		EffectDraw{}	ConditionOwner{oper=0} + ConditionCardType{has_trait={fileID: 0};has_type=0;oper=0;has_team→[water]} + ConditionCardType{has_team=0;has_type=10;oper=0}			
+crab_mana	Character	2	3	1	1	1	attack_player_mana2	OnAfterAttack	PlayerSelf	2	0	0	0		EffectMana{increase_max=0;increase_value=1}	ConditionTarget{oper=0;type=20}			
+dragon_blue	Character	7	8	8	1	1	spell_immunity	Ongoing	Self	0	0	0	0	spell_immunity(StatusData.effect=18)					
+eel	Character	4	5	2	1	1	play_set_attack1	OnPlay	SelectTarget	1	0	0	0		EffectSetStat{type=10}		ConditionSelf{oper=1} + ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}		target_fx=(缺失)
+equip_ring	Equipment	1	0	0	1	1	equip_gain_mana	StartOfTurn	PlayerSelf	2	0	0	0		EffectMana{increase_max=0;increase_value=1}				
+fish	Character	1	1	1	1	1	death_draw	OnDeath	PlayerSelf	1	0	0	0		EffectDraw{}				
+fishing_rod	Equipment	2	1	1	1	1	fishing_rod_ability	OnAfterAttack	AllSlots	0	0	0	0		EffectSummon{summon→[fish]}		ConditionSlotEmpty{oper=0} + ConditionOwner{oper=0} + ConditionCardPile{oper=0;type=10}	FilterFirst{amount=1}	
+fishing_rod	Equipment	2	1	1	1	2	equip_attack1	Ongoing	EquippedCard	1	0	0	0		EffectAddStat{type=10}				
+fishing_rod	Equipment	2	1	1	1	3	equip_hp1	Ongoing	EquippedCard	1	0	0	0		EffectAddStat{type=20}				
+ice_girl	Character	6	3	7	1	1	fury	Ongoing	Self	0	0	0	0	fury(StatusData.effect=22)					
+ice_girl	Character	6	3	7	1	2	attack_bounce	OnBeforeAttack	AbilityTriggerer	0	0	0	0		EffectSendPile{pile=20}		ConditionSelf{oper=1}		
+killer_whale	Character	5	5	4	1	1	play_destroy_less4	OnPlay	SelectTarget	0	0	0	0		EffectDestroy{}		ConditionSelf{oper=1} + ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionStat{oper=3;type=10;value=4} + ConditionOwner{oper=1}		
+kraken	Character	6	5	5	1	1	play_haste	OnPlay	Self	0	0	0	0		EffectExhaust{}				
+large_eagle	Character	3	2	3	1	1	flying_attack_1	Ongoing	AllCardsBoard	1	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=0} + ConditionStatus{has_status=24;oper=0;value=0}		
+large_eagle	Character	3	2	3	1	2	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+octopus	Character	4	2	5	1	1	attack_roll_attack_bonus	OnBeforeAttack	Self	0	0	0	0		EffectRoll{dice=6}				
+poison_frog	Character	3	2	2	1	1	deathtouch	Ongoing	Self	0	0	0	0	deathtouch(StatusData.effect=20)					
+potion_blue	Spell	2	0	0	1	1	spell_shell	OnPlay	PlayTarget	0	0	0	0	shell(StatusData.effect=13)			ConditionTarget{oper=0;type=10} + ConditionOwner{oper=0}		
+potion_blue	Spell	2	0	0	1	2	spell_heal_full	OnPlay	PlayTarget	99	0	0	0		EffectHeal{}		ConditionTarget{oper=0;type=10} + ConditionOwner{oper=0}		target_fx=(缺失)
+pufferfish	Character	3	2	5	1	1	defense_attack3	Ongoing	Self	3	0	0	0		EffectAddStat{type=10}	ConditionTurn{oper=1}			
+sea_monster	Character	6	4	7	1	1	aura_attack_m1	Ongoing	AllCardsBoard	-1	0	0	0		EffectAddStat{type=10}		ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionSelf{oper=1} + ConditionOwner{oper=1}		
+sea_monster	Character	6	4	7	1	2	activate_boost1	Activate	AllCardsBoard	1	1	0	1	add_attack(StatusData.effect=4)			ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=0}		caster_fx=(缺失)
+seagull	Character	2	2	2	1	1	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					
+shark	Character	4	4	4	1	1	death_other_draw	OnDeathOther	PlayerSelf	1	0	0	0		EffectDraw{}	ConditionCardType{has_team=0;has_type=10;oper=0}			
+small_bird	Character	1	2	1	1	1	flying_ally	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)			ConditionOtherCardWithStatus{has_status=24;oper=2;value=1}		
+spell_flood	Spell	3	0	0	1	1	spell_damage_per_hand	OnPlay	AllCardsBoard	1	0	0	0		EffectSetStat{type=20}		ConditionCardType{has_team=0;has_type=10;oper=0}		target_fx=(缺失)
+spell_storm	Spell	5	0	0	1	1	spell_return_all	OnPlay	AllCardsBoard	0	0	0	0		EffectSendPile{pile=20}				target_fx=(缺失)
+spell_submerge	Spell	2	0	0	1	1	spell_add_submerge	OnPlay	PlayTarget	0	0	0	0		EffectAddAbility{gain_ability→[defend_discard]}		ConditionTarget{oper=0;type=10} + ConditionOwner{oper=0}		target_fx=(缺失)
+spell_treasure	Spell	3	0	0	1	1	spell_treasure	OnPlay	PlayerSelf	0	0	0	0		EffectSendPile{pile=20}				
+spell_wave	Spell	3	0	0	1	1	spell_send_hand	OnPlay	PlayTarget	0	0	0	0		EffectSendPile{pile=20}		ConditionTarget{oper=0;type=10} + ConditionOwnerAI{oper=1}		target_fx=(缺失)
+star_tower	Artifact	4	0	6	1	1	spell_draw_aura	OnPlayOther	PlayerSelf	1	0	0	0		EffectDraw{}	ConditionCardType{has_team=0;has_type=20;oper=0} + ConditionOwner{oper=0}			
+town_underwater	Artifact	3	0	7	1	1	town_aura_blue	Ongoing	AllCardsHand	-1	0	0	0		EffectAddStat{type=30}		ConditionCardType{has_trait={fileID: 0};has_type=0;oper=0;has_team→[water]} + ConditionOwner{oper=0}		
+trap_fish	Secret	3	0	0	1	1	secret_transform_fish	OnPlayOther	AbilityTriggerer	1	0	0	0		EffectTransform{transform_to→[fish]}	ConditionCardType{has_team=0;has_type=10;oper=0} + ConditionOwner{oper=1}			target_fx=(缺失)
+turtle	Character	3	2	3	1	1	taunt	Ongoing	Self	0	0	0	0	taunt(StatusData.effect=14)					
+turtle	Character	3	2	3	1	2	shell	OnPlay	Self	0	0	0	0	shell(StatusData.effect=13)					
+waterfowl	Character	1	1	2	1	1	flying	Ongoing	Self	0	0	0	0	flying(StatusData.effect=24)					

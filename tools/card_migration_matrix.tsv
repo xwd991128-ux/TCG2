@@ -1,0 +1,156 @@
+card	type	deckbuilding	mana	abilities	triggers	effects	conditions	filters	status	chain	ability_fx	score	suggested_batch	has_art	has_card_fx
+angel_kiss	Spell	1	3	1	OnPlay	EffectHeal	ConditionSlotEmpty		0	0	0	4	4-条件过滤	0	0
+armored_beast	Character	1	4	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+ashes_snake	Character	1	4	1	OnPlay				1	0	0	1	2-数值直伤	1	1
+bay	Artifact	1	2	1	OnDeathOther	EffectDraw	ConditionCardType,ConditionOwner		0	0	0	6	4-条件过滤	1	1
+bear	Character	1	5	3	None,OnPlay				2	1	0	4	2-数值直伤	1	1
+black_widow	Character	1	4	1	OnBeforeDefend		ConditionSelf		1	0	0	3	4-条件过滤	0	0
+blessing	Equipment	1	2	0					0	0	0	0	1-白板	0	0
+blessing_sword	Equipment	1	3	1	Ongoing				1	0	0	1	5-英雄光环亡语	0	0
+bone_warrior	Character	1	4	1	OnDeath	EffectSummon			0	0	0	2	5-英雄光环亡语	0	0
+branch	Spell	0	1	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	1	9	4-条件过滤	1	0
+bravery_blessing	Spell	0	5	2	Ongoing,OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		1	0	0	7	5-英雄光环亡语	0	0
+bull_heat	Character	1	3	1	Ongoing	EffectAddKeyword			0	0	0	2	5-英雄光环亡语	1	1
+card_merchant	Character	1	6	1	OnPlay	EffectDraw			0	0	0	2	2-数值直伤	1	0
+cave	Artifact	1	3	1	EndOfTurn	EffectDamage			0	0	0	2	2-数值直伤	1	1
+coin	Spell	0	0	1	OnPlay	EffectMana			0	0	0	2	2-数值直伤	0	0
+corruption_potion	Spell	1	2	2	None	EffectAddStat,EffectDestroy	ConditionCardPile,ConditionCardType,ConditionOwner,ConditionStat		0	1	0	13	4-条件过滤	0	0
+crab_mana	Character	1	2	1	OnAfterAttack	EffectMana	ConditionTarget		0	0	0	4	4-条件过滤	1	1
+crow	Character	1	2	2	Ongoing,OnPlay	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		1	0	1	10	5-英雄光环亡语	0	0
+curse_trap	Secret	1	3	1	OnBeforeAttack	EffectDestroy	ConditionCardType,ConditionOwner		0	0	0	6	4-条件过滤	0	0
+cursed_blade	Equipment	1	2	0					0	0	0	0	1-白板	0	0
+dark_blessing	Spell	1	3	1	OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		0	0	0	6	4-条件过滤	0	0
+dark_stallion	Character	1	3	1	Activate	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	1	9	4-条件过滤	1	1
+death_pact	Spell	1	3	1	Ongoing				1	1	0	2	5-英雄光环亡语	0	0
+death_reaper	Character	1	6	1	Ongoing				1	0	0	1	5-英雄光环亡语	0	0
+divine_blessing	Spell	1	3	2	Ongoing,OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		1	0	0	7	5-英雄光环亡语	0	0
+divine_grace	Spell	1	5	0					0	0	0	0	1-白板	0	0
+divine_healing	Spell	1	2	1	OnPlay	EffectDraw			0	0	0	2	2-数值直伤	0	0
+divine_judgment	Equipment	1	6	0					0	0	0	0	1-白板	0	0
+divine_shield	Equipment	1	4	0					0	0	0	0	1-白板	0	0
+dragon_black	Character	1	7	2	OnDeath,Ongoing	EffectSummon			1	0	0	3	5-英雄光环亡语	0	0
+dragon_blue	Character	1	7	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+dragon_egg	Spell	0	2	3	None,OnPlay	EffectClearTemp,EffectCreate,EffectSendPile	ConditionCardPile,ConditionCardType,ConditionDeckbuilding,ConditionOwner,ConditionStat	FilterRandom	0	1	0	19	4-条件过滤	0	0
+dragon_green	Character	1	7	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+dragon_knight	Character	0	5	2	OnDeath,Ongoing	EffectSummon			1	0	0	3	5-英雄光环亡语	1	0
+dragon_red	Character	1	7	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+dragon_white	Character	1	7	2	OnDeath,Ongoing	EffectHeal			1	0	0	3	5-英雄光环亡语	0	0
+dragon's_anger	Spell	1	11	2	OnPlay	EffectDamage,EffectSummon	ConditionOwnerAI,ConditionSlotEmpty		0	1	0	9	4-条件过滤	1	1
+eel	Character	1	4	1	OnPlay	EffectSetStat	ConditionCardType,ConditionOwner,ConditionSelf		0	0	1	9	4-条件过滤	1	1
+equip_ring	Equipment	1	1	2	None,StartOfTurn	EffectAddStat,EffectMana			0	1	0	5	2-数值直伤	1	1
+equip_rock_bow	Equipment	1	2	0					0	0	0	0	1-白板	1	1
+equip_shield	Equipment	1	2	2	Ongoing				2	0	0	2	5-英雄光环亡语	1	1
+equip_sword	Equipment	1	2	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+fire_chicken	Character	1	2	1	OnDeath	EffectSummon			0	0	1	3	5-英雄光环亡语	1	1
+fire_chicken_egg	Character	0	0	1	StartOfTurn	EffectTransform			0	0	1	3	3-召唤衍生	1	1
+fire_element	Character	1	5	1	OnPlay	EffectDamage	ConditionSelf		0	0	1	5	4-条件过滤	1	1
+firefox	Character	1	4	1	Activate	EffectSendPile	ConditionCardPile,ConditionCardType,ConditionCount,ConditionOwner		0	0	1	11	4-条件过滤	1	1
+fish	Character	1	1	1	OnDeath	EffectDraw			0	0	0	2	5-英雄光环亡语	1	1
+fishing_rod	Equipment	1	2	3	OnAfterAttack,Ongoing	EffectAddStat,EffectSummon	ConditionCardPile,ConditionOwner,ConditionSlotEmpty	FilterFirst	0	0	0	13	5-英雄光环亡语	0	1
+flame_eagle	Character	0	1	2	Ongoing,OnPlay	EffectExhaust			1	0	0	3	5-英雄光环亡语	1	1
+forest_Axe	Equipment	1	2	3	Ongoing	EffectAddStat			1	0	0	4	5-英雄光环亡语	1	1
+ghoul	Character	1	3	1	OnPlay	EffectAddStat	ConditionCount		0	0	0	4	4-条件过滤	0	0
+gorilla	Character	1	4	2	None,OnPlay	EffectAddStatRoll,EffectRoll			0	1	0	5	6-专有逻辑	1	1
+graveyard	Artifact	1	4	1	T41	EffectDraw	ConditionOwner		0	0	0	4	4-条件过滤	0	0
+guardian_angel	Spell	0	0	0					0	0	0	0	1-白板	0	0
+heal_spell	Spell	1	2	0					0	0	0	0	1-白板	0	0
+hell_hound	Character	1	4	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+hero_fire	Hero	0	0	1	Activate	EffectDamage	ConditionOnce,ConditionOwnerAI,ConditionSlotEmpty		0	0	1	9	5-英雄光环亡语	1	0
+hero_forest	Hero	0	0	1	Activate	EffectHeal	ConditionOnce,ConditionOwnerAI,ConditionSlotEmpty		0	0	1	9	5-英雄光环亡语	1	0
+hero_water	Hero	0	0	1	Activate	EffectDraw	ConditionOnce		0	0	0	4	5-英雄光环亡语	1	0
+holy_angel	Character	1	5	1	Ongoing				1	0	0	1	5-英雄光环亡语	0	0
+holy_blessing	Spell	1	1	2	Ongoing,OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		1	0	0	7	5-英雄光环亡语	0	0
+holy_griffin	Character	1	6	2	Activate,None	EffectAddStat			0	1	2	5	2-数值直伤	1	0
+holy_light	Spell	1	3	1	OnPlay	EffectHeal	ConditionSlotEmpty		0	0	0	4	4-条件过滤	0	0
+holy_protection	Equipment	1	4	0					0	0	0	0	1-白板	0	0
+holy_saintess	Character	1	6	3	OnPlay	EffectAddStat,EffectDraw,EffectHeal	ConditionCardType		0	0	1	9	4-条件过滤	1	1
+holy_sword	Equipment	1	4	0					0	0	0	0	1-白板	0	0
+holy_temple	Spell	1	4	0					0	0	0	0	1-白板	0	0
+ice_girl	Character	1	6	2	OnBeforeAttack,Ongoing	EffectSendPile	ConditionSelf		1	0	0	5	5-英雄光环亡语	1	1
+imp	Character	1	1	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	1	9	4-条件过滤	1	1
+killer_whale	Character	1	5	2	None,OnPlay	EffectDestroy,EffectDraw	ConditionCardType,ConditionOwner,ConditionSelf,ConditionStat		0	1	0	13	4-条件过滤	1	1
+kraken	Character	1	6	1	OnPlay	EffectExhaust			0	0	0	2	2-数值直伤	1	1
+large_eagle	Character	1	3	2	Ongoing	EffectAddStat	ConditionCardType,ConditionOwner,ConditionStatus		1	0	0	9	5-英雄光环亡语	1	1
+lava_beast	Character	1	3	1	OnPlayOther	EffectAddStat	ConditionCardType,ConditionOwner		0	0	1	7	4-条件过滤	1	1
+light_blessing	Spell	0	3	1	OnPlay	EffectHeal	ConditionSlotEmpty		0	0	0	4	4-条件过滤	0	0
+light_sword	Equipment	1	3	1	Ongoing				1	0	0	1	5-英雄光环亡语	0	0
+mammoth	Character	1	6	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+necromancer	Character	1	5	1	OnPlay	EffectPlay	ConditionCardPile,ConditionCardType,ConditionOwner	FilterRandom	0	0	0	10	4-条件过滤	0	0
+octopus	Character	1	4	2	None,OnBeforeAttack	EffectRoll	ConditionRolled		1	1	0	6	4-条件过滤	1	1
+owl	Character	1	3	2	Ongoing,OnPlay	EffectClearStatus,EffectResetStat	ConditionOwnerAI,ConditionSelf,ConditionTarget		2	0	1	11	5-英雄光环亡语	1	1
+paladin	Character	1	4	1	OnPlay				1	0	0	1	2-数值直伤	0	0
+pegasus_knight	Character	1	3	0					0	0	0	0	1-白板	0	0
+phoenix	Character	1	6	2	Activate,OnDeath	EffectDamage,EffectSummon	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	2	11	5-英雄光环亡语	1	1
+phoenix_egg	Character	0	0	1	StartOfTurn	EffectTransform			0	0	1	3	3-召唤衍生	1	1
+Plague_Rat	Character	1	1	1	OnDeath	EffectAddStat	ConditionCardType,ConditionOwner	FilterRandom	0	0	0	8	5-英雄光环亡语	1	1
+poison_frog	Character	1	3	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+potion_blue	Spell	1	2	2	OnPlay	EffectHeal	ConditionOwner,ConditionTarget		1	0	1	8	4-条件过滤	0	0
+potion_green	Spell	1	2	2	OnPlay	EffectAddStat	ConditionOwner,ConditionStatus,ConditionTarget		1	0	1	10	4-条件过滤	0	0
+potion_red	Spell	1	2	2	OnPlay	EffectAddStat	ConditionCardType,ConditionOwner		1	0	1	8	4-条件过滤	0	0
+power_blessing	Spell	1	6	3	Ongoing,OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		2	0	0	8	5-英雄光环亡语	0	0
+priest	Character	1	3	0					0	0	0	0	1-白板	0	0
+pufferfish	Character	1	3	1	Ongoing	EffectAddStat	ConditionTurn		0	0	0	4	5-英雄光环亡语	1	1
+purification_priest	Character	1	3	1	OnPlay	EffectClearStatus,EffectResetStat	ConditionOwnerAI,ConditionSelf,ConditionTarget		1	0	1	10	4-条件过滤	0	0
+purify	Equipment	1	2	0					0	0	0	0	1-白板	0	0
+raccoon	Character	1	2	1	OnPlay	EffectSendPile	ConditionCardPile,ConditionCardType,ConditionCount,ConditionOwner		0	0	0	10	4-条件过滤	1	1
+reaper	Character	1	6	1	StartOfTurn	EffectDestroy	ConditionCardType	FilterLowestStat	0	0	1	7	4-条件过滤	1	1
+recruit	Character	0	1	0					0	0	0	0	1-白板	0	0
+recruit_card	Character	1	1	0					0	0	0	0	1-白板	0	0
+resurrection	Equipment	1	5	0					0	0	0	0	1-白板	0	0
+resurrection	Spell	1	5	1	OnPlay	EffectPlay	ConditionCardPile,ConditionCardType,ConditionOwner		0	0	0	8	4-条件过滤	0	0
+sasquatch	Character	1	5	1	EndOfTurn	EffectClearStatus	ConditionCount		1	0	0	4	4-条件过滤	1	1
+sea_monster	Character	1	6	2	Activate,Ongoing	EffectAddStat	ConditionCardType,ConditionOwner,ConditionSelf		1	0	1	10	5-英雄光环亡语	1	1
+seagull	Character	1	2	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+shadow_arrow	Spell	1	3	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSlotEmpty		0	0	1	7	4-条件过滤	0	0
+shadow_assassin	Character	1	4	2	OnAfterAttack,OnPlay	EffectAddStat	ConditionCardType,ConditionOwner,ConditionSelf		1	0	0	9	4-条件过滤	0	0
+shadow_bat	Character	1	3	1	OnPlay	EffectDraw			0	0	0	2	2-数值直伤	0	0
+shark	Character	1	4	1	OnDeathOther	EffectDraw	ConditionCardType		0	0	0	4	4-条件过滤	1	1
+sickle_girl	Character	1	4	2	Ongoing,OnKill	EffectDamage	ConditionCardType		1	0	0	5	5-英雄光环亡语	1	0
+skeleton	Character	0	1	0					0	0	0	0	1-白板	0	0
+skeleton_2	Character	0	2	0					0	0	0	0	1-白板	0	0
+skeleton_3	Character	0	3	0					0	0	0	0	1-白板	0	0
+skeleton_soldier	Character	1	2	1	OnDeath	EffectSummon			0	0	0	2	5-英雄光环亡语	0	0
+small_bird	Character	1	1	1	Ongoing		ConditionOtherCardWithStatus		1	0	0	3	5-英雄光环亡语	0	0
+snake_venom	Character	1	2	2	OnBeforeAttack,OnBeforeDefend		ConditionCardType,ConditionSelf		2	0	2	7	4-条件过滤	1	1
+soldier	Character	1	2	0					0	0	0	0	1-白板	0	0
+soul_harvest	Spell	1	7	2	OnPlay	EffectDestroy,EffectHeal	ConditionCardType		0	1	0	7	4-条件过滤	0	0
+spell_aerial_strike	Spell	1	3	1	OnPlay	EffectSummon			0	0	0	2	3-召唤衍生	0	0
+spell_armageddon	Spell	1	7	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSlotEmpty		0	0	1	7	4-条件过滤	0	0
+spell_burn	Spell	1	4	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	1	9	4-条件过滤	0	0
+spell_extinct	Spell	1	2	2	OnPlay,OnPlayOther	EffectAddAbility,EffectDestroy	ConditionCardType,ConditionOwner,ConditionTarget		0	0	1	11	4-条件过滤	0	0
+spell_flood	Spell	1	3	1	OnPlay	EffectSetStat	ConditionCardType		0	0	1	5	4-条件过滤	0	0
+spell_growth	Spell	1	4	2	OnPlay	EffectAddStat	ConditionCardType,ConditionOwner		0	0	1	8	4-条件过滤	0	0
+spell_hibernate	Spell	0	3	2	None,OnPlay	EffectAddStat,EffectExhaust	ConditionCardType		1	1	1	8	4-条件过滤	0	0
+spell_projectiles	Spell	0	999	2	None,OnPlay	EffectDamage,EffectRepeat	ConditionOwner,ConditionSelectedValue,ConditionSlotEmpty	FilterRandom	0	0	1	13	4-条件过滤	0	0
+spell_roots	Spell	1	3	1	OnPlay		ConditionCardType,ConditionOwner		1	0	1	6	4-条件过滤	0	0
+spell_split	Spell	1	2	1	OnPlay	EffectDamage	ConditionOwnerAI,ConditionSelf,ConditionSlotEmpty		0	0	1	9	4-条件过滤	0	0
+spell_stomp	Spell	1	2	1	OnPlay	EffectDestroy	ConditionCardType	FilterLowestStat,FilterRandom	0	0	0	8	4-条件过滤	0	0
+spell_stones	Spell	1	2	2	OnPlay	EffectDamage,EffectDraw	ConditionOwnerAI,ConditionSlotEmpty		0	0	1	9	4-条件过滤	0	0
+spell_storm	Spell	1	5	1	OnPlay	EffectSendPile			0	0	1	3	2-数值直伤	0	0
+spell_submerge	Spell	1	2	2	OnBeforeDefend,OnPlay	EffectAddAbility,EffectDiscard	ConditionOwner,ConditionTarget	FilterRandom	0	0	1	11	4-条件过滤	0	0
+spell_treasure	Spell	1	3	3	None,OnPlay	EffectSendPile	ConditionCardPile,ConditionOwner	FilterFirst	0	2	0	12	4-条件过滤	0	0
+spell_wave	Spell	1	3	1	OnPlay	EffectSendPile	ConditionOwnerAI,ConditionTarget		0	0	1	7	4-条件过滤	0	0
+star_tower	Artifact	1	4	1	OnPlayOther	EffectDraw	ConditionCardType,ConditionOwner		0	0	0	6	4-条件过滤	1	1
+strength_blessing	Spell	0	1	2	Ongoing,OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType		1	0	0	7	5-英雄光环亡语	0	0
+temple_guard	Character	1	3	0					0	0	0	0	1-白板	0	0
+temple_knight	Character	1	5	0					0	0	0	0	1-白板	0	0
+town_forest	Artifact	1	3	1	Ongoing	EffectAddStat	ConditionCardType,ConditionOwner		0	0	0	6	5-英雄光环亡语	1	1
+town_underwater	Artifact	1	3	1	Ongoing	EffectAddStat	ConditionCardType,ConditionOwner		0	0	0	6	5-英雄光环亡语	1	1
+town_volcano	Artifact	1	4	1	Ongoing	EffectAddStat	ConditionCardType,ConditionOwner		0	0	0	6	5-英雄光环亡语	1	1
+trap_explosive	Secret	1	3	1	OnBeforeAttack	EffectDamage	ConditionCardType,ConditionOwner		0	0	1	7	4-条件过滤	0	0
+trap_fish	Secret	1	3	1	OnPlayOther	EffectTransform	ConditionCardType,ConditionOwner		0	0	1	7	4-条件过滤	0	0
+trap_spike	Secret	1	3	1	OnAfterAttack		ConditionCardType,ConditionOwner		1	0	1	6	4-条件过滤	0	0
+tree_angry	Character	1	3	1	StartOfTurn	EffectHeal			0	0	1	3	2-数值直伤	1	1
+turtle	Character	1	3	2	Ongoing,OnPlay				2	0	0	2	5-英雄光环亡语	1	1
+unicorn	Character	1	6	1	OnPlay		ConditionCardType,ConditionOwnerAI,ConditionSelf		1	0	1	8	4-条件过滤	1	1
+vampire	Character	1	5	2	Ongoing,OnKill	EffectDamage	ConditionCardType		1	1	0	6	5-英雄光环亡语	0	0
+war_girl	Character	1	4	0					0	0	0	0	1-白板	1	0
+waterfowl	Character	1	1	1	Ongoing				1	0	0	1	5-英雄光环亡语	1	1
+white_swan	Character	1	4	1	OnPlay	EffectHeal	ConditionSlotEmpty		0	0	0	4	4-条件过滤	0	0
+wolf_alpha	Character	1	3	2	Ongoing,OnPlay	EffectAddStat,EffectSummon	ConditionCardType,ConditionOwner,ConditionSelf,ConditionSlotEmpty,ConditionSlotRange	FilterRandom	0	0	0	16	5-英雄光环亡语	1	1
+wolf_baby	Character	0	1	0					0	0	0	0	1-白板	1	1
+wolf_furious	Character	1	4	2	OnBeforeAttack,Ongoing	EffectAddStat			1	0	0	3	5-英雄光环亡语	1	1
+wolf_stalker	Character	1	2	1	OnPlay				1	0	0	1	2-数值直伤	1	1
+woodland	Artifact	1	2	1	StartOfTurn	EffectHeal	ConditionCardType,ConditionOwner		0	0	1	7	4-条件过滤	1	1
+world_tree_seedling	Artifact	1	4	3	EndOfTurn	EffectDraw,EffectHeal,EffectMana	ConditionOwner,ConditionTurn		0	1	0	11	4-条件过滤	1	1
+zombie	Character	1	3	1	OnPlay	EffectAddStat	ConditionCardPile,ConditionCardType,ConditionOwner		0	0	0	8	4-条件过滤	0	0

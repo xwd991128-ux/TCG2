@@ -1,0 +1,3 @@
+# 能力运行层基线比对  2026-09-19 13:57:43
+# 旧：tools/card_runtime_baseline_run1.tsv（165 例）
+# 新：tools/card_runtime_baseline.tsv（165 例）

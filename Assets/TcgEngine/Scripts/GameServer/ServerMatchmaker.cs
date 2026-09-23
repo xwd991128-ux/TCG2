@@ -45,6 +45,19 @@ namespace TcgEngine.Server
             }
         }
 
+        protected virtual void OnDestroy()
+        {
+            TcgNetwork network = TcgNetwork.Get();
+            if (network != null)
+            {
+                network.onClientJoin -= OnClientConnected;
+                network.onClientQuit -= OnClientDisconnected;
+                Messaging.UnListenMsg("matchmaking");
+                Messaging.UnListenMsg("matchmaking_list");
+                Messaging.UnListenMsg("match_list");
+            }
+        }
+
         protected virtual void Update()
         {
             //Matchmaking

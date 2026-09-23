@@ -38,6 +38,9 @@ namespace TcgEngine
 
         [Header("Stats")]
         public CardType type;
+
+        [Header("Deckbuilding")]
+        public string deck_modifier_id;   //构筑修饰 id（DeckModifierData）——只存 id，不做硬引用（与迁移方向一致）
         public TeamData team;
         public RarityData rarity;
         public int mana;
@@ -88,8 +91,14 @@ namespace TcgEngine
             {
                 card_list.AddRange(Resources.LoadAll<CardData>(folder));
 
+                //索引只在首次加载时建一次（重复 id 先到先得），与原来的 card_dict.Add 语义完全一致；
+                //唯一区别：撞 key 时跳过而不是抛 ArgumentException 中断整条加载链（CheckCardData 会另行报重复）。
                 foreach (CardData card in card_list)
+                {
+                    if (card == null || string.IsNullOrEmpty(card.id) || card_dict.ContainsKey(card.id))
+                        continue;
                     card_dict.Add(card.id, card);
+                }
             }
         }
 

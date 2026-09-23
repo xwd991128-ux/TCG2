@@ -24,11 +24,6 @@ namespace TcgEngine.UI
 
         private PackData pack;
 
-        void Awake()
-        {
-
-        }
-
         public void SetPack(PackData pack)
         {
             this.pack = pack;

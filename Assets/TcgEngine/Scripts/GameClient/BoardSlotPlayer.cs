@@ -36,6 +36,16 @@ namespace TcgEngine.Client
         {
             base.OnDestroy();
             zone_list.Remove(this);
+
+            GameClient.Get().onPlayerDamaged -= OnPlayerDamaged;
+            GameClient.Get().onAbilityStart -= OnAbilityStart;
+            GameClient.Get().onAbilityTargetPlayer -= OnAbilityEffect;
+
+            //静态实例引用随销毁清空，避免 Get() 返回已销毁对象（场景重载后尤其明显）
+            if (instance_self == this)
+                instance_self = null;
+            if (instance_other == this)
+                instance_other = null;
         }
 
         private void Start()

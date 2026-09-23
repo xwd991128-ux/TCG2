@@ -46,6 +46,20 @@ namespace TcgEngine.Client
             }
         }
 
+        private void OnDestroy()
+        {
+            if (!is_tuto)
+                return;   //只有真正订阅过（教学关卡）才需要退订
+
+            GameClient.Get().onNewTurn -= OnNewTurn;
+            GameClient.Get().onCardPlayed -= OnCardPlayed;
+            GameClient.Get().onAttackStart -= OnAttack;
+            GameClient.Get().onAttackPlayerStart -= OnAttackPlayer;
+            GameClient.Get().onAbilityStart -= OnCastAbility;
+            GameClient.Get().onAbilityTargetCard -= OnTargetCard;
+            GameClient.Get().onAbilityTargetPlayer -= OnTargetPlayer;
+        }
+
         void Update()
         {
             if (GameClient.game_settings.game_type != GameType.Adventure)

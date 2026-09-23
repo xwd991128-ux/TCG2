@@ -37,6 +37,8 @@ namespace TcgEngine.UI
         private void OnDestroy()
         {
             ui_list.Remove(this);
+
+            GameClient.Get().onChatMsg -= OnChat;
         }
 
         void Start()

@@ -17,12 +17,21 @@ namespace TcgEngine.Workshop
     {
         private static CardAudioLoader instance;
         private static Dictionary<string, AudioClip> cache = new Dictionary<string, AudioClip>();
-        private static HashSet<string> loading = new HashSet<string>();
+        //正在加载的文件 → 等待回调列表：同一文件被多张卡引用时，全部订阅者都要收到结果
+        //（原来是 HashSet<string> + 单个 apply，第二张卡的回调会被静默丢弃 → 它的音效永远是空）
+        private static readonly Dictionary<string, List<Action<AudioClip>>> loading = new Dictionary<string, List<Action<AudioClip>>>();
 
         private static void Ensure()
         {
             if (instance != null)
                 return;
+            //★ 本项目关闭了域重载（EditorSettings: EnterPlayModeOptions=DisableDomainReload），
+            //  静态状态会跨 Play 存活：上一个实例被销毁时它的协程一并终止，
+            //  loading 里的条目再也不会被回调 → 同一文件在后续 Play 会永久卡在"加载中"（音效静默为空）；
+            //  cache 里的 AudioClip 是运行时创建的，跨 Play 后已失效，也必须重新解码。
+            //  所以新建实例（= 上一个实例已不在）时把两张表都清掉。
+            loading.Clear();
+            cache.Clear();
             GameObject go = new GameObject("CardAudioLoader");
             DontDestroyOnLoad(go);
             instance = go.AddComponent<CardAudioLoader>();
@@ -172,13 +181,16 @@ namespace TcgEngine.Workshop
                 apply(cached);
                 return;
             }
-            if (loading.Contains(fname))
-                return;   //加载中，完成后由缓存回调统一赋值
-            loading.Add(fname);
-            instance.StartCoroutine(instance.Load(fname, apply));
+            if (loading.TryGetValue(fname, out List<Action<AudioClip>> waiters))
+            {
+                waiters.Add(apply);   //同一文件正在加载：挂到等待列表，加载完成后统一回调
+                return;
+            }
+            loading[fname] = new List<Action<AudioClip>> { apply };
+            instance.StartCoroutine(instance.Load(fname));
         }
 
-        private IEnumerator Load(string fname, Action<AudioClip> apply)
+        private IEnumerator Load(string fname)
         {
             string path = Path.Combine(CardPoolIO.AudioFolder, fname);
             string url = new Uri(path).AbsoluteUri;
@@ -200,8 +212,15 @@ namespace TcgEngine.Workshop
                 {
                     Debug.LogWarning("[音频] 加载失败: " + fname + " " + req.error);
                 }
+
+                //先把等待表摘掉再回调，避免回调内部又请求同一文件时被当成「已在加载」
+                List<Action<AudioClip>> waiters = loading.TryGetValue(fname, out List<Action<AudioClip>> w) ? w : null;
                 loading.Remove(fname);
-                apply(clip);
+                if (waiters != null)
+                {
+                    foreach (Action<AudioClip> cb in waiters)
+                        cb?.Invoke(clip);
+                }
             }
         }
 

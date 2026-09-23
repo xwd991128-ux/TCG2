@@ -14,11 +14,6 @@ namespace TcgEngine.FX
 
         private bool hover = false;
 
-        void Start()
-        {
-
-        }
-
         void Update()
         {
             if (hover != fx.activeSelf)

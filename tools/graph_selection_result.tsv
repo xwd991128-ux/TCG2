@@ -1,0 +1,18 @@
+# 节点编辑器 框选/多选/批量 探针  at=2026-09-20 21:44:32
+PASS	框选回调已接线	drag=True end=True
+PASS	「清空」按钮已创建
+PASS	合成图：3 节点 + 2 连线已建出 UI	节点=3 线=2 UI行=3
+PASS	单击 = 单选 A	主选中=n_8EtZHuQ 集合=[n_8EtZHuQ]
+PASS	多选集合 = 2（A+B）	主选中=n_8EtZHuQ 集合=[n_8EtZHuQ,n_pJ3zSFz5M]
+PASS	框选命中 A+B、远处 C 不选	选中=2 A=True B=True C=False
+PASS	点一下空白（未拖动）不产生选择	主选中= 集合=[]
+PASS	批量删除 2 节点 + 相关连线	节点=1 线=0 UI行=1
+PASS	撤销批量删除 → 恢复 3 节点 2 连线	节点=3 线=2
+PASS	全选 = 3	主选中=n_8EtZHuQ 集合=[n_8EtZHuQ,n_pJ3zSFz5M,n_PVWtOFW]
+PASS	复制缓冲 = 3 节点 + 2 条块内连线	节点=3 线=2
+PASS	粘贴 → 6 节点 4 连线（块内连线还原）	节点=6 线=4
+PASS	粘贴后新节点被选中（可直接拖走）	主选中=n_j5AHXrf 集合=[n_j5AHXrf,n_JK5r5b1Y2,n_TJnnXXYSC]
+PASS	清空 → 0 节点 0 连线	节点=0 线=0
+PASS	撤销清空 → 恢复 6 节点 4 连线	节点=6 线=4
+PASS	删不存在的节点不炸、集合被摘掉该 id	主选中= 集合=[]
+# 汇总：PASS=16 FAIL=0

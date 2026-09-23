@@ -65,6 +65,12 @@ namespace TcgEngine.UI
             RefreshBattleButtons();
         }
 
+        private void OnDestroy()
+        {
+            GameClient.Get().onGameStart -= OnGameStart;
+            GameClient.Get().onNewTurn -= OnNewTurn;
+        }
+
         /// <summary>根据全局按钮配置（BattleButtonIO）动态生成战斗界面自定义按钮（模板实例化）。
         /// 每次进入战斗界面重新加载配置，确保按钮编辑器保存的修改立即生效。</summary>
         private void RefreshBattleButtons()

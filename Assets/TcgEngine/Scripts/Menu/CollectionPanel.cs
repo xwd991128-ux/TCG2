@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TcgEngine.Client;
 using TcgEngine.Workshop;
 
 namespace TcgEngine.UI
@@ -39,6 +40,12 @@ namespace TcgEngine.UI
         private CardFilterState filter_state = new CardFilterState();
         private List<string> pool_keys = new List<string>(); // 与卡池下拉选项一一对应
 
+        //高级筛选：搜索框文本 → CardQuery（按文本缓存，避免逐卡重复解析）
+        private CardQuery query_cache;
+        private string query_cache_src;
+        private TMPro.TMP_Text empty_hint;      //筛不出卡时的提示（运行时创建）
+        private Button assist_button;           //「筛选助手」按钮（运行时创建）
+
         //筛选弹层控件引用（运行时 Find 绑定）
         private List<string> pool_labels = new List<string>();   // 与 pool_keys 一一对应的显示名
         private TMPro.TMP_Text filter_pool_select_text;          // 卡池：弹出单选按钮文本
@@ -68,6 +75,17 @@ namespace TcgEngine.UI
         private float update_grid_timer = 0f;
 
         private List<UserCardData> deck_cards = new List<UserCardData>();
+
+        //构筑规则状态行（卡表列表的第一行）：合法徽标 + 主卡/额外区统计；整行可点 → 打开「额外区」弹层
+        //优先绑定场景里已有的 DeckRuleStatus 槽位，没有才新建（避免重复区块；旧实现放在侧栏外会出界）
+        private GameObject deck_rule_status;
+        private TMPro.TMP_Text deck_rule_status_text;
+        private List<UserDeckZone> deck_zones = new List<UserDeckZone>();   //额外区缓冲（与弹层共用同一个 List）
+        private DeckLine deck_highlight_line;      //「返回调整」定位到的那一行
+        private float deck_highlight_timer;        //>0 时该行处于高亮状态（到期自动还原）
+
+        private const float DeckHighlightSeconds = 1.2f;
+        private static readonly Color DeckHighlightColor = new Color(1f, 0.9f, 0.4f, 1f);
 
         private static CollectionPanel instance;
 
@@ -118,6 +136,13 @@ namespace TcgEngine.UI
         {
             base.Update();
 
+            //「返回调整」定位的高亮：到期自动还原（必须还原，否则卡图会一直蒙着高亮色）
+            if (deck_highlight_timer > 0f)
+            {
+                deck_highlight_timer -= Time.deltaTime;
+                if (deck_highlight_timer <= 0f)
+                    RestoreDeckHighlight();
+            }
         }
 
         private void LateUpdate()
@@ -135,6 +160,24 @@ namespace TcgEngine.UI
                     update_grid = false;
                 }
             }
+        }
+
+        private void OnDestroy()
+        {
+            foreach (DeckLine line in deck_lines)
+            {
+                line.onClick -= OnClickDeckLine;
+                line.onClickDelete -= OnClickDeckDelete;
+            }
+
+            if (filter_button != null)
+                filter_button.onClick.RemoveListener(OnClickFilterButton);
+            if (filter_apply_btn != null)
+                filter_apply_btn.onClick.RemoveListener(ApplyFilter);
+            if (filter_clear_btn != null)
+                filter_clear_btn.onClick.RemoveListener(ClearAllFilter);
+            if (filter_search_input != null)
+                filter_search_input.onEndEdit.RemoveListener(OnSearchEndEdit);
         }
 
         private void SpawnCards()
@@ -264,15 +307,15 @@ namespace TcgEngine.UI
                 if (filter_state.rarities.Count > 0 && (icard.rarity == null || !filter_state.rarities.Contains(icard.rarity)))
                     continue;
 
-                string search = filter_state.search != null ? filter_state.search.ToLower() : "";
-                if (!string.IsNullOrWhiteSpace(search)
-                    && !icard.id.Contains(search)
-                    && !icard.title.ToLower().Contains(search)
-                    && !icard.GetText().ToLower().Contains(search))
+                //★ 搜索框支持「高级筛选语法」（CardQuery）：trait:龙 mana<=3 kw:战吼 p:元素=火 …
+                //  裸词的行为与旧搜索框完全一致（模糊匹配 id/标题/卡面文字/描述）→ 旧用法不用改。
+                if (!Query.Match(icard))
                     continue;
 
                 shown_cards.Add(card);
             }
+
+            SetEmptyHint(shown_cards.Count == 0 && !Query.IsEmpty);
 
             int index = 0;
             foreach (CardDataQ qcard in shown_cards)
@@ -316,6 +359,7 @@ namespace TcgEngine.UI
             foreach (DeckLine line in deck_lines)
                 line.Hide();
             deck_cards.Clear();
+            deck_zones.Clear();
             editing_deck = false;
             saving = false;
 
@@ -373,6 +417,17 @@ namespace TcgEngine.UI
                         AddDeckCard(card, variant, deck.cards[i].quantity);
                     }
                 }
+
+                //额外区：与主卡分开存（UserDeckData.zones），随卡组一起载入
+                deck_zones.Clear();
+                if (deck.zones != null)
+                {
+                    foreach (UserDeckZone z in deck.zones)
+                    {
+                        if (z != null && !string.IsNullOrEmpty(z.zone_id))
+                            deck_zones.Add(z);
+                    }
+                }
             }
 
             RefreshDeckCards();
@@ -414,10 +469,248 @@ namespace TcgEngine.UI
                 index++;
             }
 
-            deck_quantity.text = count + "/" + GameplayData.Get().deck_size;
-            deck_quantity.color = count >= GameplayData.Get().deck_size ? Color.white : Color.red;
+            RefreshDeckStatus(count);
 
             RefreshCardsQuantities();
+        }
+
+        /// <summary>
+        /// 构筑规则实时反馈（卡组区唯一刷新点 RefreshDeckCards 调用）：
+        ///   · 把"主卡 x/N"的 N 从写死的 GameplayData.deck_size 改成**当前构筑规则的 N**
+        ///     （这样选了乱斗/自定义修饰后，要求的张数会跟着变）；
+        ///   · 「合法 / 不合法（N 条）」徽标 + 额外区统计 + 中文错误逐条。
+        /// 规则与判定全部来自 DeckRulesResolver / DeckValidator，界面不自己算。
+        /// </summary>
+        private void RefreshDeckStatus(int count)
+        {
+            UserDeckData udeck = BuildEditingDeck();
+            DeckFormatData format = DeckFormatData.Get(GameClient.game_settings.deck_format_id);
+            if (format == null)
+                format = DeckFormatData.GetStandard();
+            List<string> toggles = DeckRuleToggles.Split(GameClient.game_settings.deck_optional_rules);
+
+            ResolvedDeckRules rules = DeckRulesResolver.Resolve(udeck, format, toggles);
+            List<DeckError> errors = DeckValidator.Validate(udeck, format, toggles);
+
+            if (deck_quantity != null)
+            {
+                deck_quantity.text = count + "/" + rules.deck_size;
+                deck_quantity.color = count == rules.deck_size ? Color.white : Color.red;
+            }
+
+            EnsureDeckRuleStatusRow();
+            if (deck_rule_status_text == null)
+                return;
+
+            //额外区最多显示 2 个，多的折成"等 N 个区" —— 状态行高度固定在约 3 行，超了会被裁掉
+            List<DeckZone> valid_zones = new List<DeckZone>();
+            foreach (DeckZone zone in rules.zones)
+            {
+                if (zone != null && !string.IsNullOrEmpty(zone.id))
+                    valid_zones.Add(zone);
+            }
+            string zones_text = "";
+            for (int i = 0; i < valid_zones.Count && i < 2; i++)
+            {
+                DeckZone zone = valid_zones[i];
+                zones_text += (zones_text.Length > 0 ? "  " : "")
+                    + "额外区「" + (string.IsNullOrEmpty(zone.title) ? zone.id : zone.title) + "」"
+                    + CountZone(udeck, zone.id) + "/" + zone.max_count;
+            }
+            if (valid_zones.Count > 2)
+                zones_text += "  等 " + valid_zones.Count + " 个区";
+            if (zones_text.Length == 0)
+                zones_text = "额外区：当前环境没有";
+
+            //★ 只用字体确实覆盖的符号：▸(U+25B8) 不在覆盖表里，会渲成方块；→ 在（见 UIFonts.SymbolProbe）
+            string text = (errors.Count == 0 ? "● 合法" : "● 不合法（" + errors.Count + " 条）")
+                + "  主卡 " + count + "/" + rules.deck_size
+                + "\n" + zones_text + "   → 点此编辑";
+            if (errors.Count > 0)
+            {
+                string first = DeckValidator.JoinMessages(errors, "；");
+                text += "\n" + (first.Length > 46 ? first.Substring(0, 46) + "…" : first);
+            }
+
+            deck_rule_status_text.text = text;
+            deck_rule_status_text.color = errors.Count == 0 ? UITheme.Accent : UITheme.Danger;
+        }
+
+        /// <summary>用当前编辑中的卡组拼一个 UserDeckData（只读用途：校验/统计）</summary>
+        private UserDeckData BuildEditingDeck()
+        {
+            UserDeckData udeck = new UserDeckData();
+            udeck.tid = current_deck_tid;
+            udeck.title = deck_title != null ? deck_title.text : "";
+            udeck.hero = new UserCardData();
+            udeck.hero.tid = GetSelectedHeroId();
+            udeck.hero.variant = VariantData.GetDefault().id;
+            udeck.cards = deck_cards.ToArray();
+            udeck.zones = deck_zones.ToArray();
+            return udeck;
+        }
+
+        private static int CountZone(UserDeckData deck, string zone_id)
+        {
+            if (deck == null || deck.zones == null)
+                return 0;
+            foreach (UserDeckZone z in deck.zones)
+            {
+                if (z == null || z.zone_id != zone_id || z.cards == null)
+                    continue;
+                int total = 0;
+                foreach (UserCardData c in z.cards)
+                {
+                    if (c != null && c.quantity > 0)
+                        total += c.quantity;
+                }
+                return total;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 状态行：卡表列表的第一行（整行可点 → 打开「额外区」弹层）。
+        /// 优先**绑定场景里已有的同名槽位**，没有才新建 —— 避免"场景一个 + 运行时又建一个"的重复区块；
+        /// 同时修掉旧实现的位置错误（原来按 DeckCount 往下推，实测会超出侧栏右/下边界各 259/198 单位）。
+        /// </summary>
+        private void EnsureDeckRuleStatusRow()
+        {
+            if (deck_rule_status != null || deck_grid == null)
+                return;
+
+            //① 行容器**自己新建**：实测在场景里遗留的那个 DeckRuleStatus 上 AddComponent<Image>/<Button>()
+            //   会返回 null（组件加不上 → 行点不动，第一次还会 NRE），所以容器必须是干净对象。
+            GameObject row_go = new GameObject("DeckRuleRow", typeof(RectTransform));
+            row_go.transform.SetParent(deck_grid.transform, false);
+            row_go.transform.SetAsFirstSibling();
+            SetStretchRect(row_go.GetComponent<RectTransform>());
+            Image bg = row_go.AddComponent<Image>();
+            bg.color = UITheme.Ctrl;   //与卡组行的浅色条同档，别用 0.10（太淡，看着像游离的文字而不是一行）
+            Button btn = row_go.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.onClick.AddListener(OnClickDeckRuleStatus);
+            deck_rule_status = row_go;
+
+            //② 文本优先**复用**场景里已有的 DeckRuleStatus（避免出现两个徽标），没有才新建
+            Transform found = deck_grid.transform.Find("DeckRuleStatus");
+            if (found == null && transform != null)
+                found = transform.Find("SidebarRight/EditDeck/DeckRuleStatus");
+            if (found != null)
+            {
+                found.SetParent(row_go.transform, false);
+                deck_rule_status_text = found.GetComponent<TMPro.TMP_Text>();
+            }
+            if (deck_rule_status_text == null)
+            {
+                GameObject text_go = new GameObject("DeckRuleStatus", typeof(RectTransform));
+                text_go.transform.SetParent(row_go.transform, false);
+                TMPro.TextMeshProUGUI t = text_go.AddComponent<TMPro.TextMeshProUGUI>();
+                UIFonts.ApplyFont(t);      //统一字体管线（运行时新建文本一律 TMP）
+                t.fontSize = UITheme.FontSmall;
+                t.alignment = TMPro.TextAlignmentOptions.TopLeft;
+                t.enableWordWrapping = true;
+                t.overflowMode = TMPro.TextOverflowModes.Overflow;
+                t.raycastTarget = false;
+                deck_rule_status_text = t;
+            }
+            SetStretchRect(deck_rule_status_text.rectTransform);
+            deck_rule_status_text.color = UITheme.TextDim;
+
+            //③ 列表高度要算上这一行，否则最后一行会被裁掉
+            if (deck_content != null)
+            {
+                float h = Mathf.Max(deck_content.sizeDelta.y, (deck_card_lines.Count + 1) * 70f + 20f);
+                deck_content.sizeDelta = new Vector2(deck_content.sizeDelta.x, h);
+            }
+        }
+
+        private void OnClickDeckRuleStatus()
+        {
+            //把**正在编辑的两个缓冲**交给弹层直接改（改动即时生效），关掉后刷新本页
+            DeckZonePopupUI popup = DeckZonePopupUI.Create(transform);
+            popup.Open(deck_cards, deck_zones, RefreshDeckCards);
+        }
+
+        private static void SetStretchRect(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        //-------- 「返回调整」定位（构筑规则弹框 → 跳回卡组编辑并指出出错的卡）--------
+
+        /// <summary>打开指定卡组的编辑视图（跨面板跳转用）</summary>
+        public void OpenDeckForEdit(UserDeckData deck)
+        {
+            if (deck == null || deck.cards == null)
+                return;
+            ShowDeckCards();
+            RefreshDeck(deck);
+        }
+
+        /// <summary>切到卡组编辑视图，滚动并高亮指定卡；tid 为空则只切视图</summary>
+        public void FocusDeckCard(string tid)
+        {
+            ShowDeckCards();
+            if (string.IsNullOrEmpty(tid))
+                return;
+
+            int index = 0;
+            int total = 0;
+            DeckLine target = null;
+            foreach (DeckLine line in deck_card_lines)
+            {
+                if (line == null || line.IsHidden())
+                    continue;
+                CardData card = line.GetCard();
+                total++;
+                if (target == null && card != null && card.id == tid)
+                {
+                    target = line;
+                    index = total - 1;
+                }
+            }
+
+            if (target == null)
+            {
+                Debug.Log("[构筑规则] 卡组里没有「" + tid + "」这张卡（该错误可能来自额外区或卡池），已停在卡组编辑视图。");
+                return;
+            }
+
+            HighlightDeckLine(target);
+            ScrollDeckTo(index, total);
+        }
+
+        private void HighlightDeckLine(DeckLine line)
+        {
+            if (deck_highlight_line != null && deck_highlight_line != line)
+                RestoreDeckHighlight();
+            deck_highlight_line = line;
+            deck_highlight_timer = DeckHighlightSeconds;
+            if (line.image != null)
+                line.image.color = DeckHighlightColor;
+        }
+
+        /// <summary>还原占位色（不清掉会让卡图一直蒙色）</summary>
+        private void RestoreDeckHighlight()
+        {
+            if (deck_highlight_line != null && deck_highlight_line.image != null)
+                deck_highlight_line.image.color = Color.white;
+            deck_highlight_line = null;
+            deck_highlight_timer = 0f;
+        }
+
+        private void ScrollDeckTo(int index, int total)
+        {
+            if (deck_content == null)
+                return;
+            ScrollRect scroll = deck_content.GetComponentInParent<ScrollRect>();
+            if (scroll == null)
+                return;
+            scroll.verticalNormalizedPosition = total > 1 ? Mathf.Clamp01(1f - (float)index / (total - 1)) : 1f;
         }
 
         private void RefreshStarterDeck()
@@ -505,6 +798,7 @@ namespace TcgEngine.UI
             udeck.hero.tid = GetSelectedHeroId();
             udeck.hero.variant = VariantData.GetDefault().id;
             udeck.cards = deck_cards.ToArray();
+            udeck.zones = deck_zones.ToArray();   //★额外区必须一起存档（原来只存主卡，额外区会被丢掉）
             saving = true;
 
             if (Authenticator.Get().IsTest())
@@ -597,6 +891,181 @@ namespace TcgEngine.UI
                 filter_apply_btn.onClick.AddListener(ApplyFilter);
             if (filter_clear_btn != null)
                 filter_clear_btn.onClick.AddListener(ClearAllFilter);
+
+            //搜索框：提示语法 + 回车即生效（不用再点「应用」；点应用仍然可用）
+            ApplySearchPlaceholder();
+            if (filter_search_input != null)
+                filter_search_input.onEndEdit.AddListener(OnSearchEndEdit);
+
+            EnsureAssistButton();
+        }
+
+        /// <summary>把搜索框的占位提示换成高级筛选语法示例（兼容 TMP / 旧版 Text 两种占位）</summary>
+        private void ApplySearchPlaceholder()
+        {
+            if (filter_search_input == null || filter_search_input.placeholder == null)
+                return;
+            TMPro.TMP_Text tmp = filter_search_input.placeholder as TMPro.TMP_Text;
+            if (tmp != null)
+            {
+                tmp.text = CardQuery.SyntaxHint;
+                return;
+            }
+            Text legacy = filter_search_input.placeholder as Text;
+            if (legacy != null)
+                legacy.text = CardQuery.SyntaxHint;
+        }
+
+        private void OnSearchEndEdit(string text)
+        {
+            ReadFilterFromUI();
+            RefreshCards();
+        }
+
+        /// <summary>创建「筛选助手」按钮（放在「筛选」按钮正下方；场景不用改，运行时自建）</summary>
+        private void EnsureAssistButton()
+        {
+            if (assist_button != null || filter_button == null)
+                return;
+
+            Button btn = NewRuntimeButton("FilterAssistButton", transform, "筛选助手");
+            RectTransform rt = btn.GetComponent<RectTransform>();
+            RectTransform src = filter_button.GetComponent<RectTransform>();
+            rt.anchorMin = src.anchorMin;
+            rt.anchorMax = src.anchorMax;
+            rt.pivot = src.pivot;
+            rt.sizeDelta = src.sizeDelta;
+            rt.anchoredPosition = src.anchoredPosition + new Vector2(0f, -60f);   //正下方
+            btn.onClick.AddListener(OnClickFilterAssist);
+            assist_button = btn;
+        }
+
+        /// <summary>运行时自建按钮（TMP 文本 + 主题令牌：旧版 uGUI Text 会字体发糊/缺中文字形）</summary>
+        private Button NewRuntimeButton(string name, Transform parent, string label)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            Image img = go.GetComponent<Image>();
+            img.color = new Color(0.5f, 0.78f, 1f, 0.35f);
+            Button btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            UITheme.ApplyButtonColors(btn);
+
+            TMPro.TMP_Text t = UIFactory.CreateTmpText("Text", rt, label, UITheme.FontButton, UITheme.TextBody,
+                TMPro.TextAlignmentOptions.Center, UIFonts.ResolveFont());
+            UIFactory.SetStretch(t.rectTransform);
+            t.raycastTarget = false;
+            return btn;
+        }
+
+        private void OnClickFilterAssist()
+        {
+            CardFilterAssist.Open(transform,
+                CapturePreset,                                   //保存预设：打包当前整套筛选状态
+                ApplyPreset,                                     //应用预设：整套写回并刷新
+                () => filter_state.search ?? "",
+                OnAssistQueryChanged);
+        }
+
+        /// <summary>把当前筛选状态打包成一套"筛选方案"（预设 = 语法 + 勾选 + 卡池 + 金卡 + 排序）</summary>
+        private CardFilterPreset CapturePreset()
+        {
+            ReadFilterFromUI();      //把弹层控件里的最新勾选/搜索读回状态，再打包
+
+            CardFilterPreset p = new CardFilterPreset();
+            p.query = filter_state.search ?? "";
+            p.pool = filter_state.pool ?? "";
+            p.foil = filter_state.foil;
+            p.sort_by = filter_state.sort_by;
+            p.sort_desc = filter_state.sort_desc;
+            for (int i = 0; i < filter_state.types.Count; i++)
+                p.types.Add(filter_state.types[i].ToString());          //存枚举名（"Spell"），不存枚举值
+            for (int i = 0; i < filter_state.teams.Count; i++)
+                if (filter_state.teams[i] != null) p.teams.Add(filter_state.teams[i].id);
+            for (int i = 0; i < filter_state.rarities.Count; i++)
+                if (filter_state.rarities[i] != null) p.rarities.Add(filter_state.rarities[i].id);
+            for (int i = 0; i < filter_state.costs.Count; i++)
+                p.costs.Add(filter_state.costs[i]);
+            p.name = CardFilterPreset.AutoName(p);      //自动命名（免打字）
+            return p;
+        }
+
+        /// <summary>应用一套筛选方案：状态 → 控件（SetFilterToUI 现成的回写通道）→ 刷新卡牌</summary>
+        private void ApplyPreset(CardFilterPreset p)
+        {
+            if (p == null)
+                return;
+
+            filter_state.search = p.query ?? "";
+            filter_state.pool = ResolvePoolKey(p.pool);     //卡池可能已被删 → 回退"全部卡池"
+            filter_state.foil = p.foil;
+            filter_state.sort_by = Mathf.Clamp(p.sort_by, 0, SORT_BY_VALUES.Length - 1);
+            filter_state.sort_desc = p.sort_desc;
+
+            filter_state.types.Clear();
+            if (p.types != null)
+            {
+                for (int i = 0; i < p.types.Count; i++)
+                {
+                    CardType t = CardQuery.ParseType(p.types[i]);
+                    if (t != CardType.None && !filter_state.types.Contains(t))
+                        filter_state.types.Add(t);
+                }
+            }
+
+            filter_state.teams.Clear();
+            if (p.teams != null)
+            {
+                for (int i = 0; i < p.teams.Count; i++)
+                {
+                    TeamData t = TeamData.Get(p.teams[i]);
+                    if (t != null && !filter_state.teams.Contains(t))
+                        filter_state.teams.Add(t);
+                }
+            }
+
+            filter_state.rarities.Clear();
+            if (p.rarities != null)
+            {
+                for (int i = 0; i < p.rarities.Count; i++)
+                {
+                    RarityData r = RarityData.Get(p.rarities[i]);
+                    if (r != null && !filter_state.rarities.Contains(r))
+                        filter_state.rarities.Add(r);
+                }
+            }
+
+            filter_state.costs.Clear();
+            if (p.costs != null)
+            {
+                for (int i = 0; i < p.costs.Count; i++)
+                {
+                    if (!filter_state.costs.Contains(p.costs[i]))
+                        filter_state.costs.Add(p.costs[i]);
+                }
+            }
+
+            SetFilterToUI();     //勾选 / 卡池 / 排序 / 搜索框一次性同步
+            RefreshCards();
+        }
+
+        /// <summary>预设里的卡池可能已不存在（本地卡池被删）→ 回退"全部卡池"，避免"筛出空列表还不知道为什么"</summary>
+        private string ResolvePoolKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return "";
+            RefreshPoolOptions();       //重建可用卡池（含本地卡池增删）
+            return pool_keys.Contains(key) ? key : "";
+        }
+
+        /// <summary>助手里改条件（追加/移除/清空/应用预设）→ 立即写回搜索框并刷新卡牌</summary>
+        private void OnAssistQueryChanged(string text)
+        {
+            filter_state.search = text ?? "";
+            if (filter_search_input != null)
+                filter_search_input.text = filter_state.search;
+            RefreshCards();
         }
 
         /// <summary>递归查找指定名称的子对象组件（弹层控件在多层嵌套内，root.Find 只查直接子级）</summary>
@@ -832,6 +1301,41 @@ namespace TcgEngine.UI
             if (filter_foil_toggle != null)
                 filter_foil_toggle.SetIsOnWithoutNotify(filter_state.foil);
             RefreshSortSelect();
+        }
+
+        /// <summary>当前搜索框文本解析出的查询（按文本缓存；空文本=全部通过）</summary>
+        private CardQuery Query
+        {
+            get
+            {
+                string src = filter_state.search ?? "";
+                if (query_cache == null || query_cache_src != src)
+                {
+                    query_cache = CardQuery.Parse(src);
+                    query_cache_src = src;
+                }
+                return query_cache;
+            }
+        }
+
+        /// <summary>筛不出卡时的提示（运行时创建一次；带条件时才提示，避免空手点进来看见莫名文字）</summary>
+        private void SetEmptyHint(bool show)
+        {
+            if (empty_hint == null)
+            {
+                empty_hint = UIFactory.CreateTmpText("FilterEmptyHint", transform,
+                    "未匹配到卡牌：减少条件试试（点左侧「筛选助手」有语法速查与预设）",
+                    UITheme.FontBody, UITheme.TextDim, TMPro.TextAlignmentOptions.Center, UIFonts.ResolveFont());
+                RectTransform rt = empty_hint.rectTransform;
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(0f, 120f);
+                rt.sizeDelta = new Vector2(760f, 44f);
+                empty_hint.raycastTarget = false;
+            }
+            if (empty_hint.gameObject.activeSelf != show)
+                empty_hint.gameObject.SetActive(show);
         }
 
         private CardType GetTypeById(string id)

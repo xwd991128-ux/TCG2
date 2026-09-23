@@ -22,9 +22,9 @@ namespace TcgEngine.UI
             deck_dropdown.onValueChanged += OnChange;
         }
 
-        void Update()
+        private void OnDestroy()
         {
-
+            deck_dropdown.onValueChanged -= OnChange;
         }
 
         public void SetupUserDeckList()

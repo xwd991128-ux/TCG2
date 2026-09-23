@@ -118,30 +118,34 @@ namespace TcgEngine.Workshop
             if (fieldType == typeof(string))
                 return str;
 
+            //被手工编辑/损坏的卡池 json 里字段值非法时，原来直接 Parse 会抛异常中断整个导入/保存流程；
+            //统一改成 TryParse，失败返回 null 由调用方跳过该字段。
             if (fieldType == typeof(int))
-                return int.Parse(str);
+                return int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iv) ? (object)iv : null;
             if (fieldType == typeof(long))
-                return long.Parse(str);
+                return long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out long lv) ? (object)lv : null;
             if (fieldType == typeof(float))
-                return float.Parse(str, CultureInfo.InvariantCulture);
+                return float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out float fv) ? (object)fv : null;
             if (fieldType == typeof(double))
-                return double.Parse(str, CultureInfo.InvariantCulture);
+                return double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out double dv) ? (object)dv : null;
             if (fieldType == typeof(bool))
                 return str == "1";
 
             if (fieldType.IsEnum)
-                return Enum.Parse(fieldType, str);
+                return Enum.TryParse(fieldType, str, out object ev) ? ev : null;
 
             if (fieldType.IsSubclassOf(typeof(ScriptableObject)))
             {
                 if (fieldType == typeof(StatusData))
-                    return StatusData.Get((StatusType)Enum.Parse(typeof(StatusType), str));
+                    return Enum.TryParse(typeof(StatusType), str, out object st) ? StatusData.Get((StatusType)st) : null;
                 if (fieldType == typeof(TeamData))
                     return TeamData.Get(str);
                 if (fieldType == typeof(RarityData))
                     return RarityData.Get(str);
                 if (fieldType == typeof(TraitData))
                     return TraitData.Get(str);
+                if (fieldType == typeof(KeywordData))
+                    return KeywordData.Get(str);   //★补：关键词引用（如 add_spell_damage.keyword）此前还原为 null → 字段静默丢失（直通往返校验逮到）
                 if (fieldType == typeof(CardData))
                     return CardData.Get(str);
                 if (fieldType == typeof(AbilityData))

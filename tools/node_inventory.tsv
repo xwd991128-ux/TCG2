@@ -1,0 +1,305 @@
+id	name	category	inputs	outputs
+112001	BooleanConst	其他	value:Boolean	return:Boolean
+112002	Compare	其他	operator:CompareOperator,A:Object,B:Object	result:Boolean
+106002	获取增益定义	Buff	buffDefine:DefineReference	value:BuffDefine
+112003	IntegerConst	其他	value:Int32	result:Int32
+112004	IntegerOperation	其他	operator:IntegerOperator,arg:Int32	result:Int32
+112005	LogicOperation	其他	operator:LogicOperator,value:Boolean	result:Boolean
+112006	StringConst	其他	value:String	value:String
+111012	筛选	集合运算	array:Object,condition:NodeValueRef<Boolean>	element:Object,return:Object
+212004	设置临时变量	其他	variableName:String,value:Object	
+112007	获取临时变量	其他	variableName:String	return:Object
+212001	分支动作	其他	isTrue:Boolean	thenAction:ActionNode,elseAction:ActionNode
+212002	重复动作	其他	count:Int32	action:ActionNode,repeatTime:Int32
+212005	重复动作直到	其他	condition:NodeValueRef<Boolean>,maxRepeatTime:Int32	action:ActionNode,repeatTime:Int32
+112008	X到Y之间的随机整数	其他	countX:Int32,countY:Int32	return:Int32
+112009	是否不存在	其他	value:Object	return:Boolean
+212006	停止重复动作	其他		
+212007	跳过重复动作	其他		
+112010	根据条件选择值	其他	isTrue:Boolean,value:Object,elseValue:Object	return:Object
+200001	使玩家获胜	游戏	players:Player	outEvent:EventArg
+200002	使玩家失败	游戏	losers:Player	outEvent:EventArg
+200004	创建牌堆	游戏	player:Player,pileName:String,capacity:Int32	return:Pile
+200005	删除牌堆	游戏	player:Player,pile:Pile	return:Boolean
+200006	从牌堆将卡牌移动到目标牌堆	游戏	card:Card,fromPile:Pile,toPile:Pile,position:Int32	outEvent:EventArg,return:Boolean
+101002	获取玩家属性	玩家	player:Player,propName:String	return:Object
+201002	设置玩家属性	玩家	player:Player,propName:String,value:Object	
+101003	获取玩家对手	玩家	player:Player	return:Player
+101004	获取玩家英雄	玩家	player:Player	return:Card
+101005	获取当前回合的玩家	玩家		return:Player
+101022	获取某个回合的玩家	玩家	turnCount:Int32	return:Player
+101006	获取玩家的手牌	玩家	player:Player	return:Card
+101007	获取玩家的墓地卡牌	玩家	player:Player	return:Card
+101008	获取玩家牌库中的卡牌	玩家	player:Player	return:Card
+201003	抽目标卡牌	玩家	targetCard:Card	outEventDraw:EventArg,outEventBurn:EventArg
+201004	从一定数量的卡牌中选择一张	玩家	cards:Card,count:Int32	return:Card
+201005	从一定数量的卡牌定义中选择一张	玩家	defines:CardDefine,count:Int32	return:CardDefine
+201016	从一定数量的卡牌中选择一张	玩家	player:Player,cards:Card,count:Int32	return:Card
+201017	从一定数量的卡牌定义中选择一张	玩家	player:Player,defines:CardDefine,count:Int32	return:CardDefine
+101016	获取法术伤害	玩家	player:Player,baseDamage:Int32,spellCard:Card	return:Int32
+101009	获取玩家延迟区	玩家	player:Player	return:Card
+101010	获取玩家技能	玩家	player:Player	return:Card
+209201	结束回合	回合		
+209202	获得额外回合	回合	player:Player,value:Int32	
+209203	使目标失去下一回合	回合	player:Player,value:Int32	
+119001	获取回合数	回合		turnCount:Int32
+119002	获取行动玩家	回合		player:Player
+119003	判断是否该玩家回合	回合	player:Player	result:Boolean
+119004	获取当前阶段	回合		phase:String
+119005	判断是否为第一回合	回合		result:Boolean
+201006	复原技能	玩家	player:Player	outEvent:EventArg
+101011	获取玩家道具	玩家	player:Player	return:Card
+101012	玩家是否装备道具	玩家	player:Player	return:Boolean
+201007	摧毁道具	玩家	player:Player	outEvent:EventArg
+101013	获取玩家暂存区	玩家	player:Player	return:Card
+101014	获取当前灵力值	玩家	player:Player	return:Int32
+101015	获取灵力上限	玩家	player:Player	return:Int32
+201001	设置当前灵力值	玩家	player:Player,count:Int32	outEvent:EventArg
+201008	增加当前灵力值	玩家	player:Player,count:Int32	outEvent:EventArg
+201009	设置灵力上限	玩家	player:Player,count:Int32	outEvent:EventArg
+201010	增加灵力上限	玩家	player:Player,count:Int32	outEvent:EventArg
+101020	获取所有玩家	玩家		return:Player
+101017	获取牌堆	玩家	player:Player,pileName:PileName	return:Pile
+101018	获取玩家的当前回合数	玩家	player:Player	return:Int32
+101019	玩家是否是先手	玩家	player:Player	return:Boolean
+101021	获取疲劳层数	玩家	player:Player	return:Int32
+201013	设置疲劳层数	玩家	player:Player,value:Int32	
+201014	增加疲劳层数	玩家	player:Player,value:Int32	
+201015	受到疲劳伤害	玩家	player:Player	outEvent:EventArg
+105002	获取牌堆中的牌	牌堆	pile:Pile	return:Card
+105001	卡牌所在牌堆判断（过时）	牌堆	card:Card,pileName:String	return:Boolean
+105005	卡牌所在牌堆判断	牌堆	card:Card,pileName:PileName	return:Boolean
+105003	获取牌堆名	牌堆	pile:Pile	return:String
+105004	获取牌堆所属玩家	牌堆	pile:Pile	return:Player
+106001	该增益	增益		return:Buff
+206001	添加增益	增益	cards:Card,buffDefine:BuffDefine	outEvent:EventArg,return:Buff
+206002	移除增益	增益	card:Card,buff:Buff	outEvent:EventArg,return:Boolean
+106003	是否具有增益	增益	card:Card,buffDefine:BuffDefine	return:Boolean
+206003	设置增益属性	增益	buffs:Buff,propName:String,value:Object	outEvent:EventArg
+106004	获取增益属性	增益	buff:Buff,propName:String	return:Object
+106005	获取单个增益的定义	增益	buff:Buff	return:BuffDefine
+106006	获取卡牌上的所有增益	增益	card:Card	return:Buff
+206004	设置增益属性可见性	增益	buffs:Buff,propName:String,player:Player,visible:Boolean	outEvent:EventArg
+106007	增益属性是否可见	增益	buff:Buff,propName:String,player:Player	return:Boolean
+210001	简单抽牌	行动	player:Player	outEventDraw:EventArg,outEventBurn:EventArg,return:Card
+210002	卡牌置入战场	行动	player:Player,cards:Card	outEvent:EventArg,return:Card
+210003	卡牌移回手牌	行动	player:Player,cards:Card	outEvent:EventArg,return:Card
+210004	卡牌洗入牌库	行动	player:Player,cards:Card,top:Boolean	outEvent:EventArg,return:Card
+210005	卡牌置入墓地	行动	player:Player,cards:Card	outEvent:EventArg,return:Card
+210006	卡牌置入延迟区	行动	player:Player,cards:Card	outEvent:EventArg,return:Card
+210007	卡牌装备到道具栏	行动	player:Player,card:Card	return:EventArg
+210008	卡牌移动到暂存区	行动	player:Player,cards:Card	outEvent:EventArg,return:Card
+102002	卡牌类型判断	卡牌	card:Card,select:CardDefineSelect	return:Boolean
+102032	卡牌类型判断	卡牌	card:Card,type:CardType	return:Boolean
+102003	卡牌关键词判断	卡牌	card:Card,select:KeywordName	return:Boolean
+202003	创建衍生卡并置入战场	卡牌	player:Player,cardDefine:CardDefine	outEvent:EventArg,return:Card
+202004	创建衍生卡并置入手牌	卡牌	player:Player,cardDefine:CardDefine	outEvent:EventArg,return:Card
+202005	创建衍生卡并洗入牌库	卡牌	player:Player,cardDefine:CardDefine	outEvent:EventArg,return:Card
+202006	创建衍生卡并装备到道具栏	卡牌	player:Player,cardDefine:CardDefine	outEvent:EventArg,return:Card
+202045	创建衍生卡并置入延迟区	卡牌	player:Player,cardDefine:CardDefine	outEvent:EventArg,return:Card
+202046	创建衍生卡并置入牌堆	卡牌	cardDefine:CardDefine,pile:Pile,position:Int32	outEvent:EventArg,return:Card
+202044	复制卡牌	卡牌	card:Card,targetPile:Pile,position:Int32	return:Card
+102001	这张卡牌	卡牌		return:Card
+102027	获取卡牌属性	卡牌	card:Card,propName:CardPropertyGetterName	return:Object
+202037	设置卡牌属性	卡牌	card:Card,propName:CardPropertySetterName,value:Object	outEvent:EventArg
+102035	获取卡牌属性名	卡牌	propName:CardPropertyGetterName	return:String
+102004	获取属性	卡牌	card:Card,propName:String	return:Object
+202007	设置属性	卡牌	card:Card,propName:String,value:Object	return:EventArg
+102005	获取花费	卡牌	card:Card	return:Int32
+102006	获取攻击力	卡牌	card:Card	return:Int32
+102007	获取最大生命值	卡牌	card:Card	return:Int32
+102008	获取当前生命值	卡牌	card:Card	return:Int32
+102033	卡牌拥有标签	卡牌	card:Card,tag:CardTagName	return:Boolean
+102034	获取卡牌标签列表	卡牌	card:Card	return:String
+202002	丢弃卡牌	卡牌	hands:Card	return:EventArg
+202038	丢弃卡牌	卡牌	hands:Card	return:EventArg
+202019	增加固定数量护甲	卡牌	count:Int32,player:Player	outEvent:EventArg
+202018	增加护甲	卡牌	player:Player,count:Int32	outEvent:EventArg
+202020	失去护甲	卡牌	player:Player,count:Int32	outEvent:EventArg
+102009	获取唯一属性名	卡牌	propName:String	return:String
+102010	获取卡牌拥有者	卡牌	card:Card	return:Player
+102011	获取卡牌法术伤害	卡牌	card:Card	return:Int32
+-14	是否为法术牌	卡牌	card:Card	return:Boolean
+202001	造成伤害	卡牌	card:Card,source:Card,value:Int32	
+202034	造成伤害或法伤	卡牌	damage:Int32,targets:Card,damageSource:Card,damagetype:Boolean,damage2:Int32	return:EventArg
+202041	造成伤害或法伤	卡牌	damage:Int32,damage2:Int32,targets:Card,damageSource:Card,damagetype:Boolean	return:EventArg
+202035	造成伤害或法伤并分配给目标	卡牌	damage:Int32,targets:Card,damageSource:Card,damagetype:Boolean,damage2:Int32	return:EventArg
+202042	造成伤害或法伤并分配给目标	卡牌	damage:Int32,damage2:Int32,targets:Card,damageSource:Card,damagetype:Boolean	return:EventArg
+202036	对固定数量的随机目标造成伤害或法伤	卡牌	count:Int32,damage:Int32,targets:Card,damageSource:Card,damagetype:Boolean,count2:Int32,damage2:Int32	return:EventArg
+202043	对固定数量的随机目标造成伤害或法伤	卡牌	count:Int32,count2:Int32,damage:Int32,damage2:Int32,targets:Card,damageSource:Card,damagetype:Boolean	return:EventArg
+202011	造成法术伤害	卡牌	damage:Int32,targets:Card	return:EventArg
+202012	造成固定法术伤害并分配给随机目标	卡牌	damage:Int32,targets:Card	return:EventArg
+202013	治疗目标卡牌	卡牌	targets:Card,value:Int32	return:EventArg
+202039	治疗目标卡牌	卡牌	targets:Card,value:Int32	return:EventArg
+202047	治疗目标卡牌	卡牌	targets:Card,source:Card,value:Int32	return:EventArg
+102012	获取所有仆从	卡牌		return:Card
+102013	获取所有角色	卡牌		return:Card
+102014	获取友方仆从	卡牌		return:Card
+102015	获取友方角色	卡牌		return:Card
+102016	获取敌方仆从	卡牌		return:Card
+102017	获取敌方角色	卡牌		return:Card
+202014	禁锢	卡牌	card:Card	outEvent:EventArg
+202015	沉默	卡牌	cards:Card	return:EventArg
+202040	封印	卡牌	cards:Card	return:EventArg
+202016	消灭	卡牌	cards:Card	outEvent:EventArg
+202017	强制更新游戏状态	卡牌		
+102018	是否濒死	卡牌	card:Card,checkHealth:Boolean,checkKilled:Boolean	return:Boolean
+102019	获取护甲值	卡牌	card:Card	return:Int32
+102020	获取相邻卡牌	卡牌	card:Card	return:Card
+102021	卡牌具有宣言	卡牌	card:Card	return:Boolean
+202021	触发卡牌宣言	卡牌	cards:Card,targets:Card	
+102022	卡牌具有遗言	卡牌	card:Card	return:Boolean
+202022	触发卡牌遗言	卡牌	cards:Card	
+202023	触发法术或技能卡牌效果	卡牌	cards:Card,targets:Card	
+102028	卡牌是否是陷阱	卡牌	card:Card	return:Boolean
+102029	获取卡牌所在牌堆	卡牌	card:Card	return:Pile
+202024	重置卡牌	卡牌	cards:Card	
+202025	强制攻击目标	卡牌	cards:Card,targets:Card	outEvent:EventArg
+202026	本回合攻击次数增加一次	卡牌	cards:Card	outEvent:EventArg
+102023	获取合法卡牌使用目标	卡牌	card:Card,selectedTargets:Card	return:Card
+102024	获取合法攻击目标	卡牌	card:Card	return:Card
+202027	揭示卡牌	卡牌	card:Card	outEvent:EventArg
+202028	获得控制权	卡牌	player:Player,card:Card,position:Int32	outEvent:EventArg
+202048	设置卡牌属性可见性	卡牌	cards:Card,propName:String,player:Player,visible:Boolean	outEvent:EventArg
+106030	卡牌属性是否可见	卡牌	card:Card,propName:String,player:Player	return:Boolean
+202049	设置卡牌可见性	卡牌	cards:Card,player:Player,visible:Boolean	outEvent:EventArg
+106031	卡牌是否可见	卡牌	card:Card,player:Player	return:Boolean
+103001	获取所有卡牌定义	卡牌定义		return:CardDefine
+103002	获取卡牌定义	卡牌定义	cardRef:DefineReference	return:CardDefine
+103003	获取卡牌定义列表	卡牌定义	cardRefs:DefineReference	return:CardDefine
+103004	卡牌定义是否具有标签	卡牌定义	cardDefine:CardDefine,tag:CardTagName	return:Boolean
+103019	获取卡牌定义的标签列表	卡牌定义	cardDefine:CardDefine	return:String
+103005	卡牌定义类型判断	卡牌定义	card:CardDefine,select:CardDefineSelect	return:Boolean
+103024	卡牌定义类型判断	卡牌定义	card:CardDefine,type:CardType	return:Boolean
+103006	卡牌定义关键词判断	卡牌定义	card:CardDefine,select:KeywordName	return:Boolean
+103007	获取目标卡牌的定义列表	卡牌定义	cards:Card	return:CardDefine
+103008	获取单张卡牌的定义	卡牌定义	card:Card	return:CardDefine
+202029	变形为卡牌定义	卡牌定义	card:Card,define:CardDefine,isreset:Boolean	outEvent:EventArg,return:Card
+103020	获取卡牌定义属性	卡牌定义	card:CardDefine,propName:CardDefinePropertyGetterName	return:Object
+103010	获取卡牌定义花费	卡牌定义	card:CardDefine	return:Int32
+103011	获取卡牌定义攻击力	卡牌定义	card:CardDefine	return:Int32
+103012	获取卡牌定义生命值	卡牌定义	card:CardDefine	return:Int32
+103013	获取卡牌定义法术伤害	卡牌定义	card:CardDefine	return:Int32
+103014	是否为衍生牌	卡牌定义	cardDefine:CardDefine	return:Boolean
+103015	获取英雄牌技能	卡牌定义	card:CardDefine	return:CardDefine
+103016	获取卡牌定义对应角色	卡牌定义	card:CardDefine	return:CardDefine
+202030	触发卡牌定义宣言	卡牌定义	cardDefine:CardDefine,cards:Card,targets:Card	
+103017	卡牌定义具有宣言	卡牌定义	cardDefine:CardDefine	return:Boolean
+202031	触发卡牌定义遗言	卡牌定义	cardDefine:CardDefine,cards:Card	
+103018	卡牌定义具有遗言	卡牌定义	cardDefine:CardDefine	return:Boolean
+202032	触发法术或技能卡牌定义效果	卡牌定义	cardDefine:CardDefine,cards:Card,targets:Card	
+103021	卡牌定义是否是陷阱	卡牌定义	cardDefine:CardDefine	return:Boolean
+103022	获取卡牌定义的合法使用目标	卡牌定义	cardDefine:CardDefine,source:Card,selectedCards:Card	return:Card
+103023	获取卡牌定义的类型	卡牌定义	cardDefine:CardDefine	return:String
+103025	获取卡牌定义所属卡池	卡牌定义	cardDefine:CardDefine	return:CardPoolIDProxy
+203001	展示卡牌定义	卡牌定义	cardDefine:CardDefine,player:Player,invisibleForSelf:Boolean,invisibleForOppo:Boolean	
+203002	复制卡牌定义	卡牌定义	cardDefine:CardDefine	return:CardDefine
+203003	设置卡牌定义属性	卡牌定义	cardDefine:CardDefine,name:CardDefinePropertyGetterName,value:Object	
+203004	拼接卡牌定义	卡牌定义	cardDefines:CardDefine	return:CardDefine
+104001	获取卡牌快照对应卡牌	卡牌快照	card:CardSnapshot	return:Card
+104002	获取卡牌快照卡牌定义	卡牌快照	card:CardSnapshot	return:CardDefine
+104003	卡牌快照类型判断	卡牌快照	card:CardSnapshot,select:CardDefineSelect	return:Boolean
+104017	卡牌快照类型判断	卡牌快照	card:CardSnapshot,type:CardType	return:Boolean
+104004	卡牌快照关键词判断	卡牌快照	card:CardSnapshot,select:KeywordName	return:Boolean
+104018	卡牌快照拥有标签	卡牌快照	card:CardSnapshot,tag:CardTagName	return:Boolean
+104019	获取卡牌快照标签列表	卡牌快照	card:CardSnapshot	return:String
+104005	获取卡牌快照属性	卡牌快照	card:CardSnapshot,propName:String	return:Object
+104006	获取卡牌快照花费	卡牌快照	card:CardSnapshot	return:Int32
+104007	获取卡牌快照攻击力	卡牌快照	card:CardSnapshot	return:Int32
+104008	获取卡牌快照最大生命值	卡牌快照	card:CardSnapshot	return:Int32
+104009	获取卡牌快照当前生命值	卡牌快照	card:CardSnapshot	return:Int32
+104010	获取卡牌快照拥有者	卡牌快照	card:CardSnapshot	return:Player
+104011	获取卡牌快照护甲值	卡牌快照	card:CardSnapshot	return:Int32
+104014	卡牌快照具有宣言	卡牌快照	card:CardSnapshot	return:Boolean
+104015	卡牌快照具有遗言	卡牌快照	card:CardSnapshot	return:Boolean
+104016	卡牌快照是否是陷阱	卡牌	cardSnapshot:CardSnapshot	return:Boolean
+111001	创建集合	集合运算	elements:Object	return:Array
+111002	向集合添加元素	集合运算	array:Object,elements:Object	return:Array
+111004	获取元素数量	集合运算	collection:Object	return:Int32
+111005	包含	集合运算	collection:Object,element:Object	return:Boolean
+111013	排序	集合运算	descending:Boolean,array:Object,condition:NodeValueRef<Object>	element:Object,return:Array
+111007	获取第X个元素	集合运算	array:Object,index:Int32	return:Object
+211001	遍历	集合运算	array:Object	action:ActionNode,element:Object
+111008	获取集合中的随机元素	集合运算	collection:Object	return:Object
+111009	反转集合	集合运算	array:Object	return:Object
+111010	集合去重	集合运算	array:Object	return:Array
+111011	集合相减	集合运算	array:Object,excepted:Object	return:Array
+111014	求和	集合运算	array:Object	return:Int32
+111015	获取最小值	集合运算	array:Object	return:Int32
+111016	获取最大值	集合运算	array:Object	return:Int32
+111017	获取平均值	集合运算	array:Object	return:Int32
+111018	集合相加	集合运算	first:Object,second:Object	return:Array
+111019	获取并集	集合运算	first:Object,second:Object	return:Array
+111020	获取交集	集合运算	first:Object,second:Object	return:Array
+111021	是否是某集合的子集	集合运算	set:Object,subset:Object	return:Boolean
+111022	是否所有元素都满足条件	集合运算	array:Object,condition:NodeValueRef<Boolean>	element:Object,return:Boolean
+111023	是否有任意元素满足条件	集合运算	array:Object,condition:NodeValueRef<Boolean>	element:Object,return:Boolean
+111024	获取第一个元素	集合运算	array:Object	return:Object
+111025	获取最后一个元素	集合运算	array:Object	return:Object
+111026	获取集合内前X个元素	集合运算	array:Object,count:Int32	return:Array
+111027	获取集合内前X个元素之外的元素	集合运算	array:Object,count:Int32	return:Array
+111029	获取集合内元素直到条件不成立	集合运算	array:Object,condition:NodeValueRef<Boolean>	element:Object,return:Array
+111030	条件不成立后获取剩余元素	集合运算	array:Object,condition:NodeValueRef<Boolean>	element:Object,return:Array
+111028	获取集合内的随机X个元素	集合运算	array:Object,count:Int32	return:Array
+111031	获取集合内所有元素的某项属性	集合运算	array:Object,selector:NodeValueRef<Object>	element:Object,return:Array
+111032	打乱集合内元素顺序	集合运算	array:Object	return:Array
+111033	集合内容是否相同	集合运算	ignoreOrder:Boolean,arrayA:Object,arrayB:Object	return:Boolean
+111034	获取元素在集合中的位置	集合运算	array:Array,element:Object	return:Int32
+111035	合并多个集合	集合运算	collections:Array	return:Object
+111036	转换集合类型	集合运算	array:Array,typeName:TypeName	return:Array
+107001	该效果	效果		return:Effect
+107002	效果具有标签	效果	effect:Effect,tag:EffectTag	return:Boolean
+107003	获取效果属性	效果	effect:Effect,propName:String	return:Object
+107004	获取卡牌的所有效果	效果	card:Card	return:Effect
+107005	获取增益的所有效果	效果	buff:Buff	return:Effect
+107006	获取卡牌定义的所有效果	效果	cardDefine:CardDefine	return:Effect
+107007	获取效果的合法使用目标	效果	effect:Effect,source:Card,buff:Buff,selectedTargets:Card	return:Card
+107008	效果类型判断	效果	effect:Effect,type:EffectType	return:Boolean
+107009	获取效果所属卡牌定义或增益定义	效果	effect:Effect	cardDefine:CardDefine,buffDefine:BuffDefine,isCardDefine:Boolean
+107010	事件效果类型判断	效果	effect:Effect,triggerTime:EventTriggerTime	return:Boolean
+207001	发动效果	效果	card:Card,buff:Buff,effect:Effect,eventArg:EventArg,targets:Card,ignoreTriggerCondition:Boolean	outEvent:EventArg
+109002	获取事件记录变量	事件记录	record:EventRecord,varName:EventVarName	return:Object
+109009	转换事件记录类型	事件记录	eventRecord:EventRecord,eventReference:EventReference	return:EventRecord
+109003	事件记录类型判断	事件记录	evt:EventRecord,argRef:EventReference	return:Boolean
+109004	获取本局游戏事件记录	事件记录		return:Array
+109005	获取本回合事件记录	事件记录		return:Array
+109006	获取前X-Y回合内的事件记录	事件记录	farther:Int32,nearer:Int32	return:Array
+109007	获取卡牌在某事件时的快照	事件记录	card:Card,record:EventRecord	return:CardSnapshot
+108001	当前事件	事件		return:EventArg
+108002	获取变量	事件	eventArg:EventArg,varName:EventVarName	return:Object
+108003	转换事件类型	事件	eventArg:EventArg,eventReference:EventReference	return:EventArg
+208001	设置变量	事件	eventArg:EventArg,varName:EventVarName,value:Object	
+208002	阻止事件	事件	eventArg:EventArg	
+208003	更改攻击目标	事件	eventArg:EventArg,target:Card	
+208004	更改使用目标	事件	eventArg:EventArg,target:Card	
+208005	伤害/更改受伤卡牌	事件	eventArg:EventArg,target:Card	
+208006	伤害/更改伤害源	事件	eventArg:EventArg,source:Card	
+208007	伤害/更改伤害值	事件	eventArg:EventArg,value:Int32	
+208008	治疗/更改治疗值	事件	eventArg:EventArg,value:Int32	
+108004	事件类型判断	事件	eventArg:EventArg,argRef:EventReference	return:Boolean
+108005	获取本局游戏事件	事件	eventRef:EventReference	return:EventArg
+108006	获取本回合事件	事件		return:EventArg
+108007	获取前X-Y回合内的事件	事件	farther:Int32,nearer:Int32	return:EventArg
+108008	获取卡牌在某事件前的快照	事件	card:Card,eventArg:EventArg	return:CardSnapshot
+108009	获取卡牌在某事件后的快照	事件	card:Card,eventArg:EventArg	return:CardSnapshot
+108010	获取事件重复次数	事件	eventArg:EventArg	return:Int32
+208009	设置事件重复次数	事件	eventArg:EventArg,times:Int32	
+108011	获取事件发生的回合	事件	eventArg:EventArg	return:Int32
+108012	获取事件的父事件	事件	eventArg:EventArg	return:EventArg
+108013	获取事件的子事件	事件	eventArg:EventArg	return:EventArg
+108014	获取事件发生的事件链	事件	eventArg:EventArg	return:EventArg
+108015	获取事件发生时引发的事件	事件	eventArg:EventArg	return:EventArg
+108016	获取事件发生后引发的事件	事件	eventArg:EventArg	return:EventArg
+109008	获取当前回合数	事件		return:Int32
+113001	创建映射集合	映射	elements:Pair	return:GraphMap
+213001	设置映射	映射	map:GraphMap,key:Object,value:Object	return:GraphMap
+213002	移除映射	映射	map:GraphMap,key:Object	return:GraphMap
+113002	是否存在映射	映射	map:GraphMap,key:Object	return:Boolean
+113003	获取映射值	映射	map:GraphMap,key:Object	return:Object
+113004	获取映射的所有键	映射	map:GraphMap	return:Object
+113005	获取映射的所有值	映射	map:GraphMap	return:Object
+209101	设置战斗BGM	其他	bgm:String,volume:Int32,fade:Int32	
+209102	恢复默认BGM	其他	fade:Int32	
+202050	添加技能	卡牌	cards:Card,abilityId:String	return:EventArg
+101030	AI限定·目标与施法者同归属	玩家	caster:Card,target:Card,operator:String	return:Boolean
+EFCardOwner	卡牌归属	卡牌	card:Card,side:String	return:Boolean

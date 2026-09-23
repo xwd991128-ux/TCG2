@@ -1,0 +1,168 @@
+# 能力运行层基线（逐能力隔离夹具）  seed=20250919  at=2026-09-19 13:57:21
+# 列：结果 | 卡 | 能力 | 触发 | 目标 | 状态差分 | 备注
+ok	ashes_snake	stealth	OnPlay	Self	(无状态变化)	
+ok	bull_heat	add_spell_damage1	Ongoing	PlayerSelf	(无状态变化)	
+ok	cave	turn_end_damage_hero_2	EndOfTurn	PlayerOpponent	P1.hp:30→28	
+ok	dark_stallion	activate_damage1(2)	Activate	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	dragon_knight	death_create_dragon_red	OnDeath	PlayerSelf	P0.hand.dragon_red.atk:0→9; P0.hand.dragon_red.cnt:0→1; P0.hand.dragon_red.hp:0→7; P0.hand.dragon_red.mana:0→7; P0.hand.dragon_red.sig_nz:0→1; P0.n_hand:4→5	
+ok	dragon_knight	flying	Ongoing	Self	(无状态变化)	
+ok	dragon_red	spell_immunity	Ongoing	Self	(无状态变化)	
+ok	dragon's_anger	spell_summon_dragon_red_damage	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+skip	equip_sword	equip_first_strike	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+ok	fire_chicken	death_fire_chicken_egg	OnDeath	Self	(无状态变化)	
+ok	fire_element	play_damage_all2	OnPlay	AllCardsBoard	(无状态变化)	
+ok	firefox	activate_select_discard_spell	Activate	CardSelector	(无状态变化)	无可选目标（未执行）
+ok	hell_hound	fury	Ongoing	Self	(无状态变化)	
+ok	imp	play_deal_damage1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	lava_beast	after_spell_attack2	OnPlayOther	Self	P0.hand.lava_beast.atk:2→4	
+ok	phoenix	activate_damage2	Activate	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	phoenix	death_egg	OnDeath	Self	(无状态变化)	
+ok	potion_red	spell_attack1	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	potion_red	spell_fury	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	reaper	turn_kill_lowest	StartOfTurn	AllCardsBoard	(无状态变化)	
+ok	spell_aerial_strike	spell_summon_eagle	OnPlay	PlayerSelf	P0.hand.flame_eagle.atk:0→3; P0.hand.flame_eagle.cnt:0→3; P0.hand.flame_eagle.hp:0→3; P0.hand.flame_eagle.mana:0→3; P0.hand.flame_eagle.sig_nz:0→3; P0.n_hand:4→7	
+ok	spell_armageddon	spell_damage4	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_burn	play_deal_damage5	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_projectiles	spell_projectile1_repeat	OnPlay	None	(无状态变化)	
+ok	spell_split	play_damage3_creature	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_stones	spell_damage1	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_stones	spell_draw1	OnPlay	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	town_volcano	town_aura_red	Ongoing	AllCardsBoard	(无状态变化)	
+ok	trap_explosive	trap_damage_all2	OnBeforeAttack	AllCardsBoard	(无状态变化)	
+ok	wolf_furious	fury	Ongoing	Self	(无状态变化)	
+ok	wolf_furious	attack_add_attack1	OnBeforeAttack	Self	P0.hand.wolf_furious.atk:2→3	
+ok	armored_beast	taunt	Ongoing	Self	(无状态变化)	
+skip	bear	play_choice_taunt_fury	OnPlay	ChoiceSelector		目标模式需交互/需前置状态：ChoiceSelector
+ok	dragon_green	spell_immunity	Ongoing	Self	(无状态变化)	
+skip	equip_shield	equip_armor2	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+skip	equip_shield	equip_taunt	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+skip	forest_Axe	equip_lifesteal	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+skip	forest_Axe	equip_attack1	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+skip	forest_Axe	equip_hp2	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+ok	gorilla	play_roll_attack	OnPlay	Self	(无状态变化)	
+ok	holy_saintess	play_+3+3	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	holy_saintess	play_recover3	OnPlay	PlayerSelf	(无状态变化)	
+ok	holy_saintess	play_draw1	OnPlay	Self	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	mammoth	trample	Ongoing	Self	(无状态变化)	
+ok	owl	play_silence	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	owl	flying	Ongoing	Self	(无状态变化)	
+ok	potion_green	spell_hp2	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	potion_green	spell_taunt	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	raccoon	play_select_discard	OnPlay	CardSelector	(无状态变化)	无可选目标（未执行）
+ok	sasquatch	turn_stealth	EndOfTurn	Self	(无状态变化)	
+ok	snake_venom	attack_poison	OnBeforeAttack	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	snake_venom	defend_poison	OnBeforeDefend	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	spell_extinct	spell_add_play_extinct	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_growth	spell_ally_attack_2	OnPlay	AllCardsBoard	(无状态变化)	
+ok	spell_growth	spell_ally_hp_2	OnPlay	AllCardsBoard	(无状态变化)	
+ok	spell_hibernate	spell_hibernate	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_roots	spell_paralyse	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_stomp	spell_kill_lowest_hp	OnPlay	AllCardsBoard	(无状态变化)	
+ok	town_forest	town_aura_green	Ongoing	AllCardsBoard	(无状态变化)	
+ok	trap_spike	trap_paralyse3	OnAfterAttack	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	tree_angry	regen_all	StartOfTurn	Self	(无状态变化)	
+ok	unicorn	play_boost2	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	wolf_alpha	play_summon_wolf	OnPlay	AllSlots	(无状态变化)	
+ok	wolf_alpha	aura_wolf	Ongoing	AllCardsBoard	(无状态变化)	
+ok	wolf_stalker	stealth	OnPlay	Self	(无状态变化)	
+ok	woodland	turn_green_heal	StartOfTurn	AllCardsBoard	(无状态变化)	
+ok	world_tree_seedling	end_turn_blessing	EndOfTurn	PlayerSelf	P0.mana:10→11	
+ok	hero_fire	activate_fire	Activate	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	hero_forest	activate_forest	Activate	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	hero_water	activate_water	Activate	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:3→4	
+ok	angel_kiss	spell_heal_3	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+skip	blessing_sword	equip_lifesteal	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+ok	bravery_blessing	spell_buff4	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	bravery_blessing	firststrike	Ongoing	Self	(无状态变化)	
+ok	divine_blessing	spell_buff2	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	divine_blessing	lifesteal	Ongoing	Self	(无状态变化)	
+ok	divine_healing	play_draw3	OnPlay	Self	P0.deck.woodland.cnt:5→2; P0.deck.woodland.hp:25→10; P0.deck.woodland.mana:10→4; P0.deck.woodland.sig_nz:5→2; P0.hand.woodland.cnt:3→6; P0.hand.woodland.hp:15→30; P0.hand.woodland.mana:6→12; P0.hand.woodland.sig_nz:3→6; P0.n_deck:5→2; P0.n_hand:4→7	
+ok	dragon_white	spell_immunity	Ongoing	Self	(无状态变化)	
+ok	dragon_white	death_heal5	OnDeath	PlayerSelf	(无状态变化)	
+ok	holy_angel	flying	Ongoing	Self	(无状态变化)	
+ok	holy_blessing	spell_buff1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	holy_blessing	trample	Ongoing	Self	(无状态变化)	
+ok	holy_griffin	activate_get+1+2	Activate	Self	P0.hand.holy_griffin.atk:5→6	
+ok	holy_light	spell_heal_9	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	light_blessing	spell_heal_9	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	light_sword	lifesteal	Ongoing	Self	(无状态变化)	
+ok	paladin	shell	OnPlay	Self	(无状态变化)	
+ok	power_blessing	spell_buff5	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	power_blessing	taunt	Ongoing	Self	(无状态变化)	
+ok	power_blessing	spell_immunity	Ongoing	Self	(无状态变化)	
+ok	purification_priest	play_silence	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	strength_blessing	spell_buff1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	strength_blessing	trample	Ongoing	Self	(无状态变化)	
+ok	white_swan	activated_(1)_heal3	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	branch	play_deal_damage1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	coin	spell_coin	OnPlay	PlayerSelf	P0.mana:10→11	
+ok	dragon_egg	spell_dragon_create	OnPlay	AllCardData	P0.n_temp:0→1; P0.temp.dragon_egg.cnt:0→1; P0.temp.dragon_egg.mana:0→2; P0.temp.dragon_egg.sig_nz:0→1	近似：用施法卡自身定义充当 AllCardData
+ok	fire_chicken_egg	egg_transform_fire_chicken	StartOfTurn	Self	P0.hand.fire_chicken.atk:0→2; P0.hand.fire_chicken.cnt:0→1; P0.hand.fire_chicken.hp:0→1; P0.hand.fire_chicken.mana:0→2; P0.hand.fire_chicken.sig_nz:0→1; P0.hand.fire_chicken_egg.cnt:1→0; P0.hand.fire_chicken_egg.hp:2→0; P0.hand.fire_chicken_egg.sig_nz:1→0	
+ok	flame_eagle	flying	Ongoing	Self	(无状态变化)	
+ok	flame_eagle	play_haste	OnPlay	Self	(无状态变化)	
+ok	phoenix_egg	egg_transform_phoenix	StartOfTurn	Self	P0.hand.phoenix.atk:0→6; P0.hand.phoenix.cnt:0→1; P0.hand.phoenix.hp:0→6; P0.hand.phoenix.mana:0→6; P0.hand.phoenix.sig_nz:0→1; P0.hand.phoenix_egg.cnt:1→0; P0.hand.phoenix_egg.hp:4→0; P0.hand.phoenix_egg.sig_nz:1→0	
+ok	black_widow	attack_poison2	OnBeforeDefend	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	bone_warrior	death_summon_skeleton	OnDeath	Self	(无状态变化)	
+ok	card_merchant	play_draw3	OnPlay	Self	P0.deck.woodland.cnt:5→2; P0.deck.woodland.hp:25→10; P0.deck.woodland.mana:10→4; P0.deck.woodland.sig_nz:5→2; P0.hand.woodland.cnt:3→6; P0.hand.woodland.hp:15→30; P0.hand.woodland.mana:6→12; P0.hand.woodland.sig_nz:3→6; P0.n_deck:5→2; P0.n_hand:4→7	
+skip	corruption_potion	spell_debuff2	None	LastTargeted		目标模式需交互/需前置状态：LastTargeted
+ok	crow	flying	Ongoing	Self	(无状态变化)	
+ok	crow	play_deal_damage1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	curse_trap	trap_destroy	OnBeforeAttack	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	dark_blessing	spell_buff2	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	death_pact	vampire_lord	Ongoing	Self	(无状态变化)	
+ok	death_reaper	deathtouch	Ongoing	Self	(无状态变化)	
+ok	dragon_black	spell_immunity	Ongoing	Self	(无状态变化)	
+ok	dragon_black	black_dragon_death	OnDeath	Self	(无状态变化)	
+ok	ghoul	play_ghoul_buff	OnPlay	Self	P0.hand.ghoul.atk:2→4; P0.hand.ghoul.hp:3→5	
+ok	graveyard	graveyard_draw	?41	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	necromancer	play_revive_random	OnPlay	CardSelector	(无状态变化)	无可选目标（未执行）
+ok	Plague_Rat	death_debuff_enemy	OnDeath	AllCardsBoard	(无状态变化)	
+ok	resurrection_swamp	spell_revive	OnPlay	CardSelector	(无状态变化)	无可选目标（未执行）
+ok	shadow_arrow	spell_damage4	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	shadow_assassin	stealth	OnPlay	Self	(无状态变化)	
+ok	shadow_assassin	stealth_attack_debuff	OnAfterAttack	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	shadow_bat	play_draw1	OnPlay	Self	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	sickle_girl	deathtouch	Ongoing	Self	(无状态变化)	
+ok	sickle_girl	kill_damage3_enemy_hero	OnKill	PlayerOpponent	P1.hp:30→27	
+ok	skeleton_soldier	death_summon_skeleton	OnDeath	Self	(无状态变化)	
+ok	soul_harvest	spell_soul_harvest	OnPlay	AllCardsBoard	(无状态变化)	
+ok	vampire	vampire_lord	Ongoing	Self	(无状态变化)	
+ok	vampire	kill_damage3_enemy_hero	OnKill	PlayerOpponent	P1.hp:30→27	
+ok	zombie	play_debuff1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	bay	death_blue_draw	OnDeathOther	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	crab_mana	attack_player_mana2	OnAfterAttack	PlayerSelf	P0.mana:10→12	
+ok	dragon_blue	spell_immunity	Ongoing	Self	(无状态变化)	
+ok	eel	play_set_attack1	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	equip_ring	equip_gain_mana	StartOfTurn	PlayerSelf	P0.mana:10→12	
+ok	fish	death_draw	OnDeath	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	fishing_rod	fishing_rod_ability	OnAfterAttack	AllSlots	(无状态变化)	
+skip	fishing_rod	equip_attack1	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+skip	fishing_rod	equip_hp1	Ongoing	EquippedCard		目标模式需交互/需前置状态：EquippedCard
+ok	ice_girl	fury	Ongoing	Self	(无状态变化)	
+ok	ice_girl	attack_bounce	OnBeforeAttack	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	killer_whale	play_destroy_less4	OnPlay	SelectTarget	(无状态变化)	无可选目标（未执行）
+ok	kraken	play_haste	OnPlay	Self	(无状态变化)	
+ok	large_eagle	flying_attack_1	Ongoing	AllCardsBoard	(无状态变化)	
+ok	large_eagle	flying	Ongoing	Self	(无状态变化)	
+ok	octopus	attack_roll_attack_bonus	OnBeforeAttack	Self	(无状态变化)	
+ok	poison_frog	deathtouch	Ongoing	Self	(无状态变化)	
+ok	potion_blue	spell_shell	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	potion_blue	spell_heal_full	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	pufferfish	defense_attack3	Ongoing	Self	P0.hand.pufferfish.onatk:0→3	
+ok	sea_monster	aura_attack_m1	Ongoing	AllCardsBoard	(无状态变化)	
+ok	sea_monster	activate_boost1	Activate	AllCardsBoard	(无状态变化)	
+ok	seagull	flying	Ongoing	Self	(无状态变化)	
+ok	shark	death_other_draw	OnDeathOther	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	small_bird	flying_ally	Ongoing	Self	(无状态变化)	
+ok	spell_flood	spell_damage_per_hand	OnPlay	AllCardsBoard	(无状态变化)	
+ok	spell_storm	spell_return_all	OnPlay	AllCardsBoard	(无状态变化)	
+ok	spell_submerge	spell_add_submerge	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	spell_treasure	spell_treasure	OnPlay	PlayerSelf	(无状态变化)	
+ok	spell_wave	spell_send_hand	OnPlay	PlayTarget	(无状态变化)	无可选目标（未执行）
+ok	star_tower	spell_draw_aura	OnPlayOther	PlayerSelf	P0.deck.woodland.cnt:5→4; P0.deck.woodland.hp:25→20; P0.deck.woodland.mana:10→8; P0.deck.woodland.sig_nz:5→4; P0.hand.woodland.cnt:3→4; P0.hand.woodland.hp:15→20; P0.hand.woodland.mana:6→8; P0.hand.woodland.sig_nz:3→4; P0.n_deck:5→4; P0.n_hand:4→5	
+ok	town_underwater	town_aura_blue	Ongoing	AllCardsHand	P0.hand.town_underwater.mana:3→2; P0.hand.woodland.mana:6→3; P1.hand.woodland.mana:6→3	
+ok	trap_fish	secret_transform_fish	OnPlayOther	AbilityTriggerer	(无状态变化)	近似：用敌方首个角色充当触发者
+ok	turtle	taunt	Ongoing	Self	(无状态变化)	
+ok	turtle	shell	OnPlay	Self	(无状态变化)	
+ok	waterfowl	flying	Ongoing	Self	(无状态变化)	
+# 汇总：执行 154｜跳过 11｜异常 0｜共 165

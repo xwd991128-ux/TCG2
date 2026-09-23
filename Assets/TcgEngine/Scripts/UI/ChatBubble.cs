@@ -18,15 +18,12 @@ namespace TcgEngine.UI
 
         private float timer = 0f;
 
-        void Start()
-        {
-
-        }
-
         private void Update()
         {
             timer -= Time.deltaTime;
-            group.alpha = timer;
+            if (group != null)
+                group.alpha = timer;   //未绑定时不再每帧空引用：那样会在 alpha 这行抛出，
+                                       //导致下面的 Hide() 永远执行不到、气泡卡在屏幕上不走
 
             if (timer < 0f)
                 Hide();
@@ -34,7 +31,8 @@ namespace TcgEngine.UI
 
         public void SetLine(string msg, float duration)
         {
-            msg_txt.text = msg;
+            if (msg_txt != null)
+                msg_txt.text = msg;
             timer = duration;
             gameObject.SetActive(true);
         }

@@ -15,11 +15,6 @@ namespace TcgEngine.UI
         public Image bg;
         public Text text;
 
-        void Start()
-        {
-
-        }
-
         public void SetCard(Card card)
         {
             bool has_trait = card.HasTrait(trait);

@@ -1,0 +1,15 @@
+# 自定义节点编辑器验收探针  at=2026-09-21 19:17:57
+PASS	① 新建动作节点（CustomNodeIO.New）	cn_29f53561
+PASS	② 端口增删+上移（inputs[0]=目标）	in=[目标:Card 血量:Int32 ] out=[结果:Boolean ]
+PASS	③ 动作节点蓝图块：动作流输入/输出 + 自定义端口齐全	block=True in=True out=True 血量=True 目标=True 结果=True
+PASS	③b 动作节点只有 1 张图（无时/后）	GraphCount=1
+PASS	④ 加端口后蓝图块引脚 +1	before=5 after=6
+PASS	⑤ 切成事件节点	kind=Event
+PASS	⑤b 事件节点 = 2 张图（XX时 / XX后）	graphs=2
+PASS	⑤c XX时/XX后 各自生成入口节点（事件类型 + 动作流输出 + 自定义端口）	when=True after=True
+PASS	⑤d 两段各自独立成图（节点不串）
+PASS	⑥ 校验能抓出空端口名	输入端口第 4 行的端口名为空
+PASS	⑦ 保存到 custom_nodes.json 且重载可读	file=True reloaded=True kind=Event in=3 out=1
+PASS	⑧ 节点库出现该自定义节点（XX时 / XX后 两个可用节点）	when=True after=True 库总数=367
+# 已清理测试节点：cn_29f53561
+# 汇总：PASS=12 FAIL=0

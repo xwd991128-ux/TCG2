@@ -523,6 +523,44 @@ namespace TcgEngine.Workshop
             Debug.Log("已导入卡池「" + pool.name + "」，新增 " + count + " 张卡: " + path);
         }
 
+        // ---------------- 自定义参数登记表（供高级筛选 p:参数名 使用） ----------------
+
+        /// <summary>card_id → 卡池 JSON 原始数据（含自定义参数声明 custom_prop_defs）。运行时 CardData 是
+        /// ScriptableObject，装不下这些声明，所以这里保留一份登记表。</summary>
+        private static readonly Dictionary<string, CardCustomData> custom_data = new Dictionary<string, CardCustomData>();
+
+        /// <summary>取某张自定义卡牌的原始数据（内置卡牌/未导入的卡返回 null）</summary>
+        public static CardCustomData GetCustomData(string card_id)
+        {
+            if (string.IsNullOrEmpty(card_id))
+                return null;
+            CardCustomData data;
+            return custom_data.TryGetValue(card_id, out data) ? data : null;
+        }
+
+        /// <summary>所有自定义参数名（去重，用于高级筛选的字段速查）</summary>
+        public static List<string> GetAllCustomPropNames()
+        {
+            List<string> names = new List<string>();
+            foreach (KeyValuePair<string, CardCustomData> kv in custom_data)
+            {
+                CardCustomData d = kv.Value;
+                if (d == null)
+                    continue;
+                List<BuffCustomProp> defs = d.EnsureCustomPropDefs();
+                for (int i = 0; i < defs.Count; i++)
+                {
+                    BuffCustomProp cp = defs[i];
+                    if (cp == null || string.IsNullOrEmpty(cp.name))
+                        continue;
+                    if (!names.Contains(cp.name))
+                        names.Add(cp.name);
+                }
+            }
+            names.Sort();
+            return names;
+        }
+
         /// <summary>将 CardPoolData 注册到游戏（返回实际新增卡牌数）</summary>
         /// <param name="fileKey">卡池文件路径（用于删除时按文件卸载），为空则不做归属记录</param>
         public static int ImportToGame(CardPoolData pool, string fileKey = "", bool grantOwnership = false)
@@ -531,11 +569,20 @@ namespace TcgEngine.Workshop
                 return 0;
 
             int added = 0;
+            int overrode = 0;
+            int art_ok = 0;
+            bool allow_override = OverrideBuiltinFor(Path.GetFileName(fileKey));   //★迁移验证开关（按池文件名限定）
             foreach (CardCustomData cdata in pool.cards)
             {
                 CardData card = BuildCardData(cdata);
-                if (card != null && RegisterCard(card))
+                bool did_override;
+                if (card != null && RegisterCard(card, allow_override, out did_override))
                 {
+                    if (did_override)
+                        overrode++;
+                    if (card.art_full != null)
+                        art_ok++;          //证据：覆盖后仍有**手牌/收藏用图**的张数（=继承内置美术成功）
+
                     added++;
                     if (!string.IsNullOrEmpty(fileKey))
                     {
@@ -550,6 +597,9 @@ namespace TcgEngine.Workshop
                         GrantOwnership(card);
                 }
             }
+            if (overrode > 0)
+                Debug.Log("[卡池] 已用池卡**覆盖同名内置卡** " + overrode + " 张（其中带卡图 " + art_ok + " 张；"
+                    + "验证开关 override_builtin.txt 生效中，删除该文件并重开游戏即恢复内置卡优先）");
             return added;
         }
 
@@ -571,6 +621,7 @@ namespace TcgEngine.Workshop
             if (data == null || string.IsNullOrEmpty(data.id))
                 return null;
 
+            custom_data[data.id] = data;    //登记原始数据（自定义参数筛选/字段速查要用）
             CardData card = ScriptableObject.CreateInstance<CardData>();
             card.id = data.id;
             card.title = data.title ?? "";
@@ -607,7 +658,34 @@ namespace TcgEngine.Workshop
             card.packs = new PackData[0];
             //异步补载 4 个音频槽（spawn/attack/death/damage）写回 CardData，使自定义音效真实可播
             CardAudioLoader.LoadCardAudio(data, card);
+            InheritBuiltinVisuals(card);
             return card;
+        }
+
+        /// <summary>★池卡覆盖同名**内置资产**时，继承它的美术/特效/音效引用。
+        /// 为什么需要：池格式（CardCustomData）只带**文件路径**（art_path/art_full_path/*_audio_id），
+        /// 而内置卡的美术是**资产引用**（art_board/art_full/spawn_fx…）→ 转换器导出的池里这些字段是空的，
+        /// 覆盖后进对局就是"卡片全黑、战场没图"（实测用户截图就是这个）。
+        /// 规则：只在池**没有**提供时回退到被覆盖的内置资产；池自带资源（自制卡/Phase 5 资源随池）优先。
+        /// 找不到同名内置卡（纯自制卡）则什么都不做。</summary>
+        private static void InheritBuiltinVisuals(CardData card)
+        {
+            if (card == null || string.IsNullOrEmpty(card.id))
+                return;
+            CardData builtin = CardData.Get(card.id);   //调用点在 RegisterCard 之前 → 拿到的是被覆盖的内置资产
+            if (builtin == null || builtin == card)
+                return;
+            if (card.art_board == null) card.art_board = builtin.art_board;
+            if (card.art_full == null) card.art_full = builtin.art_full;
+            if (card.spawn_fx == null) card.spawn_fx = builtin.spawn_fx;
+            if (card.death_fx == null) card.death_fx = builtin.death_fx;
+            if (card.attack_fx == null) card.attack_fx = builtin.attack_fx;
+            if (card.damage_fx == null) card.damage_fx = builtin.damage_fx;
+            if (card.idle_fx == null) card.idle_fx = builtin.idle_fx;
+            if (card.spawn_audio == null) card.spawn_audio = builtin.spawn_audio;
+            if (card.death_audio == null) card.death_audio = builtin.death_audio;
+            if (card.attack_audio == null) card.attack_audio = builtin.attack_audio;
+            if (card.damage_audio == null) card.damage_audio = builtin.damage_audio;
         }
 
         /// <summary>更新运行时已注册的自定义卡数据（实例引用不变，仅更新字段）。
@@ -640,8 +718,11 @@ namespace TcgEngine.Workshop
             card.desc = data.desc ?? "";
             card.deckbuilding = data.deckbuilding;
             card.cost = data.cost;
-            card.art_board = LoadArt(data.art_path);
-            card.art_full = LoadArt(data.art_full_path);
+            //★只在池提供了图片时才覆盖：否则会把内置资产自己带的图清成 null（「模拟测试」/覆盖后的卡整场黑图）
+            Sprite up_board = LoadArt(data.art_path);
+            if (up_board != null) card.art_board = up_board;
+            Sprite up_full = LoadArt(data.art_full_path);
+            if (up_full != null) card.art_full = up_full;
 
             //重建能力（data.abilities + 规则图编译），使规则编辑器保存的图/能力在真实对战中立即生效
             List<AbilityData> abilities = new List<AbilityData>();
@@ -676,13 +757,13 @@ namespace TcgEngine.Workshop
             {
                 if (eff == null || eff.graph == null)
                     continue;
-                CompileOneGraphAbilities(data, eff.graph, result);
+                CompileOneGraphAbilities(data, eff.graph, eff, result);
             }
             return result;
         }
 
-        /// <summary>编译单张效果图为能力并追加进 result</summary>
-        private static void CompileOneGraphAbilities(CardCustomData data, GraphData graph, List<AbilityData> result)
+        /// <summary>编译单张效果图为能力并追加进 result（effdto = 该效果图的数据层，携带数据型过滤器）</summary>
+        private static void CompileOneGraphAbilities(CardCustomData data, GraphData graph, CardEffectData effdto, List<AbilityData> result)
         {
             //控制节点(212001 分支 / 212002 重复)下游若接了内置直通动作：内置动作按无条件触发编译（不走分支/循环），提醒改用 NodeDoc 动作
             foreach (GraphNode bn in graph.nodes)
@@ -748,7 +829,12 @@ namespace TcgEngine.Workshop
                         break;
                     }
                 }
-                if (has_node_doc)
+                //★C 批：入口**没有动作节点、只带连锁数据**时也要编译出能力 —— 典型是"选择菜单"入口
+                //  （如 bear：target=ChoiceSelector + chain_abilities=[选项A, 选项B]，入口自身没有效果；
+                //   引擎 SelectChoice 读的正是这份 chain_abilities）。否则整条能力会被丢掉、卡变白板。
+                bool has_chain_only = !has_node_doc && effdto != null
+                    && effdto.chain_ability_ids != null && effdto.chain_ability_ids.Count > 0;
+                if (has_node_doc || has_chain_only)
                 {
                     AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
                     ab.id = "graph_" + data.id + "_" + ev.action + "_node" + Guid.NewGuid().ToString("N").Substring(0, 6);
@@ -771,12 +857,19 @@ namespace TcgEngine.Workshop
                     //入场目标配置（读"打出时"事件节点上的字段，语义同"入场技能目标设置"面板）：
                     //   target_side  归属：任意/敌方/友方
                     //   target_scope 范围：任意/仅角色/仅英雄（仅英雄=直接选玩家，不再弹目标）
+                    //   target_mode  ★迁移期新增：**显式目标模式**（内置卡迁移用）。有该字段时直接采用、
+                    //               不走下面的 wants_target 启发式；旧图没有该字段 → 行为完全不变。
                     string tside = GraphRuntime.GetFieldString(ev, "target_side", "任意");
                     string tscope = GraphRuntime.GetFieldString(ev, "target_scope", "任意");
+                    string tmode = GraphRuntime.GetFieldString(ev, "target_mode", "");
                     bool hero_only = tscope == "仅英雄";
                     List<ConditionData> tconds = new List<ConditionData>();
                     AbilityTarget atarget = AbilityTarget.None;
-                    if (wants_target)
+                    if (!string.IsNullOrEmpty(tmode))
+                    {
+                        atarget = ParseTargetMode(tmode);
+                    }
+                    else if (wants_target)
                     {
                         if (hero_only)
                         {
@@ -805,11 +898,37 @@ namespace TcgEngine.Workshop
                     run.graph = graph;
                     run.trigger_action = ev.action;
                     ab.effects = new EffectData[] { run };
-                    ab.conditions_trigger = new ConditionData[0];
+                    //★迁移期新增（内置卡迁移 D 批）：**数据型条件**直通（CardEffectData.conditions_trigger/target）。
+                    //  图里表达不了的条件（ConditionCount / SlotRange / 类型含阵营·种族 / SelectedValue…）不再让
+                    //  整条能力作废，而是原样交回引擎判定（发动前 AreTriggerConditionsMet、解析目标集合
+                    //  AreTargetConditionsMet）——与旧能力逐行一致；CardSelector 的候选列表/选择校验也才筛得对。
+                    //  空/缺省 = 条件只由图守卫表达（旧图行为完全不变）。
+                    ConditionData[] dtrigger = effdto != null
+                        ? DeserializeComponents<ConditionData>(effdto.conditions_trigger) : null;
+                    ab.conditions_trigger = (dtrigger != null && dtrigger.Length > 0)
+                        ? dtrigger : new ConditionData[0];
                     ab.conditions_target = tconds.ToArray();
-                    ab.filters_target = new FilterData[0];
-                    ab.status = new StatusData[0];
-                    ab.chain_abilities = new AbilityData[0];
+                    ConditionData[] dtarget = effdto != null
+                        ? DeserializeComponents<ConditionData>(effdto.conditions_target) : null;
+                    if (dtarget != null && dtarget.Length > 0)
+                        ab.conditions_target = AppendConditions(ab.conditions_target, dtarget);
+                    //★迁移期新增（内置卡迁移 D 批）：数据型目标过滤器（CardEffectData.filters_target）原样还原。
+                    //  过滤器作用于**整个目标集合**（AbilityData.GetCardTargets/GetPlayerTargets/GetSlotTargets 里
+                    //  逐条 FilterTargets），图只做"目标相对"的动作 → 两者不冲突、也不重复施加。
+                    //  空/缺省 = 不过滤（旧图行为不变）。
+                    ab.filters_target = effdto != null
+                        ? (DeserializeComponents<FilterData>(effdto.filters_target) ?? new FilterData[0])
+                        : new FilterData[0];
+                    //★迁移期新增（内置卡迁移 B 批）：数据型状态（能力自带 status）→ 原样还原成 ab.status，
+                    //  由引擎在 DoEffects 里按目标施加（旧行为逐行一致；图里不做"添加状态"节点）。
+                    ab.status = ResolveStatusList(effdto != null ? effdto.status_ids : null);
+                    //能力自带 status 时，旧引擎用 `ability.value` 施加状态（DoEffects）→ 从入口字段还原（转换器写入）
+                    if (ab.status != null && ab.status.Length > 0)
+                        ab.value = GraphRuntime.GetFieldInt(ev, "status_ability_value", ab.value);
+                    //★迁移期新增（内置卡迁移 C 批）：连锁能力随数据带走（chain_ability_ids）→ 还原成 ab.chain_abilities。
+                    //  引擎在 AfterAbilityResolved 里逐个 TriggerCardAbility(chain, caster)，与旧能力逐行一致；
+                    //  被引用的连锁能力资产=池内 id 引用（同 EffectAddAbility，Phase 5 打包随池打）。
+                    ab.chain_abilities = ResolveAbilityList(effdto != null ? effdto.chain_ability_ids : null);
                     ab.title = (ev.title ?? ev.action) + "：规则图执行";
                     ab.desc = ab.title;
                     ApplyEntryOverrides(ab, ev, is_spell, graph);
@@ -851,6 +970,31 @@ namespace TcgEngine.Workshop
             }
         }
 
+        /// <summary>★迁移期新增：入口 target_mode 文本 → AbilityTarget（内置卡迁移用，旧图无此字段）。
+        /// 取值与转换器（AbilityToGraphConverter）写出的文本一一对应；未知返回 None。</summary>
+        private static AbilityTarget ParseTargetMode(string mode)
+        {
+            switch (mode)
+            {
+                case "无": return AbilityTarget.None;
+                case "自身": return AbilityTarget.Self;
+                case "施法者玩家": return AbilityTarget.PlayerSelf;
+                case "对手玩家": return AbilityTarget.PlayerOpponent;
+                case "全体玩家": return AbilityTarget.AllPlayers;
+                case "所有角色": return AbilityTarget.AllCardsBoard;
+                case "双方手牌": return AbilityTarget.AllCardsHand;
+                case "所有牌堆": return AbilityTarget.AllCardsAllPiles;
+                case "卡牌定义": return AbilityTarget.AllCardData;
+                case "选择目标": return AbilityTarget.SelectTarget;
+                case "打出目标": return AbilityTarget.PlayTarget;
+                case "所有槽位": return AbilityTarget.AllSlots;       //★D 批：逐槽结算（槽位条件+过滤器由引擎筛，图内用呼叫上下文槽位落位）
+                case "触发者": return AbilityTarget.AbilityTriggerer;
+                case "卡牌选择": return AbilityTarget.CardSelector;   //★D 批：选择器（候选=条件+过滤器筛过的全区域卡）
+                case "选择器": return AbilityTarget.ChoiceSelector;   //★C 批：选择菜单（chain_abilities=菜单选项，引擎 SelectChoice 消费）
+                default: return AbilityTarget.None;
+            }
+        }
+
         /// <summary>事件节点 action → AbilityTrigger 映射（未支持返回 None）</summary>
         private static AbilityTrigger MapGraphTrigger(string action)
         {
@@ -862,6 +1006,13 @@ namespace TcgEngine.Workshop
                 case "OnDeath": return AbilityTrigger.OnDeath;
                 case "OnAttack": return AbilityTrigger.OnBeforeAttack;
                 case "OnDraw": return AbilityTrigger.OnDraw;
+                //★迁移期新增（内置卡迁移 D 批）：引擎原生触发时机（非图事件广播）——
+                //  action 名与 AbilityTrigger 枚举名一致；转换器（AbilityToGraphConverter）写出的入口同名。
+                //  OnPlayOther=别的卡被打出时 / OnAfterAttack=攻击结算后 / OnKill=攻击中击杀 / OnDeathOther=别的卡死亡
+                case "OnPlayOther": return AbilityTrigger.OnPlayOther;
+                case "OnAfterAttack": return AbilityTrigger.OnAfterAttack;
+                case "OnKill": return AbilityTrigger.OnKill;
+                case "OnDeathOther": return AbilityTrigger.OnDeathOther;
                 case "ActivateEffect": return AbilityTrigger.OnPlay;    //主动效果入口（zmcs）= 打出时触发（炉石战吼/法术）
                 case "ActivateAbility": return AbilityTrigger.Activate; //起动式效果入口（zmcs）= 点击发动（英雄技能/卡牌主动技）
                 case "AuraEffect": return AbilityTrigger.Ongoing;       //光环效果入口（zmcs）
@@ -1084,18 +1235,28 @@ namespace TcgEngine.Workshop
         {
             if (ab == null || ev == null)
                 return;
+            //★「每回合一次」：**与入口类型无关**——迁移期把旧 ConditionOnce 编译成入口字段 once_per_turn
+            //  （转换器 AbilityToGraphConverter 写出）。必须放在下面"只处理目标槽入口"的早退之前，
+            //  否则非起动式入口（打出时/亡语…）会静默丢掉这个发动条件。
+            //★迁移期：入口「能力名」对**所有入口**生效（转换器写 ability_title）——
+            //  原来只对起动式入口读，导致打出时/亡语/事件类入口编译出的能力名变成"节点标题：规则图执行"（难看）
+            string ab_title_any = GraphRuntime.GetFieldString(ev, "ability_title", "");
+            if (!string.IsNullOrEmpty(ab_title_any))
+                ab.title = ab_title_any;
+
+            if (GraphRuntime.GetFieldString(ev, "once_per_turn", "false") == "true")
+                ab.conditions_trigger = AppendCondition(ab.conditions_trigger,
+                    ScriptableObject.CreateInstance<ConditionOnce>());   //每回合一次（ability_played 每回合清空）
+
             //带目标槽的图入口：主动效果入口（打出触发）/ 起动式效果入口（点击发动）共用同一套目标槽编译
             if (ev.action != "ActivateEffect" && ev.action != "ActivateAbility")
                 return;
 
-            //起动式效果入口：能力自身的参数（灵力费用/横置/每回合一次/能力名与描述）——与目标槽无关，先读
+            //起动式效果入口：能力自身的参数（灵力费用/横置/能力名与描述）——与目标槽无关，先读
             if (ev.action == "ActivateAbility")
             {
                 ab.mana_cost = GraphRuntime.GetFieldInt(ev, "mana_cost", 0);
                 ab.exhaust = GraphRuntime.GetFieldString(ev, "exhaust", "true") != "false";
-                if (GraphRuntime.GetFieldString(ev, "once_per_turn", "false") == "true")
-                    ab.conditions_trigger = AppendCondition(ab.conditions_trigger,
-                        ScriptableObject.CreateInstance<ConditionOnce>());   //每回合一次（ability_played 每回合清空）
                 string at = GraphRuntime.GetFieldString(ev, "ability_title", "");
                 if (!string.IsNullOrEmpty(at))
                     ab.title = at;
@@ -1134,6 +1295,14 @@ namespace TcgEngine.Workshop
                     active.Add(legacy);
                 }
             }
+
+            //★迁移期（内置卡迁移 D 批）：**没有配置目标槽**的入口若带显式 `target_mode`（迁移写出），
+            //  则目标已由 target_mode 权威给出（上面 ab.target = ParseTargetMode(tmode)），
+            //  不要再走下面"无槽 = 无目标"的旧兜底 —— 否则迁移过来的 Activate 卡（dark_stallion/phoenix/
+            //  hero_fire/forest/water）会被覆盖成 ab.target=None，发动后效果打空（实测：编译冒烟逮到）。
+            //  注：手工在编辑器里配了目标槽（active.Count>0）时依旧以槽配置为准，旧图不受影响。
+            if (active.Count == 0 && !string.IsNullOrEmpty(GraphRuntime.GetFieldString(ev, "target_mode", "")))
+                return;
 
             // ---- 多目标：顺序逐槽选择（§冲突1：法术也走 SelectTarget） ----
             if (active.Count >= 2)
@@ -1214,6 +1383,53 @@ namespace TcgEngine.Workshop
             if (array != null)
                 list.AddRange(array);
             list.Add(extra);
+            return list.ToArray();
+        }
+
+        /// <summary>追加一组条件到数组（数据型条件直通用；保持非 null 约定）</summary>
+        private static ConditionData[] AppendConditions(ConditionData[] array, ConditionData[] extra)
+        {
+            List<ConditionData> list = new List<ConditionData>();
+            if (array != null)
+                list.AddRange(array);
+            if (extra != null)
+                list.AddRange(extra);
+            return list.ToArray();
+        }
+
+        /// <summary>能力 id 列表 → AbilityData 数组（连锁/被引用能力；未注册的跳过并警告）</summary>
+        private static AbilityData[] ResolveAbilityList(List<string> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return new AbilityData[0];
+            List<AbilityData> list = new List<AbilityData>();
+            foreach (string id in ids)
+            {
+                if (string.IsNullOrEmpty(id))
+                    continue;
+                AbilityData a = AbilityData.Get(id);
+                if (a != null)
+                    list.Add(a);
+                else
+                    Debug.LogWarning("[规则图] 被引用的连锁能力未注册，已跳过: " + id);
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>StatusType 枚举名列表 → StatusData 数组（数据型状态直通用，与 AbilityCustomData.status_ids 同口径）</summary>
+        private static StatusData[] ResolveStatusList(List<string> status_ids)
+        {
+            if (status_ids == null || status_ids.Count == 0)
+                return new StatusData[0];
+            List<StatusData> list = new List<StatusData>();
+            foreach (string sid in status_ids)
+            {
+                StatusData sdata = StatusData.Get(ParseEnum(sid, StatusType.None));
+                if (sdata != null)
+                    list.Add(sdata);
+                else if (!string.IsNullOrEmpty(sid))
+                    Debug.LogWarning("[规则图] 状态未识别，已跳过: " + sid);
+            }
             return list.ToArray();
         }
 
@@ -1503,9 +1719,41 @@ namespace TcgEngine.Workshop
 
         // ---------------- 注册到静态字典 ----------------
 
+        /// <summary>★迁移期新增：**允许池卡覆盖同名内置卡**（运行时替换注册表条目、**不改动资产**，可逆）。
+        /// 开关 = persistentDataPath/Workshop/override_builtin.txt；**文件内容 = 允许覆盖的池文件名清单（每行一个）**，
+        /// 内容为空 = 允许所有池。为什么按文件限定：Workshop 下常并存多个池（Dlc1 Pack/Elite Pack/示例卡池…），
+        /// 否则"最后导入的池"会把前面池的覆盖又盖回去，验证时会看到不是迁移版的卡。
+        /// 用途：内置卡迁移验证 —— 卡组/「模拟测试」走 UserDeckData(tid) → CardData.Get(id)，
+        /// 覆盖后整个对局里这些卡就是**迁移版（规则图）**的版本。删文件即恢复内置卡优先。</summary>
+        private static bool OverrideBuiltinFor(string file_name)
+        {
+            string flag = Path.Combine(SaveFolder, "override_builtin.txt");
+            if (!File.Exists(flag) || string.IsNullOrEmpty(file_name))
+                return false;
+            try
+            {
+                string txt = File.ReadAllText(flag).Trim();
+                if (string.IsNullOrEmpty(txt))
+                    return true;                      //空内容 = 允许所有池
+                foreach (string line in txt.Split('\n'))
+                    if (line.Trim().Equals(file_name, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                return false;
+            }
+            catch { return false; }
+        }
+
         /// <summary>注册生成的 CardData 到静态字典（id 冲突时跳过）</summary>
         public static bool RegisterCard(CardData card)
         {
+            bool overrode;
+            return RegisterCard(card, false, out overrode);
+        }
+
+        /// <summary>注册 CardData；allow_override=true 时同名已存在则**替换**注册表条目（见 OverrideBuiltin）。</summary>
+        public static bool RegisterCard(CardData card, bool allow_override, out bool overrode)
+        {
+            overrode = false;
             if (card == null || string.IsNullOrEmpty(card.id))
                 return false;
 
@@ -1514,8 +1762,20 @@ namespace TcgEngine.Workshop
             {
                 if (existing == card)
                     return true;   //同一实例重复注册：幂等成功（刷新卡牌列表等场景会重复调用）
-                Debug.LogWarning("卡牌 id 已存在，跳过注册: " + card.id);
-                return false;
+                if (!allow_override)
+                {
+                    Debug.LogWarning("卡牌 id 已存在，跳过注册: " + card.id);
+                    return false;
+                }
+                //★覆盖：运行时替换注册表条目（内置资产对象本身不变，重开游戏即恢复）
+                overrode = true;
+                if (CardData.card_dict.ContainsKey(card.id))
+                    CardData.card_dict[card.id] = card;
+                else
+                    CardData.card_dict.Add(card.id, card);
+                CardData.card_list.RemoveAll(c => c != null && c.id == card.id);
+                CardData.card_list.Add(card);
+                return true;
             }
 
             //字典与列表可能不同步（历史卸载/重载只清了其中一边），统一用索引器写入并去重列表，

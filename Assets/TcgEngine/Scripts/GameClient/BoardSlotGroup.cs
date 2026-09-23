@@ -32,6 +32,7 @@ namespace TcgEngine.Client
         protected override void OnDestroy()
         {
             base.OnDestroy();
+            GameClient.Get().onConnectGame -= OnConnect;
         }
 
         private void Start()

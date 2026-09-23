@@ -57,11 +57,6 @@ namespace TcgEngine.Client
             start_scale = transform.localScale;
         }
 
-        private void Start()
-        {
-
-        }
-
         private void OnDestroy()
         {
             pack_list.Remove(this);
@@ -178,7 +173,7 @@ namespace TcgEngine.Client
         public int GetPackQuantity()
         {
             UserData udata = Authenticator.Get().UserData;
-            return udata.GetPackQuantity(pack_tid);
+            return udata != null ? udata.GetPackQuantity(pack_tid) : 0;   //没有用户数据时按「没有该卡包」处理
         }
 
         public void OnMouseEnterCard()

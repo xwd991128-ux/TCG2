@@ -53,11 +53,6 @@ namespace TcgEngine.UI
         public static int stat_calls;      //诊断：SetCard(Card) 被调用次数（累计）
         public static int stat_rebuilds;   //诊断：其中真正重建卡面的次数（stat_calls - stat_rebuilds = 省下的次数）
 
-        void Awake()
-        {
-
-        }
-
         public void SetCard(Card card)
         {
             if (card == null)

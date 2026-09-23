@@ -93,6 +93,19 @@ namespace TcgEngine.UI
                 mm_panel.SetVisible(matchmaking);
         }
 
+        private void OnDestroy()
+        {
+            if (deck_selector != null)
+                deck_selector.onChange -= OnChangeDeck;
+
+            GameClientMatchmaker matchmaker = GameClientMatchmaker.Get();
+            if (matchmaker != null)
+            {
+                matchmaker.onMatchmaking -= OnMatchmakingDone;
+                matchmaker.onMatchList -= OnReceiveObserver;
+            }
+        }
+
         private async void RefreshLogin()
         {
             bool success = await Authenticator.Get().RefreshLogin();
@@ -309,6 +322,14 @@ namespace TcgEngine.UI
             UserDeckData deck = deck_selector.GetDeck();
             if (deck == null || !deck.IsValid())
                 return;
+
+            //构筑规则：不合规就别进匹配（否则会卡在服务端校验上）
+            List<DeckError> derrors = DeckValidator.Validate(deck, GameClient.game_settings);
+            if (derrors.Count > 0)
+            {
+                Debug.LogWarning("[构筑规则] 卡组不合规：" + DeckValidator.JoinMessages(derrors, "；"));
+                return;   //后续阶段：这里改成弹"错误列表"弹框并支持「返回调整」
+            }
 
             StartMathmaking(GameMode.Ranked, "");
         }

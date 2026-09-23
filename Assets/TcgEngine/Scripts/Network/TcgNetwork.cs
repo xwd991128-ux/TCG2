@@ -80,11 +80,6 @@ namespace TcgEngine
             }
         }
 
-        void Update()
-        {
-
-        }
-
         //Start a host (client + server)
         public void StartHost(ushort port)
         {

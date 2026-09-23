@@ -46,6 +46,8 @@ namespace TcgEngine
             AvatarData.Load();
             CardbackData.Load();
             RewardData.Load();
+            DeckFormatData.Load();      //构筑环境（标准/乱斗）
+            DeckModifierData.Load();    //卡牌自带修饰 / 可选开关规则
 
             CheckCardData();
             CheckAbilityData();
@@ -60,6 +62,9 @@ namespace TcgEngine
 
             //加载战斗界面自定义按钮配置（按钮编辑器设计，Workshop/buttons.json）
             BattleButtonIO.LoadAll();
+
+            //加载玩家自定义节点（自定义节点编辑器设计，Workshop/custom_nodes.json）
+            CustomNodeIO.LoadAll();
         }
 
         //Make sure the data is valid

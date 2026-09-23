@@ -1,0 +1,171 @@
+card	ability	trigger	target	result	effects	reason
+Plague_Rat	death_debuff_enemy	OnDeath	AllCardsBoard	ok	13 节点	
+angel_kiss	spell_heal_3	OnPlay	PlayTarget	ok	4 节点	
+armored_beast	taunt	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+ashes_snake	stealth	OnPlay	Self	data		状态直通（纯数据，无规则可图）
+bay	death_blue_draw	OnDeathOther	PlayerSelf	ok	2 节点	
+bear	play_choice_taunt_fury	OnPlay	ChoiceSelector	ok	1 节点	
+black_widow	attack_poison2	OnBeforeDefend	AbilityTriggerer	data		状态直通（纯数据，无规则可图）
+blessing_sword	equip_lifesteal	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+bone_warrior	death_summon_skeleton	OnDeath	Self	ok	2 节点	
+branch	play_deal_damage1	OnPlay	SelectTarget	ok	9 节点	
+bravery_blessing	spell_buff4	OnPlay	SelectTarget	ok	13 节点	
+bravery_blessing	firststrike	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+bull_heat	add_spell_damage1	Ongoing	PlayerSelf	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+card_merchant	play_draw3	OnPlay	Self	ok	4 节点	
+cave	turn_end_damage_hero_2	EndOfTurn	PlayerOpponent	ok	2 节点	
+coin	spell_coin	OnPlay	PlayerSelf	ok	2 节点	
+corruption_potion	spell_debuff2	None	LastTargeted	todo		触发时机未支持（P1）：None
+crab_mana	attack_player_mana2	OnAfterAttack	PlayerSelf	ok	2 节点	
+crow	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+crow	play_deal_damage1	OnPlay	SelectTarget	ok	9 节点	
+curse_trap	trap_destroy	OnBeforeAttack	AbilityTriggerer	ok	2 节点	
+dark_blessing	spell_buff2	OnPlay	SelectTarget	ok	13 节点	
+dark_stallion	activate_damage1(2)	Activate	SelectTarget	ok	9 节点	
+death_pact	vampire_lord	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+death_reaper	deathtouch	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+divine_blessing	spell_buff2	OnPlay	SelectTarget	ok	13 节点	
+divine_blessing	lifesteal	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+divine_healing	play_draw3	OnPlay	Self	ok	4 节点	
+dragon's_anger	spell_summon_dragon_red_damage	OnPlay	PlayTarget	ok	6 节点	
+dragon_black	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_black	black_dragon_death	OnDeath	Self	ok	2 节点	
+dragon_blue	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_egg	spell_dragon_create	OnPlay	AllCardData	ok	2 节点	条件走数据直通（图里表达不了：类型条件含阵营/种族（无对应节点））
+dragon_green	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_knight	death_create_dragon_red	OnDeath	PlayerSelf	ok	2 节点	
+dragon_knight	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_red	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_white	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+dragon_white	death_heal5	OnDeath	PlayerSelf	ok	2 节点	
+eel	play_set_attack1	OnPlay	SelectTarget	ok	9 节点	
+equip_ring	equip_gain_mana	StartOfTurn	PlayerSelf	ok	2 节点	
+equip_shield	equip_armor2	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+equip_shield	equip_taunt	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+equip_sword	equip_first_strike	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+fire_chicken	death_fire_chicken_egg	OnDeath	Self	ok	2 节点	
+fire_chicken_egg	egg_transform_fire_chicken	StartOfTurn	Self	ok	2 节点	
+fire_element	play_damage_all2	OnPlay	AllCardsBoard	ok	6 节点	
+firefox	activate_select_discard_spell	Activate	CardSelector	ok	2 节点	
+fish	death_draw	OnDeath	PlayerSelf	ok	2 节点	
+fishing_rod	fishing_rod_ability	OnAfterAttack	AllSlots	ok	2 节点	
+fishing_rod	equip_attack1	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+fishing_rod	equip_hp1	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+flame_eagle	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+flame_eagle	play_haste	OnPlay	Self	ok	2 节点	
+forest_Axe	equip_lifesteal	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+forest_Axe	equip_attack1	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+forest_Axe	equip_hp2	Ongoing	EquippedCard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+ghoul	play_ghoul_buff	OnPlay	Self	ok	9 节点	条件走数据直通（图里表达不了：条件未支持：ConditionCount）
+gorilla	play_roll_attack	OnPlay	Self	ok	2 节点	
+graveyard	graveyard_draw	41	PlayerSelf	todo		触发时机未支持（P1）：41
+hell_hound	fury	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+hero_fire	activate_fire	Activate	SelectTarget	ok	6 节点	
+hero_forest	activate_forest	Activate	SelectTarget	ok	6 节点	
+hero_water	activate_water	Activate	PlayerSelf	ok	2 节点	
+holy_angel	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+holy_blessing	spell_buff1	OnPlay	SelectTarget	ok	13 节点	
+holy_blessing	trample	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+holy_griffin	activate_get+1+2	Activate	Self	ok	5 节点	
+holy_light	spell_heal_9	OnPlay	PlayTarget	ok	4 节点	
+holy_saintess	play_+3+3	OnPlay	SelectTarget	ok	11 节点	
+holy_saintess	play_recover3	OnPlay	PlayerSelf	ok	2 节点	
+holy_saintess	play_draw1	OnPlay	Self	ok	2 节点	
+ice_girl	fury	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+ice_girl	attack_bounce	OnBeforeAttack	AbilityTriggerer	ok	6 节点	
+imp	play_deal_damage1	OnPlay	SelectTarget	ok	9 节点	
+killer_whale	play_destroy_less4	OnPlay	SelectTarget	ok	2 节点	条件走数据直通（图里表达不了：条件未支持：ConditionStat）
+kraken	play_haste	OnPlay	Self	ok	2 节点	
+large_eagle	flying_attack_1	Ongoing	AllCardsBoard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+large_eagle	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+lava_beast	(引用0)	?	?	todo		能力引用丢失（abilities[0] 为空）
+light_blessing	spell_heal_9	OnPlay	PlayTarget	ok	4 节点	
+light_sword	lifesteal	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+mammoth	trample	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+necromancer	play_revive_random	OnPlay	CardSelector	ok	2 节点	
+octopus	attack_roll_attack_bonus	OnBeforeAttack	Self	ok	2 节点	
+owl	play_silence	OnPlay	SelectTarget	ok	10 节点	
+owl	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+paladin	shell	OnPlay	Self	data		状态直通（纯数据，无规则可图）
+phoenix	activate_damage2	Activate	SelectTarget	ok	9 节点	
+phoenix	death_egg	OnDeath	Self	ok	2 节点	
+phoenix_egg	egg_transform_phoenix	StartOfTurn	Self	ok	2 节点	
+poison_frog	deathtouch	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+potion_blue	spell_shell	OnPlay	PlayTarget	data		状态直通（纯数据，无规则可图）
+potion_blue	spell_heal_full	OnPlay	PlayTarget	ok	6 节点	
+potion_green	spell_hp2	OnPlay	PlayTarget	ok	9 节点	
+potion_green	spell_taunt	OnPlay	PlayTarget	data		状态直通（纯数据，无规则可图）
+potion_red	spell_attack1	OnPlay	PlayTarget	ok	9 节点	
+potion_red	spell_fury	OnPlay	PlayTarget	data		状态直通（纯数据，无规则可图）
+power_blessing	spell_buff5	OnPlay	SelectTarget	ok	13 节点	
+power_blessing	taunt	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+power_blessing	spell_immunity	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+pufferfish	defense_attack3	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+purification_priest	play_silence	OnPlay	SelectTarget	ok	10 节点	
+raccoon	play_select_discard	OnPlay	CardSelector	ok	2 节点	
+reaper	turn_kill_lowest	StartOfTurn	AllCardsBoard	ok	4 节点	
+resurrection_swamp	spell_revive	OnPlay	CardSelector	ok	2 节点	
+sasquatch	turn_stealth	EndOfTurn	Self	ok	2 节点	条件走数据直通（图里表达不了：条件未支持：ConditionCount）
+sea_monster	aura_attack_m1	Ongoing	AllCardsBoard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+sea_monster	activate_boost1	Activate	AllCardsBoard	data		状态直通（纯数据，无规则可图）
+seagull	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+shadow_arrow	spell_damage4	OnPlay	PlayTarget	ok	6 节点	
+shadow_assassin	stealth	OnPlay	Self	data		状态直通（纯数据，无规则可图）
+shadow_assassin	stealth_attack_debuff	OnAfterAttack	AbilityTriggerer	ok	16 节点	
+shadow_bat	play_draw1	OnPlay	Self	ok	2 节点	
+shark	death_other_draw	OnDeathOther	PlayerSelf	ok	2 节点	
+sickle_girl	deathtouch	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+sickle_girl	kill_damage3_enemy_hero	OnKill	PlayerOpponent	ok	2 节点	
+skeleton_soldier	death_summon_skeleton	OnDeath	Self	ok	2 节点	
+small_bird	flying_ally	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+snake_venom	attack_poison	OnBeforeAttack	AbilityTriggerer	data		状态直通（纯数据，无规则可图）
+snake_venom	defend_poison	OnBeforeDefend	AbilityTriggerer	data		状态直通（纯数据，无规则可图）
+soul_harvest	spell_soul_harvest	OnPlay	AllCardsBoard	ok	4 节点	
+spell_aerial_strike	spell_summon_eagle	OnPlay	PlayerSelf	ok	4 节点	
+spell_armageddon	spell_damage4	OnPlay	PlayTarget	ok	6 节点	
+spell_burn	play_deal_damage5	OnPlay	SelectTarget	ok	9 节点	
+spell_extinct	spell_add_play_extinct	OnPlay	PlayTarget	ok	6 节点	
+spell_flood	spell_damage_per_hand	OnPlay	AllCardsBoard	ok	4 节点	
+spell_growth	spell_ally_attack_2	OnPlay	AllCardsBoard	ok	9 节点	
+spell_growth	spell_ally_hp_2	OnPlay	AllCardsBoard	ok	7 节点	
+spell_hibernate	spell_hibernate	OnPlay	PlayTarget	ok	11 节点	
+spell_projectiles	spell_projectile1_repeat	OnPlay	None	ok	2 节点	条件走数据直通（图里表达不了：条件未支持：ConditionSelectedValue）
+spell_roots	spell_paralyse	OnPlay	PlayTarget	data		状态直通（纯数据，无规则可图）
+spell_split	play_damage3_creature	OnPlay	SelectTarget	ok	9 节点	
+spell_stomp	spell_kill_lowest_hp	OnPlay	AllCardsBoard	ok	4 节点	
+spell_stones	spell_damage1	OnPlay	PlayTarget	ok	6 节点	
+spell_stones	spell_draw1	OnPlay	PlayerSelf	ok	2 节点	
+spell_storm	spell_return_all	OnPlay	AllCardsBoard	ok	2 节点	
+spell_submerge	spell_add_submerge	OnPlay	PlayTarget	ok	6 节点	
+spell_treasure	spell_treasure	OnPlay	PlayerSelf	ok	2 节点	
+spell_wave	spell_send_hand	OnPlay	PlayTarget	ok	6 节点	
+star_tower	spell_draw_aura	OnPlayOther	PlayerSelf	ok	2 节点	
+strength_blessing	spell_buff1	OnPlay	SelectTarget	ok	13 节点	
+strength_blessing	trample	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+town_forest	town_aura_green	Ongoing	AllCardsBoard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+town_underwater	town_aura_blue	Ongoing	AllCardsHand	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+town_volcano	town_aura_red	Ongoing	AllCardsBoard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+trap_explosive	trap_damage_all2	OnBeforeAttack	AllCardsBoard	ok	6 节点	
+trap_fish	secret_transform_fish	OnPlayOther	AbilityTriggerer	ok	2 节点	
+trap_spike	trap_paralyse3	OnAfterAttack	AbilityTriggerer	data		状态直通（纯数据，无规则可图）
+tree_angry	regen_all	StartOfTurn	Self	ok	2 节点	
+turtle	taunt	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+turtle	shell	OnPlay	Self	data		状态直通（纯数据，无规则可图）
+unicorn	play_boost2	OnPlay	SelectTarget	data		状态直通（纯数据，无规则可图）
+vampire	vampire_lord	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+vampire	kill_damage3_enemy_hero	OnKill	PlayerOpponent	ok	2 节点	
+waterfowl	flying	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+white_swan	activated_(1)_heal3	OnPlay	PlayTarget	ok	4 节点	
+wolf_alpha	play_summon_wolf	OnPlay	AllSlots	ok	2 节点	
+wolf_alpha	aura_wolf	Ongoing	AllCardsBoard	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+wolf_furious	fury	Ongoing	Self	data		旧能力直通（Ongoing 光环/装备/持续：Ongoing 管线不走图，原生语义保真）
+wolf_furious	attack_add_attack1	OnBeforeAttack	Self	ok	5 节点	
+wolf_stalker	stealth	OnPlay	Self	data		状态直通（纯数据，无规则可图）
+woodland	turn_green_heal	StartOfTurn	AllCardsBoard	ok	2 节点	条件走数据直通（图里表达不了：类型条件含阵营/种族（无对应节点））
+world_tree_seedling	end_turn_blessing	EndOfTurn	PlayerSelf	ok	2 节点	条件走数据直通（图里表达不了：条件未支持：ConditionTurn）
+zombie	play_debuff1	OnPlay	SelectTarget	ok	14 节点	
+# 汇总：卡=155（含图的卡 93）｜能力 ok=98｜data直通=64｜todo=3
+# TODO 原因分布：
+#   触发时机未支持（P1）：None = 1
+#   触发时机未支持（P1）：41 = 1
+#   能力引用丢失（abilities[0] 为空） = 1

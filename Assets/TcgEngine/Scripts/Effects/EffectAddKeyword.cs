@@ -41,10 +41,19 @@ namespace TcgEngine
         {
             if (keyword == null || target == null)
                 return;
-            if (target.keywords == null)
-                target.keywords = new List<string>();
-            if (!target.keywords.Contains(keyword.id))
-                target.keywords.Add(keyword.id);
+
+            //duration>0 且关键词绑定了状态值 = 临时关键词：时长由状态承载（状态到期即失效），**不**写进
+            //Card.keywords —— 否则关键词会永久为真（原来无论时长都 Add → HasKeyword 永远返回 true）。
+            //关键词没绑定状态值时无法承载时长，退回原来的永久语义（避免把该配置变成空操作）。
+            bool temporary = duration > 0 && keyword.status_type != StatusType.None;
+            if (!temporary)
+            {
+                if (target.keywords == null)
+                    target.keywords = new List<string>();
+                if (!target.keywords.Contains(keyword.id))
+                    target.keywords.Add(keyword.id);
+            }
+
             if (keyword.status_type != StatusType.None)
                 target.AddStatus(keyword.status_type, value, duration);
             Debug.Log("[Keyword] 加上关键词「" + keyword.title + "」→ " + (target.CardData != null ? target.CardData.title : target.uid)

@@ -1,0 +1,6 @@
+# TITLE: P3 nodes r4
+# 定位：102012 获取所有仆从 到底返回什么（若为空 → 多目标筛选筛不到东西的根因）
+# 列：id|assert|expect|fields|src1|dst1|note|src2|src2_const|child_action|child_field|child_value
+102012|value_any|||NONE||定位：获取所有仆从 —— 记录返回（个数/卡名）
+102013|value_any|||NONE||对照：获取所有角色（上次实测=双方英雄）
+111012|value_any|||NONE||对照：筛选（无数组无条件）记录

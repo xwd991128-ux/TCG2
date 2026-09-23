@@ -17,11 +17,6 @@ namespace TcgEngine.UI
 
         public Image fill;
 
-        void Start()
-        {
-
-        }
-
         void Update()
         {
             float ratio = value / Mathf.Max(value_max, 0.01f);

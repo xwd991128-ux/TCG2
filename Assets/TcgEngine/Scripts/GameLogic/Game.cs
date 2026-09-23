@@ -690,6 +690,5 @@ namespace TcgEngine
         SelectorCard = 20,
         SelectorChoice = 30,
         SelectorCost = 40,
-        SelectorChoice2 =50,
     }
 }

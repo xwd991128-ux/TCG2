@@ -76,13 +76,20 @@ namespace TcgEngine.UI
         public void OnClickPlay()
         {
             UserDeckData deck = selector_player.GetDeck();
-            if (deck == null || !deck.IsValid())
-                return;
-
             UserDeckData aideck = selector_ai.GetDeck();
-            if (aideck == null || !aideck.IsValid())
-                return;
 
+            //★ 这里**不再**用 UserDeckData.IsValid() 兜底：它把张数写死成 GameplayData.deck_size(30)，
+            //  会把"主卡 20 张的乱斗"这类合法卡组直接挡掉 —— 玩家连构筑规则弹框都进不去，也就永远选不到乱斗。
+            //  也**不做空值静默返回**（那会让"没选卡组"时点「开始」毫无反应，玩家只会以为功能不存在）：
+            //  一律打开弹框，把"没选卡组/张数不足"作为**中文错误**列出来，「开始」自然置灰。
+            //  合法性统一由弹框按**当前构筑环境**判定（含对手卡组）。
+            DeckFormatPopupUI popup = DeckFormatPopupUI.Create(transform);
+            popup.Open(deck, aideck, () => StartSoloMatch(deck, aideck));
+        }
+
+        /// <summary>真正开始单人局：卡组的构筑规则已在弹框里确认过，选择也已写入对局设置</summary>
+        private void StartSoloMatch(UserDeckData deck, UserDeckData aideck)
+        {
             GameClient.player_settings.deck = deck;
             GameClient.ai_settings.deck = aideck;
             GameClient.ai_settings.ai_level = GameplayData.Get().ai_level;

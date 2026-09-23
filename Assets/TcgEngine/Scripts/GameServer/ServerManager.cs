@@ -47,6 +47,18 @@ namespace TcgEngine.Server
             Login();
         }
 
+        protected virtual void OnDestroy()
+        {
+            TcgNetwork network = TcgNetwork.Get();
+            if (network != null)
+            {
+                network.onClientJoin -= OnClientConnected;
+                network.onClientQuit -= OnClientDisconnected;
+                Messaging.UnListenMsg("connect");
+                Messaging.UnListenMsg("action");
+            }
+        }
+
         protected virtual void Update()
         {
             //Update games and Destroy games with no players

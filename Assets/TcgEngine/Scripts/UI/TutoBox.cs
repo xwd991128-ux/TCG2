@@ -11,11 +11,6 @@ namespace TcgEngine.UI
         [Header("UI")]
         public Button next_btn;
 
-        void Awake()
-        {
-
-        }
-
         public void SetNextButton(bool active)
         {
             next_btn.gameObject.SetActive(active);

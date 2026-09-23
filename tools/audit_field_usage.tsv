@@ -1,0 +1,15 @@
+field	count
+abil_total	290
+has_fx	75
+has_audio	0
+multi_target	0
+target_slots	0
+has_status	56
+has_chain	34
+cond_trigger	43
+cond_target	137
+filters	19
+no_effect	57
+value_nonzero	160
+mana_cost	16
+exhaust	15

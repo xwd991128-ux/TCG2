@@ -1,0 +1,312 @@
+批次： full pass FINAL4｜用例数：309｜caster=火精灵
+结果	编号	中文名	分类	测法	观测值	备注
+✅	112001	BooleanConst	其他	OnPlay → 消费者(202001).v ← 112001「BooleanConst」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=[NodeDoc] 载入 zmcs 节点 301 个，分类 16 个	auto｜
+✅	112002	Compare	其他	OnPlay → 消费者(202001).v ← 112002「Compare」.result；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	112003	IntegerConst	其他	OnPlay → 消费者(202001).v ← 112003「IntegerConst」.result；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	112004	IntegerOperation	其他	OnPlay → 消费者(202001).v ← 112004「IntegerOperation」.result；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	112005	LogicOperation	其他	OnPlay → 消费者(202001).v ← 112005「LogicOperation」.result；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	111012	筛选	集合运算	OnPlay → 消费者(202001).v ← 111012「筛选」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	212004	设置临时变量	其他	OnPlay → 212004「设置临时变量」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 212004 设置临时变量失败：变量名为空	auto｜要求执行数≥1
+✅	212001	分支动作	其他	OnPlay → 212001「分支动作」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	112008	X到Y之间的随机整数	其他	OnPlay → 消费者(202001).v ← 112008「X到Y之间的随机整数」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	112009	是否不存在	其他	OnPlay → 消费者(202001).v ← 112009「是否不存在」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	200001	使玩家获胜	游戏	OnPlay → 200001「使玩家获胜」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	200002	使玩家失败	游戏	OnPlay → 200002「使玩家失败」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	200005	删除牌堆	游戏	OnPlay → 200005「删除牌堆」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 200005 删除牌堆失败：牌堆口未解析	auto｜要求执行数≥1
+✅	200006	从牌堆将卡牌移动到目标牌堆	游戏	OnPlay → 200006「从牌堆将卡牌移动到目标牌堆」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 200006 移动卡牌失败：目标牌堆口未解析	auto｜要求执行数≥1
+✅	101002	获取玩家属性	玩家	OnPlay → 消费者(202001).v ← 101002「获取玩家属性」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=30（类型 Int32）｜日志=—	auto｜
+✅	201002	设置玩家属性	玩家	OnPlay → 201002「设置玩家属性」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	101003	获取玩家对手	玩家	OnPlay → 消费者(202001).v ← 101003「获取玩家对手」.return；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	101004	获取玩家英雄	玩家	OnPlay → 消费者(202001).v ← 101004「获取玩家英雄」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	101005	获取当前回合的玩家	玩家	OnPlay → 消费者(202001).v ← 101005「获取当前回合的玩家」.return；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	101022	获取某个回合的玩家	玩家	OnPlay → 消费者(202001).v ← 101022「获取某个回合的玩家」.return；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	101006	获取玩家的手牌	玩家	OnPlay → 消费者(202001).v ← 101006「获取玩家的手牌」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(6): [potion_red#m1W627rC8ZP8g6, spell_armageddon#RhxExAQ0iBz8, cave#AhfVFoHkVN3, fire_element#jyd2rMLCCq1P, firef…（类型 List`1）｜日志=—	auto｜
+✅	101007	获取玩家的墓地卡牌	玩家	OnPlay → 消费者(202001).v ← 101007「获取玩家的墓地卡牌」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	201003	抽目标卡牌	玩家	OnPlay → 201003「抽目标卡牌」；targetCard ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 201003 抽目标卡牌失败：目标卡 hero_fire 不在拥有者卡库中	auto｜要求执行数≥1
+✅	101016	获取法术伤害	玩家	OnPlay → 消费者(202001).v ← 101016「获取法术伤害」.return；spellCard ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	101009	获取玩家延迟区	玩家	OnPlay → 消费者(202001).v ← 101009「获取玩家延迟区」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	101010	获取玩家技能	玩家	OnPlay → 消费者(202001).v ← 101010「获取玩家技能」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	209201	结束回合	回合	OnPlay → 209201「结束回合」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	209202	获得额外回合	回合	OnPlay → 209202「获得额外回合」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	209203	使目标失去下一回合	回合	OnPlay → 209203「使目标失去下一回合」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	119002	获取行动玩家	回合	OnPlay → 消费者(202001).v ← 119002「获取行动玩家」.player；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	119003	判断是否该玩家回合	回合	OnPlay → 消费者(202001).v ← 119003「判断是否该玩家回合」.result；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	119004	获取当前阶段	回合	OnPlay → 消费者(202001).v ← 119004「获取当前阶段」.phase；取「String」通道（ResolveInputString）	ResolveInputString 返回=未开始（类型 String）｜日志=—	auto｜
+✅	201006	复原技能	玩家	OnPlay → 201006「复原技能」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	101011	获取玩家道具	玩家	OnPlay → 消费者(202001).v ← 101011「获取玩家道具」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	101012	玩家是否装备道具	玩家	OnPlay → 消费者(202001).v ← 101012「玩家是否装备道具」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	201007	摧毁道具	玩家	OnPlay → 201007「摧毁道具」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	101013	获取玩家暂存区	玩家	OnPlay → 消费者(202001).v ← 101013「获取玩家暂存区」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	101014	获取当前灵力值	玩家	OnPlay → 消费者(202001).v ← 101014「获取当前灵力值」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=2（类型 Int32）｜日志=—	auto｜
+✅	101015	获取灵力上限	玩家	OnPlay → 消费者(202001).v ← 101015「获取灵力上限」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=2（类型 Int32）｜日志=—	auto｜
+✅	201001	设置当前灵力值	玩家	OnPlay → 201001「设置当前灵力值」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	201008	增加当前灵力值	玩家	OnPlay → 201008「增加当前灵力值」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	201009	设置灵力上限	玩家	OnPlay → 201009「设置灵力上限」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	201010	增加灵力上限	玩家	OnPlay → 201010「增加灵力上限」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	101020	获取所有玩家	玩家	OnPlay → 消费者(202001).v ← 101020「获取所有玩家」.return；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	101018	获取玩家的当前回合数	玩家	OnPlay → 消费者(202001).v ← 101018「获取玩家的当前回合数」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=1（类型 Int32）｜日志=—	auto｜
+✅	101019	玩家是否是先手	玩家	OnPlay → 消费者(202001).v ← 101019「玩家是否是先手」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	101021	获取疲劳层数	玩家	OnPlay → 消费者(202001).v ← 101021「获取疲劳层数」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	201013	设置疲劳层数	玩家	OnPlay → 201013「设置疲劳层数」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	201014	增加疲劳层数	玩家	OnPlay → 201014「增加疲劳层数」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	201015	受到疲劳伤害	玩家	OnPlay → 201015「受到疲劳伤害」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	105001	卡牌所在牌堆判断（过时）	牌堆	OnPlay → 消费者(202001).v ← 105001「卡牌所在牌堆判断（过时）」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	105005	卡牌所在牌堆判断	牌堆	OnPlay → 消费者(202001).v ← 105005「卡牌所在牌堆判断」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	206002	移除增益	增益	OnPlay → 206002「移除增益」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	206003	设置增益属性	增益	OnPlay → 206003「设置增益属性」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 206003 设置增益属性失败：无目标卡	auto｜要求执行数≥1
+✅	206004	设置增益属性可见性	增益	OnPlay → 206004「设置增益属性可见性」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	106007	增益属性是否可见	增益	OnPlay → 消费者(202001).v ← 106007「增益属性是否可见」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	210001	简单抽牌	行动	OnPlay → 210001「简单抽牌」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210003	卡牌移回手牌	行动	OnPlay → 210003「卡牌移回手牌」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210004	卡牌洗入牌库	行动	OnPlay → 210004「卡牌洗入牌库」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210005	卡牌置入墓地	行动	OnPlay → 210005「卡牌置入墓地」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210006	卡牌置入延迟区	行动	OnPlay → 210006「卡牌置入延迟区」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210007	卡牌装备到道具栏	行动	OnPlay → 210007「卡牌装备到道具栏」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	210008	卡牌移动到暂存区	行动	OnPlay → 210008「卡牌移动到暂存区」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102002	卡牌类型判断	卡牌	OnPlay → 消费者(202001).v ← 102002「卡牌类型判断」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	102032	卡牌类型判断	卡牌	OnPlay → 消费者(202001).v ← 102032「卡牌类型判断」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	102003	卡牌关键词判断	卡牌	OnPlay → 消费者(202001).v ← 102003「卡牌关键词判断」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202003	创建衍生卡并置入战场	卡牌	OnPlay → 202003「创建衍生卡并置入战场」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202003 创建衍生卡失败：卡牌定义不存在（cardDefine=""）	auto｜要求执行数≥1
+✅	202004	创建衍生卡并置入手牌	卡牌	OnPlay → 202004「创建衍生卡并置入手牌」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202004 创建衍生卡失败：卡牌定义不存在（cardDefine=""）	auto｜要求执行数≥1
+✅	202005	创建衍生卡并洗入牌库	卡牌	OnPlay → 202005「创建衍生卡并洗入牌库」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202005 创建衍生卡失败：卡牌定义不存在（cardDefine=""）	auto｜要求执行数≥1
+✅	202006	创建衍生卡并装备到道具栏	卡牌	OnPlay → 202006「创建衍生卡并装备到道具栏」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202006 创建装备失败：卡牌定义不存在	auto｜要求执行数≥1
+✅	202045	创建衍生卡并置入延迟区	卡牌	OnPlay → 202045「创建衍生卡并置入延迟区」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202045 创建衍生卡置入延迟区失败：卡牌定义不存在（cardDefine=""）	auto｜要求执行数≥1
+✅	202046	创建衍生卡并置入牌堆	卡牌	OnPlay → 202046「创建衍生卡并置入牌堆」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202046 创建衍生卡失败：卡牌定义不存在（cardDefine=""）	auto｜要求执行数≥1
+✅	202044	复制卡牌	卡牌	OnPlay → 202044「复制卡牌」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102001	这张卡牌	卡牌	OnPlay → 消费者(202001).v ← 102001「这张卡牌」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	102027	获取卡牌属性	卡牌	OnPlay → 消费者(202001).v ← 102027「获取卡牌属性」.return；card ← 入口「卡牌」口(施法卡)；取「Object」通道（GetObjectInput）	GetObjectInput 返回=0（类型 Int32）｜日志=—	auto｜
+✅	202037	设置卡牌属性	卡牌	OnPlay → 202037「设置卡牌属性」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102035	获取卡牌属性名	卡牌	OnPlay → 消费者(202001).v ← 102035「获取卡牌属性名」.return；取「String」通道（ResolveInputString）	ResolveInputString 返回=攻击（类型 String）｜日志=—	auto｜
+✅	102004	获取属性	卡牌	OnPlay → 消费者(202001).v ← 102004「获取属性」.return；card ← 入口「卡牌」口(施法卡)；取「Object」通道（GetObjectInput）	GetObjectInput 返回=0（类型 Int32）｜日志=—	auto｜
+✅	202007	设置属性	卡牌	OnPlay → 202007「设置属性」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202007 设置属性（运行期内存）：火精灵 的 攻击 → 0	auto｜要求执行数≥1
+✅	102005	获取花费	卡牌	OnPlay → 消费者(202001).v ← 102005「获取花费」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	102006	获取攻击力	卡牌	OnPlay → 消费者(202001).v ← 102006「获取攻击力」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	102007	获取最大生命值	卡牌	OnPlay → 消费者(202001).v ← 102007「获取最大生命值」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	102008	获取当前生命值	卡牌	OnPlay → 消费者(202001).v ← 102008「获取当前生命值」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	102033	卡牌拥有标签	卡牌	OnPlay → 消费者(202001).v ← 102033「卡牌拥有标签」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202002	丢弃卡牌	卡牌	OnPlay → 202002「丢弃卡牌」；hands ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202038	丢弃卡牌	卡牌	OnPlay → 202038「丢弃卡牌」；hands ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202019	增加固定数量护甲	卡牌	OnPlay → 202019「增加固定数量护甲」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202018	增加护甲	卡牌	OnPlay → 202018「增加护甲」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202020	失去护甲	卡牌	OnPlay → 202020「失去护甲」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102010	获取卡牌拥有者	卡牌	OnPlay → 消费者(202001).v ← 102010「获取卡牌拥有者」.return；card ← 入口「卡牌」口(施法卡)；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	102011	获取卡牌法术伤害	卡牌	OnPlay → 消费者(202001).v ← 102011「获取卡牌法术伤害」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	-14	是否为法术牌	卡牌	OnPlay → 消费者(202001).v ← -14「是否为法术牌」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202001	造成伤害	卡牌	OnPlay → 202001「造成伤害」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202034	造成伤害或法伤	卡牌	OnPlay → 202034「造成伤害或法伤」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202041	造成伤害或法伤	卡牌	OnPlay → 202041「造成伤害或法伤」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202035	造成伤害或法伤并分配给目标	卡牌	OnPlay → 202035「造成伤害或法伤并分配给目标」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202042	造成伤害或法伤并分配给目标	卡牌	OnPlay → 202042「造成伤害或法伤并分配给目标」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202036	对固定数量的随机目标造成伤害或法伤	卡牌	OnPlay → 202036「对固定数量的随机目标造成伤害或法伤」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202043	对固定数量的随机目标造成伤害或法伤	卡牌	OnPlay → 202043「对固定数量的随机目标造成伤害或法伤」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202011	造成法术伤害	卡牌	OnPlay → 202011「造成法术伤害」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202012	造成固定法术伤害并分配给随机目标	卡牌	OnPlay → 202012「造成固定法术伤害并分配给随机目标」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202013	治疗目标卡牌	卡牌	OnPlay → 202013「治疗目标卡牌」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202039	治疗目标卡牌	卡牌	OnPlay → 202039「治疗目标卡牌」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202047	治疗目标卡牌	卡牌	OnPlay → 202047「治疗目标卡牌」；targets ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102012	获取所有仆从	卡牌	OnPlay → 消费者(202001).v ← 102012「获取所有仆从」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(1): [woodland#Iu3X7tNCX2tFSn]（类型 List`1）｜日志=—	auto｜
+✅	102013	获取所有角色	卡牌	OnPlay → 消费者(202001).v ← 102013「获取所有角色」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(3): [hero_fire#OXwUTv0rvbeh, woodland#Iu3X7tNCX2tFSn, hero_fire#aGTp1d0YktkhfR]（类型 List`1）｜日志=—	auto｜
+✅	102014	获取友方仆从	卡牌	OnPlay → 消费者(202001).v ← 102014「获取友方仆从」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	102015	获取友方角色	卡牌	OnPlay → 消费者(202001).v ← 102015「获取友方角色」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(1): [hero_fire#OXwUTv0rvbeh]（类型 List`1）｜日志=—	auto｜
+✅	102016	获取敌方仆从	卡牌	OnPlay → 消费者(202001).v ← 102016「获取敌方仆从」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(1): [woodland#Iu3X7tNCX2tFSn]（类型 List`1）｜日志=—	auto｜
+✅	102017	获取敌方角色	卡牌	OnPlay → 消费者(202001).v ← 102017「获取敌方角色」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(2): [woodland#Iu3X7tNCX2tFSn, hero_fire#aGTp1d0YktkhfR]（类型 List`1）｜日志=—	auto｜
+✅	202014	禁锢	卡牌	OnPlay → 202014「禁锢」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202015	沉默	卡牌	OnPlay → 202015「沉默」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202040	封印	卡牌	OnPlay → 202040「封印」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202016	消灭	卡牌	OnPlay → 202016「消灭」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202017	强制更新游戏状态	卡牌	OnPlay → 202017「强制更新游戏状态」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102019	获取护甲值	卡牌	OnPlay → 消费者(202001).v ← 102019「获取护甲值」.return；card ← 入口「卡牌」口(施法卡)；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	102020	获取相邻卡牌	卡牌	OnPlay → 消费者(202001).v ← 102020「获取相邻卡牌」.return；card ← 入口「卡牌」口(施法卡)；取「Card」通道（ResolveInputCard）	ResolveInputCard 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	102021	卡牌具有宣言	卡牌	OnPlay → 消费者(202001).v ← 102021「卡牌具有宣言」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202021	触发卡牌宣言	卡牌	OnPlay → 202021「触发卡牌宣言」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102022	卡牌具有遗言	卡牌	OnPlay → 消费者(202001).v ← 102022「卡牌具有遗言」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202022	触发卡牌遗言	卡牌	OnPlay → 202022「触发卡牌遗言」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202023	触发法术或技能卡牌效果	卡牌	OnPlay → 202023「触发法术或技能卡牌效果」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102028	卡牌是否是陷阱	卡牌	OnPlay → 消费者(202001).v ← 102028「卡牌是否是陷阱」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202024	重置卡牌	卡牌	OnPlay → 202024「重置卡牌」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202025	强制攻击目标	卡牌	OnPlay → 202025「强制攻击目标」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202026	本回合攻击次数增加一次	卡牌	OnPlay → 202026「本回合攻击次数增加一次」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	102023	获取合法卡牌使用目标	卡牌	OnPlay → 消费者(202001).v ← 102023「获取合法卡牌使用目标」.return；card ← 入口「卡牌」口(施法卡)；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(3): [hero_fire#OXwUTv0rvbeh, woodland#Iu3X7tNCX2tFSn, hero_fire#aGTp1d0YktkhfR]（类型 List`1）｜日志=—	auto｜
+✅	102024	获取合法攻击目标	卡牌	OnPlay → 消费者(202001).v ← 102024「获取合法攻击目标」.return；card ← 入口「卡牌」口(施法卡)；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	202027	揭示卡牌	卡牌	OnPlay → 202027「揭示卡牌」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202028	获得控制权	卡牌	OnPlay → 202028「获得控制权」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	202048	设置卡牌属性可见性	卡牌	OnPlay → 202048「设置卡牌属性可见性」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	106030	卡牌属性是否可见	卡牌	OnPlay → 消费者(202001).v ← 106030「卡牌属性是否可见」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	202049	设置卡牌可见性	卡牌	OnPlay → 202049「设置卡牌可见性」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	106031	卡牌是否可见	卡牌	OnPlay → 消费者(202001).v ← 106031「卡牌是否可见」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	103004	卡牌定义是否具有标签	卡牌定义	OnPlay → 消费者(202001).v ← 103004「卡牌定义是否具有标签」.return；cardDefine ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	103005	卡牌定义类型判断	卡牌定义	OnPlay → 消费者(202001).v ← 103005「卡牌定义类型判断」.return；card ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	103024	卡牌定义类型判断	卡牌定义	OnPlay → 消费者(202001).v ← 103024「卡牌定义类型判断」.return；card ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	103006	卡牌定义关键词判断	卡牌定义	OnPlay → 消费者(202001).v ← 103006「卡牌定义关键词判断」.return；card ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	103008	获取单张卡牌的定义	卡牌定义	OnPlay → 消费者(202001).v ← 103008「获取单张卡牌的定义」.return；card ← 入口「卡牌」口(施法卡)；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	202029	变形为卡牌定义	卡牌定义	OnPlay → 202029「变形为卡牌定义」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202029 变形失败：卡牌定义不存在（define=""）	auto｜要求执行数≥1
+✅	103020	获取卡牌定义属性	卡牌定义	OnPlay → 消费者(202001).v ← 103020「获取卡牌定义属性」.return；card ← DEFINE_OF_CASTER；取「Object」通道（GetObjectInput）	GetObjectInput 返回=2（类型 Int32）｜日志=—	auto｜
+✅	103012	获取卡牌定义生命值	卡牌定义	OnPlay → 消费者(202001).v ← 103012「获取卡牌定义生命值」.return；card ← DEFINE_OF_CASTER；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=3（类型 Int32）｜日志=—	auto｜
+✅	103013	获取卡牌定义法术伤害	卡牌定义	OnPlay → 消费者(202001).v ← 103013「获取卡牌定义法术伤害」.return；card ← DEFINE_OF_CASTER；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	103014	是否为衍生牌	卡牌定义	OnPlay → 消费者(202001).v ← 103014「是否为衍生牌」.return；cardDefine ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	103015	获取英雄牌技能	卡牌定义	OnPlay → 消费者(202001).v ← 103015「获取英雄牌技能」.return；card ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	202030	触发卡牌定义宣言	卡牌定义	OnPlay → 202030「触发卡牌定义宣言」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202030 失败：卡牌定义口为空（检查 cardDefine 取值线）	auto｜要求执行数≥1
+✅	103017	卡牌定义具有宣言	卡牌定义	OnPlay → 消费者(202001).v ← 103017「卡牌定义具有宣言」.return；cardDefine ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202031	触发卡牌定义遗言	卡牌定义	OnPlay → 202031「触发卡牌定义遗言」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202031 失败：卡牌定义口为空（检查 cardDefine 取值线）	auto｜要求执行数≥1
+✅	103018	卡牌定义具有遗言	卡牌定义	OnPlay → 消费者(202001).v ← 103018「卡牌定义具有遗言」.return；cardDefine ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	202032	触发法术或技能卡牌定义效果	卡牌定义	OnPlay → 202032「触发法术或技能卡牌定义效果」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 202032 失败：卡牌定义口为空（检查 cardDefine 取值线）	auto｜要求执行数≥1
+✅	103021	卡牌定义是否是陷阱	卡牌定义	OnPlay → 消费者(202001).v ← 103021「卡牌定义是否是陷阱」.return；cardDefine ← DEFINE_OF_CASTER；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	103022	获取卡牌定义的合法使用目标	卡牌定义	OnPlay → 消费者(202001).v ← 103022「获取卡牌定义的合法使用目标」.return；source ← 入口「卡牌」口(施法卡)；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(1): [hero_fire#OXwUTv0rvbeh]（类型 List`1）｜日志=—	auto｜
+✅	103023	获取卡牌定义的类型	卡牌定义	OnPlay → 消费者(202001).v ← 103023「获取卡牌定义的类型」.return；cardDefine ← DEFINE_OF_CASTER；取「String」通道（ResolveInputString）	ResolveInputString 返回=随从（类型 String）｜日志=—	auto｜
+✅	103025	获取卡牌定义所属卡池	卡牌定义	OnPlay → 消费者(202001).v ← 103025「获取卡牌定义所属卡池」.return；cardDefine ← DEFINE_OF_CASTER；取「CardPoolIDProxy」通道（GetObjectInput）	GetObjectInput 返回=standard (TcgEngine.PackData)（类型 PackData）｜日志=—	auto｜
+✅	203001	展示卡牌定义	卡牌定义	OnPlay → 203001「展示卡牌定义」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	203002	复制卡牌定义	卡牌定义	OnPlay → 消费者(202001).v ← 203002「复制卡牌定义」.return；cardDefine ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=[NodeDoc] 203002 复制卡牌定义（内存副本）：熔岩兽 → lava_beast_runtime	auto｜
+✅	203003	设置卡牌定义属性	卡牌定义	OnPlay → 203003「设置卡牌定义属性」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 203003 设置卡牌定义属性：卡牌定义口为空 → 已跳过	auto｜要求执行数≥1
+✅	203004	拼接卡牌定义	卡牌定义	OnPlay → 消费者(202001).v ← 203004「拼接卡牌定义」.return；cardDefines ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=[NodeDoc] 203004 拼接卡牌定义（内存副本）：熔岩兽	auto｜
+✅	104003	卡牌快照类型判断	卡牌快照	OnPlay → 消费者(202001).v ← 104003「卡牌快照类型判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	104017	卡牌快照类型判断	卡牌快照	OnPlay → 消费者(202001).v ← 104017「卡牌快照类型判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	104004	卡牌快照关键词判断	卡牌快照	OnPlay → 消费者(202001).v ← 104004「卡牌快照关键词判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	104018	卡牌快照拥有标签	卡牌快照	OnPlay → 消费者(202001).v ← 104018「卡牌快照拥有标签」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	104010	获取卡牌快照拥有者	卡牌快照	OnPlay → 消费者(202001).v ← 104010「获取卡牌快照拥有者」.return；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	auto｜
+✅	104015	卡牌快照具有遗言	卡牌快照	OnPlay → 消费者(202001).v ← 104015「卡牌快照具有遗言」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	104016	卡牌快照是否是陷阱	卡牌	OnPlay → 消费者(202001).v ← 104016「卡牌快照是否是陷阱」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	111001	创建集合	集合运算	OnPlay → 消费者(202001).v ← 111001「创建集合」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111002	向集合添加元素	集合运算	OnPlay → 消费者(202001).v ← 111002「向集合添加元素」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111004	获取元素数量	集合运算	OnPlay → 消费者(202001).v ← 111004「获取元素数量」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	111005	包含	集合运算	OnPlay → 消费者(202001).v ← 111005「包含」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	111013	排序	集合运算	OnPlay → 消费者(202001).v ← 111013「排序」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111009	反转集合	集合运算	OnPlay → 消费者(202001).v ← 111009「反转集合」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111010	集合去重	集合运算	OnPlay → 消费者(202001).v ← 111010「集合去重」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111011	集合相减	集合运算	OnPlay → 消费者(202001).v ← 111011「集合相减」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111014	求和	集合运算	OnPlay → 消费者(202001).v ← 111014「求和」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	111015	获取最小值	集合运算	OnPlay → 消费者(202001).v ← 111015「获取最小值」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	111016	获取最大值	集合运算	OnPlay → 消费者(202001).v ← 111016「获取最大值」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	111017	获取平均值	集合运算	OnPlay → 消费者(202001).v ← 111017「获取平均值」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	auto｜
+✅	111018	集合相加	集合运算	OnPlay → 消费者(202001).v ← 111018「集合相加」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111019	获取并集	集合运算	OnPlay → 消费者(202001).v ← 111019「获取并集」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111020	获取交集	集合运算	OnPlay → 消费者(202001).v ← 111020「获取交集」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111021	是否是某集合的子集	集合运算	OnPlay → 消费者(202001).v ← 111021「是否是某集合的子集」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	111022	是否所有元素都满足条件	集合运算	OnPlay → 消费者(202001).v ← 111022「是否所有元素都满足条件」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	111023	是否有任意元素满足条件	集合运算	OnPlay → 消费者(202001).v ← 111023「是否有任意元素满足条件」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	111026	获取集合内前X个元素	集合运算	OnPlay → 消费者(202001).v ← 111026「获取集合内前X个元素」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111027	获取集合内前X个元素之外的元素	集合运算	OnPlay → 消费者(202001).v ← 111027「获取集合内前X个元素之外的元素」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111029	获取集合内元素直到条件不成立	集合运算	OnPlay → 消费者(202001).v ← 111029「获取集合内元素直到条件不成立」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111030	条件不成立后获取剩余元素	集合运算	OnPlay → 消费者(202001).v ← 111030「条件不成立后获取剩余元素」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111028	获取集合内的随机X个元素	集合运算	OnPlay → 消费者(202001).v ← 111028「获取集合内的随机X个元素」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111031	获取集合内所有元素的某项属性	集合运算	OnPlay → 消费者(202001).v ← 111031「获取集合内所有元素的某项属性」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111032	打乱集合内元素顺序	集合运算	OnPlay → 消费者(202001).v ← 111032「打乱集合内元素顺序」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111033	集合内容是否相同	集合运算	OnPlay → 消费者(202001).v ← 111033「集合内容是否相同」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	auto｜
+✅	111034	获取元素在集合中的位置	集合运算	OnPlay → 消费者(202001).v ← 111034「获取元素在集合中的位置」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=-1（类型 Int32）｜日志=—	auto｜
+✅	111035	合并多个集合	集合运算	OnPlay → 消费者(202001).v ← 111035「合并多个集合」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	111036	转换集合类型	集合运算	OnPlay → 消费者(202001).v ← 111036「转换集合类型」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	107001	该效果	效果	OnPlay → 消费者(202001).v ← 107001「该效果」.return；取「Effect」通道（ResolveInputEffect）	ResolveInputEffect→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	107002	效果具有标签	效果	OnPlay → 消费者(202001).v ← 107002「效果具有标签」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=[NodeDoc] 107002 效果具有标签：效果口为空（未连线且没有当前效果）→ 判假	auto｜
+✅	107005	获取增益的所有效果	效果	OnPlay → 消费者(202001).v ← 107005「获取增益的所有效果」.return；取「Effect」通道（ResolveInputEffect）	ResolveInputEffect→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	107006	获取卡牌定义的所有效果	效果	OnPlay → 消费者(202001).v ← 107006「获取卡牌定义的所有效果」.return；cardDefine ← DEFINE_OF_CASTER；取「Effect」通道（ResolveInputEffect）	ResolveInputEffect 返回=after_spell_attack2 (TcgEngine.AbilityData)（类型 AbilityData）｜日志=—	auto｜
+✅	107007	获取效果的合法使用目标	效果	OnPlay → 消费者(202001).v ← 107007「获取效果的合法使用目标」.return；source ← 入口「卡牌」口(施法卡)；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	107008	效果类型判断	效果	OnPlay → 消费者(202001).v ← 107008「效果类型判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=[NodeDoc] 107008 效果类型判断：效果口为空（未连线且没有当前效果）→ 判假	auto｜
+✅	107010	事件效果类型判断	效果	OnPlay → 消费者(202001).v ← 107010「事件效果类型判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=[NodeDoc] 107010 事件效果类型判断：效果口为空（未连线且没有当前效果）→ 判假	auto｜
+✅	207001	发动效果	效果	OnPlay → 207001「发动效果」；card ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 207001 发动效果失败：效果口为空或该效果无组件（effect=null）	auto｜要求执行数≥1
+✅	109004	获取本局游戏事件记录	事件记录	OnPlay → 消费者(202001).v ← 109004「获取本局游戏事件记录」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	109005	获取本回合事件记录	事件记录	OnPlay → 消费者(202001).v ← 109005「获取本回合事件记录」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	109006	获取前X-Y回合内的事件记录	事件记录	OnPlay → 消费者(202001).v ← 109006「获取前X-Y回合内的事件记录」.return；取「Array」通道（ResolveInputCards）	ResolveInputCards 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	109007	获取卡牌在某事件时的快照	事件记录	OnPlay → 消费者(202001).v ← 109007「获取卡牌在某事件时的快照」.return；card ← 入口「卡牌」口(施法卡)；取「CardSnapshot」通道（GetObjectInput）	GetObjectInput 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	108001	当前事件	事件	OnPlay → 消费者(202001).v ← 108001「当前事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput→ConvertToEvents(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	auto｜
+✅	108002	获取变量	事件	OnPlay → 消费者(202001).v ← 108002「获取变量」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	208001	设置变量	事件	OnPlay → 208001「设置变量」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	208002	阻止事件	事件	OnPlay → 208002「阻止事件」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 208002 阻止事件：仅对「X 时」事件有效	auto｜要求执行数≥1
+✅	208003	更改攻击目标	事件	OnPlay → 208003「更改攻击目标」；target ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	208004	更改使用目标	事件	OnPlay → 208004「更改使用目标」；target ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 208004 未连目标卡牌，忽略	auto｜要求执行数≥1
+✅	208005	伤害/更改受伤卡牌	事件	OnPlay → 208005「伤害/更改受伤卡牌」；target ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	208006	伤害/更改伤害源	事件	OnPlay → 208006「伤害/更改伤害源」；source ← 入口「卡牌」口(施法卡)；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	208007	伤害/更改伤害值	事件	OnPlay → 208007「伤害/更改伤害值」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	208008	治疗/更改治疗值	事件	OnPlay → 208008「治疗/更改治疗值」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	108004	事件类型判断	事件	OnPlay → 消费者(202001).v ← 108004「事件类型判断」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	108008	获取卡牌在某事件前的快照	事件	OnPlay → 消费者(202001).v ← 108008「获取卡牌在某事件前的快照」.return；card ← 入口「卡牌」口(施法卡)；取「CardSnapshot」通道（GetObjectInput）	GetObjectInput 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	108009	获取卡牌在某事件后的快照	事件	OnPlay → 消费者(202001).v ← 108009「获取卡牌在某事件后的快照」.return；card ← 入口「卡牌」口(施法卡)；取「CardSnapshot」通道（GetObjectInput）	GetObjectInput 返回=TcgEngine.Card（类型 Card）｜日志=—	auto｜
+✅	108010	获取事件重复次数	事件	OnPlay → 消费者(202001).v ← 108010「获取事件重复次数」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=1（类型 Int32）｜日志=—	auto｜
+✅	208009	设置事件重复次数	事件	OnPlay → 208009「设置事件重复次数」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	109008	获取当前回合数	事件	OnPlay → 消费者(202001).v ← 109008「获取当前回合数」.return；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=1（类型 Int32）｜日志=—	auto｜
+✅	213001	设置映射	映射	OnPlay → 213001「设置映射」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 213001 映射操作失败：映射口为空（需连「创建映射集合」节点）	auto｜要求执行数≥1
+✅	213002	移除映射	映射	OnPlay → 213002「移除映射」；Run(OnPlay)	Run 动作数=1；日志=[NodeDoc] 213002 映射操作失败：映射口为空（需连「创建映射集合」节点）	auto｜要求执行数≥1
+✅	113002	是否存在映射	映射	OnPlay → 消费者(202001).v ← 113002「是否存在映射」.return；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	auto｜
+✅	209101	设置战斗BGM	其他	OnPlay → 209101「设置战斗BGM」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	209102	恢复默认BGM	其他	OnPlay → 209102「恢复默认BGM」；Run(OnPlay)	Run 动作数=1；日志=—	auto｜要求执行数≥1
+✅	105002	获取牌堆中的牌	牌堆	OnPlay → 消费者(202001).v ← 105002「获取牌堆中的牌」.return；pile ← PILE_CARD；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(1): [hero_fire#aGTp1d0YktkhfR]（类型 List`1）｜日志=—	F4：pile←102029(施法卡=英雄) → 英雄区恰 1 张｜期望元素个数 1（实际 1）
+✅	105002	获取牌堆中的牌	牌堆	OnPlay → 消费者(202001).v ← 105002「获取牌堆中的牌」.return；pile ← PILE；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	F4 对照：pile←101017(玩家1牌库) → 记录个数（该夹具玩家1牌库=0，故对空集恒真）｜期望元素个数 == 玩家0.deck(25) 或 玩家1.deck(0)（实际 0）
+✅	105003	获取牌堆名	牌堆	OnPlay → 消费者(202001).v ← 105003「获取牌堆名」.return；pile ← PILE；取「String」通道（ResolveInputString）	ResolveInputString 返回=牌库（类型 String）｜日志=—	F4：牌堆名（实测「牌库」）｜
+✅	105004	获取牌堆所属玩家	牌堆	OnPlay → 消费者(202001).v ← 105004「获取牌堆所属玩家」.return；pile ← PILE；取「Player」通道（ResolveValuePlayer）	ResolveValuePlayer 返回=TcgEngine.Player（类型 Player）｜日志=—	F4：牌堆所属玩家｜
+✅	101017	获取牌堆	玩家	OnPlay → 消费者(202001).v ← 101017「获取牌堆」.return；取「Pile」通道（ResolveValuePile）	ResolveValuePile 返回=1|装备（类型 String）｜日志=—	区域名归一：装备区 → 装备｜
+✅	101017	获取牌堆	玩家	OnPlay → 消费者(202001).v ← 101017「获取牌堆」.return；取「Pile」通道（ResolveValuePile）	ResolveValuePile 返回=1|奥秘（类型 String）｜日志=—	区域名归一：奥秘区 → 奥秘｜
+✅	101017	获取牌堆	玩家	OnPlay → 消费者(202001).v ← 101017「获取牌堆」.return；取「Pile」通道（ResolveValuePile）	ResolveValuePile 返回=1|暂存区（类型 String）｜日志=—	区域名：暂存区｜
+✅	106002	获取增益定义	Buff	OnPlay → 消费者(202001).v ← 106002「获取增益定义」.value；取「BuffDefine」通道（ResolveValueBuffDefine）	ResolveValueBuffDefine 返回=TcgEngine.Workshop.BuffData（类型 BuffData）｜日志=—	F11：BuffSelect 池 id → BuffData｜
+✅	106002	获取增益定义	Buff	OnPlay → 消费者(202001).v ← 106002「获取增益定义」.value；取「BuffDefine」通道（ResolveValueBuffDefine）	ResolveValueBuffDefine→GetObjectInput(兜底) 返回=—（类型 String）｜日志=—	F11 负向对照：空字段 → 期望 null（记录）｜
+✅	206001	添加增益	增益	OnPlay → 206001「添加增益」；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	施法卡 HasBuff(buff_8c5cfda5)=True｜动作数=1；日志=—	F11：施加增益（字段 buff_id 路径；duration=99 让它不过期）｜
+✅	206001	添加增益	增益	OnPlay → 206001「添加增益」；第二来源 BUFFDEF；cards ← 入口「卡牌」口(施法卡)；Run(OnPlay)	施法卡 HasBuff(buff_8c5cfda5)=True｜动作数=1；日志=—	F11：施加增益（buffDefine←106002 接线路径）｜
+✅	106003	是否具有增益	增益	OnPlay → 消费者(202001).v ← 106003「是否具有增益」.return；card ← 入口「卡牌」口(施法卡)；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	F11：上面施加后，施法卡应「具有增益」｜期望 true
+✅	112006	StringConst	其他	OnPlay → 消费者(202001).v ← 112006「StringConst」.value；取「String」通道（ResolveInputString）	ResolveInputString 返回=hello（类型 String）｜日志=—	字符串常量：字段 value=hello｜
+✅	212002	重复动作	其他	OnPlay → 212002「重复动作」；循环体 ← 202001（value=1）；Run(OnPlay)	目标玩家 HP 30→28（扣 2，期望 2）｜动作数=2	重复 2 次 + 循环体伤害1 → 伤害 2｜
+✅	212005	重复动作直到	其他	OnPlay → 212005「重复动作直到」；condition ← 布尔常量 ；循环体 ← 202001（value=1）；Run(OnPlay)	目标玩家 HP 30→28（扣 2，期望 2）｜动作数=2	重复直到：条件恒假、上限2 → 迭代2次 → 伤害 2｜
+✅	212006	停止重复动作	其他	OnPlay → 212006「停止重复动作」；Run(OnPlay)	动作数=0；日志=[NodeDoc] 212006 不在循环体内，已忽略	停止重复动作：不在循环体内 → 应忽略且不报错｜
+✅	212007	跳过重复动作	其他	OnPlay → 212007「跳过重复动作」；Run(OnPlay)	动作数=0；日志=[NodeDoc] 212007 不在循环体内，已忽略	跳过重复动作：不在循环体内 → 应忽略且不报错｜
+✅	211001	遍历	集合运算	OnPlay → 211001「遍历」；array ← 施法方手牌集合；循环体 ← 202001（value=1）；Run(OnPlay)	目标玩家共受伤=3，期望 == 玩家0.hand(7) 或 玩家1.hand(3)｜动作数=3	遍历：array←手牌、循环体=伤害1 → 总伤害==手牌数｜
+✅	104005	获取卡牌快照属性	卡牌快照	OnPlay → 消费者(202001).v ← 104005「获取卡牌快照属性」.return；card ← SNAPSHOT；取「Object」通道（GetObjectInput）	GetObjectInput 返回=0（类型 Int32）｜日志=—	快照属性：card←快照 → 记录观测｜
+✅	102034	获取卡牌标签列表	卡牌	OnPlay → 消费者(202001).v ← 102034「获取卡牌标签列表」.return；card ← 入口「卡牌」口(施法卡)；取「String」通道（ResolveInputString）	ResolveInputString 返回=—（类型 String）｜日志=—	卡牌标签列表（String）：该卡无标签 → 记录观测｜
+✅	102009	获取唯一属性名	卡牌	OnPlay → 消费者(202001).v ← 102009「获取唯一属性名」.return；取「String」通道（ResolveInputString）	ResolveInputString 返回=—（类型 String）｜日志=—	唯一属性名（String）→ 记录观测｜
+✅	103019	获取卡牌定义的标签列表	卡牌定义	OnPlay → 消费者(202001).v ← 103019「获取卡牌定义的标签列表」.return；cardDefine ← DEFINE_OF_CASTER；取「String」通道（ResolveInputString）	ResolveInputString 返回=—（类型 String）｜日志=—	定义标签列表（String）→ 记录观测｜
+✅	104019	获取卡牌快照标签列表	卡牌快照	OnPlay → 消费者(202001).v ← 104019「获取卡牌快照标签列表」.return；card ← SNAPSHOT；取「String」通道（ResolveInputString）	ResolveInputString 返回=—（类型 String）｜日志=—	快照标签列表（String）→ 记录观测｜
+✅	107003	获取效果属性	效果	OnPlay → 消费者(202001).v ← 107003「获取效果属性」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=null（类型 null）｜日志=—	效果属性：本探针无 Effect 来源 → 记录观测｜
+✅	113003	获取映射值	映射	OnPlay → 消费者(202001).v ← 113003「获取映射值」.return；map ← 空映射集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=Dictionary`2(0): []（类型 Dictionary`2）｜日志=—	映射值：空映射取键 → 期望 null（记录）｜
+✅	113004	获取映射的所有键	映射	OnPlay → 消费者(202001).v ← 113004「获取映射的所有键」.return；map ← 空映射集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=Dictionary`2(0): []（类型 Dictionary`2）｜日志=—	映射所有键：空映射 → 记录观测｜
+✅	113005	获取映射的所有值	映射	OnPlay → 消费者(202001).v ← 113005「获取映射的所有值」.return；map ← 空映射集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=Dictionary`2(0): []（类型 Dictionary`2）｜日志=—	映射所有值：空映射 → 记录观测｜
+✅	101008	获取玩家牌库中的卡牌	玩家	OnPlay → 消费者(202001).v ← 101008「获取玩家牌库中的卡牌」.return；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	F2：单值卡通道取牌库首张（真实 Card）｜
+✅	102029	获取卡牌所在牌堆	卡牌	OnPlay → 消费者(202001).v ← 102029「获取卡牌所在牌堆」.return；card ← 入口「卡牌」口(施法卡)；取「Pile」通道（ResolveValuePile）	ResolveValuePile 返回=1|英雄（类型 String）｜日志=—	F3：英雄卡 → Pile 通道（记录，应= 玩家id｜
+✅	113001	创建映射集合	映射	OnPlay → 消费者(202001).v ← 113001「创建映射集合」.return；取「GraphMap」通道（GetObjectInput）	GetObjectInput 返回=Dictionary`2(0): []（类型 Dictionary`2）｜日志=—	F5：映射走 Object 通道返回映射本身｜
+✅	103003	获取卡牌定义列表	卡牌定义	OnPlay → 消费者(202001).v ← 103003「获取卡牌定义列表」.return； ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→GetObjectInput(兜底) 返回=—（类型 String）｜日志=—	F6：不再栈溢出｜
+✅	103010	获取卡牌定义花费	卡牌定义	OnPlay → 消费者(202001).v ← 103010「获取卡牌定义花费」.return；card ← DEFINE_OF_CASTER；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=3（类型 Int32）｜日志=—	F7：取到定义（非 null）｜
+✅	103011	获取卡牌定义攻击力	卡牌定义	OnPlay → 消费者(202001).v ← 103011「获取卡牌定义攻击力」.return；card ← DEFINE_OF_CASTER；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=2（类型 Int32）｜日志=—	F7：取到定义（非 null）｜
+✅	104001	获取卡牌快照对应卡牌	卡牌快照	OnPlay → 消费者(202001).v ← 104001「获取卡牌快照对应卡牌」.return；card ← SNAPSHOT；取「Card」通道（ResolveInputCard）	ResolveInputCard 返回=TcgEngine.Card（类型 Card）｜日志=—	F8：快照→卡牌（真实 Card）｜
+✅	104002	获取卡牌快照卡牌定义	卡牌快照	OnPlay → 消费者(202001).v ← 104002「获取卡牌快照卡牌定义」.return；card ← SNAPSHOT；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	F8：快照→卡牌定义｜
+✅	104011	获取卡牌快照护甲值	卡牌快照	OnPlay → 消费者(202001).v ← 104011「获取卡牌快照护甲值」.return；card ← SNAPSHOT；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	F8：快照护甲值｜期望 0
+✅	104014	卡牌快照具有宣言	卡牌快照	OnPlay → 消费者(202001).v ← 104014「卡牌快照具有宣言」.return；card ← SNAPSHOT；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=False（类型 Boolean）｜日志=—	F8：快照具有宣言｜期望 false
+✅	112007	获取临时变量	其他	OnPlay → 消费者(202001).v ← 112007「获取临时变量」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=null（类型 null）｜日志=—	F12：Object 通道不再「未支持动作」｜
+✅	108011	获取事件发生的回合	事件	OnPlay → 消费者(202001).v ← 108011「获取事件发生的回合」.return；eventArg ← EVENT；取「Int32」通道（ResolveNodeInt）	Run 内观测：伤害=1（动作数=2）｜日志=—	F10：事件回合 == 当前回合数（同时产生一条事件记录）｜期望伤害 == turn（1）
+✅	109002	获取事件记录变量	事件记录	OnPlay → 消费者(202001).v ← 109002「获取事件记录变量」.return；record ← RECORD；取「Object」通道（GetObjectInput）	GetObjectInput 返回=OnPlay（类型 String）｜日志=—	F9：记录变量（最近一条）｜
+✅	109003	事件记录类型判断	事件记录	OnPlay → 消费者(202001).v ← 109003「事件记录类型判断」.return；evt ← RECORD；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	F9：记录类型判断 = OnPlay｜期望 true
+✅	109009	转换事件记录类型	事件记录	OnPlay → 消费者(202001).v ← 109009「转换事件记录类型」.return；eventRecord ← RECORD；取「EventRecord」通道（GetObjectInput）	GetObjectInput 返回=TcgEngine.Workshop.GraphEventRecord（类型 GraphEventRecord）｜日志=—	F9：转换记录类型返回新记录｜
+✅	200004	创建牌堆	游戏	OnPlay → 消费者(202001).v ← 200004「创建牌堆」.return；取「Pile」通道（ResolveValuePile）	ResolveValuePile 返回=1|probe_pile（类型 String）｜日志=—	游戏：创建牌堆｜
+✅	119001	获取回合数	回合	OnPlay → 消费者(202001).v ← 119001「获取回合数」.turnCount；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=1（类型 Int32）｜日志=—	回合：回合数｜期望 1（turn）
+✅	119005	判断是否为第一回合	回合	OnPlay → 消费者(202001).v ← 119005「判断是否为第一回合」.result；取「Boolean」通道（GetBoolInput）	GetBoolInput 返回=True（类型 Boolean）｜日志=—	回合：是否为第一回合｜期望 true
+✅	107004	获取卡牌的所有效果	效果	OnPlay → 消费者(202001).v ← 107004「获取卡牌的所有效果」.return；card ← 入口「卡牌」口(施法卡)；取「Effect」通道（ResolveInputEffect）	ResolveInputEffect 返回=activate_fire (TcgEngine.AbilityData)（类型 AbilityData）｜日志=—	效果：卡牌的所有效果｜
+✅	210002	卡牌置入战场	行动	OnPlay → 210002「卡牌置入战场」；cards ← 施法方手牌集合；Run(OnPlay)	手牌/战场增量：玩家0 手0 场0、玩家1 手-3 场3（期望其一 手-、场+）｜动作数=1；日志=—	行动：卡牌置入战场（某一方 手牌-、战场+）｜
+✅	102018	是否濒死	卡牌	OnPlay → 消费者(202001).v ← 102018「是否濒死」.return；card ← SELF_CARD；取「Boolean」通道（GetBoolInput）	返回=False，玩家0.hp=30、玩家1.hp=30（期望 False）	F1/F13：英雄存活（双方 HP=30）→ 不濒死｜英雄濒死 == 所属玩家 HP<=0（F1/F13 语义）
+✅	102018	是否濒死	卡牌	OnPlay → 消费者(202001).v ← 102018「是否濒死」.return；card ← SELF_CARD；取「Boolean」通道（GetBoolInput）	返回=True，玩家0.hp=0、玩家1.hp=0（期望 True）	F1/F13：英雄濒死（双方 HP=0）→ 濒死｜英雄濒死 == 所属玩家 HP<=0（F1/F13 语义）
+✅	106006	获取卡牌上的所有增益	增益	OnPlay → 消费者(202001).v ← 106006「获取卡牌上的所有增益」.return；card ← SELF_CARD；取「Buff」通道（ResolveBuffList）	caster.uid=OXwUTv0rvbeh caster.buffs=1 HasBuff(caster)=True｜解析卡=OXwUTv0rvbeh 其buffs=1｜ResolveBuffList 结果=1｜两张卡是否同一对象=True｜自带前提：施加=True caster.buffs=1｜施加=True caster.buffs=1｜	自证：自带前提 + 链路（caster.buffs / 解析卡 / 列表长度）｜诊断用例：只记录，不判定
+✅	106006	获取卡牌上的所有增益	增益	OnPlay → 消费者(202001).v ← 106006「获取卡牌上的所有增益」.return；card ← SELF_CARD；取「Buff」通道（ResolveBuffList）	ResolveBuffList 返回=List`1(1): [TcgEngine.Workshop.NodeDocRunner+BuffRef]（类型 List`1）｜日志=—	F14：卡上所有增益（用例内自带施加前提）→ 应非空｜期望元素个数 >= 1（实际 1）
+✅	103001	获取所有卡牌定义	卡牌定义	OnPlay → 消费者(202001).v ← 103001「获取所有卡牌定义」.return；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→GetObjectInput(兜底)→ResolveValueDefines(定义集合兜底) 返回=List`1(8+): [ashes_snake, bull_heat, cave, dark_stallion, dragon's_anger, dragon_knight, dragon_red, equip_rock_bow]（类型 List`1）｜日志=—	卡牌定义：获取所有卡牌定义（定义集合通道）｜期望元素个数 >= 1（实际 175）
+✅	103002	获取卡牌定义	卡牌定义	OnPlay → 消费者(202001).v ← 103002「获取卡牌定义」.return；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	卡牌定义：按 id 取定义（下拉字段路径）｜
+✅	103007	获取目标卡牌的定义列表	卡牌定义	OnPlay → 消费者(202001).v ← 103007「获取目标卡牌的定义列表」.return；cards ← 入口「卡牌」口(施法卡)；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→GetObjectInput(兜底) 返回=—（类型 String）｜日志=—	定义列表：目标卡牌的定义列表 → 记录观测｜
+✅	103016	获取卡牌定义对应角色	卡牌定义	OnPlay → 消费者(202001).v ← 103016「获取卡牌定义对应角色」.return；card ← HERO_DEFINE；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	定义→角色：英雄定义应有对应角色｜
+✅	104006	获取卡牌快照花费	卡牌快照	OnPlay → 消费者(202001).v ← 104006「获取卡牌快照花费」.return；card ← SNAPSHOT；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	快照花费｜
+✅	104007	获取卡牌快照攻击力	卡牌快照	OnPlay → 消费者(202001).v ← 104007「获取卡牌快照攻击力」.return；card ← SNAPSHOT；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	快照攻击力 == 施法卡攻击（同一张卡的快照）｜期望 0（caster.attack）
+✅	104008	获取卡牌快照最大生命值	卡牌快照	OnPlay → 消费者(202001).v ← 104008「获取卡牌快照最大生命值」.return；card ← SNAPSHOT；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	快照最大生命值｜
+✅	104009	获取卡牌快照当前生命值	卡牌快照	OnPlay → 消费者(202001).v ← 104009「获取卡牌快照当前生命值」.return；card ← SNAPSHOT；取「Int32」通道（ResolveNodeInt）	ResolveNodeInt 返回=0（类型 Int32）｜日志=—	快照当前生命值｜
+✅	111007	获取第X个元素	集合运算	OnPlay → 消费者(202001).v ← 111007「获取第X个元素」.return；array ← 施法方手牌集合；第二来源 CONST_INT；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	取第 0 个元素（来源=选中玩家手牌，本夹具下会时有时空 → 记录观测）｜
+✅	111008	获取集合中的随机元素	集合运算	OnPlay → 消费者(202001).v ← 111008「获取集合中的随机元素」.return；collection ← 施法方手牌集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	集合中的随机元素（来源同上 → 记录观测）｜
+✅	111024	获取第一个元素	集合运算	OnPlay → 消费者(202001).v ← 111024「获取第一个元素」.return；array ← 施法方手牌集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	获取第一个元素（来源同上 → 记录观测）｜
+✅	111025	获取最后一个元素	集合运算	OnPlay → 消费者(202001).v ← 111025「获取最后一个元素」.return；array ← 施法方手牌集合；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	获取最后一个元素（来源同上 → 记录观测）｜
+✅	112010	根据条件选择值	其他	OnPlay → 消费者(202001).v ← 112010「根据条件选择值」.return；isTrue ← 布尔常量 ；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	按条件选值：Object 通道返回空（需条件/取值上下文）→ 记录观测｜
+✅	201005	从一定数量的卡牌定义中选择一张	玩家	OnPlay → 消费者(202001).v ← 201005「从一定数量的卡牌定义中选择一张」.return；defines ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→GetObjectInput(兜底)→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	从定义池选一张（不需交互）｜
+✅	201017	从一定数量的卡牌定义中选择一张	玩家	OnPlay → 消费者(202001).v ← 201017「从一定数量的卡牌定义中选择一张」.return；defines ← DEFINE_OF_CASTER；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine→GetObjectInput(兜底)→ConvertToDefines(类型转换兜底) 返回=List`1(0): []（类型 List`1）｜日志=—	从定义池选一张（带玩家口，不需交互）｜
+✅	201004	从一定数量的卡牌中选择一张	玩家	OnPlay → 消费者(202001).v ← 201004「从一定数量的卡牌中选择一张」.return；cards ← 施法方手牌集合；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=—（类型 String）｜日志=—	选卡：卡牌版需交互选择 → 记录观测｜
+✅	201016	从一定数量的卡牌中选择一张	玩家	OnPlay → 消费者(202001).v ← 201016「从一定数量的卡牌中选择一张」.return；cards ← 施法方手牌集合；取「Card」通道（ResolveInputCard）	ResolveInputCard→GetObjectInput(兜底) 返回=—（类型 String）｜日志=—	选卡：卡牌版需交互选择 → 记录观测｜
+✅	106001	该增益	增益	OnPlay → 消费者(202001).v ← 106001「该增益」.return；取「Buff」通道（ResolveBuffList）	ResolveBuffList 返回=List`1(0): []（类型 List`1）｜日志=—	该增益：仅增益图上下文有值 → 记录观测｜
+✅	106004	获取增益属性	增益	OnPlay → 消费者(202001).v ← 106004「获取增益属性」.return；取「Object」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	增益属性：需 Buff 来源（Buff 值通道）→ 记录观测｜
+✅	106005	获取单个增益的定义	增益	OnPlay → 消费者(202001).v ← 106005「获取单个增益的定义」.return；取「BuffDefine」通道（ResolveValueBuffDefine）	ResolveValueBuffDefine 返回=null（类型 null）｜日志=—	单个增益定义：需 Buff 来源（增益图上下文）→ 记录观测｜
+✅	106006	获取卡牌上的所有增益	增益	OnPlay → 消费者(202001).v ← 106006「获取卡牌上的所有增益」.return；card ← SELF_CARD；取「Buff」通道（ResolveBuffList）	ResolveBuffList 返回=List`1(1): [TcgEngine.Workshop.NodeDocRunner+BuffRef]（类型 List`1）｜日志=—	F11 待查：卡上所有增益读 `Card.buffs` 为空（206001 施加后 HasBuff=true）→ 记录观测｜
+✅	107009	获取效果所属卡牌定义或增益定义	效果	OnPlay → 消费者(202001).v ← 107009「获取效果所属卡牌定义或增益定义」.cardDefine；取「CardDefine」通道（ResolveInputDefine）	ResolveInputDefine 返回=null（类型 null）｜日志=—	效果所属定义：需 Effect 来源 → 记录观测｜
+✅	108003	转换事件类型	事件	OnPlay → 消费者(202001).v ← 108003「转换事件类型」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	转换事件类型：需 Run 内事件上下文 → 记录观测｜
+✅	108005	获取本局游戏事件	事件	OnPlay → 消费者(202001).v ← 108005「获取本局游戏事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	本局游戏事件：本夹具事件表为空 → 记录观测｜
+✅	108006	获取本回合事件	事件	OnPlay → 消费者(202001).v ← 108006「获取本回合事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	本回合事件：本夹具事件表为空 → 记录观测｜
+✅	108007	获取前X-Y回合内的事件	事件	OnPlay → 消费者(202001).v ← 108007「获取前X-Y回合内的事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	前X-Y回合事件：需回合区间上下文 → 记录观测｜
+✅	108012	获取事件的父事件	事件	OnPlay → 消费者(202001).v ← 108012「获取事件的父事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	父事件：需 Run 内事件上下文 → 记录观测｜
+✅	108013	获取事件的子事件	事件	OnPlay → 消费者(202001).v ← 108013「获取事件的子事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	子事件：需 Run 内事件上下文 → 记录观测｜
+✅	108014	获取事件发生的事件链	事件	OnPlay → 消费者(202001).v ← 108014「获取事件发生的事件链」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	事件链：需 Run 内事件上下文 → 记录观测｜
+✅	108015	获取事件发生时引发的事件	事件	OnPlay → 消费者(202001).v ← 108015「获取事件发生时引发的事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	事件发生时引发的事件：需 Run 内上下文 → 记录观测｜
+✅	108016	获取事件发生后引发的事件	事件	OnPlay → 消费者(202001).v ← 108016「获取事件发生后引发的事件」.return；取「EventArg」通道（GetObjectInput）	GetObjectInput 返回=—（类型 String）｜日志=—	事件发生后引发的事件：需 Run 内上下文 → 记录观测｜
+汇总：通过 309｜失败 0｜共 309

@@ -52,11 +52,6 @@ namespace TcgEngine.Client
             start_scale = transform.localScale;
         }
 
-        private void Start()
-        {
-
-        }
-
         private void OnDestroy()
         {
             card_list.Remove(this);

@@ -1,0 +1,101 @@
+{
+    "title":  "P3 nodes r4",
+    "nodes":  [
+                  {
+                      "id":  "102012",
+                      "name":  "获取所有仆从",
+                      "category":  "卡牌",
+                      "kind":  "value",
+                      "out_type":  "Card",
+                      "out_pin":  "return",
+                      "ins":  [
+
+                              ],
+                      "field1":  "",
+                      "value1":  "",
+                      "field2":  "",
+                      "value2":  "",
+                      "field3":  "",
+                      "value3":  "",
+                      "src1":  "",
+                      "src1_pin":  "card",
+                      "dst1":  "",
+                      "src1_const":  "",
+                      "src2":  "",
+                      "src2_const":  "",
+                      "child_action":  "",
+                      "child_field":  "",
+                      "child_value":  "",
+                      "assert":  "value_any",
+                      "expect":  "",
+                      "note":  "定位：获取所有仆从 —— 记录返回（个数/卡名）"
+                  },
+                  {
+                      "id":  "102013",
+                      "name":  "获取所有角色",
+                      "category":  "卡牌",
+                      "kind":  "value",
+                      "out_type":  "Card",
+                      "out_pin":  "return",
+                      "ins":  [
+
+                              ],
+                      "field1":  "",
+                      "value1":  "",
+                      "field2":  "",
+                      "value2":  "",
+                      "field3":  "",
+                      "value3":  "",
+                      "src1":  "",
+                      "src1_pin":  "card",
+                      "dst1":  "",
+                      "src1_const":  "",
+                      "src2":  "",
+                      "src2_const":  "",
+                      "child_action":  "",
+                      "child_field":  "",
+                      "child_value":  "",
+                      "assert":  "value_any",
+                      "expect":  "",
+                      "note":  "对照：获取所有角色（上次实测=双方英雄）"
+                  },
+                  {
+                      "id":  "111012",
+                      "name":  "筛选",
+                      "category":  "集合运算",
+                      "kind":  "value",
+                      "out_type":  "Object",
+                      "out_pin":  "return",
+                      "ins":  [
+                                  {
+                                      "name":  "array",
+                                      "type":  "Object",
+                                      "display":  "array"
+                                  },
+                                  {
+                                      "name":  "condition",
+                                      "type":  "NodeValueRef\u003cBoolean\u003e",
+                                      "display":  "condition"
+                                  }
+                              ],
+                      "field1":  "",
+                      "value1":  "",
+                      "field2":  "",
+                      "value2":  "",
+                      "field3":  "",
+                      "value3":  "",
+                      "src1":  "",
+                      "src1_pin":  "card",
+                      "dst1":  "",
+                      "src1_const":  "",
+                      "src2":  "",
+                      "src2_const":  "",
+                      "child_action":  "",
+                      "child_field":  "",
+                      "child_value":  "",
+                      "assert":  "value_any",
+                      "expect":  "",
+                      "note":  "对照：筛选（无数组无条件）记录"
+                  }
+              ]
+}

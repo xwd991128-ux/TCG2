@@ -42,6 +42,12 @@ namespace TcgEngine
         public string level;                            //Adventure level ID
         public bool test_full_mana = false;             //模拟测试：开局双方法力直接为上限
 
+        //构筑规则：客户端选定后随本结构发给服务端，使**两端用同一套规则**校验卡组
+        //★ 必须初始化为 ""：Netcode 的字符串序列化不接受 null（FastBufferWriter.WriteValueSafe 会 NRE），
+        //  而本结构每次开局都要过网络 —— 写成裸 string 会直接让开局卡在 Connecting。
+        public string deck_format_id = "";              //构筑环境 id（空 = 标准）
+        public string deck_optional_rules = "";         //勾选的可选规则 id，用 '|' 连接（Netcode 不支持集合字段）
+
         public virtual bool IsHost()
         {
             return game_type == GameType.Solo || game_type == GameType.Adventure || game_type == GameType.HostP2P;
@@ -111,6 +117,8 @@ namespace TcgEngine
             serializer.SerializeValue(ref nb_players);
             serializer.SerializeValue(ref level);
             serializer.SerializeValue(ref test_full_mana);
+            serializer.SerializeValue(ref deck_format_id);
+            serializer.SerializeValue(ref deck_optional_rules);
         }
 
         public static string GetRankModeString(GameMode rank_mode)

@@ -30,11 +30,6 @@ namespace TcgEngine.UI
             SetValue(0);
         }
 
-        void Update()
-        {
-
-        }
-
         private void AfterChangeOption()
         {
             if (select_text != null)
