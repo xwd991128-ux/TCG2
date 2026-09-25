@@ -30,7 +30,7 @@ namespace TcgEngine
         //Generate a random int
         public static int GenerateRandomInt()
         {
-            return random.Next(1, 7);      //掷骰子：1~6
+            return random.Next(10, 21);      //随机 10~20
         }
 
         //Generate a random ulong
