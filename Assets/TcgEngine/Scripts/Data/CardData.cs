@@ -241,7 +241,7 @@ namespace TcgEngine
 
         public bool IsDynamicManaCost()
         {
-            return mana > 49;
+            return mana > 99;
         }
 
         public bool RemovedIfKilled()
