@@ -42,6 +42,8 @@ namespace TcgEngine.Workshop
         public int cost;
         public List<AbilityCustomData> abilities = new List<AbilityCustomData>();
         public List<string> keywords = new List<string>();   // 关键词（KeywordData.id，可多个）
+        public List<string> skills = new List<string>();     // ★英雄技能卡（type=Hero 时生效：技能卡的卡牌 id 列表，
+                                                             //   开战时把技能卡上的起动式能力挂到英雄卡上，变成英雄的技能按钮）
 
         // ---- 卡牌节点编辑器（P2+）附加配置 ----
         public GraphData graph;              // 兼容旧数据：单张效果图（无 effects 时作为 effects[0]；有 effects 时同步 effects[0]）

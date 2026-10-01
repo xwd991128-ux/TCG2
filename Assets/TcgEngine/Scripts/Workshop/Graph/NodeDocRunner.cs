@@ -36,12 +36,14 @@ namespace TcgEngine.Workshop
         /// <param name="duration">增益图上下文：当前剩余持续回合</param>
         /// <param name="button_id">按钮图上下文：匹配「点击按钮时/点击按钮后」事件节点的 button_id 字段</param>
         /// <param name="target_slots">多目标上下文：图槽号 → 该槽选中的卡（顺序逐槽选择的结果；null=单目标）</param>
+        /// <param name="entry_pin">只走入口的哪个 Flow 出口（null=默认动作口；"enable"/"disable"=被动入口的 生效/失效 线）</param>
         /// <returns>实际执行的 NodeDoc 动作数</returns>
         public static int Run(GameLogic logic, GraphData graph, Card caster,
             Card target_card, Player target_player, string trigger_action,
             Card giver = null, BuffData buff = null, int duration = 0, string button_id = null,
             AbilityData ability = null, Dictionary<int, Card> target_slots = null,
-            Slot target_slot = default(Slot), CardData target_define = null)
+            Slot target_slot = default(Slot), CardData target_define = null,
+            string entry_pin = null)
         {
             int count = 0;
             if (logic == null || graph == null || caster == null)
@@ -165,7 +167,7 @@ namespace TcgEngine.Workshop
                     TriggerNodeVfx(ev, caster, target_card, target_player, true);
 
                     int executed = 0;
-                    WalkNode(logic, graph, ev, caster, target_card, target_player, new HashSet<string>(), ref executed);
+                    WalkNode(logic, graph, ev, caster, target_card, target_player, new HashSet<string>(), ref executed, entry_pin);
                     count += executed;
                 }
                 //诊断：图被触发却没有任何入口匹配 → 图内动作（含特效）一律不会执行，这是"完全没反应"的实锤
@@ -198,6 +200,18 @@ namespace TcgEngine.Workshop
                 custom_eval_cache.AddRange(prev_eval_cache);
                 loop_break = prev_loop_break;
                 loop_continue = prev_loop_continue;
+
+                //★被动效果「生效/失效」同步：图动作常改变卡的区域（移回手牌/洗入牌库/置入墓地/暂存/变形/重置卡牌），
+                //  执行完统一扫一次（状态差分），把该生效/该失效的被动补上。非被动卡零开销（没有分组键 → 直接跳过）。
+                //  ★必须放在 finally 里：上面 try 内有 return，写在 finally 之外会被跳过。
+                try
+                {
+                    logic.SyncPassiveEffects();
+                }
+                catch (System.Exception e_sync)
+                {
+                    Debug.LogError("[被动效果] 生效/失效同步异常（已忽略，不影响对局）：" + e_sync);
+                }
             }
         }
 
@@ -255,6 +269,32 @@ namespace TcgEngine.Workshop
         }
 
         /// <summary>
+        /// <summary>求值某入口节点的「条件(cond)」口 —— 供**引擎**在"入口本身"的判定里使用
+        /// （目前用于光环效果入口的「生效条件」：SyncAuraEffects 逐个候选目标求值，为假则该目标不施加）。
+        /// entry_action = 入口节点的 action（如 "AuraEffect"）；找不到入口 / 没连线 → 放行（true）。</summary>
+        public static bool IsEntryConditionMet(GameLogic logic, GraphData graph, string entry_action,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph == null || string.IsNullOrEmpty(entry_action))
+                return true;
+            GraphNode ev = null;
+            if (graph.nodes != null)
+            {
+                for (int i = 0; i < graph.nodes.Count; i++)
+                {
+                    GraphNode n = graph.nodes[i];
+                    if (n != null && n.type == GraphNodeType.Event && n.action == entry_action)
+                    {
+                        ev = n;
+                        break;
+                    }
+                }
+            }
+            if (ev == null)
+                return true;
+            return IsEventConditionMet(logic, graph, ev, caster, target_card, target_player);
+        }
+
         /// 事件入口「条件(cond)」输入口的筛选求值：无连线=放行；连线的布尔源为假=该入口本次不触发。
         /// 专用求值：卡牌相等/卡牌归属/玩家归属（需事件上下文，读 cur_event/caster 判定"己方/敌方"）；
         /// 其余布尔源（常量/102032 卡牌类型判断等）走通用条件链。</summary>
@@ -476,8 +516,9 @@ namespace TcgEngine.Workshop
             get { return _temp_vars != null ? _temp_vars : (_temp_vars = new Dictionary<string, object>()); }
         }
 
-        /// <summary>疲劳层数在 TCG2 的载体：Player 上的自定义特性（近似映射 zmcs 疲劳机制）</summary>
-        private const string FATIGUE_TRAIT = "疲劳层数";
+        /// <summary>疲劳层数在 TCG2 的载体：Player 上的自定义特性（近似映射 zmcs 疲劳机制）。
+        /// 指向 Player.TraitFatigue —— 与引擎侧"无牌可抽 → 疲劳"用的是**同一个键**（单一事实来源）。</summary>
+        private const string FATIGUE_TRAIT = Player.TraitFatigue;
 
         /// <summary>映射(GraphMap)运行时存储：按 113001 创建节点 id 缓存（同一 Run 内共享；Run 结束清空）</summary>
         [System.ThreadStatic] private static Dictionary<string, Dictionary<string, object>> _maps;
@@ -520,6 +561,88 @@ namespace TcgEngine.Workshop
         private static HashSet<string> evaluating_filters
         {
             get { return _evaluating_filters != null ? _evaluating_filters : (_evaluating_filters = new HashSet<string>()); }
+        }
+
+        /// <summary>已告警过的"比较节点用 &gt; &lt; 但操作数不是数值"的节点（每个节点只报一次，避免刷屏）</summary>
+        private static readonly HashSet<string> warned_bad_compare = new HashSet<string>();
+
+        /// <summary>比较运算符归一：面板可能存中文（等于/大于/小于/不等于/大于等于/小于等于）或符号，统一成符号。
+        /// 不归一的话中文"等于"会绕过 == 的"对象按 uid 判等"分支 → 落到字符串比较 → 对象比较恒假（静默失败）。</summary>
+        private static string NormalizeCompareOp(string op)
+        {
+            if (string.IsNullOrEmpty(op))
+                return "==";
+            switch (op.Trim())
+            {
+                case "等于":
+                case "是":
+                case "相同":
+                case "相等":
+                case "=":
+                case "==":
+                case "＝":      //全角等号
+                case "＝＝":
+                    return "==";
+                case "不等于":
+                case "不是":
+                case "不同":
+                case "不等":
+                case "!=":
+                case "≠":      //★符号变体（实测漏了 → 未知运算符被静默当成"等于"，5≠5 判成真）
+                case "!＝":
+                case "＜＞":
+                case "<>":
+                    return "!=";
+                case "大于":
+                case ">":
+                case "＞":
+                    return ">";
+                case "小于":
+                case "<":
+                case "＜":
+                    return "<";
+                case "大于等于":
+                case "不小于":
+                case ">=":
+                case "≥":
+                case "≧":
+                case "＞＝":
+                    return ">=";
+                case "小于等于":
+                case "不大于":
+                case "<=":
+                case "≤":
+                case "≦":
+                case "＜＝":
+                    return "<=";
+                default:
+                    WarnUnknownCompare(op.Trim());
+                    return "==";   //未知运算符 → 仍按"等于"（兼容旧数据），但**不再静默**（打一条告警）
+            }
+        }
+
+        /// <summary>未知比较运算符的告警（只报一次，避免刷屏）。</summary>
+        private static bool warned_unknown_compare;
+        private static void WarnUnknownCompare(string op)
+        {
+            if (warned_unknown_compare)
+                return;
+            warned_unknown_compare = true;
+            Debug.LogWarning("[规则图] 比较运算符「" + op + "」无法识别 → 已按「等于」处理。" +
+                "请在面板里重选运算符（等于 / 不等于 / 大于 / 大于等于 / 小于 / 小于等于）。");
+        }
+
+        /// <summary>取值的可读类型名（用于告警文案：卡牌/玩家/数值/空…）</summary>
+        private static string DescribeOperand(object v)
+        {
+            if (v == null)
+                return "空";
+            if (v is Card)
+                return "卡牌";
+            if (v is Player)
+                return "玩家";
+            double _;
+            return TryNumber(v, out _) ? "数值" : v.GetType().Name;
         }
 
         /// <summary>筛选条件链逐元素求值时的"当前元素"卡：条件链经嵌套节点（逻辑运算/比较/获取卡牌拥有者…）
@@ -881,9 +1004,12 @@ namespace TcgEngine.Workshop
 
         /// <summary>沿执行流(Flow)边走边执行（与 CardPoolIO 编译逻辑同规）：
         /// 分支动作(212001)求值真值只走选中分支；重复动作(212002)逐次展开循环体（内联执行，repeatTime 随迭代变化）；
-        /// 取值线（如 repeatTime 的 Int32 输出）不沿走；引脚找不到的连线（旧图残留）跳过。</summary>
+        /// 取值线（如 repeatTime 的 Int32 输出）不沿走；引脚找不到的连线（旧图残留）跳过。
+        /// first_only_pin：**仅对本次起点节点生效** —— 只走该短名出口（被动入口的 生效/失效 线靠它区分）；
+        /// 后续节点不受限，正常沿 动作口/续接口 展开。</summary>
         private static void WalkNode(GameLogic logic, GraphData graph, GraphNode node,
-            Card caster, Card target_card, Player target_player, HashSet<string> visited, ref int executed)
+            Card caster, Card target_card, Player target_player, HashSet<string> visited, ref int executed,
+            string first_only_pin = null)
         {
             if (node == null || !visited.Add(node.id))
                 return;
@@ -904,7 +1030,7 @@ namespace TcgEngine.Workshop
                         "[NodeDoc] 节点 " + node.action + "(" + node.title + ") 缺少分类信息（旧版保存的节点），已跳过执行 → "
                         + "既不结算也不出特效；请删除该节点后从节点库重新拖入并保存卡牌");
                 }
-                WalkFlowOutputs(logic, graph, node, null, caster, target_card, target_player, visited, ref executed);
+                WalkFlowOutputs(logic, graph, node, first_only_pin, caster, target_card, target_player, visited, ref executed);
                 return;
             }
 
@@ -979,8 +1105,11 @@ namespace TcgEngine.Workshop
                     continue;
                 if (out_pin.type != NodeValueType.Flow && out_pin.type != NodeValueType.None)
                     continue;   //取值线（如 212002 的 repeatTime）不沿走
-                //被动效果入口的 生效/失效动作 出口为预留（状态切换语义未接入），不驱动执行
-                if (node.action == "PassiveEffect" && (out_pin.name == "enable" || out_pin.name == "disable"))
+                //被动效果入口：动作口(out)=亡语/主效果；生效(enable)/失效(disable)=状态切换线。
+                //两条切换线默认不驱动（旧行为不变：亡语图只跑「动作」口）；仅当本次执行**显式指定该口**时才走它 ——
+                //即 GameLogic 触发「生效/失效」能力时（EffectRunGraph.entry_pin → Run(entry_pin) → only_pin）。
+                if (node.action == "PassiveEffect" && (out_pin.name == "enable" || out_pin.name == "disable")
+                    && out_pin.name != only_pin)
                     continue;
                 //分支节点：只走选中的分支口 + 通用续接口(out)
                 if (is_branch && out_pin.name != chosen_branch && out_pin.name != "out")
@@ -1445,7 +1574,12 @@ namespace TcgEngine.Workshop
                             string on = op != null ? op.name : link.from_pin;
                             if (on == "pos")
                                 return EventCardPos(logic);
-                            return cur_event != null ? cur_event.value : ctx_duration;
+                            if (on == "old_value")                   //增益属性变动：改之前的原值
+                            {
+                                object ov = EventVar(cur_event, "old");
+                                return ov is int ? (int)ov : 0;
+                            }
+                            return cur_event != null ? cur_event.value : ctx_duration;   //value 口 = 新值
                         }
                         if (src != null && !string.IsNullOrEmpty(src.category))
                         {
@@ -1733,6 +1867,7 @@ namespace TcgEngine.Workshop
         /// 运算符取 > &lt; &gt;= &lt;= == !=；值缺失（null）按「不存在」处理。</summary>
         private static bool CompareValues(object A, object B, string op)
         {
+            op = NormalizeCompareOp(op);   //★中文运算符（等于/大于…）与符号统一，避免绕过 uid 判等分支
             if (TryNumber(A, out double na) && TryNumber(B, out double nb))
             {
                 switch (op)
@@ -1859,19 +1994,19 @@ namespace TcgEngine.Workshop
                 }
                 case "102027":
                 {
-                    //获取卡牌属性：卡牌口按取值线解析，属性名下拉（攻击/生命/法力费用）
+                    //获取卡牌属性：卡牌口按取值线解析，属性名走共用表（攻击/生命/法力费用 + 运行时属性全表 + 自定义）
                     Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
-                    return c != null ? GetCardProp(c, GraphRuntime.GetFieldString(src, "propName", "攻击")) : (int?)null;
+                    return c != null ? CardPropReadByName(logic, c, ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "攻击"))) : (int?)null;
                 }
-                case "102004":   //获取属性（卡牌版，属性名可自由填；已知名走实际值，未知名按攻击）
+                case "102004":   //获取属性（卡牌版，属性名可自由填；已知名走实际值，未知名当自定义属性/关键词）
                 {
                     Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
-                    return c != null ? GetCardProp(c, GraphRuntime.GetFieldString(src, "propName", "攻击")) : (int?)null;
+                    return c != null ? CardPropReadByName(logic, c, ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "攻击"))) : (int?)null;
                 }
-                case "103020":   //获取卡牌定义属性（攻击/生命/法力费用）
+                case "103020":   //获取卡牌定义属性（数值型：攻击/生命/法力费用/花费/可构筑/自定义）
                 {
                     CardData d = ResolveInputDefine(logic, graph, src, "card", caster, target_card, target_player);
-                    return d != null ? DefineProp(d, GraphRuntime.GetFieldString(src, "propName", "攻击")) : (int?)null;
+                    return d != null ? DefineProp(d, ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "攻击"))) : (int?)null;
                 }
                 case "106004":
                 {
@@ -2031,8 +2166,11 @@ namespace TcgEngine.Workshop
                     {
                         case "102005": return c.GetMana();
                         case "102006": return c.GetAttack();
-                        case "102007": return c.GetHPMax();
-                        default:       return c.GetHP();
+                        //★英雄卡必须按**所属玩家**读生命：本引擎的玩家血量存在 Player.hp/hp_max（伤害走 DamagePlayer），
+                        //  英雄**卡**上的 hp/damage 不随之变化 → 直接读卡会让"英雄最大生命 − 英雄当前生命"恒为 0
+                        //  （实测：卡面"每失去1点生命值，费用减少1点"算不出值）。口径与 102018 是否濒死 / 读取卡牌属性 一致。
+                        case "102007": return HeroMaxHpForRead(logic, c);
+                        default:       return CardHpForRead(logic, c);
                     }
                 }
                 case "101002":   //获取玩家属性（Object 输出；整数字段：生命/最大生命/灵力/灵力上限/最大灵力值/击杀数）
@@ -2094,6 +2232,12 @@ namespace TcgEngine.Workshop
                 }
                 case "112003":   //整数常量：取字段值
                     return GraphRuntime.GetFieldInt(src, "value", 0);
+                case "GetCardPropValue":   //读取卡牌属性（整数通道）：真实数值
+                {
+                    Card rp_c2 = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
+                    string rp_prop2 = ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "当前生命值"));
+                    return rp_c2 != null ? (int?)CardPropReadValue(logic, rp_c2, rp_prop2) : null;
+                }
                 case "102019":   //获取护甲值（卡牌上的 Armor 状态值）
                 {
                     Card c = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
@@ -2272,8 +2416,15 @@ namespace TcgEngine.Workshop
                             }
                             if (src.action == "211001")   //遍历：element 输出口（Object 通道）
                                 return cur_loop_elem;
-                            if (src.action == "103025")   //获取卡牌定义所属卡池：CardData.packs 首个卡包
-                                return DefinePack(ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player));
+                            if (src.action == "103025")   //获取卡牌定义所属卡池：优先 CardData.packs；池卡回退"所属卡池文件"
+                            {
+                                CardData pk_def = ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player);
+                                PackData pk = DefinePack(pk_def);
+                                if (pk != null)
+                                    return pk;
+                                string pool_id = pk_def != null ? CardPoolIO.PoolIdOf(pk_def.id) : "";
+                                return string.IsNullOrEmpty(pool_id) ? null : (object)pool_id;
+                            }
                             if (src.action == "111036")   //转换集合类型：Object 通道取首个转换结果
                                 return ConvertToObject(logic, graph, src, caster, target_card, target_player);
                             if (src.type == GraphNodeType.Event)
@@ -2295,11 +2446,18 @@ namespace TcgEngine.Workshop
                                 if (out_name == "giver")
                                     return ctx_giver;
                                 if (out_name == "buff" || out_name == "buff_id")
-                                    return ctx_buff;
+                                    //事件携带的增益**定义**（「添加增益时」用，此时实例还没建）优先；其次增益图上下文（ctx_buff）
+                                    return EventVar(cur_event, "buff_def") ?? (object)ctx_buff;
+                                if (out_name == "buff_inst")
+                                    return EventVar(cur_event, "buff");      //增益属性变动：被改的增益
+                                if (out_name == "prop_name")
+                                    return EventVar(cur_event, "prop");      //增益属性变动：属性名称
                                 if (out_name == "duration")
                                     return ctx_duration;
                                 if (out_name == "player")
-                                    return target_player ?? PlayerOf(logic, caster);
+                                    //事件主体玩家优先（如「爆牌时」=爆牌的那一方）；无事件玩家时回退旧口径（选中玩家 → 施法卡拥有者）
+                                    return cur_event != null && cur_event.player != null
+                                        ? (object)cur_event.player : (target_player ?? PlayerOf(logic, caster));
                                 if (out_name == "enemy")
                                     return OpponentOf(logic, caster);
                                 if (out_name == "has_target" || out_name == "hasTarget")
@@ -2317,6 +2475,12 @@ namespace TcgEngine.Workshop
                             if (src.action == "102001")   //这张卡牌（Object 通道）：施法卡自身（与卡牌通道同口径）。
                             //★ 缺此分支时 112002 比较「目标==这张卡牌」会因 B 兜底成 target_card 而恒真 → 取反恒假（实测踩到）
                                 return caster;
+                            if (src.action == "GetCardDefineProp")   //读取卡牌定义属性（文本/数值混合，Object/String 通道）
+                            {
+                                CardData ddp = ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player);
+                                string dprop = ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "名称"));
+                                return DefinePropAny(ddp, dprop);
+                            }
                             if (src.action == "103023")   //获取卡牌定义的类型（返回中文类型名，可直接与卡牌类型字段比较）
                             {
                                 CardData d = ResolveInputDefine(logic, graph, src, "cardDefine", caster, target_card, target_player);
@@ -2325,12 +2489,12 @@ namespace TcgEngine.Workshop
                             if (src.action == "103020")   //获取卡牌定义属性（Object 通道）
                             {
                                 CardData d = ResolveInputDefine(logic, graph, src, "card", caster, target_card, target_player);
-                                return d != null ? (object)DefineProp(d, GraphRuntime.GetFieldString(src, "propName", "攻击")) : null;
+                                return d != null ? (object)DefineProp(d, ResolvePropName(src, GraphRuntime.GetFieldString(src, "propName", "攻击"))) : null;
                             }
                             if (src.action == "102004")   //获取属性（Object 通道）
                             {
                                 Card oc = ResolveInputCard(logic, graph, src, "card", caster, target_card, target_player);
-                                return oc != null ? (object)GetCardProp(oc, GraphRuntime.GetFieldString(src, "propName", "攻击")) : null;
+                                return oc != null ? (object)CardPropReadByName(logic, oc, GraphRuntime.GetFieldString(src, "propName", "攻击")) : null;
                             }
                             if (src.action == "112006")   //字符串常量（Object/String 通道）：直接返回字段值
                                 return GraphRuntime.GetFieldString(src, "value", "");
@@ -2393,7 +2557,7 @@ namespace TcgEngine.Workshop
                             if (src.action == "104005")   //获取卡牌快照属性（Object 通道）
                             {
                                 Card sc = SnapshotInput(logic, graph, src, caster, target_card, target_player);
-                                return sc != null ? (object)GetCardProp(sc, GraphRuntime.GetFieldString(src, "propName", "攻击")) : null;
+                                return sc != null ? (object)CardPropReadByName(logic, sc, GraphRuntime.GetFieldString(src, "propName", "攻击")) : null;
                             }
                             if (src.action == "104019")   //获取卡牌快照标签列表（String[]）
                             {
@@ -2812,8 +2976,10 @@ namespace TcgEngine.Workshop
                     }
                     else
                     {
-                        owner.cards_discard.Add(tcard);     //手牌满：直接进墓地（爆牌）
-                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " 手牌满 → 爆牌进墓地");
+                        //手牌满：直接进墓地（原作叫"爆牌"；用户已决定爆牌不做 → 不加任何爆牌事件，
+                        //保持既有行为：卡进墓地。这里若以后要"并入弃牌行为"，应改走 DiscardCard。）
+                        owner.cards_discard.Add(tcard);
+                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " 手牌满 → 进墓地");
                     }
                     break;
                 }
@@ -2857,11 +3023,21 @@ namespace TcgEngine.Workshop
                     GameLog.Log("[NodeDoc] 206002 移除增益 " + tcard.CardData?.id + " prop=" + prop);
                     break;
                 }
-                case "206003":   //设置增益属性：增益口(buffs, Buff[]) / 属性名(propName) + 值 → 写 Buff 实例（原生映射同步）；
-                                 //无 buffs 连线时回退旧路径（card 口 + buff_id 字段 + prop 字段 + 原生加成状态）
+                case "206003":   //设置增益属性：增益(buffs, Buff[]) + 属性名称(propName) + 值(Object 万能槽) → 写 Buff 实例
                 {
                     int value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(act, "value", 0));
+                    //值是 Object 万能槽（编辑器写 "类型:值"）：**无连线时**按类型解码（真值/整数 → 数值）
+                    GraphPin vpin = graph != null ? graph.GetPinByName(act.id, "value") : null;
+                    bool value_wired = vpin != null && graph.GetIncomingLink(act.id, vpin.id) != null;
+                    if (!value_wired)
+                    {
+                        object typed = DecodeTypedFieldValue(GraphRuntime.GetFieldString(act, "value", ""));
+                        if (typed is int)
+                            value = (int)typed;
+                        else if (typed is bool)
+                            value = ((bool)typed) ? 1 : 0;
+                    }
                     string prop = GraphRuntime.GetFieldString(act, "propName", "");
                     if (string.IsNullOrEmpty(prop))
                         prop = GraphRuntime.GetFieldString(act, "prop", "攻击加成");
@@ -2887,7 +3063,8 @@ namespace TcgEngine.Workshop
                                 Debug.LogWarning("[NodeDoc] 206003 设置增益属性：卡牌无该增益 buff_id=\"" + id + "\"");
                                 continue;
                             }
-                            BuffRuntime.SetPropValue(tc, id, prop, value);
+                            //带广播的写入口：原值→新值，先喊「增益属性变动时」（可阻止=保持原值），写完后喊「后」
+                            SetBuffPropWithEvent(logic, tc, id, prop, prop, value);
                             applied++;
                         }
                         GameLog.Log("[NodeDoc] 206003 设置增益属性 " + prop + "=" + value + " 增益数=" + applied);
@@ -2907,7 +3084,8 @@ namespace TcgEngine.Workshop
                             Debug.LogWarning("[NodeDoc] 206003 设置增益属性：卡牌无该增益 buff_id=\"" + buff_id + "\"");
                             break;
                         }
-                        BuffRuntime.SetPropByTarget(tcard, buff_id, target, value);
+                        //带广播的写入口（key 用 InstanceKey 换算，与原写入口完全一致）
+                        SetBuffPropWithEvent(logic, tcard, buff_id, BuffRuntime.InstanceKey(target), target, value);
                         GameLog.Log("[NodeDoc] 206003 设置增益属性 " + tcard.CardData?.id + " " + buff_id + "." + target + "=" + value);
                         break;
                     }
@@ -3028,9 +3206,18 @@ namespace TcgEngine.Workshop
                         if (c == null)
                             continue;
                         if (string.IsNullOrEmpty(cs_name))
+                        {
+                            //清空全部：先把"封印(沉默)"单独走事件门（可被「封印时」阻止），其余状态照旧清空
+                            SetSilenceWithEvent(logic, c, false, () => c.RemoveStatus(StatusType.Silenced));
                             c.status.Clear();     //与旧 EffectClearStatus(status=null) 一致
+                        }
                         else if (System.Enum.TryParse<StatusType>(cs_name, true, out StatusType cst) && cst != StatusType.None)
-                            c.RemoveStatus(cst);
+                        {
+                            if (cst == StatusType.Silenced)
+                                SetSilenceWithEvent(logic, c, false, () => c.RemoveStatus(StatusType.Silenced));
+                            else
+                                c.RemoveStatus(cst);
+                        }
                     }
                     GameLog.Log("[NodeDoc] ClearCardStatus 状态=" + (string.IsNullOrEmpty(cs_name) ? "(全部)" : cs_name)
                         + " 目标数=" + cs_cards.Count);
@@ -3054,8 +3241,14 @@ namespace TcgEngine.Workshop
                     {
                         if (c == null)
                             continue;
-                        c.hp = hp_value;
-                        c.damage = 0;   //旧 EffectSetStat(HP)：hp = value; damage = 0（202037 不清伤害 → 不等价）
+                        //旧 EffectSetStat(HP)：hp = value; damage = 0（202037 不清伤害 → 不等价）
+                        //★「卡牌属性变动时/后」广播：属性名固定「生命」；write 里连伤害计数一起清，保持原动作语义
+                        //  （所以值没变时也会执行 write，只是不广播 —— 见 SetCardPropWithEvent 注释）。
+                        SetCardPropWithEvent(logic, c, "生命", hp_value, () =>
+                        {
+                            c.hp = hp_value;
+                            c.damage = 0;
+                        });
                     }
                     GameLog.Log("[NodeDoc] SetCardHpClearDamage hp=" + hp_value + " 目标数=" + hp_cards.Count);
                     break;
@@ -3102,7 +3295,9 @@ namespace TcgEngine.Workshop
                     //引脚名对齐 NodeDoc.xml：旧实现只读 buff_id 字段，该口的连线被静默忽略
                     BuffData bdef = HasInputPin(graph, act, "buffDefine")
                         ? ResolveInputBuffDefine(logic, graph, act, "buffDefine", caster, target_card, target_player) : null;
-                    string buff_id = bdef != null ? bdef.id : GraphRuntime.GetFieldString(act, "buff_id", "");
+                    string buff_id = bdef != null ? bdef.id : GraphRuntime.GetFieldString(act, "buffDefine", "");
+                    if (string.IsNullOrEmpty(buff_id))
+                        buff_id = GraphRuntime.GetFieldString(act, "buff_id", "");   //★老图兼容（旧字段名 buff_id）
                     if (!string.IsNullOrEmpty(buff_id))
                     {
                         if (bdef == null)
@@ -3121,8 +3316,11 @@ namespace TcgEngine.Workshop
                                 continue;
                             //增益图「添加增益时/后」事件（防递归：嵌套触发由 BuffRuntime.RunGraph 深度限制兜底）
                             BuffRuntime.RunGraph(logic, t, bdef, "OnBuffAdding", caster, dur);
-                            BuffRuntime.AddBuff(t, bdef, dur);
-                            BuffRuntime.RunGraph(logic, t, bdef, "OnBuffAdded", caster, dur);
+                            //★AddBuff 内部广播全局图事件「添加增益时」（可阻止 → 返回 null、本次不施加）；
+                            //被阻止时不跑「添加增益后」的增益图（语义：没有添加成功就不再报"后"）
+                            CardBuff added_buff = BuffRuntime.AddBuff(logic, t, bdef, dur);
+                            if (added_buff != null)
+                                BuffRuntime.RunGraph(logic, t, bdef, "OnBuffAdded", caster, dur);
                         }
                         GameLog.Log("[NodeDoc] 206001 添加增益 " + bdef.title + " 目标数=" + targets.Count + " dur=" + dur);
                         break;
@@ -3155,17 +3353,99 @@ namespace TcgEngine.Workshop
                     int value = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
                         GraphRuntime.GetFieldInt(act, "value", 0));
                     string prop = GraphRuntime.GetFieldString(act, "propName", "攻击");
+                    //★「卡牌属性变动时/后」广播：口径A=只有这个动作的**显式设置**才算变动（受伤/治疗/增益重算不算）；
+                    //  同值不广播；「时」被阻止 → 保持原值（SetCardPropWithEvent 返回 false 时不再写入）。
+                    //  real_value = 钳到 0 之后的实际写入值，保证"广播的值"＝"真正写进去的值"。
+                    int real_value = Mathf.Max(value, 0);
                     switch (prop)
                     {
                         case "生命":
-                            tcard.hp = Mathf.Max(value, 0);
+                            SetCardPropWithEvent(logic, tcard, "生命", real_value, () => tcard.hp = real_value);
                             break;
                         case "法力":
                         case "法力费用":
-                            tcard.mana = Mathf.Max(value, 0);
+                            SetCardPropWithEvent(logic, tcard, "法力费用", real_value, () => tcard.mana = real_value);
                             break;
+                        //---- 运行时属性 / 状态存在性（参考图口径）----
+                        //这些属性同样进「卡牌属性变动时/后」：属性名称 = 下拉里的名字，值用 Int32
+                        //（布尔型 1=有 / 0=无，数值型就是数字）。口径与数值属性一致：只有显式设置才算变动、同值不广播。
+                        case "濒死":
+                            //濒死 = 当前生命 <= 0。值非 0 → 把当前生命打到 0（上限不变，走伤害计数）；
+                            //值 = 0 没有合法语义（不等于"起死回生"）→ 只记日志、不改数据。
+                            if (value == 0)
+                            {
+                                Debug.LogWarning("[NodeDoc] 202037 濒死=0 无对应语义（不会复活）→ 已忽略");
+                                break;
+                            }
+                            SetCardPropWithEvent(logic, tcard, "濒死", tcard.GetHP(), 0,
+                                () => tcard.damage = tcard.hp + tcard.hp_ongoing);
+                            break;
+                        case "当前生命值":
+                            //口径：**上限不变**，只改当前血量（等价于调整"已受伤害"计数）。
+                            //要改上限并回满，请用「设置生命值(清伤害)」节点。
+                            SetCardPropWithEvent(logic, tcard, "当前生命值", tcard.GetHP(), value,
+                                () => tcard.damage = Mathf.Clamp(tcard.hp + tcard.hp_ongoing - value, 0, tcard.hp + tcard.hp_ongoing));
+                            break;
+                        case "护甲值":
+                            SetCardPropWithEvent(logic, tcard, "护甲值", tcard.GetStatusValue(StatusType.Armor), value,
+                                () => tcard.SetStatusPresence(StatusType.Armor, value != 0, value));   //整值替换
+                            break;
+                        //封印 / 沉默 / 被封印 / 被沉默：**同一个状态**（StatusType.Silenced）的几种叫法，统一识别；
+                        //广播与读回统一用「被封印」这个名字（与参考图一致）。
+                        case "被封印":
+                        case "封印":
+                        case "被沉默":
+                        case "沉默":
+                            SetCardPropWithEvent(logic, tcard, "被封印", tcard.HasStatus(StatusType.Silenced) ? 1 : 0, value != 0 ? 1 : 0,
+                                () => tcard.SetStatusPresence(StatusType.Silenced, value != 0));
+                            break;
+                        case "被禁锢":
+                            SetCardPropWithEvent(logic, tcard, "被禁锢", tcard.GetStatusValue(StatusType.Freezing), value,
+                                () => tcard.SetStatusPresence(StatusType.Freezing, value != 0, value));   //值 = 冻结值
+                            break;
+                        case "具有隐匿":
+                            SetCardPropWithEvent(logic, tcard, "具有隐匿", tcard.HasStatus(StatusType.Stealth) ? 1 : 0, value != 0 ? 1 : 0,
+                                () => tcard.SetStatusPresence(StatusType.Stealth, value != 0));
+                            break;
+                        case "具有护盾":
+                            SetCardPropWithEvent(logic, tcard, "具有护盾", tcard.HasStatus(StatusType.Shell) ? 1 : 0, value != 0 ? 1 : 0,
+                                () => tcard.SetStatusPresence(StatusType.Shell, value != 0));
+                            break;
+                        case "已就绪":
+                            SetCardPropWithEvent(logic, tcard, "已就绪", tcard.exhausted ? 0 : 1, value == 0 ? 1 : 0,
+                                () => tcard.exhausted = value == 0);   //就绪=真 → 解除横置
+                            break;
+                        case "攻击次数":
+                            //TCG2 的口径是"本回合是否已攻击"（Game.cards_attacked，HashSet）+ 风怒可再动一次，
+                            //没有计数器。约定：值 <= 0 = 未攻击（清记录，可再攻击）；值 >= 1 = 已攻击。
+                            SetCardPropWithEvent(logic, tcard, "攻击次数",
+                                (logic.GameData != null && logic.GameData.cards_attacked.Contains(tcard.uid)) ? 1 : 0,
+                                value <= 0 ? 0 : 1,
+                                () =>
+                                {
+                                    if (logic.GameData == null)
+                                        return;
+                                    if (value <= 0)
+                                        logic.GameData.cards_attacked.Remove(tcard.uid);
+                                    else
+                                        logic.GameData.cards_attacked.Add(tcard.uid);
+                                });
+                            break;
+                        case "自定义":
+                        {
+                            //自定义属性（名字来自节点上的「自定义属性名」字段）：写**这张卡的当前值**（卡池声明给初始值）
+                            string cname = GraphRuntime.GetFieldString(act, "custom_prop", "");
+                            if (string.IsNullOrEmpty(cname))
+                            {
+                                Debug.LogWarning("[NodeDoc] 202037 属性名=自定义 但「自定义属性名」为空 → 已忽略");
+                                break;
+                            }
+                            SetCardPropWithEvent(logic, tcard, cname, tcard.GetCustomProp(cname), value,
+                                () => tcard.SetCustomProp(cname, value));
+                            break;
+                        }
                         default:    //攻击
-                            tcard.attack = Mathf.Max(value, 0);
+                            SetCardPropWithEvent(logic, tcard, "攻击", real_value, () => tcard.attack = real_value);
                             break;
                     }
                     GameLog.Log("[NodeDoc] 202037 设置卡牌属性 " + tcard.CardData?.id + " " + prop + "=" + value);
@@ -3224,19 +3504,21 @@ namespace TcgEngine.Workshop
                     GameLog.Log("[NodeDoc] 212004 设置临时变量 " + var_name);
                     break;
                 }
-                case "202015":   //沉默：v1=清空卡牌身上所有状态/特性/持续效果（TCG2 无逐效果沉默概念）
+                case "202015":   //沉默（zmcs）＝ 与「202040 封印」**同一机制**（原作输出口就叫「封印事件」；202040 是群体版）
                 {
-                    List<Card> targets = ResolveInputCards(logic, graph, act, "cards", caster, target_card);
-                    foreach (Card t in targets)
+                    //★封印/沉默统一：与 202040 逐行一致 —— 施加 Silenced，并走「封印时/后」广播（可阻止）。
+                    //  旧实现是"清空所有状态/特性/持续效果"，那不是原作语义（原作两者输出口都叫封印事件）。
+                    List<Card> cards = ResolveInputCards(logic, graph, act, "cards", caster, target_card);
+                    int n = 0;
+                    foreach (Card tc in cards)
                     {
-                        if (t == null)
+                        if (tc == null)
                             continue;
-                        foreach (CardStatus st in t.GetAllStatus())
-                            t.RemoveStatus(st.type);
-                        t.traits.Clear();
-                        t.ClearOngoing();
-                        GameLog.Log("[NodeDoc] 202015 沉默 " + t.CardData?.id);
+                        SetSilenceWithEvent(logic, tc, true, () => tc.AddStatus(StatusType.Silenced, 1, 0));
+                        if (tc.HasStatus(StatusType.Silenced))
+                            n++;
                     }
+                    GameLog.Log("[NodeDoc] 202015 沉默(=封印) " + n + " 张");
                     break;
                 }
                 case "202028":   //获得控制权：目标卡移交指定玩家（v1 仅转移归属，卡所在区域不变）
@@ -3538,7 +3820,16 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] 202014 禁锢失败：无目标卡");
                         break;
                     }
+                    //★ 图事件「禁锢时」（全场监听；事件主体=将被禁锢的卡）：
+                    //  与其它"时"入口一致，可被「阻止本事件」取消 → 被阻止则本次不施加禁锢。
+                    if (EmitEntryEvent(logic, FREEZE_BEFORE, GraphEventPhase.Before, tc, 1))
+                    {
+                        GameLog.Log("[NodeDoc] 202014 禁锢被「禁锢时」事件阻止：" + tc.CardData?.id);
+                        break;
+                    }
                     tc.AddStatus(StatusType.Freezing, 1, 0);
+                    //图事件「禁锢后」：禁锢状态已生效后再通知一次（事件主体=被禁锢的卡）
+                    EmitEntryEvent(logic, FREEZE_AFTER, GraphEventPhase.After, tc, 1);
                     GameLog.Log("[NodeDoc] 202014 禁锢 " + tc.CardData?.id);
                     break;
                 }
@@ -3548,11 +3839,12 @@ namespace TcgEngine.Workshop
                     int n = 0;
                     foreach (Card tc in cards)
                     {
-                        if (tc != null)
-                        {
-                            tc.AddStatus(StatusType.Silenced, 1, 0);
+                        if (tc == null)
+                            continue;
+                        //★「封印时/后」广播（口径A：只有显式施加才算；被「阻止本事件」取消 → 本次不施加）
+                        SetSilenceWithEvent(logic, tc, true, () => tc.AddStatus(StatusType.Silenced, 1, 0));
+                        if (tc.HasStatus(StatusType.Silenced))
                             n++;
-                        }
                     }
                     GameLog.Log("[NodeDoc] 202040 封印 " + n + " 张");
                     break;
@@ -3568,7 +3860,11 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] " + act.action + " 护甲失败：无玩家/英雄");
                         break;
                     }
-                    pl.hero.AddStatus(StatusType.Armor, Mathf.Max(count, 0), 0);
+                    //★「护甲变动时/后」广播（口径A：只有显式改写才算变动）：增加护甲 = 旧值 + 加值（与 AddStatus 的累加语义一致）
+                    int add = Mathf.Max(count, 0);
+                    int old_armor = pl.hero.GetStatusValue(StatusType.Armor);
+                    SetArmorWithEvent(logic, pl.hero, old_armor, old_armor + add,
+                        () => pl.hero.AddStatus(StatusType.Armor, add, 0));
                     GameLog.Log("[NodeDoc] " + act.action + " 护甲 +" + count + " → " + pl.hero.CardData?.id);
                     break;
                 }
@@ -3584,9 +3880,14 @@ namespace TcgEngine.Workshop
                     }
                     Card h = pl.hero;
                     int cur = h.GetStatusValue(StatusType.Armor);
-                    h.RemoveStatus(StatusType.Armor);
-                    if (cur > count)
-                        h.AddStatus(StatusType.Armor, cur - count, 0);
+                    int left = Mathf.Max(cur - count, 0);
+                    //★「护甲变动时/后」广播：整值替换（先移除再按剩余值重挂），原值=cur、值=left
+                    SetArmorWithEvent(logic, h, cur, left, () =>
+                    {
+                        h.RemoveStatus(StatusType.Armor);
+                        if (left > 0)
+                            h.AddStatus(StatusType.Armor, left, 0);
+                    });
                     GameLog.Log("[NodeDoc] 202020 护甲 -" + count + " → " + Mathf.Max(cur - count, 0));
                     break;
                 }
@@ -3755,11 +4056,70 @@ namespace TcgEngine.Workshop
                         else if (target_player != null)
                             logic.DamagePlayer(caster, target_player, value);
                     }
-                    else if (targets.Count > 0 && value > 0)
+                    else if (value > 0)
                     {
-                        for (int i = 0; i < value; i++)   //总伤害逐点随机分配（zmcs 原为玩家分配，v1 近似随机）
-                            logic.DamageCard(caster, targets[GraphRuntime.RandInt(0, targets.Count)], 1, true);
+                        //★"对敌人分配 N 点伤害"（复仇之怒类）：**先逐点随机分配算出每个目标吃几点，再按目标一次性结算**。
+                        // 为什么不是"逐点各调一次 DamageCard"：
+                        //  ① 每次调用都会发一条伤害消息给客户端（onCardDamaged → MsgCardValue）→ 8 次调用 = 8 个"1"叠在一起，
+                        //     客户端看起来就是"只有 1 点"（实测的显示问题）；
+                        //  ② 分配过程中目标可能被打死，后续点数还往死卡上打 → 伤害凭空消失（8 点只打出五六点）。
+                        // 做法：用本地血量账本模拟分配（死了就从候选池剔除，剩余点数打脸），最后每个目标/玩家各结算一次。
+                        List<Card> alive = new List<Card>();
+                        Dictionary<Card, int> hp_book = new Dictionary<Card, int>();
+                        foreach (Card t in targets)
+                        {
+                            if (t == null)
+                                continue;
+                            int hp_now = CardHpForRead(logic, t);   //★英雄感知：英雄卡的血在所属玩家身上
+                            if (hp_now > 0)
+                            {
+                                alive.Add(t);
+                                hp_book[t] = hp_now;
+                            }
+                        }
+                        if (alive.Count == 0)
+                            Debug.LogWarning("[NodeDoc] 202012 分配伤害：候选目标全部已死/为空 → "
+                                + value + " 点伤害将全部打脸（检查 targets 口接线与「获取敌方角色」筛选）");
+
+                        Dictionary<Card, int> assign = new Dictionary<Card, int>();
+                        int face = 0;
+                        for (int i = 0; i < value; i++)
+                        {
+                            if (alive.Count == 0)
+                            {
+                                face++;     // 卡目标全死 → 剩余点数打脸（"敌人"包含英雄）
+                                continue;
+                            }
+                            Card hit = alive[GraphRuntime.RandInt(0, alive.Count)];
+                            assign[hit] = (assign.ContainsKey(hit) ? assign[hit] : 0) + 1;
+                            hp_book[hit] = hp_book[hit] - 1;
+                            if (hp_book[hit] <= 0)
+                                alive.Remove(hit);   // 账本里死了就移出候选池，剩余点数不再浪费
+                        }
+
+                        int total_cards = 0;
+                        foreach (KeyValuePair<Card, int> kv in assign)
+                        {
+                            logic.DamageCard(caster, kv.Key, kv.Value, true);   //一次性结算 → 客户端一个正确数字
+                            total_cards += kv.Value;
+                            GameLog.Log("[NodeDoc] 202012 分配伤害 → " + (kv.Key.CardData != null ? kv.Key.CardData.id : "?")
+                                + " " + kv.Value + " 点");
+                        }
+                        if (face > 0)
+                        {
+                            Player enemy = OpponentOf(logic, caster);
+                            if (enemy != null)
+                            {
+                                logic.DamagePlayer(caster, enemy, face);
+                                GameLog.Log("[NodeDoc] 202012 分配伤害 → 玩家 p" + enemy.player_id + " " + face + " 点（卡目标已死）");
+                            }
+                            else
+                                Debug.LogWarning("[NodeDoc] 202012 剩余 " + face + " 点伤害找不到敌方玩家 → 已丢弃");
+                        }
+                        Debug.Log("[复仇之怒类] 分配伤害 总量=" + value + " → 卡 " + total_cards + " 点 + 打脸 " + face + " 点");
                     }
+                    else if (targets.Count == 0)
+                        Debug.LogWarning("[NodeDoc] 202012 目标集合为空 → 未造成任何伤害（检查 targets 口接线 /「获取敌方角色」）");
                     GameLog.Log("[NodeDoc] " + act.action + " 法术伤害 value=" + value + " 目标数=" + targets.Count);
                     break;
                 }
@@ -4328,7 +4688,7 @@ namespace TcgEngine.Workshop
                             + "」不是内存副本 → 已跳过（请先接「复制卡牌定义」再改，避免污染资产）");
                         break;
                     }
-                    string pname = GraphRuntime.GetFieldString(act, "name", "");
+                    string pname = ResolvePropName(act, GraphRuntime.GetFieldString(act, "name", ""));
                     object pval = GetObjectInput(logic, graph, act, "value", caster, target_card, target_player);
                     if (pval == null)
                         pval = GraphRuntime.GetFieldInt(act, "value", 0);
@@ -5063,10 +5423,11 @@ namespace TcgEngine.Workshop
                     List<Card> list = ResolveArrayCards(logic, graph, node, caster, target_card, target_player);
                     bool desc = GetBoolInput(logic, graph, node, "descending", caster, target_card, target_player,
                         GraphRuntime.GetFieldString(node, "descending", "false") == "true");
-                    string prop = GraphRuntime.GetFieldString(node, "prop", "攻击");
+                    //属性名走共用表（含运行时属性与自定义；ResolvePropName 负责把「自定义」换成自定义属性名）
+                    string prop = ResolvePropName(node, GraphRuntime.GetFieldString(node, "prop", "攻击"));
                     list.Sort((a, b) => desc
-                        ? GetCardProp(b, prop).CompareTo(GetCardProp(a, prop))
-                        : GetCardProp(a, prop).CompareTo(GetCardProp(b, prop)));
+                        ? CardPropReadByName(logic, b, prop).CompareTo(CardPropReadByName(logic, a, prop))
+                        : CardPropReadByName(logic, a, prop).CompareTo(CardPropReadByName(logic, b, prop)));
                     return list;
                 }
                 case "111026":   //获取集合内前X个元素
@@ -5856,12 +6217,33 @@ namespace TcgEngine.Workshop
                     if (link != null)
                     {
                         GraphNode src = graph.GetNode(link.from_node);
+                        if (src != null && src.type == GraphNodeType.Event)
+                        {
+                            //★光环效果入口的「目标增益」输出口：返回本次刚施加的增益实例
+                            //（GameLogic.SyncAuraEffects → RunAuraActionLine 期间暴露 aura_grant_buff）。
+                            //这样「106004 获取增益属性 / 106005 获取增益定义」等节点就能直接接在光环出口上。
+                            if (src.action == "AuraEffect")
+                                return AuraGrantBuffRef(logic, target_card);
+                            return EventVar(cur_event, "buff") as BuffRef;   //★ 事件入口/增益触发入口的「增益」输出口（供 106004 等消费）
+                        }
                         if (src != null && !string.IsNullOrEmpty(src.category))
                             return ResolveValueBuff(logic, graph, src, caster, target_card, target_player);
                     }
                 }
             }
             return CurrentBuffRef(caster);
+        }
+
+        /// <summary>光环效果入口的「目标增益」输出口取值：本次刚施加的增益实例
+        /// （GameLogic.SyncAuraEffects → RunAuraActionLine 期间暴露 aura_grant_buff）。
+        /// 单数/复数两条通道共用，否则「206003 设置增益属性」这类走复数口（buffs）的节点拿不到实例
+        /// → 会退回"本次目标卡"再报"无目标卡"，动作线等于什么都没干（实测踩到）。</summary>
+        private static BuffRef AuraGrantBuffRef(GameLogic logic, Card target_card)
+        {
+            CardBuff aura_buff = logic != null ? logic.aura_grant_buff : null;
+            if (aura_buff == null)
+                return null;
+            return new BuffRef { card = target_card, buff = aura_buff, buff_id = aura_buff.buff_id };
         }
 
         /// <summary>解析 Buff 集合型输入口（单增益来源 → 单元素列表）</summary>
@@ -5878,6 +6260,14 @@ namespace TcgEngine.Workshop
                     if (link != null)
                     {
                         GraphNode src = graph.GetNode(link.from_node);
+                        //★光环效果入口的「目标增益」口（复数通道：206003 等用它）
+                        if (src != null && src.type == GraphNodeType.Event && src.action == "AuraEffect")
+                        {
+                            BuffRef aura = AuraGrantBuffRef(logic, target_card);
+                            if (aura != null)
+                                result.Add(aura);
+                            return result;
+                        }
                         if (src != null && !string.IsNullOrEmpty(src.category))
                         {
                             List<BuffRef> list = ResolveBuffList(logic, graph, src, caster, target_card, target_player);
@@ -6106,7 +6496,12 @@ namespace TcgEngine.Workshop
             }
         }
 
-        /// <summary>103020 属性名 → 卡牌定义（CardData）上的基础数值（攻击/生命/法力费用；未知按攻击）</summary>
+        /// <summary>103020 属性名 → 卡牌定义（CardData）上的**数值型**属性。
+        /// 数值型口径 = 攻击 / 生命 / 法力费用 / 花费 / 可构筑(0-1) / 自定义（卡池声明的初始值）。
+        /// ★ 文本型定义属性（名称/描述/文本/类型/阵营/稀有度/种族/关键词/卡包）**不在这里**：
+        ///   项目为它们各有专用节点（103023 类型名、103006 关键词、103010~103012 花费/攻击/生命 等），
+        ///   硬塞进一个整数输出会把"名称"这类文本退化成 0，反而更糟。
+        /// 未知名字：先当**自定义属性**（卡池声明初始值），再退回攻击（与旧行为一致）。</summary>
         private static int DefineProp(CardData d, string prop)
         {
             if (d == null)
@@ -6118,9 +6513,126 @@ namespace TcgEngine.Workshop
                 case "法力":
                 case "法力费用":
                     return d.mana;
+                case "花费":
+                    return d.cost;
+                case "可构筑":
+                    return d.deckbuilding ? 1 : 0;
                 default:
+                    if (IsDeclaredDefineCustomProp(d, prop))
+                        return DefineCustomPropValue(d, prop);
                     return d.attack;
             }
+        }
+
+        /// <summary>该名字是否是卡池为这张**定义**声明过的自定义属性。</summary>
+        private static bool IsDeclaredDefineCustomProp(CardData d, string prop)
+        {
+            if (d == null || string.IsNullOrEmpty(prop))
+                return false;
+            CardCustomData raw = CardPoolIO.GetCustomData(d.id);
+            return raw != null && raw.FindCustomProp(prop) != null;
+        }
+
+        /// <summary>读卡牌定义的自定义属性（卡池声明里的初始值；找不到 → 0）。</summary>
+        private static int DefineCustomPropValue(CardData d, string prop)
+        {
+            if (d == null || string.IsNullOrEmpty(prop))
+                return 0;
+            CardCustomData raw = CardPoolIO.GetCustomData(d.id);
+            return raw != null ? raw.CustomPropInit(prop) : 0;
+        }
+
+        /// <summary>「读取卡牌定义属性（文本）」的统一实现：**文本型返回文字、数值型返回整数**（object）。
+        /// 文本型正是 103020（整数输出）装不下的那些：名称/描述/文本/类型/阵营/稀有度/种族/关键词/卡包；
+        /// 其余（攻击/生命/法力费用/花费/可构筑/自定义）交回 DefineProp 走整数口径。</summary>
+        private static object DefinePropAny(CardData d, string prop)
+        {
+            if (d == null)
+                return null;
+            switch (prop)
+            {
+                case "名称":
+                case "名字":
+                case "title":
+                    return d.title;
+                case "描述":
+                case "desc":
+                    return d.desc;
+                case "文本":
+                case "text":
+                    return d.text;
+                case "类型":
+                    return CardTypeName(d.type);
+                case "阵营":
+                case "颜色":
+                case "team":
+                    return d.team != null ? (string.IsNullOrEmpty(d.team.title) ? d.team.id : d.team.title) : "";
+                case "稀有度":
+                case "rarity":
+                    return d.rarity != null ? (string.IsNullOrEmpty(d.rarity.title) ? d.rarity.id : d.rarity.title) : "";
+                case "种族":
+                case "traits":
+                    return DefineTraitText(d);
+                case "关键词":
+                case "keywords":
+                    return DefineKeywordText(d);
+                case "卡包":
+                case "packs":
+                    return DefinePackText(d);
+                default:
+                    return DefineProp(d, prop);     //攻击/生命/法力费用/花费/可构筑/自定义 → 整数
+            }
+        }
+
+        /// <summary>定义上的种族文字（多个用 / 连接；标题优先，空则用 id）。</summary>
+        private static string DefineTraitText(CardData d)
+        {
+            if (d == null || d.traits == null)
+                return "";
+            string s = "";
+            foreach (TraitData t in d.traits)
+            {
+                if (t == null)
+                    continue;
+                string n = string.IsNullOrEmpty(t.title) ? t.id : t.title;
+                if (!string.IsNullOrEmpty(n))
+                    s += (s.Length > 0 ? "/" : "") + n;
+            }
+            return s;
+        }
+
+        /// <summary>定义上的关键词文字（多个用 / 连接；标题优先，空则用 id）。</summary>
+        private static string DefineKeywordText(CardData d)
+        {
+            if (d == null || d.keywords == null)
+                return "";
+            string s = "";
+            foreach (KeywordData k in d.keywords)
+            {
+                if (k == null)
+                    continue;
+                string n = string.IsNullOrEmpty(k.title) ? k.id : k.title;
+                if (!string.IsNullOrEmpty(n))
+                    s += (s.Length > 0 ? "/" : "") + n;
+            }
+            return s;
+        }
+
+        /// <summary>定义所属卡包文字（多个用 / 连接；标题优先，空则用 id）。</summary>
+        private static string DefinePackText(CardData d)
+        {
+            if (d == null || d.packs == null)
+                return "";
+            string s = "";
+            foreach (PackData p in d.packs)
+            {
+                if (p == null)
+                    continue;
+                string n = string.IsNullOrEmpty(p.title) ? p.id : p.title;
+                if (!string.IsNullOrEmpty(n))
+                    s += (s.Length > 0 ? "/" : "") + n;
+            }
+            return s;
         }
 
         /// <summary>103006 卡牌定义是否带指定关键词（id 或标题）</summary>
@@ -6263,6 +6775,7 @@ namespace TcgEngine.Workshop
                 case CardType.Hero: return "英雄";
                 case CardType.Artifact: return "神器";
                 case CardType.Equipment: return "装备";
+                case CardType.Skill: return "技能";
                 case CardType.Secret: return "奥秘";
                 default: return t.ToString();
             }
@@ -6631,21 +7144,42 @@ namespace TcgEngine.Workshop
                 v = GraphRuntime.GetFieldInt(node, "value", 0);
             int iv = ToInt(v);
 
+            //规范属性名（给「卡牌属性变动时/后」广播用；与 202037「设置卡牌属性」同一套口径，
+            //另加「已受伤害」= 伤害计数，它不是 3 个正属性之一，但这里确实被显式改写了，照样广播）
+            string card_prop;
+            System.Action write;
             if (prop.Contains("攻击"))
-                c.attack = iv;
+            {
+                card_prop = "攻击";
+                write = () => c.attack = iv;
+            }
             else if (prop.Contains("最大生命") || prop.Contains("生命上限"))
-                c.hp = iv;
+            {
+                card_prop = "生命";
+                write = () => c.hp = iv;
+            }
             else if (prop.Contains("已受") || prop.Contains("受到"))
-                c.damage = iv;
+            {
+                card_prop = "已受伤害";
+                write = () => c.damage = iv;
+            }
             else if (prop.Contains("生命"))
-                c.hp = iv;
+            {
+                card_prop = "生命";
+                write = () => c.hp = iv;
+            }
             else if (prop.Contains("法力") || prop.Contains("费用"))
-                c.mana = iv;
+            {
+                card_prop = "法力费用";
+                write = () => c.mana = iv;
+            }
             else
             {
                 Debug.LogWarning("[NodeDoc] 202007 设置属性：暂不支持的属性名「" + prop + "」（已忽略）");
                 return c;
             }
+            //★「卡牌属性变动时/后」广播（口径A：只有这个动作的显式设置算变动）
+            SetCardPropWithEvent(logic, c, card_prop, iv, write);
             Debug.Log("[NodeDoc] 202007 设置属性（运行期内存）：" + GraphEventLog.CardName(c) + " 的 " + prop + " → " + iv);
             return c;
         }
@@ -6693,7 +7227,7 @@ namespace TcgEngine.Workshop
                         ? input : CloneDefine(input);
                     if (d == null)
                         return null;
-                    string name = GraphRuntime.GetFieldString(node, "name", "");
+                    string name = ResolvePropName(node, GraphRuntime.GetFieldString(node, "name", ""));
                     object val = GetObjectInput(logic, graph, node, "value", caster, target_card, target_player);
                     if (val == null)
                         val = GraphRuntime.GetFieldInt(node, "value", 0);
@@ -6772,8 +7306,26 @@ namespace TcgEngine.Workshop
                 d.attack = iv;
             else if (n.Contains("生命") || n.Contains("血量"))
                 d.hp = iv;
+            else if (n.Contains("花费") || n == "cost")
+                d.cost = iv;
+            else if (n.Contains("可构筑"))
+                d.deckbuilding = iv != 0;
             else if (n.Contains("类型"))
                 d.type = ParseCardType(val, d.type);
+            else if (IsDeclaredDefineCustomProp(d, n))
+            {
+                //自定义属性：改的是卡池登记表里的**内存声明**初始值（不落盘 —— 与"只做运行期内存修改"一致）
+                CardCustomData raw = CardPoolIO.GetCustomData(d.id);
+                BuffCustomProp cdef = raw != null ? raw.FindCustomProp(n) : null;
+                if (cdef != null)
+                    cdef.init_value = iv.ToString();
+            }
+            else if (CardPoolIO.GetCustomData(d.id) != null)
+            {
+                //卡池卡第一次写这个自定义属性 → 直接补一条声明（否则以后读不到它）
+                CardPoolIO.GetCustomData(d.id).AddCustomProp(n, "int", false, iv.ToString());
+                Debug.Log("[NodeDoc] 203003 新建自定义属性声明（内存）：「" + n + "」= " + iv);
+            }
             else
                 Debug.LogWarning("[NodeDoc] 203003 设置卡牌定义属性：暂不支持的属性名「" + n + "」（已忽略）");
         }
@@ -6805,12 +7357,442 @@ namespace TcgEngine.Workshop
         // TCG2 的「效果」= AbilityData（由 AbilityTrigger 驱动）。zmcs 的枚举与 TCG2 触发点**不是一一对应**：
         //  · 107008 效果类型：主动/被动/事件/光环 —— 与四种入口一一对应（ActivateEffect/PassiveEffect/EventEffect/AuraEffect）
         //  · 107010 事件类型：仅部分 zmcs 事件在 TCG2 有触发点（攻击时/攻击后/伤害时/治疗时/死亡时/回合开始/回合结束/抽到/打出…）；
-        //    「添加增益时/后、爆牌时/后、卡牌属性变动时/后」等 **TCG2 无对应触发点** → 判假并打日志（绝不静默）
+        //    「添加增益时/后」已接入（见 effect_event_map）；「爆牌时/后」按用户决定**下线**（节点与广播已移除）；
+        //    其余**未登记**的事件名仍判假并打日志（绝不静默）
         //  · 107002 效果标签：宣言≈主动(OnPlay/Activate)、遗言≈亡语(OnDeath)；陷阱/自定义 **TCG2 无对应** → 判假并打日志
+
+        // ================== 事件入口广播小工具 ==================
+        // 新增一个「XX时/后」入口时：①在 GraphEditorPanel.BuildGraphEventPresets 登记 ②在 AbilityTrigger 追加枚举
+        // ③在 CardPoolIO.MapGraphTrigger 映射 ④在 IsEventTrigger / EffectEventMap 登记 ⑤在改动状态的那行调下面这个方法广播。
+        // 只做①②③④而没有⑤ = 节点能拖出来但永远是死的（这一步才是"真实现"）。
+
+        public const string FREEZE_BEFORE = "OnBeforeFreeze";
+        public const string FREEZE_AFTER = "OnAfterFreeze";
+        public const string BUFF_PROP_BEFORE = "OnBeforeBuffPropChange";
+        public const string BUFF_PROP_AFTER = "OnAfterBuffPropChange";
+        public const string CARD_PROP_BEFORE = "OnBeforeCardPropChange";
+        public const string CARD_PROP_AFTER = "OnAfterCardPropChange";
+        public const string ARMOR_BEFORE = "OnBeforeArmorChange";
+        public const string ARMOR_AFTER = "OnAfterArmorChange";
+        public const string SILENCE_BEFORE = "OnBeforeSilenceChange";
+        public const string SILENCE_AFTER = "OnAfterSilenceChange";
+        public const string ADD_BUFF_BEFORE = "OnBeforeAddBuff";
+        public const string ADD_BUFF_AFTER = "OnAfterAddBuff";
+        //（「爆牌时/后」的常量与广播器已下线：用户决定"爆牌不做"）
+
+        /// <summary>广播「添加增益后」（由 BuffRuntime.AddBuff 在施加成功后调用，不可阻止）。
+        /// 图侧出口：卡牌(card) / 增益(buff_inst = 增益**实例** BuffRef，可读施加后的数值)。</summary>
+        public static void EmitAddBuffAfter(GameLogic logic, Card card, BuffData define, CardBuff buff)
+        {
+            if (logic == null || card == null)
+                return;
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = ADD_BUFF_AFTER;
+            ctx.phase = GraphEventPhase.After;
+            ctx.card = card;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            ctx.value = 0;
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["buff"] = buff != null ? new BuffRef { card = card, buff = buff, buff_id = buff.buff_id } : null;
+            ctx.vars["buff_def"] = define;
+            logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>广播「添加增益时」（由 BuffRuntime.AddBuff 在施加前调用）。
+        /// 图侧出口：卡牌(card) / 增益(buff —— 此刻实例还没建，给的是**增益定义** BuffData)；
+        /// 返回 true = 被「阻止本事件」取消 → 本次不施加增益。</summary>
+        public static bool EmitAddBuffBefore(GameLogic logic, Card card, BuffData define)
+        {
+            if (logic == null || card == null)
+                return false;
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = ADD_BUFF_BEFORE;
+            ctx.phase = GraphEventPhase.Before;
+            ctx.card = card;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            ctx.value = 0;
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["buff_def"] = define;   //"时"：增益实例尚未创建 → 给定义（BuffData）
+            return logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>
+        /// 广播「增益属性变动时/后」：除主体卡外另带三项数据（增益/属性名称/原值），新值走 ctx.value。
+        /// 图侧按入口输出口读取：增益(buff_inst) / 属性名称(prop_name) / 原值(old_value) / 值(value)。
+        /// 返回 true = 被「阻止本事件」取消（仅"时"有效）→ 调用方保持原值、不写入。
+        /// </summary>
+        private static bool EmitBuffPropEvent(GameLogic logic, string action, GraphEventPhase phase,
+            Card card, CardBuff buff, string prop, int old_value, int new_value)
+        {
+            if (logic == null || string.IsNullOrEmpty(action) || card == null)
+                return false;
+
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;
+            ctx.card = card;
+            ctx.value = new_value;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["buff"] = buff != null ? new BuffRef { card = card, buff = buff, buff_id = buff.buff_id } : null;
+            ctx.vars["prop"] = prop;
+            ctx.vars["old"] = old_value;
+            return logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>读事件携带的数据（新增入口把 增益/属性名/原值 放在 ctx.vars 里）</summary>
+        private static object EventVar(GraphEventContext ctx, string key)
+        {
+            if (ctx == null || ctx.vars == null || string.IsNullOrEmpty(key))
+                return null;
+            return ctx.vars.ContainsKey(key) ? ctx.vars[key] : null;
+        }
+
+        /// <summary>
+        /// 写增益属性并广播「增益属性变动时/后」（口径A：只有这里主动改写才算"变动"）。
+        ///   · 原值与新值相同时**不广播**（避免"设成同值"也报一次）
+        ///   · 「时」被阻止 → 保持原值，不写入
+        /// key = 实际写入的属性键（攻击加成…）；display_prop = 给图看的属性名（攻击…）。
+        /// </summary>
+        private static bool SetBuffPropWithEvent(GameLogic logic, Card card, string buff_id,
+            string key, string display_prop, int value)
+        {
+            CardBuff buff = BuffRuntime.GetBuff(card, buff_id);
+            if (buff == null)
+                return false;
+
+            int old_value = buff.GetProp(key);
+            if (old_value == value)
+                return false;
+
+            if (EmitBuffPropEvent(logic, BUFF_PROP_BEFORE, GraphEventPhase.Before, card, buff, display_prop, old_value, value))
+                return false;
+
+            buff.SetProp(key, value);
+            BuffRuntime.Reapply(card);
+
+            EmitBuffPropEvent(logic, BUFF_PROP_AFTER, GraphEventPhase.After, card, buff, display_prop, old_value, value);
+            return true;
+        }
+
+        /// <summary>
+        /// 广播「卡牌属性变动时/后」：主体=被改的卡（入口的「卡牌」输出口即取它），另带 属性名称/原值 两项，新值走 ctx.value。
+        /// 图侧按入口输出口读取：卡牌(card) / 属性名称(prop_name) / 原值(old_value) / 值(value)。
+        /// 返回 true = 被「阻止本事件」取消（仅"时"有效）→ 调用方保持原值、不写入。
+        /// </summary>
+        private static bool EmitCardPropEvent(GameLogic logic, string action, GraphEventPhase phase,
+            Card card, string prop, int old_value, int new_value)
+        {
+            if (logic == null || string.IsNullOrEmpty(action) || card == null)
+                return false;
+
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;
+            ctx.card = card;
+            ctx.value = new_value;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["prop"] = prop;
+            ctx.vars["old"] = old_value;
+            return logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>「属性名称」→ 102027 GetCardProp 的「基础*」属性名（**复用**项目已有的取值器，不再另写一份）。
+        /// 为什么用「基础*」：写入点改的都是**基础字段**（tcard.hp / tcard.attack / tcard.mana），
+        /// 「原值」必须同口径读 —— 用实值（GetHP/GetAttack）会把常驻修正与状态加成算进来，
+        /// 于是"原值 5 → 值 3"这种对比会误导图（5 含加成、3 不含）。
+        /// 「已受伤害」（伤害计数，仅 202007 用）不在这张表里，由调用处单列。</summary>
+        private static string BasePropName(string prop)
+        {
+            switch (prop)
+            {
+                case "生命":
+                case "最大生命":
+                case "生命上限":
+                    return "基础生命";
+                case "法力":
+                case "法力费用":
+                    return "基础费用";
+                default:    //攻击
+                    return "基础攻击";
+            }
+        }
+
+        /// <summary>英雄感知的生命读取：英雄卡的 `hp` 字段恒为 0，血量存在所属玩家身上
+        /// （与 102018「是否濒死」的 F1/F13 修复同口径，避免英雄"恒濒死/恒 0 血"）。</summary>
+        private static int CardHpForRead(GameLogic logic, Card c)
+        {
+            if (c == null)
+                return 0;
+            if (c.CardData != null && c.CardData.type == CardType.Hero && logic != null && logic.GameData != null)
+            {
+                Player hp_owner = logic.GameData.GetPlayer(c.player_id);
+                if (hp_owner != null)
+                    return hp_owner.hp;
+            }
+            return c.GetHP();
+        }
+
+        /// <summary>英雄感知的**最大生命**读取：英雄卡回退到所属玩家的 hp_max（与 CardHpForRead 同口径）。</summary>
+        private static int HeroMaxHpForRead(GameLogic logic, Card c)
+        {
+            if (c == null)
+                return 0;
+            if (c.CardData != null && c.CardData.type == CardType.Hero && logic != null && logic.GameData != null)
+            {
+                Player hp_owner = logic.GameData.GetPlayer(c.player_id);
+                if (hp_owner != null)
+                    return hp_owner.hp_max;
+            }
+            return c.GetHPMax();
+        }
+
+        /// <summary>「读取卡牌属性」的数值实现：属性名口径与「设置卡牌属性」(202037) **完全一致**
+        /// （同一张表 CARD_RUNTIME_PROP_NAMES）。布尔型属性返回 1/0；数值型返回真实数字；
+        /// 未知名字按**关键词**查询（HasKeyword → 1/0，这样自定义关键词也能读）。</summary>
+        private static int CardPropReadValue(GameLogic logic, Card c, string prop)
+        {
+            if (c == null)
+                return 0;
+            switch (prop)
+            {
+                case "攻击":
+                    return c.GetAttack();
+                case "最大生命":
+                case "最大生命值":
+                    return HeroMaxHpForRead(logic, c);   //★英雄卡 → 所属玩家的 hp_max（与当前生命同口径）
+                case "生命":
+                case "当前生命值":
+                    return CardHpForRead(logic, c);
+                case "法力":
+                case "法力费用":
+                    return c.GetMana();
+                case "护甲值":
+                    return c.GetStatusValue(StatusType.Armor);
+                case "被禁锢":
+                    return c.GetStatusValue(StatusType.Freezing);      //值 = 冻结值
+                case "被封印":
+                case "封印":
+                case "被沉默":
+                case "沉默":
+                    return c.HasStatus(StatusType.Silenced) ? 1 : 0;
+                case "具有隐匿":
+                    return c.HasStatus(StatusType.Stealth) ? 1 : 0;
+                case "具有护盾":
+                    return c.HasStatus(StatusType.Shell) ? 1 : 0;
+                case "已就绪":
+                    return c.exhausted ? 0 : 1;
+                case "濒死":
+                    return CardHpForRead(logic, c) <= 0 ? 1 : 0;
+                case "攻击次数":
+                    return (logic != null && logic.GameData != null && logic.GameData.cards_attacked.Contains(c.uid)) ? 1 : 0;
+                default:
+                    //未知名字：先当**自定义属性**（卡池声明的初始值 + 本卡当前值；两者任一成立即按自定义属性读），
+                    //再当**关键词**（自定义关键词也能读）。
+                    if (c.IsDeclaredCustomProp(prop) || c.HasStoredCustomPropValue(prop))
+                        return c.GetCustomProp(prop);
+                    return c.HasKeyword(prop) ? 1 : 0;
+            }
+        }
+
+        /// <summary>属性名解析：属性名下拉选「自定义」时，改用同一节点上的「自定义属性名」字段值。
+        /// 所有"卡牌属性 / 卡牌定义属性"的读写节点都走这里 → 「自定义」这条路径处处一致。
+        /// 自定义名为空则原样返回（读取会得到兜底值、写入会打警告，绝不静默写错属性）。</summary>
+        private static string ResolvePropName(GraphNode node, string prop)
+        {
+            if (prop != "自定义")
+                return prop;
+            string custom = GraphRuntime.GetFieldString(node, "custom_prop", "");
+            return string.IsNullOrEmpty(custom) ? prop : custom;
+        }
+
+        /// <summary>卡牌属性读取的**统一入口**（老节点 102027 获取卡牌属性 / 102004 获取属性 / 104005 快照属性 都走这里）：
+        ///   · 属性名以「基础」开头 → 走老口径 GetCardProp（读**基础字段**，不含常驻修正/状态加成，供"加属性"类迁移）；
+        ///   · 其余 → 走 CardPropReadValue（与「读取卡牌属性」新节点共用同一张表 CARD_RUNTIME_PROP_NAMES）。
+        /// 这样下拉换成共用表之后，老节点也能真读到 濒死/护甲值/具有隐匿… 而不会"能选但按攻击算"。</summary>
+        private static int CardPropReadByName(GameLogic logic, Card c, string prop)
+        {
+            if (c == null)
+                return 0;
+            if (!string.IsNullOrEmpty(prop) && prop.StartsWith("基础"))
+                return GetCardProp(c, prop);
+            return CardPropReadValue(logic, c, prop);
+        }
+
+        /// <summary>
+        /// 卡牌属性改写的统一入口（口径A：只有「设置卡牌属性」「设置生命值」这类**显式改写**才算变动；
+        /// 受伤/治疗/增益重算/复位都不算）。
+        ///   · 值没变（old==value）：**不广播**（不算变动），但 write 照常执行 ——
+        ///     因为「设置生命值·清伤害」在同值时仍要清伤害计数，不能因为"值没变"就把原动作吞掉。
+        ///   · 「时」被阻止：返回 false **且 write 不执行**（调用方据此保持原值；"设置生命值"连伤害计数也不清）。
+        /// write = 真正落值的动作：各动作写法不同（202037 把负数钳到 0；设置生命值还要清伤害计数），
+        /// 由调用方传入，保证"广播的值"与"真正写进去的值"完全一致。
+        /// </summary>
+        private static bool SetCardPropWithEvent(GameLogic logic, Card card, string prop, int value, System.Action write)
+        {
+            if (card == null)
+                return false;
+
+            //原值按**基础字段**口径读（与写入点一致）；「已受伤害」= 伤害计数，单列
+            int old_value = prop == "已受伤害" ? card.damage : GetCardProp(card, BasePropName(prop));
+            return SetCardPropWithEvent(logic, card, prop, old_value, value, write);
+        }
+
+        /// <summary>同上，但**原值由调用方给出** —— 用于"各属性旧值读法不同"的那些：
+        /// 状态存在性（有=1/无=0，用 HasStatus）、护甲值/禁锢（用 GetStatusValue）、
+        /// 已就绪（exhausted 取反）、攻击次数（本回合是否已攻击）、当前生命值/濒死（GetHP）。
+        /// 语义与上面一致：值没变 → 不广播但照常执行 write；「时」被阻止 → 不写。</summary>
+        private static bool SetCardPropWithEvent(GameLogic logic, Card card, string prop, int old_value, int value, System.Action write)
+        {
+            if (card == null)
+                return false;
+
+            if (old_value == value)
+            {
+                if (write != null)
+                    write();
+                return true;    //值未变：不算"变动"，不广播（口径一致）
+            }
+
+            if (EmitCardPropEvent(logic, CARD_PROP_BEFORE, GraphEventPhase.Before, card, prop, old_value, value))
+                return false;   //被「阻止本事件」→ 保持原值
+
+            if (write != null)
+                write();
+
+            EmitCardPropEvent(logic, CARD_PROP_AFTER, GraphEventPhase.After, card, prop, old_value, value);
+            return true;
+        }
+
+        /// <summary>广播「护甲变动时/后」：主体=持有护甲的**英雄卡**（入口「卡牌」口即取它），
+        /// 原值放在 ctx.vars["old"]、新值走 ctx.value —— 与「卡牌属性变动」同一套读法
+        /// （入口的 old_value 口读 vars["old"]，value 口读 ctx.value），所以图侧不用学新写法。
+        /// 返回 true = 被「阻止本事件」取消（仅"时"有效）→ 调用方保持原护甲值、不写入。</summary>
+        private static bool EmitArmorEvent(GameLogic logic, string action, GraphEventPhase phase,
+            Card card, int old_value, int new_value)
+        {
+            if (logic == null || string.IsNullOrEmpty(action) || card == null)
+                return false;
+
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;
+            ctx.card = card;
+            ctx.value = new_value;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["old"] = old_value;
+            return logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>护甲改写的统一入口（口径A：只有这三个护甲动作的**显式改写**才算变动）。
+        /// 语义与「卡牌属性变动」完全一致：值没变 → 不广播但照常执行 write；「时」被阻止 → 不写入。</summary>
+        private static bool SetArmorWithEvent(GameLogic logic, Card hero, int old_value, int new_value, System.Action write)
+        {
+            if (hero == null)
+                return false;
+
+            if (old_value == new_value)
+            {
+                if (write != null)
+                    write();
+                return true;
+            }
+
+            if (EmitArmorEvent(logic, ARMOR_BEFORE, GraphEventPhase.Before, hero, old_value, new_value))
+                return false;   //被「阻止本事件」→ 保持原护甲值
+
+            if (write != null)
+                write();
+
+            EmitArmorEvent(logic, ARMOR_AFTER, GraphEventPhase.After, hero, old_value, new_value);
+            return true;
+        }
+
+        /// <summary>广播「封印(沉默)变动时/后」：主体=被封印/解封的那张卡（入口「卡牌」口即取它），
+        /// 原值/新值 = 1/0（1=有封印），读法与护甲/卡牌属性变动完全一致。
+        /// 返回 true = 被「阻止本事件」取消（仅"时"有效）→ 调用方保持原状、不写入。</summary>
+        private static bool EmitSilenceEvent(GameLogic logic, string action, GraphEventPhase phase,
+            Card card, int old_value, int new_value)
+        {
+            if (logic == null || string.IsNullOrEmpty(action) || card == null)
+                return false;
+
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;
+            ctx.card = card;
+            ctx.value = new_value;
+            if (logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            if (ctx.vars == null)
+                ctx.vars = new Dictionary<string, object>();
+            ctx.vars["old"] = old_value;
+            return logic.EmitGraphEvent(ctx);
+        }
+
+        /// <summary>封印(沉默)改写的统一入口（口径A：只有「202040 封印」施加、或「清状态」移除它才算变动）。
+        /// on=true → 新值 1；on=false → 新值 0（解封）。值没变 → 不广播但照常执行 write；「时」被阻止 → 不写。
+        /// 封印与沉默是同一个状态（StatusType.Silenced），这里统一走这一条。</summary>
+        private static bool SetSilenceWithEvent(GameLogic logic, Card card, bool on, System.Action write)
+        {
+            if (card == null)
+                return false;
+
+            int old_value = card.HasStatus(StatusType.Silenced) ? 1 : 0;
+            int new_value = on ? 1 : 0;
+            if (old_value == new_value)
+            {
+                if (write != null)
+                    write();
+                return true;
+            }
+
+            if (EmitSilenceEvent(logic, SILENCE_BEFORE, GraphEventPhase.Before, card, old_value, new_value))
+                return false;   //被「阻止本事件」→ 保持原状
+
+            if (write != null)
+                write();
+
+            EmitSilenceEvent(logic, SILENCE_AFTER, GraphEventPhase.After, card, old_value, new_value);
+            return true;
+        }
+
+        /// <summary>
+        /// 广播一个「XX时/后」图事件：事件主体=card（入口的「卡牌」输出口即取它），数值=value（"后"版本可读）。
+        /// 返回 true = 本次事件被「阻止本事件」取消（仅 Before 有效），调用方据此跳过原动作。
+        /// 统一在这里做空判断与玩家解析，避免每个调用点重复写。
+        /// </summary>
+        private static bool EmitEntryEvent(GameLogic logic, string action, GraphEventPhase phase, Card card, int value)
+        {
+            if (logic == null || string.IsNullOrEmpty(action))
+                return false;
+
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;
+            ctx.card = card;
+            ctx.value = value;
+            if (card != null && logic.GameData != null)
+                ctx.player = logic.GameData.GetPlayer(card.player_id);
+            return logic.EmitGraphEvent(ctx);
+        }
 
         private static bool IsEventTrigger(AbilityTrigger trigger)
         {
             return trigger == AbilityTrigger.OnBeforePlay
+                || trigger == AbilityTrigger.OnAfterPlay
                 || trigger == AbilityTrigger.OnBeforeDamage || trigger == AbilityTrigger.OnAfterDamage
                 || trigger == AbilityTrigger.OnBeforeHeal || trigger == AbilityTrigger.OnAfterHeal
                 || trigger == AbilityTrigger.OnBeforeAttack || trigger == AbilityTrigger.OnAfterAttack
@@ -6820,6 +7802,12 @@ namespace TcgEngine.Workshop
                 || trigger == AbilityTrigger.OnBeforeTransform || trigger == AbilityTrigger.OnAfterTransform
                 || trigger == AbilityTrigger.OnBeforeEquip || trigger == AbilityTrigger.OnAfterEquip
                 || trigger == AbilityTrigger.OnBeforeActivate || trigger == AbilityTrigger.OnAfterActivate
+                || trigger == AbilityTrigger.OnBeforeFreeze || trigger == AbilityTrigger.OnAfterFreeze
+                || trigger == AbilityTrigger.OnBeforeBuffPropChange || trigger == AbilityTrigger.OnAfterBuffPropChange
+                || trigger == AbilityTrigger.OnBeforeCardPropChange || trigger == AbilityTrigger.OnAfterCardPropChange
+                || trigger == AbilityTrigger.OnBeforeArmorChange || trigger == AbilityTrigger.OnAfterArmorChange
+                || trigger == AbilityTrigger.OnBeforeSilenceChange || trigger == AbilityTrigger.OnAfterSilenceChange
+                || trigger == AbilityTrigger.OnBeforeAddBuff || trigger == AbilityTrigger.OnAfterAddBuff
                 || trigger == AbilityTrigger.OnBeforeGameStart || trigger == AbilityTrigger.OnAfterGameStart
                 || trigger == AbilityTrigger.OnBeforeGameEnd || trigger == AbilityTrigger.OnAfterGameEnd
                 || trigger == AbilityTrigger.OnBeforeTurnStart || trigger == AbilityTrigger.OnAfterTurnStart
@@ -6885,6 +7873,8 @@ namespace TcgEngine.Workshop
             map["变形时"] = AbilityTrigger.OnBeforeTransform;
             map["变形后"] = AbilityTrigger.OnAfterTransform;
             map["使用时"] = AbilityTrigger.OnBeforePlay;
+            map["使用卡牌后"] = AbilityTrigger.OnAfterPlay;
+            map["使用后"] = AbilityTrigger.OnAfterPlay;
             map["打出牌"] = AbilityTrigger.OnPlay;
             map["抽到时"] = AbilityTrigger.OnDraw;
             map["抽牌后"] = AbilityTrigger.OnAfterDraw;
@@ -6894,6 +7884,20 @@ namespace TcgEngine.Workshop
             map["回合结束后"] = AbilityTrigger.OnAfterTurnEnd;
             map["发动时"] = AbilityTrigger.OnBeforeActivate;
             map["发动后"] = AbilityTrigger.OnAfterActivate;
+            map["禁锢时"] = AbilityTrigger.OnBeforeFreeze;
+            map["禁锢后"] = AbilityTrigger.OnAfterFreeze;
+            map["增益属性变动时"] = AbilityTrigger.OnBeforeBuffPropChange;
+            map["增益属性变动后"] = AbilityTrigger.OnAfterBuffPropChange;
+            map["卡牌属性变动时"] = AbilityTrigger.OnBeforeCardPropChange;
+            map["卡牌属性变动后"] = AbilityTrigger.OnAfterCardPropChange;
+            map["护甲变动时"] = AbilityTrigger.OnBeforeArmorChange;
+            map["护甲变动后"] = AbilityTrigger.OnAfterArmorChange;
+            map["封印时"] = AbilityTrigger.OnBeforeSilenceChange;
+            map["封印后"] = AbilityTrigger.OnAfterSilenceChange;
+            //★封印/沉默已统一：只保留「封印」一种叫法（原作 202015「沉默」的输出口就叫"封印事件"，
+            //  202040「封印」是群体版 —— 两者本是同一机制）→ 不再登记「沉默时/沉默后」别名。
+            map["添加增益时"] = AbilityTrigger.OnBeforeAddBuff;
+            map["添加增益后"] = AbilityTrigger.OnAfterAddBuff;
             return map;
         }
 
@@ -6931,7 +7935,7 @@ namespace TcgEngine.Workshop
                     return ok2;
                 }
 
-            Debug.LogWarning("[NodeDoc] 107010 事件类型「" + want + "」在 TCG2 **无对应触发点**（如 添加增益时/爆牌时/卡牌属性变动时）→ 判假");
+            Debug.LogWarning("[NodeDoc] 107010 事件类型「" + want + "」未登记（不在 effect_event_map：可能拼写不同或尚未接入）→ 判假");
             return false;
         }
 
@@ -7731,11 +8735,12 @@ namespace TcgEngine.Workshop
                     Debug.Log("[NodeDoc] 111031 获取集合内所有元素的某项属性（选择器表达式）：元素数=" + cards.Count + " → " + result.Count + " 个值");
                     return result;
                 }
-                string prop = GraphRuntime.GetFieldString(node, "prop", "攻击");
+                //属性名走共用表（含运行时属性与自定义）
+                string prop = ResolvePropName(node, GraphRuntime.GetFieldString(node, "prop", "攻击"));
                 foreach (Card c in cards)
                 {
                     if (c != null)
-                        result.Add(GetCardProp(c, prop));
+                        result.Add(CardPropReadByName(logic, c, prop));
                 }
                 return result;
             }
@@ -7753,11 +8758,12 @@ namespace TcgEngine.Workshop
                 ? (ResolveCollectionNode(logic, graph, src, caster, target_card, target_player)
                    ?? new List<Card>())
                 : (target_card != null ? new List<Card> { target_card } : new List<Card>());
-            string p = GraphRuntime.GetFieldString(node, "prop", "攻击");
+            //属性名走共用表（含运行时属性与自定义）
+            string p = ResolvePropName(node, GraphRuntime.GetFieldString(node, "prop", "攻击"));
             foreach (Card c in up)
             {
                 if (c != null)
-                    result.Add(GetCardProp(c, p));
+                    result.Add(CardPropReadByName(logic, c, p));
             }
             return result;
         }
@@ -7923,7 +8929,20 @@ namespace TcgEngine.Workshop
                 {
                     object A = GetObjectInput(logic, graph, node, "A", caster, target_card, null);
                     object B = GetObjectInput(logic, graph, node, "B", caster, target_card, null);
-                    return CompareValues(A, B, GraphRuntime.GetFieldString(node, "operator", "=="));
+                    string op = NormalizeCompareOp(GraphRuntime.GetFieldString(node, "operator", "=="));
+                    //★静默恒假防护："> < >= <=" 只对**数值**有意义。若操作数不是数值（例如两张卡、玩家…），
+                    //  引擎按字符串比较 → 卡/玩家的 ToString 相同 → 结果恒假（不是报错，是无声失败，极难排查）。
+                    //  这里每个节点只告警一次，并明确提示"对象判等请用 =="。
+                    double _a, _b;
+                    if ((op == ">" || op == "<" || op == ">=" || op == "<=")
+                        && !(TryNumber(A, out _a) && TryNumber(B, out _b))
+                        && warned_bad_compare.Add(node.id))
+                    {
+                        Debug.LogWarning("[规则图] 比较节点「" + (string.IsNullOrEmpty(node.title) ? node.id : node.title)
+                            + "」用「" + op + "」但操作数不是数值（A=" + DescribeOperand(A) + "，B=" + DescribeOperand(B)
+                            + "）→ 结果恒为假。若想判断「是不是同一个」请把运算符改成「等于」。");
+                    }
+                    return CompareValues(A, B, op);
                 }
                 case "-14":     //是否为法术牌
                 {
@@ -8135,11 +9154,20 @@ namespace TcgEngine.Workshop
                     CardData d = ResolveInputDefineFiltered(logic, graph, node, "cardDefine", elem_filter, cur_define, caster, target_card, null);
                     return d != null && DefineHasTrigger(d, AbilityTrigger.OnDeath);
                 }
-                case "106003":  //是否具有增益：卡牌口 + buff_id(字段，BuffPoolIO 池) → 布尔
+                case "106003":  //是否具有增益：卡牌口(card) + 增益定义口(buffDefine，可下拉或连线) → 布尔
                 {
                     Card c = ResolveInputCardFiltered(logic, graph, node, "card", elem_filter, cur_elem, caster, target_card, null);
-                    string buff_id = GraphRuntime.GetFieldString(node, "buff_id", "");
+                    BuffData bdef1063 = ResolveInputBuffDefine(logic, graph, node, "buffDefine", caster, target_card, null);
+                    string buff_id = bdef1063 != null ? bdef1063.id : GraphRuntime.GetFieldString(node, "buffDefine", "");
+                    if (string.IsNullOrEmpty(buff_id))
+                        buff_id = GraphRuntime.GetFieldString(node, "buff_id", "");   //★老图兼容（旧字段名 buff_id）
                     return c != null && !string.IsNullOrEmpty(buff_id) && BuffRuntime.HasBuff(c, buff_id);
+                }
+                case "GetCardPropValue":   //读取卡牌属性（Boolean 通道）：有 / 无
+                {
+                    Card rp_c = ResolveInputCardFiltered(logic, graph, node, "card", elem_filter, cur_elem, caster, target_card, null);
+                    string rp_prop = ResolvePropName(node, GraphRuntime.GetFieldString(node, "propName", "当前生命值"));
+                    return CardPropReadValue(logic, rp_c, rp_prop) != 0;   //数值型 != 0 即"有"
                 }
                 case "102018":  //是否濒死：卡牌当前生命 <= 0（checkKilled"待摧毁"TCG2 无对应，忽略）
                 {
@@ -8296,6 +9324,9 @@ namespace TcgEngine.Workshop
                     break;
                 case "奥秘":
                     t = CardType.Secret;
+                    break;
+                case "技能":
+                    t = CardType.Skill;
                     break;
                 default:
                     return true;

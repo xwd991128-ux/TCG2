@@ -21,12 +21,20 @@ namespace TcgEngine
         private const int MAX_GRAPH_DEPTH = 8;   //增益图嵌套执行深度上限（防「增益图内再添加同增益」死循环）
         private static int graph_depth;
 
-        /// <summary>施加增益：已存在同 id → 属性叠加、持续取 max；否则新建实例并映射原生状态。</summary>
-        public static CardBuff AddBuff(Card card, BuffData define, int duration)
+        /// <summary>施加增益：已存在同 id → 属性叠加、持续取 max；否则新建实例并映射原生状态。
+        /// logic 非空时会先广播全局图事件「添加增益时」（可阻止：被阻止则本次不施加、返回 null）。
+        /// ★这是"添加增益"的**唯一入口** —— 所以广播放在这里，任何路径（含以后新增的）都不会漏。</summary>
+        public static CardBuff AddBuff(GameLogic logic, Card card, BuffData define, int duration)
         {
             if (card == null || define == null)
                 return null;
-            CardBuff existing = GetBuff(card, define.id);
+
+            //图事件「添加增益时」：全场监听（主体=被添加增益的卡，数据=增益定义）；被阻止 → 本次不施加
+            if (NodeDocRunner.EmitAddBuffBefore(logic, card, define))
+                return null;
+            //★合并只在**非光环**实例之间进行：光环实例归光环所有（由 SyncAuraEffects 在目标离开范围/来源离场时
+            //  整份移除）。若手动施加同名增益时合并进光环那份，光环移除会把手动那份一并删掉（实测踩到，探针 FAIL）。
+            CardBuff existing = GetManualBuff(card, define.id);
             if (existing != null)
             {
                 if (define.props != null)
@@ -39,6 +47,8 @@ namespace TcgEngine
                 else
                     existing.permanent = true;
                 ReapplyNative(card);
+                //图事件「添加增益后」（不可阻止；数据=卡牌/增益实例）
+                NodeDocRunner.EmitAddBuffAfter(logic, card, define, existing);
                 return existing;
             }
             List<BuffProp> props = new List<BuffProp>();
@@ -50,6 +60,8 @@ namespace TcgEngine
             CardBuff buff = new CardBuff(define.id, props, duration);
             card.buffs.Add(buff);
             ApplyNative(card, buff);
+            //图事件「添加增益后」（不可阻止；数据=卡牌/增益实例）
+            NodeDocRunner.EmitAddBuffAfter(logic, card, define, buff);
 
             //增益特效（编辑器「增益参数 → 特效」配置的 VFXConfig）：施加时播放一次。
             //表现层失败绝不影响对局逻辑（与规则图节点特效同规：整体 try/catch 吞掉）。
@@ -78,6 +90,92 @@ namespace TcgEngine
                     card.buffs.RemoveAt(i);
             }
             ReapplyNative(card);
+        }
+
+        // ==================== 光环来源的增益（规则图「光环效果入口」施加） ====================
+        // 与普通 AddBuff 的关键区别：**不按 buff_id 合并**，而是新建一个带来源标记（source_uid/source_group）的实例。
+        // 原因：光环要能"只移除自己给的那份"。若走 AddBuff 的合并逻辑，光环与手动施加的同名增益会变成同一个实例，
+        // 光环结束时会把手动那份一起删掉（反过来也一样）。独立的实例才能做到精确移除。
+
+        /// <summary>找这张卡上「由指定光环来源施加」的增益实例（找不到返回 null）</summary>
+        public static CardBuff GetAuraBuff(Card card, string source_uid, string source_group)
+        {
+            if (card == null || card.buffs == null || string.IsNullOrEmpty(source_uid))
+                return null;
+            foreach (CardBuff b in card.buffs)
+            {
+                if (b != null && b.IsFromAuraSource(source_uid, source_group))
+                    return b;
+            }
+            return null;
+        }
+
+        /// <summary>【光环专用】按来源施加具名增益：已存在同来源实例 → 直接返回它（不重复施加、不叠加）；
+        /// 否则新建带来源标记的实例（props 从定义复制、duration 取定义值，0=永久）并广播「添加增益时/后」。
+        /// 走的是与 AddBuff 同一套事件与原生映射，表现/规则完全一致，只是账本多记了"谁给的"。</summary>
+        public static CardBuff AddAuraBuff(GameLogic logic, Card card, BuffData define, int duration,
+            string source_uid, string source_group)
+        {
+            if (card == null || define == null || string.IsNullOrEmpty(source_uid))
+                return null;
+
+            CardBuff exist = GetAuraBuff(card, source_uid, source_group);
+            if (exist != null)
+                return exist;   //本光源已经给过这张卡 → 什么都不做（差分扫描每轮都会走到这里）
+
+            //图事件「添加增益时」：可阻止（被阻止 → 本次不施加；下一次差分扫描会重试，语义自洽）
+            if (NodeDocRunner.EmitAddBuffBefore(logic, card, define))
+                return null;
+
+            List<BuffProp> props = new List<BuffProp>();
+            if (define.props != null)
+            {
+                foreach (BuffProp p in define.props)
+                    props.Add(new BuffProp(p.key, p.value));
+            }
+            CardBuff buff = new CardBuff(define.id, props, duration);
+            buff.source_uid = source_uid;         //★来源账本：光环载体卡 uid
+            buff.source_group = source_group;     //★来源账本：光环分组键（同卡多个光环入口可区分）
+            card.buffs.Add(buff);
+            ApplyNative(card, buff);
+            NodeDocRunner.EmitAddBuffAfter(logic, card, define, buff);
+
+            if (define.vfx != null && define.vfx.HasFrames)
+            {
+                try
+                {
+                    VFXRuntime.Trigger(define.vfx, card, card, null, "buff_add");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[增益] 光环特效播放失败（已忽略）: " + e.Message);
+                }
+            }
+            return buff;
+        }
+
+        /// <summary>【光环专用】精确移除**某一个**增益实例（按引用，不是按 buff_id）——
+        /// 避免把别的来源施加的同名增益一起删掉。移除后重建原生状态。</summary>
+        public static void RemoveBuffInstance(Card card, CardBuff instance)
+        {
+            if (card == null || card.buffs == null || instance == null)
+                return;
+            if (card.buffs.Remove(instance))
+                ReapplyNative(card);
+        }
+
+        /// <summary>找这张卡上**非光环来源**的同 id 增益实例（= AddBuff 的合并对象；光环实例不参与合并）。
+        /// 没有则返回 null → AddBuff 会另立一个新实例（与光环那份共存互不影响）。</summary>
+        public static CardBuff GetManualBuff(Card card, string buff_id)
+        {
+            if (card == null || card.buffs == null || string.IsNullOrEmpty(buff_id))
+                return null;
+            foreach (CardBuff b in card.buffs)
+            {
+                if (b != null && !b.IsFromAura && b.buff_id == buff_id)
+                    return b;
+            }
+            return null;
         }
 
         public static bool HasBuff(Card card, string buff_id)
@@ -237,19 +335,29 @@ namespace TcgEngine
                 return;
             int duration = buff.permanent ? 0 : buff.duration;
 
-            //① 旧字段 props（兼容）
-            int atk = buff.GetProp(ATK_KEY);
-            int hp = buff.GetProp(HP_KEY);
-            if (atk != 0)
-                card.AddStatus(StatusType.AddAttack, atk, duration);
-            if (hp != 0)
-                card.AddStatus(StatusType.AddHP, hp, duration);
+            BuffData define = buff.BuffData;
+
+            //① 旧字段 props（兼容）：**只在该增益没有 mods 规则时才用**。
+            //  为什么必须二选一：编辑器保存时会 SyncLegacyProps() 把 mods 回写成 props（单向 mods→props），
+            //  若这里两路都落一遍，同一份属性修改会被**应用两次** —— 实测「花费 -2」变成 -4、
+            //  攻击加成类规则数值翻倍，表现是"费用降得莫名其妙/攻防数值对不上"。
+            //  （旧资源只有 props、mods 为空 → EnsureMods() 迁移出规则，同样只落一次，历史行为不变）
+            List<BuffPropMod> rules = define != null ? define.EnsureMods() : null;
+            bool has_rules = rules != null && rules.Count > 0;
+            if (!has_rules)
+            {
+                int atk = buff.GetProp(ATK_KEY);
+                int hp = buff.GetProp(HP_KEY);
+                if (atk != 0)
+                    card.AddStatus(StatusType.AddAttack, atk, duration);
+                if (hp != 0)
+                    card.AddStatus(StatusType.AddHP, hp, duration);
+            }
 
             //② 属性修改规则
-            BuffData define = buff.BuffData;
             if (define == null)
                 return;
-            foreach (BuffPropMod m in define.EnsureMods())
+            foreach (BuffPropMod m in rules)
                 ApplyModRule(card, buff, m, duration);
 
             //自定义属性的**初始值**：写进该卡的增益实例属性（Key 与属性修改的实例覆盖同口径），
@@ -296,6 +404,10 @@ namespace TcgEngine
                     return;
                 }
                 AddUnique(card.buff_added_keywords, m.enum_id);
+                //★ 该关键词已被这张卡**持久移除**（失去圣盾/潜行）：只记"增益想给"，不再挂状态 ——
+                //  口径=持久移除优先于增益获得（否则"已经失去"的东西会被增益顺手复活）。
+                if (card.removed_keywords.Contains(m.enum_id))
+                    return;
                 KeywordData kw = KeywordData.Get(m.enum_id);
                 if (kw != null && kw.status_type != StatusType.None)
                     card.AddStatus(kw.status_type, 0, duration);
@@ -306,18 +418,19 @@ namespace TcgEngine
             StatusType st = StatusOf(m.target);
             string ikey = InstanceKey(m.target);
 
-            //实例覆盖（节点「设置增益属性」在运行时改写过的值）：按"设置为该值"处理，且只影响这一张卡
-            if (buff != null && ikey != null && HasProp(buff, ikey))
-            {
-                int want = buff.GetProp(ikey);
-                int delta = want - GetTargetValue(card, m.target);
-                if (delta != 0 && st != StatusType.None)
-                    card.AddStatus(st, delta, duration);
-                return;
-            }
-
-            //两种写法（减少 / 减少属性、设置为 / 设置为属性）都按同一语义处理
-            int v = m.mode == BuffModMode.Reference ? GetSourceValue(card, m.value_source) : m.value;
+            //数值来源（三选一）：
+            //  ① 实例覆盖：节点「设置增益属性」在运行时改写过该卡的实例属性 → 取它**当本规则的数值**；
+            //  ② value_source：引用变量（中文属性名）→ 取该变量当前值；
+            //  ③ 否则用规则自身的固定数值。
+            //★①以前被当成"绝对值"（want - 当前值）会用错语义：例如规则是「攻击 / 增加属性 / 1」，
+            //  实例上已有"攻击加成=1" → 算成 delta = 1 - 当前攻击(1) = 0 → 增益**完全不生效**；
+            //  规则是「花费 / 减少属性 / 2」→ 算成 delta = -2 - 当前花费(4) = -6 → 花费被砸到 0。
+            //  实例值就是**这条规则的数值**，加减方向由 mode 决定（与 ③ 完全同一条路），才与编辑器语义一致。
+            int v = (buff != null && ikey != null && HasProp(buff, ikey))
+                  ? buff.GetProp(ikey)
+                  : !string.IsNullOrEmpty(m.value_source) ? GetSourceValue(card, m.value_source)
+                  : m.mode == BuffModMode.Reference ? GetSourceValue(card, m.value_source)
+                  : m.value;
             if (BuffModMode.IsSub(m.mode))
                 v = -Mathf.Abs(v);
             if (BuffModMode.IsSet(m.mode))
@@ -339,7 +452,7 @@ namespace TcgEngine
         }
 
         /// <summary>目标属性 → 实例属性 key（通用属性名与旧字段同源：攻击加成/生命加成）</summary>
-        private static string InstanceKey(string target)
+        public static string InstanceKey(string target)
         {
             if (target == BuffModTarget.Attack) return ATK_KEY;
             if (target == BuffModTarget.HP) return HP_KEY;
@@ -428,6 +541,11 @@ namespace TcgEngine
             {
                 string kid = card.keywords[i];
                 if (card.buff_removed_keywords.Contains(kid))
+                    continue;
+                //★ 被卡自身**持久移除**的关键词（失去圣盾/潜行）：重算**不得**把它加回来。
+                //  这一行就是"一次性关键词能真正失去"的地基（否则每次增益增减都会复活它）。
+                //  实测证据（探针）：跳过时 status 数=0；不跳过（旧做法）时 status 数=1 → 圣盾被复活。
+                if (card.removed_keywords.Contains(kid))
                     continue;
                 KeywordData k = KeywordData.Get(kid);
                 if (k != null && k.status_type != StatusType.None)

@@ -65,6 +65,31 @@ namespace TcgEngine
         [TextArea(5, 7)]
         public string desc;
 
+        [Header("被动效果（生效/失效线）")]
+        /// <summary>同一被动入口的「生效」与「失效」两条线共享的分组键（CardPoolIO 写入，"pg_定义id_入口节点id"）。
+        /// 空 = 不是被动效果的线（普通能力）。Card.passive_groups 与之对应，记录"这张卡当前已生效的分组"。</summary>
+        public string passive_group;
+        /// <summary>生效区域（与被动入口字段 live_area 同口径：战场/手牌/牌库/墓地/装备区/全部区域）。
+        /// 卡在该区域内 → 该被动生效；离开 → 失效（见 GameLogic.SyncPassiveEffects）。</summary>
+        public string passive_area;
+
+        [Header("光环效果入口（持续施加具名增益）")]
+        /// <summary>同一光环入口的分组键（CardPoolIO 写入，"ag_定义id_入口节点id"）。空 = 不是光环能力。
+        /// 与 CardBuff.source_uid/source_group 配对：目标离开范围/来源卡离场时，按这两个键精确移除它给的增益实例。</summary>
+        public string aura_group;
+        /// <summary>光环持续施加的**具名增益定义 id**（BuffData.id，来自 Workshop/buffs.json）。
+        /// 空 = 旧式光环（增益定义填的是 StatusType 枚举 → 仍走 EffectAddStatus + 每帧 Ongoing 重算，行为不变）。</summary>
+        public string aura_buff;
+        /// <summary>【光环内部标记】动作线可否"每次同步重算"（编译期判定：动作线只含幂等的属性设置类动作时为 true）。
+        /// 为 true → GameLogic.SyncAuraEffects 在每次收敛点重跑动作线，动作线里算出的值（如"英雄已损失生命"）随状态自动跟随；
+        /// 为 false（含伤害/抽牌等一次性动作）→ 只在目标进入范围时执行一次。不是界面字段，玩家不可见。</summary>
+        public bool aura_repeat;
+        /// <summary>光环「生效区域」：**载体（本卡）必须处于的区域**（ZoneNames 口径，任意=不限）。
+        /// 载体离开该区域 → 它给的光环增益全部失效（见 GameLogic.SyncAuraEffects）。</summary>
+        public string aura_zone;
+        /// <summary>光环「作用区域」：**被施加增益的卡所在的区域**（ZoneNames 口径，任意=所有区域）。</summary>
+        public string aura_target_zone;
+
         public static List<AbilityData> ability_list = new List<AbilityData>();                             //Faster access in loops
         public static Dictionary<string, AbilityData> ability_dict = new Dictionary<string, AbilityData>(); //Faster access in Get(id)
 
@@ -771,6 +796,7 @@ namespace TcgEngine
         OnBeforeDamage = 61, //伤害结算前（可阻止/改伤害值）
         OnAfterDamage = 62,  //伤害结算后
         OnAfterDraw = 63,    //抽卡后（每抽 1 张一次，事件主体=抽到的卡）
+        OnAfterPlay = 64,    //使用卡牌后（任意玩家打出一张牌并结算完成后；事件主体=打出的牌）
         OnBeforeHeal = 70,   //治疗前（可阻止/改治疗量）
         OnAfterHeal = 71,    //治疗后
         OnBeforeTransform = 72, //变形前（可阻止）
@@ -794,6 +820,27 @@ namespace TcgEngine
         //供全场图监听（可阻止本次发动 / 发动结算后连锁）——与 OnBeforePlay/OnAfterDamage 同一套图事件机制
         OnBeforeActivate = 88,   //起动式能力发动前（可阻止；value=灵力费用）
         OnAfterActivate = 89,    //起动式能力发动后（灵力已扣、效果已结算）
+        //★ 新增「XX时/后」一律**追加在末尾**（改动已有枚举值会让已保存的图错位）
+        OnBeforeFreeze = 90,     //禁锢前（可阻止：被阻止则不施加禁锢；主体=将被禁锢的卡）
+        OnAfterFreeze = 91,      //禁锢后（禁锢状态已施加；主体=被禁锢的卡）
+        OnBeforeBuffPropChange = 92,   //增益属性变动前（可阻止=保持原值；数据=增益/属性名/原值/新值）
+        OnAfterBuffPropChange = 93,    //增益属性变动后（数据=增益/属性名/原值/新值）
+        OnBeforeCardPropChange = 94,   //卡牌属性变动前（可阻止=保持原值；数据=卡牌/属性名/原值/新值）
+        OnAfterCardPropChange = 95,    //卡牌属性变动后（数据=卡牌/属性名/原值/新值）
+        OnBeforeArmorChange = 96,      //护甲变动前（可阻止=保持原值；主体=持有护甲的英雄卡；数据=原值/新值）
+        OnAfterArmorChange = 97,       //护甲变动后（数据=原值/新值）
+        OnBeforeSilenceChange = 98,    //封印(沉默)变动前（可阻止=保持原状；主体=被封印/解封的卡；数据=原值/新值 1/0）
+        OnAfterSilenceChange = 99,     //封印(沉默)变动后（数据=原值/新值 1/0）
+        //★被动效果入口（PassiveEffect）的「生效/失效」两条线：由 CardPoolIO 单独编译成能力，
+        //由 GameLogic.SyncPassiveEffects 按「生效区域 + 定义变化」驱动（进场=生效、离场=失效、变形=旧失效+新生效）。
+        //注意：它们**不是**「X时/后」图事件广播（不参与 EmitGraphEvent 的全场监听），只由卡自身的状态切换触发。
+        OnPassiveEnable = 100,         //被动效果「生效」线（该卡进入其生效区域 / 变形后按新形态重新生效）
+        OnPassiveDisable = 101,        //被动效果「失效」线（该卡离开生效区域 / 变形前旧形态失效）
+        //★全局图事件（不是"能力发动时机"，是"任意卡身上发生了什么事"的全场广播）：
+        OnBeforeAddBuff = 102,         //添加增益时（广播方=BuffRuntime.AddBuff；可阻止=本次不施加；数据=卡牌/增益定义）
+        OnBeforeBurnCard = 103,        //【已弃用】爆牌时（用户决定"爆牌不做"，节点与广播已下线；仅保留枚举值避免已保存数据错位）
+        OnAfterAddBuff = 104,          //添加增益后（数据=卡牌/增益**实例**；不可阻止）
+        OnAfterBurnCard = 105,         //【已弃用】爆牌后（同上下线；仅保留枚举值）
     }
 
     /// <summary>

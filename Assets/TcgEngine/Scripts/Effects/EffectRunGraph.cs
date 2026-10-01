@@ -17,6 +17,11 @@ namespace TcgEngine
         public GraphData graph;            //要解释执行的图
         public string trigger_action;      //入口事件 action（OnPlay/StartOfTurn…），空=任意事件
 
+        /// <summary>只走入口的哪个 Flow 出口（空 = 默认：动作口 out / 分支口等）。
+        /// 被动效果入口有三条线（动作 out / 生效 enable / 失效 disable），它们共用一个入口节点，
+        /// 靠本字段区分：能力触发时只执行对应那条线（见 NodeDocRunner.WalkFlowOutputs 的 only_pin）。</summary>
+        public string entry_pin;
+
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster)
         {
             //顺序逐槽多目标：选择结果在图槽号 → 卡的映射里（入口「目标卡牌N」输出口按槽取值）；
@@ -25,13 +30,13 @@ namespace TcgEngine
             Card slot1 = null;
             if (slots != null)
                 slots.TryGetValue(1, out slot1);
-            NodeDocRunner.Run(logic, graph, caster, slot1, null, trigger_action, ability: ability, target_slots: slots);
+            NodeDocRunner.Run(logic, graph, caster, slot1, null, trigger_action, ability: ability, target_slots: slots, entry_pin: entry_pin);
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)
         {
             Debug.Log("[RunGraph] 图执行触发 action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null") + " 目标卡=" + (target != null ? target.CardData?.id : "无"));
-            NodeDocRunner.Run(logic, graph, caster, target, null, trigger_action, ability: ability);
+            NodeDocRunner.Run(logic, graph, caster, target, null, trigger_action, ability: ability, entry_pin: entry_pin);
         }
 
         /// <summary>★卡牌定义目标（AbilityTarget.AllCardData）：引擎在 ResolveCardAbilityCardData 里
@@ -43,7 +48,7 @@ namespace TcgEngine
         {
             Debug.Log("[RunGraph] 图执行触发(卡牌定义目标) action=" + trigger_action + " caster="
                 + (caster != null ? caster.CardData?.id : "null") + " 定义=" + (target != null ? target.id : "无"));
-            NodeDocRunner.Run(logic, graph, caster, null, null, trigger_action, ability: ability, target_define: target);
+            NodeDocRunner.Run(logic, graph, caster, null, null, trigger_action, ability: ability, target_define: target, entry_pin: entry_pin);
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Player target)
@@ -55,7 +60,7 @@ namespace TcgEngine
             //并保留 OnBefore/AfterDamage 图事件与吸血）；「玩家」口仍返回玩家本体（抽牌/属性类动作不受影响）。
             //此前这里传 null：单目标选英雄时下游 目标卡牌1 解析为空 → "打随从生效、打英雄无效"。
             Card hero = target != null ? target.hero : null;
-            NodeDocRunner.Run(logic, graph, caster, hero, target, trigger_action, ability: ability);
+            NodeDocRunner.Run(logic, graph, caster, hero, target, trigger_action, ability: ability, entry_pin: entry_pin);
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Slot target)
@@ -69,7 +74,7 @@ namespace TcgEngine
                 Debug.Log("[RunGraph] 图执行触发(格子目标) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
                     + " 格内卡=" + (slot_card.CardData != null ? slot_card.CardData.id : "null"));
                 //★D 批：把槽位一并带入 —— AllSlots/落点结算时引擎已选好槽，召唤类动作要落到这个槽
-                NodeDocRunner.Run(logic, graph, caster, slot_card, null, trigger_action, ability: ability, target_slot: target);
+                NodeDocRunner.Run(logic, graph, caster, slot_card, null, trigger_action, ability: ability, target_slot: target, entry_pin: entry_pin);
             }
             else
             {
@@ -77,7 +82,7 @@ namespace TcgEngine
                 Card hero = tplayer != null ? tplayer.hero : null;   //同上：打脸也把英雄卡作为目标卡传入
                 Debug.Log("[RunGraph] 图执行触发(空格/打脸) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
                     + " 目标玩家=p" + (tplayer != null ? tplayer.player_id.ToString() : "null"));
-                NodeDocRunner.Run(logic, graph, caster, hero, tplayer, trigger_action, ability: ability, target_slot: target);
+                NodeDocRunner.Run(logic, graph, caster, hero, tplayer, trigger_action, ability: ability, target_slot: target, entry_pin: entry_pin);
             }
         }
     }

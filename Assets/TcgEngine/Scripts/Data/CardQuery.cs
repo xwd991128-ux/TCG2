@@ -436,6 +436,7 @@ namespace TcgEngine
                 case "artifact": case "神器": return CardType.Artifact;
                 case "secret": case "奥秘": return CardType.Secret;
                 case "equipment": case "equip": case "装备": return CardType.Equipment;
+                case "skill": case "技能": return CardType.Skill;
             }
             return CardType.None;
         }

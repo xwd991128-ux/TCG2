@@ -594,10 +594,18 @@ namespace TcgEngine
             return exhaust && mana >= ability.mana_cost;
         }
 
+        /// <summary>
+        /// 疲劳层数：**无牌可抽**时每抽一次 +1，并对该玩家造成等于层数的伤害（第 n 次造成 n 点）。
+        /// 常量放在 Player 上作为单一事实来源 —— 规则图节点 101021/201013/201014/201015 用的是**同一个键**
+        /// （见 NodeDocRunner.FATIGUE_TRAIT），这样"图上的疲劳"和"引擎的疲劳"不会各算一套。
+        /// </summary>
+        public const string TraitFatigue = "疲劳层数";
+
         public virtual bool IsDead()
         {
-            if (cards_hand.Count == 0 && cards_board.Count == 0 && cards_deck.Count == 0)
-                return true;
+            //★ 2026-09-24 改：删掉"手牌+场上+牌库全空 → 判负"这条。
+            //  它会让"无牌可抽"直接终局，而现在无牌可抽应当进入**疲劳**（每次抽牌递增掉血），
+            //  游戏持续到某一方生命值 ≤ 0 为止（见 GameLogic.DrawFatigue）。
             if (hp <= 0)
                 return true;
             return false;

@@ -1346,6 +1346,7 @@ namespace TcgEngine.UI
             if (id == "artifact") return CardType.Artifact;
             if (id == "secret") return CardType.Secret;
             if (id == "equipment") return CardType.Equipment;
+            if (id == "skill") return CardType.Skill;
             return CardType.None;
         }
 

@@ -1,0 +1,3 @@
+PASS	① type="Skill" 编译为 CardType.Skill	实际=Skill GetTypeId=skill
+FAIL	② 打出技能卡 → 效果结算（敌方角色分配伤害 2）	掉血=0（定义能力数=1）
+PASS	③ 打出后进墓地、不进战场（法术同款）	进墓地=True 进战场=False

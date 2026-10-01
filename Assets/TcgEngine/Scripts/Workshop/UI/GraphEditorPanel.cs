@@ -56,6 +56,7 @@ namespace TcgEngine.UI
         // ---- 卡牌属性区扩展控件（运行时创建，兼容生成工具未重建的情况）----
         private TMP_Text txt_trait_select;      // 种族多选按钮文本（显示已选摘要）
         private TMP_Text txt_keyword_select;    // 关键词多选按钮文本
+        private TMP_Text txt_skill_select;      // 英雄技能卡多选按钮文本（type=Hero 时可配；开战挂到英雄技能位）
         private TMP_Text txt_type_select;       // 类型选择按钮文本（TMP，替代旧下拉）
         private TMP_Text txt_team_select;       // 阵营选择按钮文本
         private TMP_Text txt_rarity_select;     // 稀有度选择按钮文本
@@ -135,6 +136,17 @@ namespace TcgEngine.UI
         private KeywordRule editing_rule;      // 关键词模式：当前编辑的规则条目（graph 引用其 graph）
         private BuffData editing_buff;         // 增益模式：当前编辑的增益定义（card/pool/关键词均为空，graph 引用其 graph）
         private BattleButtonConfig editing_button_config;   // 按钮模式：当前编辑的全局按钮配置（card/pool/关键词/增益均为空，graph 引用其共享图）
+
+        // ---- 【未保存改动】通用机制（用户 2026-10-01：凡涉及保存的编辑界面，关闭/返回前有改动都要先问）----
+        //   判定 = 显式脏标记（结构改动 PushUndo / 效果图增删 / 表单控件改动） ∨ 进入点快照对比（图 JSON）
+        //   5 种模式（卡牌/关键词/增益/按钮/自定义节点）共用；"返回上一页"仍走 OnClose 里各自的老分支。
+        private string edit_entry_snapshot;   //进入某个编辑模式时的"进入点快照"（图 JSON；等表单填完后那一帧取）
+        private bool edit_dirty;              //显式脏标记
+        private bool session_pending;         //刚打开：等下一帧再取基线（排除程序化填充造成的"假脏"）
+        private CardCustomData buff_return_card;      //增益模式来处：从这张卡的规则图点「编辑」进来的
+        private CardPoolData buff_return_pool;
+        private string buff_return_save_path;
+        private int buff_return_fx;                   //进入前所在的效果页（退回时恢复同一页）
         private CustomNodeData editing_custom_node;         // ★自定义节点模式：当前编辑的玩家 DIY 节点（Workshop/custom_nodes.json）
         /// <summary>当前卡的规则图（供 NodePin 等组件读取取值）</summary>
         public GraphData Graph { get { return graph; } }
@@ -179,8 +191,8 @@ namespace TcgEngine.UI
         private Coroutine run_coroutine;
         private static readonly Color run_hl_color = new Color(1f, 0.85f, 0.3f, 1f);
 
-        private static readonly string[] TYPE_NAMES = { "随从", "法术", "英雄", "神器", "奥秘", "装备" };
-        private static readonly string[] TYPE_ENUMS = { "Character", "Spell", "Hero", "Artifact", "Secret", "Equipment" };
+        private static readonly string[] TYPE_NAMES = { "随从", "法术", "技能", "英雄", "神器", "奥秘", "装备" };
+        private static readonly string[] TYPE_ENUMS = { "Character", "Spell", "Skill", "Hero", "Artifact", "Secret", "Equipment" };
 
         //下拉框选项对应的数据 id（显示名 ↔ id 一一对应）
         private readonly List<string> team_ids = new List<string>();
@@ -237,6 +249,37 @@ namespace TcgEngine.UI
             public bool supported = true;                         // zmcs 节点是否已接入执行（未接入的灰显、不可拖入）
             public bool hidden = false;                           // 是否从节点库展示中隐藏（过时/内部/同名重复；预设仍保留以兼容旧图）
         }
+
+        /// <summary>「设置卡牌属性 / 读取卡牌属性」**共用**的运行时属性名表（同一套口径，读写严格对称）。
+        /// 前 3 项 = 数值属性；其余 = 运行时属性/状态存在性：
+        ///   布尔型（濒死 / 被封印 / 已就绪 / 具有隐匿 / 具有护盾）= 1 有、0 无；
+        ///   数值型（当前生命值 / 护甲值 / 被禁锢=冻结值 / 攻击次数）= 数字本身。
+        /// ⚠️ 改这里 = 同时改读写两侧；运行期实现在 NodeDocRunner 的 202037 分支与 "GetCardPropValue"。</summary>
+        private static readonly string[] CARD_RUNTIME_PROP_NAMES = new string[]
+        {
+            "攻击", "生命", "法力费用",
+            "濒死", "当前生命值", "护甲值", "被封印", "已就绪", "攻击次数", "具有隐匿", "具有护盾", "被禁锢",
+            "自定义"      //自定义属性：名字由同节点的「自定义属性名」字段给出（见 NodeDocRunner.ResolvePropName）
+        };
+
+        /// <summary>「获取/设置卡牌定义属性」共用的**数值型**定义属性表（读、写同一张表）。
+        /// ★ 只放能表达成整数的：攻击/生命/法力费用/花费/可构筑(0-1) + 自定义（卡池声明的初始值）。
+        ///   文本型定义属性（名称/描述/文本/类型/阵营/稀有度/种族/关键词/卡包）**不放** ——
+        ///   它们的输出类型是文本，项目里各有专用节点（103023 类型名 / 103006 关键词 / 103010~103012 …），
+        ///   硬塞进一个 int 输出会把文本退化成 0。</summary>
+        private static readonly string[] CARD_DEFINE_NUM_PROP_NAMES = new string[]
+        {
+            "攻击", "生命", "法力费用", "花费", "可构筑", "自定义"
+        };
+
+        /// <summary>「读取卡牌定义属性（文本）」的属性名表：**文本型 + 数值型都能选**（输出口是 Object/String）。
+        /// 文本型正是 103020（整数输出）装不下的那些 —— 名称 / 描述 / 文本 / 类型 / 阵营 / 稀有度 / 种族 / 关键词 / 卡包；
+        /// 数值型条目也认，按整数返回（复用 DefineProp，含自定义属性）。</summary>
+        private static readonly string[] CARD_DEFINE_ANY_PROP_NAMES = new string[]
+        {
+            "名称", "描述", "文本", "类型", "阵营", "稀有度", "种族", "关键词", "卡包",
+            "攻击", "生命", "法力费用", "花费", "可构筑"
+        };
 
         /// <summary>比较/运算等节点的枚举字段定义辅助</summary>
         private static FieldDef EnumField(string name, string display_name, string[] options, string def)
@@ -688,6 +731,7 @@ namespace TcgEngine.UI
             string[][] evs = new string[][]
             {
                 new string[] { "OnBeforePlay", "使用卡牌时", "任意玩家使用（打出）一张牌之前触发；可阻止该牌打出，value=费用" },
+                new string[] { "OnAfterPlay", "使用卡牌后", "任意玩家使用（打出）一张牌**并结算完成后**触发（已扣费、已入场/已生效）；事件主体=打出的牌，value=费用" },
                 new string[] { "OnBeforeDamage", "伤害时", "任意卡牌/玩家受伤害结算前触发；可阻止本次伤害，或把 value 改 0=免伤" },
                 new string[] { "OnAfterDamage", "伤害后", "任意卡牌/玩家受伤害结算后触发（实际伤害=value，来源=source）" },
                 new string[] { "OnAfterDraw", "抽卡后", "任意玩家每次抽到 1 张牌后触发（抽到的牌=subject）" },
@@ -747,6 +791,60 @@ namespace TcgEngine.UI
                 p.pins.Add(new PinDef("pos", "位置", NodeValueType.Int32, true));           //主体所在牌堆中的位置（slot/第几张）
                 presets.Add(p);
             }
+
+            //★「禁锢时 / 禁锢后」按参考图**定制字段顺序与控件**（不走上循环那套）：
+            //  参考图左列自上而下 = 触发条件(勾选框) → 标签列表 → 生效区域 → 优先级；右侧 = 自定义效果属性(＋) + 卡牌输出口。
+            //  与上循环的差别有两点，都是对照参考图指出的：
+            //   ①「触发条件」必须是**字段 + 同名端口**（项目约定：同名字段才会把控件画进端口那一行 → 显示成"绿点+勾选框"），
+            //      上循环只加了端口、没有字段 → 参考图有勾选框、我这边没有；
+            //   ② 字段顺序：「标签列表」要在「生效区域」之前（上循环是生效区域在前）。
+            presets.Add(GraphEventEntryWithConditionToggle("OnBeforeFreeze", "禁锢时",
+                "任意卡牌被施加减禁（禁锢）之前触发；可阻止=本次不施加禁锢；事件主体=将被禁锢的卡"));
+            presets.Add(GraphEventEntryWithConditionToggle("OnAfterFreeze", "禁锢后",
+                "任意卡牌被施加禁锢之后触发；事件主体=被禁锢的卡"));
+
+            //★「增益属性变动时 / 增益属性变动后」按参考图定制：
+            //  字段与前两个相同；**输出口不同** —— 触发(动作线) / 增益 / 属性名称 / 原值 / 值（参考图右侧五个点）。
+            presets.Add(GraphEventEntryBuffPropChange("OnBeforeBuffPropChange", "增益属性变动时",
+                "某个增益的数值被显式改写之前触发（口径A：只有「设置增益属性」这类主动改写才算，增益重算/到期不算）；可阻止=保持原值"));
+            presets.Add(GraphEventEntryBuffPropChange("OnAfterBuffPropChange", "增益属性变动后",
+                "某个增益的数值被显式改写之后触发；输出口给出 增益/属性名称/原值/值"));
+
+            //★「卡牌属性变动时 / 卡牌属性变动后」：与上面两个同一套，只是主体换成卡牌
+            //  （口位：触发 / 卡牌 / 属性名称 / 原值 / 值）。属性名口径 = 攻击/生命/法力费用。
+            presets.Add(GraphEventEntryCardPropChange("OnBeforeCardPropChange", "卡牌属性变动时",
+                "某张卡牌的属性（攻击/生命/法力费用）被显式设置之前触发（口径A：只有「设置卡牌属性」这类主动改写才算，受伤/治疗/增益重算不算）；可阻止=保持原值"));
+            presets.Add(GraphEventEntryCardPropChange("OnAfterCardPropChange", "卡牌属性变动后",
+                "某张卡牌的属性被显式设置之后触发；输出口给出 卡牌/属性名称/原值/值"));
+
+            //★「添加增益时」（参考图：口位 = 卡牌 / 增益）：任意卡牌被施加任意增益之前触发，可阻止=本次不施加。
+            //  广播点在 BuffRuntime.AddBuff —— 那是"添加增益"的唯一入口，放这里不会有路径漏掉。
+            presets.Add(GraphEventEntryAddBuff("OnBeforeAddBuff", "添加增益时",
+                "任意卡牌被施加任意增益之前触发（全场监听，不限某个增益定义）；可阻止=本次不施加该增益；输出口给出 卡牌/增益(定义)"));
+            //★「爆牌时/爆牌后」已按用户决定**下线**（爆牌不做）→ 不再登记入口预设。
+            //  枚举值 OnBeforeBurnCard/OnAfterBurnCard 与 MapGraphTrigger 映射一并移除；
+            //  枚举定义保留（改动已有枚举值会让已保存数据错位），标注为已弃用。
+
+            //★「添加增益后」（全局版，不可阻止）：「增益」口给**实例**（与"时"给定义不同，可读施加后的数值）。
+            presets.Add(GraphEventEntryAddBuff("OnAfterAddBuff", "添加增益后",
+                "任意卡牌被施加任意增益、且已生效之后触发（不可阻止）；输出口给出 卡牌/增益(实例)", true));
+            //（「爆牌后」同上下线：爆牌不做）
+
+            //★「护甲变动时 / 护甲变动后」：**单属性版**（主体=持有护甲的英雄卡，只有 原值/值 两个数据口）。
+            //  运行时由 NodeDocRunner 的 202018 / 202019（增加护甲）与 202020（失去护甲）广播。
+            presets.Add(GraphEventEntryCardValueChange("OnBeforeArmorChange", "护甲变动时",
+                "任意卡牌（英雄卡）的护甲被显式改变之前触发（口径A：只有「增加护甲/失去护甲」这类主动改写才算，护甲被消耗不算）；可阻止=保持原护甲"));
+            presets.Add(GraphEventEntryCardValueChange("OnAfterArmorChange", "护甲变动后",
+                "护甲被显式改变之后触发；输出口给出 卡牌/原值/值"));
+
+            //★「封印时 / 封印后」：单属性版（主体=被封印/解封的卡；值=1 有封印 / 0 无封印）。
+            //  ★封印与沉默**已统一为一个机制**：原作 202015「沉默」的输出口就叫「封印事件」，202040「封印」是群体版
+            //    → 全项目只保留「封印」这一种叫法（节点标题 / 属性名「被封印」 / 107010 事件名 / 两个动作同语义）。
+            //  运行时由「202040 封印」「202015 沉默」「设置属性·被封印」「清状态」广播。
+            presets.Add(GraphEventEntryCardValueChange("OnBeforeSilenceChange", "封印时",
+                "任意卡牌的「封印」被显式施加/移除之前触发（口径A：只有「封印/沉默」动作与清状态才算）；可阻止=保持原状"));
+            presets.Add(GraphEventEntryCardValueChange("OnAfterSilenceChange", "封印后",
+                "「封印」被显式施加/移除之后触发；输出口给出 卡牌/原值(1有0无)/值(1有0无)"));
 
             //事件筛选取值（Bool 输出，接到事件入口的「条件」口做连线式筛选）：
             NodePreset eq = new NodePreset();
@@ -859,6 +957,40 @@ namespace TcgEngine.UI
             ex.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
             ex.fields.Add(BoolField("exhausted", "横置", "false"));
             presets.Add(ex);
+
+            //「读取卡牌属性」取值节点：卡牌口 + 属性名下拉 → 输出「有/无」(Boolean) 与「值」(Int32)。
+            // 属性名与「设置卡牌属性」用的是**同一个数组**（CARD_RUNTIME_PROP_NAMES），读写严格对称。
+            NodePreset read_prop = new NodePreset();
+            read_prop.type = GraphNodeType.Value;
+            read_prop.action = "GetCardPropValue";
+            read_prop.title = "读取卡牌属性";
+            read_prop.desc = "读某张卡的运行时属性（攻击/生命/法力费用 + 濒死/当前生命值/护甲值/被封印/已就绪/攻击次数/具有隐匿/具有护盾/被禁锢）。"
+                + "布尔型输出 1=有 0=无；数值型输出真实数字。与「设置卡牌属性」同一套属性名口径。卡牌口无连线=本次目标";
+            read_prop.category = "卡牌";
+            read_prop.supported = true;
+            read_prop.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, false));
+            read_prop.fields.Add(EnumField("propName", "属性名称", CARD_RUNTIME_PROP_NAMES, "当前生命值"));
+            read_prop.fields.Add(new FieldDef("custom_prop", "自定义属性名", FieldEditType.Input, null, ""));   //属性名称选「自定义」时用它
+
+            //「读取卡牌定义属性（文本）」取值节点：103020 是**整数输出**，装不下 名称/描述/类型/阵营/种族/关键词…，
+            //这里补一个 Object/String 输出的读节点（数值型条目也认，按整数返回）。
+            NodePreset read_def = new NodePreset();
+            read_def.type = GraphNodeType.Value;
+            read_def.action = "GetCardDefineProp";
+            read_def.title = "读取卡牌定义属性（文本）";
+            read_def.desc = "读卡牌定义上的属性：文本型（名称/描述/文本/类型/阵营/稀有度/种族/关键词/卡包）返回文字，"
+                + "数值型（攻击/生命/法力费用/花费/可构筑）返回整数。定义口无连线=本次目标卡的定义";
+            read_def.category = "卡牌";
+            read_def.supported = true;
+            read_def.pins.Add(new PinDef("cardDefine", "卡牌定义", NodeValueType.CardDefine, false));
+            read_def.fields.Add(new FieldDef("cardDefine", "卡牌定义", FieldEditType.CardSelect, null, ""));   //与端口同名 → 控件画在端口行
+            read_def.fields.Add(EnumField("propName", "属性名称", CARD_DEFINE_ANY_PROP_NAMES, "名称"));
+            read_def.pins.Add(new PinDef("out", "属性值", NodeValueType.Object, true));
+            presets.Add(read_def);
+            read_prop.pins.Add(new PinDef("out_has", "有/无", NodeValueType.Boolean, true));
+            read_prop.pins.Add(new PinDef("out", "值", NodeValueType.Int32, true));
+            presets.Add(read_prop);
+
 
             //增加当前灵力（不钳制）（=旧 EffectMana increase_value：mana += value; Max(...,0)，**没有上限**）
             NodePreset mana = new NodePreset();
@@ -976,7 +1108,119 @@ namespace TcgEngine.UI
             return presets;
         }
 
-        /// <summary>zmcs 风格入口节点（分类「入口」）：主动效果(战吼/法术)/光环/被动(亡语)/事件效果 四入口。
+        /// <summary>
+        /// 按参考图构建一个「XX时/后」事件入口：
+        ///   字段顺序 = 触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性
+        ///   端口     = 触发条件(cond, 输入) / 触发(out) / 卡牌(card) / 玩家(player) / 位置(pos)
+        /// 「触发条件」同时有 **字段**（Toggle）与 **同名端口** —— 项目约定：同名字段才会把控件画进端口那一行
+        /// （见 BuildParamSlots 注释与 IsSlotField），表现为"端口圆点 + 勾选框"同一行，有连线时勾选框自动隐藏。
+        /// 默认值取 true：不连线时与其它事件入口行为一致（无连线=触发）。
+        /// </summary>
+        private static NodePreset GraphEventEntryWithConditionToggle(string action, string title, string desc)
+        {
+            NodePreset p = new NodePreset();
+            p.type = GraphNodeType.Event;
+            p.action = action;
+            p.title = title;
+            p.desc = desc;
+            p.category = CAT_EVENT;
+            p.supported = true;
+
+            p.fields.Add(BoolField("cond", "触发条件", "true"));        //★字段与端口同名 → 勾选框画进端口那一行
+            p.fields.Add(EnumField("tags", "标签列表", new string[] { "无", "战吼", "亡语" }, "无"));
+            p.fields.Add(new FieldDef("zones", "生效区域", FieldEditType.MultiOptions,
+                new string[] { "任意", "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" },
+                "英雄;战场;装备区"));
+            p.fields.Add(IntField("priority", "优先级", "0"));
+            p.fields.Add(new FieldDef("custom_props", "自定义效果属性", FieldEditType.Input, null, ""));
+
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+            p.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
+            p.pins.Add(new PinDef("pos", "位置", NodeValueType.Int32, true));
+            return p;
+        }
+
+        /// <summary>
+        /// 按参考图构建「增益属性变动时/后」入口：
+        ///   字段顺序与其它事件入口一致（触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性）
+        ///   输出口（参考图右侧）：触发(Flow) / 增益(Buff) / 属性名称(String) / 原值(Int32) / 值(Int32)
+        /// 运行时由 NodeDocRunner 在「设置增益属性(206003)」改写数值处广播并填这四项数据。
+        /// </summary>
+        private static NodePreset GraphEventEntryBuffPropChange(string action, string title, string desc)
+        {
+            NodePreset p = GraphEventEntryWithConditionToggle(action, title, desc);
+            p.pins.Clear();
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("buff_inst", "增益", NodeValueType.Buff, true));
+            p.pins.Add(new PinDef("prop_name", "属性名称", NodeValueType.String, true));
+            p.pins.Add(new PinDef("old_value", "原值", NodeValueType.Int32, true));
+            p.pins.Add(new PinDef("value", "值", NodeValueType.Int32, true));
+            return p;
+        }
+
+        /// <summary>
+        /// 按参考图构建「添加增益时」入口：
+        ///   字段与其它事件入口一致（触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性）
+        ///   输出口（参考图右侧）：触发(Flow) / 卡牌(Card) / 增益(Buff)
+        /// 运行时由 BuffRuntime.AddBuff（添加增益的唯一入口）在施加前广播；可阻止=本次不施加增益。
+        /// 「增益」口给的是**增益定义**（BuffData）——"时"这一刻增益实例还没创建。
+        /// </summary>
+        private static NodePreset GraphEventEntryAddBuff(string action, string title, string desc, bool buff_instance = false)
+        {
+            NodePreset p = GraphEventEntryWithConditionToggle(action, title, desc);
+            p.pins.Clear();
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+            //「时」给增益**定义**（此刻实例还没建）；「后」给增益**实例**（BuffRef：可读被改动后的数值）
+            p.pins.Add(new PinDef(buff_instance ? "buff_inst" : "buff", "增益", NodeValueType.Buff, true));
+            return p;
+        }
+
+        //（「爆牌时」入口构建方法已下线：用户决定"爆牌不做"）
+
+        /// <summary>
+        /// 按同一套参考图构建「卡牌属性变动时/后」入口：
+        ///   字段与其它事件入口完全一致（触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性）
+        ///   输出口：触发(Flow) / 卡牌(Card) / 属性名称(String) / 原值(Int32) / 值(Int32)
+        /// 与「增益属性变动」的唯一区别 = 主体口是「卡牌」而不是「增益」；属性名口径 = 攻击/生命/法力费用（与 202037 一致）。
+        /// 运行时由 NodeDocRunner 在「设置卡牌属性(202037)」「设置生命值·清伤害(SetCardHpClearDamage)」两处广播并填这四项数据。
+        /// </summary>
+        private static NodePreset GraphEventEntryCardPropChange(string action, string title, string desc)
+        {
+            NodePreset p = GraphEventEntryWithConditionToggle(action, title, desc);
+            p.pins.Clear();
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+            p.pins.Add(new PinDef("prop_name", "属性名称", NodeValueType.String, true));
+            p.pins.Add(new PinDef("old_value", "原值", NodeValueType.Int32, true));
+            p.pins.Add(new PinDef("value", "值", NodeValueType.Int32, true));
+            return p;
+        }
+
+        /// <summary>
+        /// 「XX变动时/后」入口（**单一属性**版）：主体是卡牌，只带 原值/值 两项数据（没有"属性名称"口）。
+        /// 字段顺序与其它事件入口一致（触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性）。
+        /// 目前用于「护甲变动时/后」（主体=持有护甲的英雄卡）。
+        /// </summary>
+        private static NodePreset GraphEventEntryCardValueChange(string action, string title, string desc)
+        {
+            NodePreset p = GraphEventEntryWithConditionToggle(action, title, desc);
+            p.pins.Clear();
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+            p.pins.Add(new PinDef("old_value", "原值", NodeValueType.Int32, true));
+            p.pins.Add(new PinDef("value", "值", NodeValueType.Int32, true));
+            return p;
+        }
+
+        /// <summary>zmcs 风格入口节点（分类「入口」）：主动效果(战吼/法术)/光环/被动(亡语)/事件效果 四入口。</summary>
+
         /// action 与 CardPoolIO 编译保持一致（ActivateEffect/PassiveEffect/AuraEffect/EventEffect），
         /// 拖入后保存卡牌即编译为能力：主动=打出时触发（战吼/法术）、被动=亡语、光环=常驻增益、事件=监听事件。</summary>
         private static List<NodePreset> BuildZmcsEntryPresets()
@@ -1032,20 +1276,27 @@ namespace TcgEngine.UI
             presets.Add(actv);
 
             //2) 光环效果入口（常驻增益；字段与 CardPoolIO.BuildAuraAbility 对齐）
+            //   「增益定义」= 增益池（buffs.json）里的**具名增益** → 引擎把这份增益持续施加到范围内目标；
+            //   目标进入范围时施加一次、离开范围（或本卡离场/被封印）时自动精确移除；
+            //   「动作」出口在该目标"刚被施加"的那一刻执行一次（可引用「目标卡牌 / 目标增益」）。
             NodePreset aura = new NodePreset();
             aura.type = GraphNodeType.Event;
             aura.action = "AuraEffect";
             aura.title = "光环效果入口";
-            aura.desc = "zmcs 光环=常驻增益：给 生效区域 内符合 作用区域 的卡持续施加 增益定义（下游动作线暂不执行）";
+            aura.desc = "光环=常驻：给「生效区域」内符合「作用区域」的卡持续施加「增益定义」（增益池里的具名增益）；"
+                + "目标进入范围施加一次、离开范围（或本卡离场/被封印）自动移除；「生效条件」为假的目标不施加；"
+                + "「动作」出口在该目标刚被施加时执行一次（可接「目标增益」做后续处理）";
             aura.category = CAT_ENTRY;
             aura.supported = true;
-            aura.fields.Add(EnumField("buff", "增益定义", StatusTypeOptions(), "AddAttack"));
-            aura.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, new string[] { "场上", "手牌", "全部区域" }, "场上"));
-            aura.fields.Add(new FieldDef("target_area", "作用区域", FieldEditType.Dropdown, new string[] { "双方", "己方", "敌方" }, "双方"));
-            aura.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, false));          //光环载体（图所在卡）
+            aura.fields.Add(new FieldDef("buff", "增益定义", FieldEditType.BuffSelect, null, ""));   //存 BuffData.id（增益池下拉）
+            //生效区域 = 光环载体（本卡）需要在的区域；作用区域 = 被施加增益的卡所在区域
+            //（两者都是区域下拉，口径 = ZoneNames：任意/战场/手牌/牌库/墓地/装备区/奥秘区/英雄）
+            aura.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, ZoneNames.DisplayWithAny, "任意"));
+            aura.fields.Add(new FieldDef("target_area", "作用区域", FieldEditType.Dropdown, ZoneNames.DisplayWithAny, "任意"));
+            aura.pins.Add(new PinDef("cond", "生效条件", NodeValueType.Boolean, false));   //无连线=放行；为假 → 该目标不施加
             aura.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
             aura.pins.Add(new PinDef("target_card", "目标卡牌", NodeValueType.Card, true));
-            aura.pins.Add(new PinDef("target_player", "目标玩家", NodeValueType.Player, true));
+            aura.pins.Add(new PinDef("target_buff", "目标增益", NodeValueType.Buff, true));  //刚施加的增益实例（供 106004/106005 等消费）
             presets.Add(aura);
 
             //3) 被动效果入口（亡语；生效/失效为预留出口，执行层不驱动）
@@ -1053,7 +1304,9 @@ namespace TcgEngine.UI
             pas.type = GraphNodeType.Event;
             pas.action = "PassiveEffect";
             pas.title = "被动效果入口";
-            pas.desc = "zmcs 被动=亡语：本卡死亡时触发，动作从「动作」出口接出（生效/失效出口预留不执行）";
+            pas.desc = "zmcs 被动=本卡自带的能力：动作从「动作」出口接出（按「标签列表」的时机触发，亡语=本卡死亡时）；"
+                + "「生效动作/失效动作」两条线由引擎在卡进入/离开「生效区域」以及变形时执行 —— "
+                + "进场=生效、离场（死亡/回手/洗回/进墓地/暂存）=失效、变形=旧形态失效+新形态生效";
             pas.category = CAT_ENTRY;
             pas.supported = true;
             pas.fields.Add(new FieldDef("tag_list", "标签列表", FieldEditType.Dropdown, new string[] { "战吼", "亡语" }, "亡语"));
@@ -1252,7 +1505,7 @@ namespace TcgEngine.UI
             "111016",   //获取最大值
             "111017",   //获取平均值
             //卡牌/玩家行动（第二批）
-            "202015",   //沉默（v1=清空所有状态/特性/持续效果）
+            "202015",   //沉默（＝封印，同一机制：施加 Silenced；与 202040 同语义）
             "202038",   //丢弃卡牌
             "202044",   //复制卡牌（目标牌堆下拉：手牌/战场/牌库）
             "202029",   //变形为卡牌定义（isreset 忽略）
@@ -1447,48 +1700,35 @@ namespace TcgEngine.UI
             foreach (NodeDocPort ip in d.inputs)
             {
                 //206001 添加增益：zmcs 的 BuffDefine 引用在 TCG2 无对应物，v1 不生成引用口，
-                //改用下方 攻击加成/生命加成/持续回合 三个数值字段表达增益
-                if (p.action == "206001" && ip.type == NodeValueType.BuffDefine)
-                    continue;
-                //增益家族（206002/106004/206003/106003）：Buff/BuffDefine 引用口不生成，改用 buff_id 下拉字段
-                //引用增益定义；106004/206003 没有 card 口，下方补一个。
-                //106005 获取增益定义 / 106007 / 206004 保留 Buff 引用口（Buff 值通道已落地）
-                if ((p.action == "206002" || p.action == "106004" || p.action == "206003" || p.action == "106003")
-                    && (ip.type == NodeValueType.Buff || ip.type == NodeValueType.BuffDefine))
-                    continue;
-                if ((p.action == "106004" || p.action == "206003") && ip.name == "propName")
-                    continue;
-                //111013 排序的 条件 口是 lambda 排序键（v1 不支持）→ 不生成，改用 prop 属性下拉字段。
-                //★ 111031 的「选择的属性(selector)」口**已恢复**：运行期按元素逐个求值该选择器表达式
-                //  （配合「元素(element)」输出口 = 当前遍历元素），prop 下拉仍作为未连线时的兜底（用户 2026-09 确认补齐）。
+                //★端口定义严格对齐 NodeDoc.xml（用户 2026-09-30 要求：输入输出必须和我给的一致）：
+                //**任何 XML 输入口都建同名同型端口**，不再按"项目自定义表达"跳掉（历史上跳掉 Buff/BuffDefine/
+                //String/DefineReference 一批口 → 图上少口、连线连不上）。需要常量下拉的，改为在字段区
+                //用**同名**字段（字段名=口名 → 控件画在该行；未连线时可下拉/手填，有连线时自动隐藏）。
+                //仅两类例外（底层逻辑不通，属允许保留）：
+                //  · 111013 排序 的 condition 口 = lambda 排序键，运行期无求值通道 → 不建口（保留 prop 下拉兜底）；
+                //  · 112004/112005 的 isParams 值口 → 用编号输入槽 arg1..N（等价结构，见 BuildParamSlots）。
                 if (p.action == "111013" && ip.name == "condition")
                     continue;
-                //103002 获取卡牌定义：DefineReference 引用口不生成，换成卡牌选择字段（下方字段区）
-                if (p.action == "103002" && ip.type == NodeValueType.DefineReference)
-                    continue;
-                //106002 获取增益定义：DefineReference 引用口不生成，换成增益选择字段（下方字段区）
-                if (p.action == "106002" && ip.type == NodeValueType.DefineReference)
+                if ((p.action == "112004" || p.action == "112005") && ip.is_params)
                     continue;
                 //ActionNode 型"输入"实为分支/循环的动作出口（zmcs 控制流节点规范）→ 转成执行流输出口
                 if (ip.type == NodeValueType.ActionNode)
                 {
-                    p.pins.Add(new PinDef(ip.name, ip.display_name, NodeValueType.Flow, true));
+                    if (p.pins.FindIndex(x => x.name == ip.name) < 0)
+                        p.pins.Add(new PinDef(ip.name, ip.display_name, NodeValueType.Flow, true));
                     continue;
                 }
-                //112004 整数运算 / 112005 逻辑运算 的"值"参数口：改用**编号输入槽** arg1..argN / value1..valueN
-                //（每个槽 = 端口 + 同名字段：既可连线，也可手填值，并支持动态增删），见 BuildParamSlots
-                if ((p.action == "112004" || p.action == "112005") && ip.is_params)
+                //同名口已在 outputs 段建过（如 112006 字符串常量的 value 既是输入也是输出）→ 不重复建
+                if (p.pins.FindIndex(x => x.name == ip.name) >= 0)
                     continue;
                 //isParams=true 是"参数列表"口：允许多条取值线接入，运行时逐线求值
                 p.pins.Add(new PinDef(ip.name, ip.display_name, ip.type, false, ip.is_array || ip.is_params));
             }
             foreach (NodeDocPort op in d.outputs)
             {
-                //111013 的 元素 口是 lambda 排序键的输出口（v1 不支持）；★ 111031 的「元素(element)」**已恢复**
-                //（= 当前遍历元素，配合 selector 选择器表达式逐元素求值；运行期在 Object/Card 通道解析）
-                if (p.action == "111013" && op.name == "element")
-                    continue;
-                //outputs 段的 ActionNode 同样是分支口（212001 动作/否则动作）→ 执行流输出口
+                //★元素(element) 口已恢复（111013 排序 / 111031 选择器族）：= 当前遍历元素，
+                // 运行期在 Object/Card 通道解析；排序键仍由 prop 下拉兜底。
+                //ActionNode：分支口（212001 动作/否则动作）→ 执行流输出口
                 if (op.type == NodeValueType.ActionNode)
                 {
                     p.pins.Add(new PinDef(op.name, op.display_name, NodeValueType.Flow, true));
@@ -1526,11 +1766,25 @@ namespace TcgEngine.UI
                 else if (ip.type == NodeValueType.CardType)
                     p.fields.Add(EnumField(ip.name, ip.display_name, TYPE_NAMES, "随从"));  //卡牌类型枚举口 → 中文下拉（如 102032 卡牌类型判断）
                 else if (ip.type == NodeValueType.CardPropertyGetterName)
-                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //102027 获取卡牌属性
+                {
+                    //102027 获取卡牌属性：与「读取/设置卡牌属性」**共用同一张属性名表**（读侧也支持运行时属性全表）
+                    p.fields.Add(EnumField(ip.name, ip.display_name, CARD_RUNTIME_PROP_NAMES, "攻击"));  //102027 获取卡牌属性
+                    p.fields.Add(new FieldDef("custom_prop", "自定义属性名", FieldEditType.Input, null, ""));  //属性名选「自定义」时用它
+                }
                 else if (ip.type == NodeValueType.CardPropertySetterName)
-                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //202037 设置卡牌属性
+                {
+                    //202037 设置卡牌属性：与「读取卡牌属性」**共用同一张属性名表**（读写严格对称）。
+                    //值约定：布尔型（濒死/被封印/已就绪/具有隐匿/具有护盾）用 1=有、0=无；
+                    //        数值型（当前生命值/护甲值/攻击次数/被禁锢=冻结值）值就是数字（护甲值/冻结值整值替换）。
+                    p.fields.Add(EnumField(ip.name, ip.display_name, CARD_RUNTIME_PROP_NAMES, "攻击"));  //202037 设置卡牌属性
+                    p.fields.Add(new FieldDef("custom_prop", "自定义属性名", FieldEditType.Input, null, ""));  //属性名选「自定义」时用它
+                }
                 else if (ip.type == NodeValueType.CardDefinePropertyGetterName)
-                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "攻击", "生命", "法力费用" }, "攻击"));  //103020 获取卡牌定义属性
+                {
+                    //103020 获取卡牌定义属性：数值型定义属性共用表（含 花费/可构筑/自定义）
+                    p.fields.Add(EnumField(ip.name, ip.display_name, CARD_DEFINE_NUM_PROP_NAMES, "攻击"));  //103020 获取卡牌定义属性
+                    p.fields.Add(new FieldDef("custom_prop", "自定义属性名", FieldEditType.Input, null, ""));  //属性名选「自定义」时用它
+                }
                 else if (ip.type == NodeValueType.KeywordName)
                     p.fields.Add(new FieldDef(ip.name, "关键词", FieldEditType.KeywordSelect, null, ""));   //102003/103006 关键词下拉（列游戏自带关键词，存 KeywordData.id）
                 else if (ip.type == NodeValueType.PileName)
@@ -1557,53 +1811,52 @@ namespace TcgEngine.UI
                 else if (p.action == "202037" && ip.name == "value" && ip.type == NodeValueType.Object)
                     p.fields.Add(IntField(ip.name, ip.display_name, "0"));   //设置属性的无连线默认值（有取值线时以线为准）
                 else if (ip.type == NodeValueType.CompareOperator)
-                    p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { ">", "<", ">=", "<=", "==", "!=" }, ">"));
+                    //★存盘值 = 中文（与「逻辑运算符」的 且/或/非 同一口径，节点上显示的也是中文）。
+                    //  旧数据里的符号（> >= == …）由引擎归一后照常工作，见 NodeDocRunner.NormalizeCompareOp。
+                    p.fields.Add(EnumField(ip.name, ip.display_name,
+                        new string[] { "等于", "不等于", "大于", "大于等于", "小于", "小于等于" }, "等于"));
                 else if (ip.type == NodeValueType.LogicOperator)
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "且", "或", "非" }, "且"));
                 else if (ip.type == NodeValueType.IntegerOperator)
                     p.fields.Add(EnumField(ip.name, ip.display_name, new string[] { "+", "-", "*", "/", "%" }, "+"));
             }
-            //206001 添加增益：buff_id 选增益池定义（属性表增益，攻击/生命加成自动映射原生战斗）；
-            //duration 覆盖持续回合（0=取定义默认/永久）；旧图 attack_add/hp_add 数值模式仍被运行时兼容
+            //206001 添加增益：XML 口 = cards(卡牌) + buffDefine(**增益定义**，可下拉 ✓)。
+            //字段名与口名一致(buffDefine) → 下拉控件画在该口行；未连线时用下拉值，连线时以线为准。
+            //（原项目自造的「持续回合」字段已删：XML 无此口，时长取增益定义自身的 duration）
             if (p.action == "206001")
             {
-                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
-                p.fields.Add(IntField("duration", "持续回合(0=默认)", "0"));
+                p.fields.Add(new FieldDef("buffDefine", "增益定义", FieldEditType.BuffSelect, null, ""));
             }
-            //增益家族 v1：端口/字段替代表达
+            //206002 移除增益：XML 口 = card(卡牌) + buff(**增益实例** → 只能连线，不能下拉 ✗)。
+            //故不生成任何增益下拉；移除属性下拉仅作为旧图/未连线时的兜底（运行期先读 buff 口）。
             if (p.action == "206002")
             {
-                p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //目标卡（支持取值线）
-                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
-                p.fields.Add(EnumField("prop", "移除属性", new string[] { "攻击", "生命", "全部" }, "全部"));   //旧路径兼容（无 buff_id 时）
+                p.fields.Add(EnumField("prop", "移除属性", new string[] { "攻击", "生命", "全部" }, "全部"));
             }
+            //106003 是否具有增益：XML 口 = card(卡牌) + buffDefine(**增益定义**，可下拉 ✓)
             if (p.action == "106003")
             {
-                //是否具有增益：card 口来自 NodeDoc 输入（Card），buff_id 选增益定义 → 布尔
-                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
+                p.fields.Add(new FieldDef("buffDefine", "增益定义", FieldEditType.BuffSelect, null, ""));
             }
             if (p.action == "106004" || p.action == "206003")
             {
-                p.pins.Insert(0, new PinDef("card", "卡牌", NodeValueType.Card, false));   //补卡牌定位口（zmcs 原为 Buff 引用）
-                p.fields.Add(new FieldDef("buff_id", "增益定义", FieldEditType.BuffSelect, null, ""));
+                // ★严格对齐 NodeDoc.xml 的端口定义，不再自造：
+                //   · 增益(Buff) 是**实例**，只能由上游连线提供 → 不生成「增益定义」下拉、不插「卡牌」口；
+                //   · 属性名称(propName, String) 可手写也可连线 → 用与端口同名的输入框（有连线时该框自动隐藏）；
+                //   · 值(Object) 走万能槽（类型 + 值），与 112002 比较 同一套。
+                p.fields.Add(new FieldDef("propName", "属性名称", FieldEditType.Input, null, ""));
                 if (p.action == "206003")
-                {
-                    //设置增益属性：目标属性与「增益参数」面板同口径（花费/攻击/生命/护甲/关键词/种族 + 自定义参数）
-                    p.fields.Add(EnumField("prop", "目标属性",
-                        new string[] { "花费", "攻击", "生命", "护甲", "关键词", "种族", "自定义" }, "攻击"));
-                    p.fields.Add(new FieldDef("prop_custom", "自定义参数名", FieldEditType.Input, null, ""));
-                }
-                else
-                {
-                    p.fields.Add(new FieldDef("prop", "属性名", FieldEditType.Input, null, "攻击加成"));   //增益定义里的属性 key（自定义属性名可手填）
-                }
+                    p.fields.Add(new FieldDef("value", "值", FieldEditType.Select2, null, "真值:true"));
             }
-            if (p.action == "206003")
-                p.fields.Add(IntField("value", "值", "0"));
             //111013 排序 / 111031 属性映射 / 111014~111017 求和最值均值：卡牌属性下拉（排序键/求值属性）
+            //★ 与「读取/设置卡牌属性」「102027」**共用同一张表**（含运行时属性 护甲值/当前生命值/濒死…
+            //  以及「自定义」）—— 运行期这些节点也走 CardPropReadByName/ResolvePropName，读写口径一致。
             if (p.action == "111013" || p.action == "111031" || p.action == "111014"
                 || p.action == "111015" || p.action == "111016" || p.action == "111017")
-                p.fields.Add(EnumField("prop", "属性", new string[] { "攻击", "生命", "法力费用" }, "攻击"));
+            {
+                p.fields.Add(EnumField("prop", "属性", CARD_RUNTIME_PROP_NAMES, "攻击"));
+                p.fields.Add(new FieldDef("custom_prop", "自定义属性名", FieldEditType.Input, null, ""));   //属性选「自定义」时用它
+            }
             //111036 转换集合类型：目标元素类型下拉（TypeName 口在编辑器无内置字段，这里补一个；有连线时以线为准）
             if (p.action == "111036")
                 p.fields.Add(EnumField("typeName", "转换类型", new string[] { "卡牌", "卡牌定义", "玩家", "增益", "事件" }, "卡牌"));
@@ -1796,6 +2049,19 @@ namespace TcgEngine.UI
             }
             HandleShortcuts();
 
+            //★编辑会话基线：等所有程序化填充（表单填值 / 属性行重建）跑完的**下一帧**再取，
+            //  否则填充本身会触发控件回调 → 被判成"未保存改动"（实测：什么都没改，点 ✕ 也弹框）。
+            //  取基线时才挂控件监听 → 此后只有用户真的动了才算改动。
+            if (session_pending)
+            {
+                session_pending = false;
+                edit_entry_snapshot = graph != null ? JsonUtility.ToJson(graph) : null;
+                //★这里**不能**再清 edit_dirty：本段在"进入会话的下一帧"才跑，
+                //  期间用户已经可能的改动会被洗掉（旧写法就是这么丢改动的）。
+                //  清脏标记只在进入会话时（RefreshEffectTabs 内）做一次。
+                HookFormDirty();
+            }
+
             //面板激活后的第一帧：执行整页 TMP 迁移（布局 Tab 已由生成工具直接生成，运行时不再重建）
             if (ui_setup_pending && gameObject.activeInHierarchy)
             {
@@ -1892,6 +2158,9 @@ namespace TcgEngine.UI
         {
             if (graph == null)
                 return;
+            //★"未保存"显式脏标记：任何结构改动（连线/增删节点/移动/粘贴）都经过这里。
+            //  5 种模式（卡牌/关键词/增益/按钮/自定义节点）统一置位 → 关闭前都能被拦下来弹确认。
+            edit_dirty = true;
             undo_stack.Add(JsonUtility.ToJson(graph));
             if (undo_stack.Count > MAX_UNDO)
                 undo_stack.RemoveAt(0);
@@ -2416,6 +2685,7 @@ namespace TcgEngine.UI
             if (effs == null)
                 return;
             effs.Add(new CardEffectData { name = "效果" + (effs.Count + 1), graph = new GraphData() });
+            edit_dirty = true;   //★增删效果图也是"未保存改动"（关页前要能被拦下）
             SelectEffect(effs.Count - 1);
         }
 
@@ -2430,6 +2700,7 @@ namespace TcgEngine.UI
                 return;
             }
             effs.RemoveAt(effect_index);
+            edit_dirty = true;   //★删除效果图（连同它的图）同样是"未保存改动"，关页前要能被拦下
             SyncLegacyGraphField();
             SelectEffect(Mathf.Min(effect_index, effs.Count - 1));
         }
@@ -2439,6 +2710,19 @@ namespace TcgEngine.UI
         /// 保证"配了几个效果就完整显示几个"（旧版固定 132 步距且被左上角标题压住 → 像"只能显示 2 个"）。</summary>
         private void RefreshEffectTabs()
         {
+            //★"进入点快照"（未保存判定用）：5 种模式的打开流程最后都会走到这里，且此时 graph 已装好。
+            //  只在快照为空时取（= 新一次进入）；会话中途的刷新不覆盖基线。会话结束在 AfterHide() 清空。
+            if (edit_entry_snapshot == null && graph != null)
+            {
+                edit_entry_snapshot = JsonUtility.ToJson(graph);   //进入点快照（本次会话的基线）
+                edit_dirty = false;
+                //★基线延后到下一帧取（见 Update）：5 种模式的打开流程里，表单/行还会被程序化填充，
+                //  现在取会把"填充触发的控件回调"记成未保存改动（实测：什么都没改，点 ✕ 也弹框）。
+                //★★只在这里（=新一次进入）排一次基线！本方法在**每次刷新**（切效果页/换 tab）都会被调用，
+                //  若每次都排基线，Update 取基线时会把 edit_dirty 洗掉 → "加了节点却关页不提示、改动直接丢"
+                //  （实测踩到：用户加的入口节点整个消失）。
+                session_pending = true;
+            }
             List<CardEffectData> effs = CardEffects();
             if (effs == null || effs.Count == 0)
             {
@@ -2643,6 +2927,13 @@ namespace TcgEngine.UI
             if (buff == null)
                 return;
 
+            //★ 记住"从哪来"：从某张卡的规则图点「编辑」进来的 → 关闭（✕）时要退回那张图，而不是关页回卡牌编辑器。
+            //  （用户要求：进入增益编辑页后点 ✕ 应退回上一个界面。）
+            buff_return_card = card;
+            buff_return_pool = pool;
+            buff_return_save_path = save_path;
+            buff_return_fx = effect_index;
+
             pool = null;
             card = null;
             save_path = null;
@@ -2689,6 +2980,11 @@ namespace TcgEngine.UI
             RefreshBuffForm();
             SelectRightTab(true);
             SetStatus("正在编辑增益：" + buff.GetTitle() + "（保存写回 buffs.json，触发入口=增益触发事件）");
+
+            //★进入点快照与脏标记：由 RefreshEffectTabs() 统一取（5 种模式共用同一套"未保存改动"判定），
+            //  这里只清一次，保证从增益页退回卡图后能重新取基线。
+            edit_entry_snapshot = null;
+            edit_dirty = false;
         }
 
         /// <summary>是否处于增益编辑模式</summary>
@@ -3727,7 +4023,8 @@ namespace TcgEngine.UI
 
             buff_form_rt.gameObject.SetActive(false);
             //版本标记：用于确认"运行的确实是新版面板"（旧面板/旧编译产物一眼可辨）
-            Debug.Log("[增益参数面板] 构建完成 v8：方式=六种写法并存 / 自定义属性=弹框只声明(名称/类型/是否为数组·遮罩不关闭防误触) / 初始值在列表按类型填(标量:整数数字·真值是/否·文本富文本·引用类单选；数组与集合类统一多选弹窗) / 本页黑白灰");
+            Debug.Log("[增益参数面板] 构建完成 v11：属性修改第三格 = 【变量】（填变量名，中文原样保存到 value_source，"
+                + "运行时取该变量当前值）；只有旧数据里本来就是数字的才按固定值读（兼容）");
         }
 
         /// <summary>刷新增益参数面板（填值 + 重建属性修改行）</summary>
@@ -4069,7 +4366,121 @@ namespace TcgEngine.UI
                 editing_buff.title = TmpInputUtil.Read(buff_name_input);
             if (buff_desc_input != null)
                 editing_buff.desc = TmpInputUtil.Read(buff_desc_input);
+            CommitBuffModValuesFromUI();         //★以界面显示为准：把属性修改行的数值框内容写回模型
             editing_buff.SyncLegacyProps();      //旧字段 props 与新 mods 保持一致（老代码/旧图仍读 props）
+        }
+
+        /// <summary>属性修改行的「数值框 → 模型」绑定表：保存时按界面上的文本再写一次。
+        /// 为什么不能只靠 onValueChanged：实测「填完数值 → 直接点保存」时数值没进模型（buffs.json 里存成 0），
+        /// 原因是焦点/行重建的时序。这里在保存前以**界面显示为准**兜一次，保证所见即所存。</summary>
+        private class BuffModValueBinding
+        {
+            public BuffPropMod mod;
+            public TMP_InputField input;
+        }
+        private readonly List<BuffModValueBinding> buff_mod_value_bindings = new List<BuffModValueBinding>();
+
+        /// <summary>保存前把「属性修改」行上的数值框内容写回模型（所见即所存）</summary>
+        private void CommitBuffModValuesFromUI()
+        {
+            int written = 0;
+            if (buff_mod_value_bindings != null)
+            {
+                for (int i = 0; i < buff_mod_value_bindings.Count; i++)
+                {
+                    BuffModValueBinding b = buff_mod_value_bindings[i];
+                    if (b == null || b.mod == null || b.input == null)
+                        continue;
+                    //取控件的**真实文本**（不走 TmpInputUtil.Read 的兜底：实测它可能返回空 → 值被吃掉）
+                    string raw = b.input.text != null ? b.input.text.Trim() : "";
+                    ApplyValueCellText(b.mod, raw);   //数字 → 固定值；中文等 → 变量名（写进 value_source）
+                    written++;
+                    Debug.Log("[增益值] 保存回写：target=" + b.mod.target + " mode=" + b.mod.mode
+                        + " 界面文本=\"" + raw + "\" → 固定值=" + b.mod.value + " 变量=\"" + b.mod.value_source + "\"");
+                }
+            }
+            //兜底：绑定表为空（行被重建过 / 旧对象）→ 直接按行扫控件，按顺序对应 mods
+            if (written == 0 && buff_mods_content != null && editing_buff != null)
+            {
+                List<BuffPropMod> mods = editing_buff.EnsureMods();
+                int mi = 0;
+                for (int i = 0; i < buff_mods_content.childCount && mi < mods.Count; i++)
+                {
+                    Transform row = buff_mods_content.GetChild(i);
+                    if (row == null || !row.name.StartsWith("Mod_"))
+                        continue;
+                    TMPro.TMP_InputField inp = row.GetComponentInChildren<TMPro.TMP_InputField>(true);
+                    if (inp != null)
+                    {
+                        string raw = inp.text != null ? inp.text.Trim() : "";
+                        ApplyValueCellText(mods[mi], raw);   //数字 → 固定值；中文等 → 变量名
+                        written++;
+                        Debug.Log("[增益值] 兜底扫描回写：第 " + mi + " 条 → 固定值=" + mods[mi].value
+                            + " 变量=\"" + mods[mi].value_source + "\"（界面文本=\"" + raw + "\"）");
+                    }
+                    mi++;
+                }
+            }
+            Debug.Log("[增益值] 保存前共回写 " + written + " 个数值框（绑定数="
+                + (buff_mod_value_bindings != null ? buff_mod_value_bindings.Count : -1) + "）");
+        }
+
+        /// <summary>「属性修改」第三格的显示文本：**变量名**（中文）优先；没有变量时，只有旧数据里本来就带数字的才显示数字。</summary>
+        private static string ValueCellText(BuffPropMod m)
+        {
+            if (m == null)
+                return "";
+            if (!string.IsNullOrEmpty(m.value_source))
+                return m.value_source;
+            return m.value != 0 ? m.value.ToString() : "";
+        }
+
+        /// <summary>把数值格的文本写回模型：
+        /// · 能解析成整数 → **固定数值**（value = n，value_source 清空）；
+        /// · 不是整数（例如中文变量名）→ 整串当作**变量名**存进 value_source，数值取该变量的当前值。
+        /// 变量由运行时解析：BuffRuntime.GetSourceValue(card, 变量名)（属性名 / 增益实例属性名，名字支持中文）。
+        /// 所以「花费 / 减少属性 / 手牌数」= 花费 -= 手牌数当前值，变量一变就跟着变。</summary>
+        private static void ApplyValueCellText(BuffPropMod m, string raw)
+        {
+            if (m == null)
+                return;
+            string s = NormalizeDigits(raw != null ? raw.Trim() : "");
+            s = s.Trim();
+            if (s.Length == 0)
+            {
+                m.value = 0;
+                m.value_source = "";
+                return;
+            }
+            int n;
+            if (int.TryParse(s, out n))
+            {
+                m.value = n;
+                m.value_source = "";
+            }
+            else
+            {
+                m.value_source = s;    //★变量名：原样保存（中文照存）
+                m.value = 0;
+            }
+        }
+
+        /// <summary>全角数字/正负号 → 半角（中文输入法下"１２３"会让 int.TryParse 失败，值就丢了）</summary>
+        private static string NormalizeDigits(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+                return s;
+            char[] a = s.ToCharArray();
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] >= '０' && a[i] <= '９')
+                    a[i] = (char)(a[i] - '０' + '0');
+                else if (a[i] == '－' || a[i] == '−' || a[i] == '—')
+                    a[i] = '-';
+                else if (a[i] == '＋')
+                    a[i] = '+';
+            }
+            return new string(a);
         }
 
         /// <summary>重建「属性修改」行列表（增删/排序/换目标属性后调用；只在这里做重建，避免每帧开销）</summary>
@@ -4094,6 +4505,8 @@ namespace TcgEngine.UI
                 c.SetParent(null, false);
                 Destroy(c.gameObject);
             }
+            buff_mod_value_bindings.Clear();   //行全部重建 → 旧绑定作废（下一轮循环按新行登记）
+            Debug.Log("[增益值] 重建属性修改行（重建后界面会按模型重新填值）");
 
             List<BuffPropMod> mods = editing_buff.EnsureMods();
             CreateBuffSectionTitle("增益参数");
@@ -4863,6 +5276,9 @@ namespace TcgEngine.UI
         {
             RectTransform row = CreateBuffRow("Mod_" + index, null, 34f);
             float x = 2f;
+            //建行日志：第 3 格是输入框（固定数值）还是选择格（枚举），一眼可辨；同时打印模型当前值
+            Debug.Log("[增益值] 建行 Mod_" + index + "：" + m.target + "/" + m.mode + " 模型值=" + m.value
+                + " 第三格=" + (BuffModTarget.IsEnum(m.target) ? "枚举选择格" : "数值输入框"));
 
             //① 增益属性（= 增益自身的属性，不是卡牌属性；含下面自定义参数）
             TMP_Text target_txt = MakeBuffRowCell(row, ref x, 96f, m.target, () =>
@@ -4948,12 +5364,14 @@ namespace TcgEngine.UI
                 {
                     cle.ignoreLayout = true;      //此行由锚点定位（不用布局组排布单元格）
                 }
-                MakeBuffInput(cell, m.value.ToString(), false, 16, v =>
+                TMP_InputField val_input = MakeBuffInput(cell, ValueCellText(m), false, 16, v =>
                 {
-                    int n;
-                    if (int.TryParse(v, out n))
-                        m.value = n;
+                    ApplyValueCellText(m, v);
+                    Debug.Log("[增益值] 数值格：\"" + (v != null ? v.Trim() : "") + "\" → " + m.target + "/" + m.mode
+                        + " 固定值=" + m.value + " 变量=\"" + m.value_source + "\"");
                 });
+                //★登记绑定：保存时会再按界面文本回写一次（防"填完直接点保存"丢值，实测踩过）
+                buff_mod_value_bindings.Add(new BuffModValueBinding { mod = m, input = val_input });
                 x += 80f;
             }
 
@@ -5272,6 +5690,23 @@ namespace TcgEngine.UI
                 txt_keyword_select = CreateCardSelectButton(kw_field, "KeywordSelect", OnClickKeywordSelect);
             }
 
+            //2.5) 技能卡（英雄卡专用行）：复制种族行插入；候选=卡池里 type=Skill 的卡（开战挂到英雄技能位）
+            Transform stale_sk = content.Find("PropRowHeroSkill");
+            if (stale_sk != null)
+                Destroy(stale_sk.gameObject);
+            RectTransform sk_row = Instantiate(row.gameObject, content).GetComponent<RectTransform>();
+            sk_row.name = "PropRowHeroSkill";
+            sk_row.SetSiblingIndex(row.GetSiblingIndex() + 2);
+            sk_row.gameObject.SetActive(true);
+            SetLabelText(sk_row.Find("PropLabel"), "技能卡");
+            RectTransform sk_field = sk_row.Find("Field") as RectTransform;
+            if (sk_field != null)
+            {
+                for (int i = sk_field.childCount - 1; i >= 0; i--)   //清掉复制来的旧控件
+                    Destroy(sk_field.GetChild(i).gameObject);
+                txt_skill_select = CreateCardSelectButton(sk_field, "SkillCardSelect", OnClickSkillCardSelect);
+            }
+
             //3) 音效行试听「▶」与短字段凑行已在生成工具中直接生成，此处不再运行时重排
 
             card_extra_built = true;
@@ -5314,13 +5749,150 @@ namespace TcgEngine.UI
                 txt_trait_select.text = c != null ? MultiSummary(c.EnsureTraits(), TraitTitle, "（选择种族）") : "";
             if (txt_keyword_select != null)
                 txt_keyword_select.text = c != null ? MultiSummary(c.keywords, KeywordTitle, "（选择关键词）") : "";
+            if (txt_skill_select != null)
+                txt_skill_select.text = (c != null && c.type == "Hero")
+                    ? MultiSummary(c.skills, SkillCardTitle, "（选择技能卡）")
+                    : "（仅英雄卡可配）";
             if (txt_type_select != null)
                 txt_type_select.text = c != null ? TypeNameOf(c.type) : "";
             if (txt_team_select != null)
                 txt_team_select.text = c != null ? OneSummary(TeamTitle(c.team), "（选择阵营）") : "";
             if (txt_rarity_select != null)
                 txt_rarity_select.text = c != null ? OneSummary(RarityTitle(c.rarity), "（选择稀有度）") : "";
+            FixTripleFieldRows();       //★ 类型/阵营/稀有度、费用/攻击/生命 两行改排（见方法注释）
             RefreshCardCustomProps();   //卡牌自定义属性（与「增益」里的那套同一规格）
+        }
+
+        private bool triple_rows_fixed;
+
+        /// <summary>
+        /// 「类型|阵营|稀有度」「费用|攻击|生命」这两行是生成工具用**三列紧凑**布局造的，实测有硬伤：
+        ///   · 标签占 y∈[48,70]、控件区占 y∈[24,68] → **纵向重叠 20px**，观感就是"标签压在值上、挤成一团"；
+        ///   · 标签字号 15、控件贴在标签下沿，与其它属性行（标签左 88 + 控件从 x=92 起，整行高 40）完全不一致。
+        /// 这里在运行时把它们**拆成 6 个单字段行**，逐项复刻其它属性行的排布：
+        ///   行高 40、标签宽 88 字号 FontSmall 色 (1,1,1,0.7)、控件区 offsetMin=(92,0) 铺满右侧。
+        /// 只**搬移**已有控件对象（不重建），因此 RefreshCardExtraFields 缓存的 txt_*_select、
+        /// 以及 BindInput 绑定的 input_mana/attack/hp 引用都依然有效。
+        /// 幂等：找不到 PropRow3（已改过 / 不是这套生成结果）就直接返回，不置标记，等下次再试。
+        /// </summary>
+        private void FixTripleFieldRows()
+        {
+            if (triple_rows_fixed)
+                return;
+            RectTransform content = PropFormContent();
+            if (content == null)
+                return;
+
+            List<RectTransform> rows = new List<RectTransform>();
+            for (int i = 0; i < content.childCount; i++)
+            {
+                Transform ch = content.GetChild(i);
+                if (ch != null && ch.name == "PropRow3")
+                    rows.Add(ch as RectTransform);
+            }
+            if (rows.Count == 0)
+                return;
+
+            int moved = 0;
+            foreach (RectTransform row in rows)
+            {
+                if (row == null)
+                    continue;
+                int insert_at = row.GetSiblingIndex();
+
+                //先收集每列的「标签文字 + 控件区里的实际控件」（下拉已被 SetActive(false) 停用 → 跳过它）
+                List<string> labels = new List<string>();
+                List<RectTransform> controls = new List<RectTransform>();
+                for (int i = 0; i < row.childCount; i++)
+                {
+                    Transform col = row.GetChild(i);
+                    if (col == null)
+                        continue;
+
+                    Transform lb = col.Find("PropLabel");
+                    labels.Add(ReadLabelText(lb));
+
+                    RectTransform ctrl = null;
+                    RectTransform field = col.Find("Field") as RectTransform;
+                    if (field != null)
+                    {
+                        for (int f = 0; f < field.childCount; f++)
+                        {
+                            Transform fc = field.GetChild(f);
+                            if (fc != null && fc.gameObject.activeSelf)
+                            {
+                                ctrl = fc as RectTransform;
+                                break;
+                            }
+                        }
+                    }
+                    controls.Add(ctrl);
+                }
+
+                //逐列建单字段行（插回原位置，保持字段顺序不变）
+                for (int i = 0; i < labels.Count; i++)
+                {
+                    RectTransform new_row = BuildSingleFieldRow(content, labels[i], 40f);
+                    new_row.SetSiblingIndex(insert_at + i);
+                    RectTransform ctrl = controls[i];
+                    if (ctrl != null)
+                    {
+                        ctrl.SetParent(new_row.Find("Field"), false);
+                        SetStretchRect(ctrl, 0, 0, 0, 0);
+                        moved++;
+                    }
+                }
+
+                row.gameObject.SetActive(false);   //先关掉：Destroy 延迟到帧末，避免同帧看到两个行
+                Destroy(row.gameObject);
+            }
+
+            triple_rows_fixed = true;
+            Debug.Log("[属性区] 已把「类型/阵营/稀有度」「费用/攻击/生命」从三列紧凑布局改为与其它字段一致的单字段行"
+                + "（原布局标签与控件纵向重叠 20px）；搬移控件 " + moved + " 个");
+        }
+
+        /// <summary>建一个与其它属性行完全同规格的单字段行（标签左 88、控件区从 x=92 起铺满，行高 40）</summary>
+        private RectTransform BuildSingleFieldRow(RectTransform content, string label, float height)
+        {
+            GameObject go = new GameObject("PropRow", typeof(RectTransform));
+            RectTransform row = go.GetComponent<RectTransform>();
+            row.SetParent(content, false);
+            row.sizeDelta = new Vector2(0f, height);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = height;
+            le.minHeight = height;
+
+            TMP_Text lb = MakeNodeTmpText(row, "PropLabel", label, UITheme.FontSmall, TextAlignmentOptions.MidlineLeft);
+            RectTransform lrt = lb.rectTransform;
+            lrt.anchorMin = new Vector2(0f, 0f);
+            lrt.anchorMax = new Vector2(0f, 1f);
+            lrt.pivot = new Vector2(0f, 0.5f);
+            lrt.anchoredPosition = Vector2.zero;
+            lrt.sizeDelta = new Vector2(88f, 0f);
+            lb.color = new Color(1f, 1f, 1f, 0.7f);
+            lb.raycastTarget = false;
+
+            GameObject fgo = new GameObject("Field", typeof(RectTransform));
+            RectTransform field = fgo.GetComponent<RectTransform>();
+            field.SetParent(row, false);
+            field.anchorMin = new Vector2(0f, 0f);
+            field.anchorMax = new Vector2(1f, 1f);
+            field.offsetMin = new Vector2(92f, 0f);
+            field.offsetMax = Vector2.zero;
+            return row;
+        }
+
+        /// <summary>读标签文字（运行时可能已被 ConvertTextToTMP 换成 TMP，两种都认）</summary>
+        private static string ReadLabelText(Transform label)
+        {
+            if (label == null)
+                return "";
+            TMP_Text tmp = label.GetComponent<TMP_Text>();
+            if (tmp != null)
+                return tmp.text;
+            Text legacy = label.GetComponent<Text>();
+            return legacy != null ? legacy.text : "";
         }
 
         // ---------------- 卡牌「自定义属性」（名称:类型[:数组] + 初始值；与增益里的自定义属性完全同规格） ----------------
@@ -5645,6 +6217,55 @@ namespace TcgEngine.UI
             c.keywords = new List<string>(list);
             CardPoolIO.UpdateCardData(c);
             RefreshCardExtraFields();
+        }
+
+        /// <summary>英雄技能卡多选：候选=卡池里 type=Skill 的卡（开战时挂到英雄身上，变成英雄技能按钮）</summary>
+        private void OnClickSkillCardSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            if (c.skills == null)
+                c.skills = new List<string>();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            List<CardData> pool_cards = CardPoolIO.GetCustomCards();
+            if (pool_cards != null)
+            {
+                foreach (CardData cd in pool_cards)
+                {
+                    if (cd == null || cd.type != CardType.Skill || string.IsNullOrEmpty(cd.id))
+                        continue;
+                    titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
+                    ids.Add(cd.id);
+                }
+            }
+            foreach (string cur in c.skills)   //已选但不在候选里的（如已删除的卡）也列出来，可取消勾选
+            {
+                if (!string.IsNullOrEmpty(cur) && !ids.Contains(cur))
+                {
+                    titles.Add(cur);
+                    ids.Add(cur);
+                }
+            }
+            OpenMultiSelectPopup("技能卡", c.skills, titles.ToArray(), ids.ToArray(), ApplySkillCardSelection);
+        }
+
+        private void ApplySkillCardSelection(List<string> list)
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            c.skills = new List<string>(list);
+            CardPoolIO.UpdateCardData(c);   //运行期定义立即更新（重开对局后技能挂到英雄身上）
+            RefreshCardExtraFields();
+            SetStatus("已设置英雄技能卡 " + (list != null ? list.Count : 0) + " 张（开战时挂载为英雄技能按钮）");
+        }
+
+        private static string SkillCardTitle(string id)
+        {
+            CardData d = !string.IsNullOrEmpty(id) ? CardData.Get(id) : null;
+            return d != null && !string.IsNullOrEmpty(d.title) ? d.title : id;
         }
 
         /// <summary>属性行：填满父级的 TMP 选择按钮（返回文本组件用于刷新显示）</summary>
@@ -7051,17 +7672,55 @@ namespace TcgEngine.UI
             TMP_Text captured = t;
             btn.onClick.AddListener(() =>
             {
-                OpenRichTextEditor(label, source, v => { if (captured != null) captured.text = RichTextSummary(v); });
+                OpenRichTextEditor(label, source, v =>
+                {
+                    if (captured != null)
+                    {
+                        captured.text = RichTextSummary(v);     //= 原文（显示内容与实际保存内容一致）
+                        FitRichTextRow(row, captured);          //长了就把行撑高，不压到下一行
+                    }
+                });
             });
+            FitRichTextRow(row, t);       //打开时也按当前文本撑一次
         }
 
         /// <summary>富文本摘要：去标签后的前 40 字（空值给占位提示）</summary>
+        /// <summary>
+        /// 字段里显示给用户的文本 = **实际会保存的原文**（不再去标签、不再截断到 40 字）。
+        /// 旧实现是"去掉 &lt;b&gt; 之类标签 + 换行变空格 + 超过 40 字截断加 …"，
+        /// 于是"编辑时看到的"和"保存下来的"必然不一致（用户实报：显示与保存内容不一致）。
+        /// 只对空值给一个占位提示。
+        /// </summary>
         private static string RichTextSummary(string rich)
         {
             if (string.IsNullOrEmpty(rich))
                 return "（点击编辑）";
-            string plain = System.Text.RegularExpressions.Regex.Replace(rich, "<[^>]+>", "").Replace("\n", " ").Trim();
-            return plain.Length > 40 ? plain.Substring(0, 40) + "…" : plain;
+            return rich;
+        }
+
+        /// <summary>
+        /// 把富文本字段所在行按**实际文本**撑高（只增不减，最小 84 = 生成时的多行行高）。
+        /// 既然字段里显示的是原文（可能带标签、可能很多行），就必须让这一行装得下，不能溢出压到下一行。
+        /// </summary>
+        private void FitRichTextRow(RectTransform row, TMP_Text text)
+        {
+            if (row == null || text == null)
+                return;
+            const float min_h = 84f;
+            float w = text.rectTransform.rect.width;
+            if (w <= 1f)
+                w = 380f;                       //布局还没跑过时的保守宽度
+            float need = text.GetPreferredValues(text.text ?? "", w, 0f).y + 12f;
+            float h = Mathf.Max(min_h, Mathf.Ceil(need));
+            if (Mathf.Approximately(row.sizeDelta.y, h))
+                return;
+            row.sizeDelta = new Vector2(row.sizeDelta.x, h);
+            LayoutElement le = row.GetComponent<LayoutElement>();
+            if (le != null)
+            {
+                le.preferredHeight = h;
+                le.minHeight = h;
+            }
         }
 
         /// <summary>打开富文本编辑弹框：确认后回写 source 并触发 on_confirm（刷新入口摘要）。
@@ -10339,7 +10998,8 @@ namespace TcgEngine.UI
         }
 
         /// <summary>内联增益下拉：显示「标题 (id)」、存储 BuffData.id（列出 BuffPoolIO 增益池全部定义）。
-        /// 206001 添加增益 / 206002 移除增益 / 106002 获取增益定义 / 106003 是否具有增益 的 buff_id 字段用。</summary>
+        /// 206001 添加增益 / 206002 移除增益 / 106002 获取增益定义 / 106003 是否具有增益 的 buff_id 字段用。
+        /// 右侧紧跟一个「跳去编辑该增益」小按钮（= 用规则图编辑器打开 BuffData.graph，保存写回 buffs.json）。</summary>
         private void CreateInlineBuffSelect(RectTransform parent, GraphNode node, FieldDef fd, string current)
         {
             GameObject go = new GameObject("Select", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -10348,7 +11008,7 @@ namespace TcgEngine.UI
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+            rt.offsetMax = new Vector2(-36f, 0f);   //右侧留出「编辑」按钮的位置
             Image img = go.GetComponent<Image>();
             img.color = new Color(1f, 1f, 1f, 0.16f);
             Button btn = go.GetComponent<Button>();
@@ -10359,6 +11019,56 @@ namespace TcgEngine.UI
             btn.onClick.AddListener(() => OpenFieldSelectPopup(node, fd, false,
                 () => { if (captured_t != null) captured_t.text = BuffSelectText(GetFieldValue(node, fd.name, fd.def ?? "")); },
                 BuffSelectOptions(), BuffSelectValues()));
+
+            //⇄ 跳到该增益的编辑器：打开选中增益的规则图（BuffData.graph），保存即写回 buffs.json
+            GameObject jump = new GameObject("BuffEdit", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform jrt = jump.GetComponent<RectTransform>();
+            jrt.SetParent(parent, false);
+            jrt.anchorMin = new Vector2(1f, 0f);
+            jrt.anchorMax = new Vector2(1f, 1f);
+            jrt.pivot = new Vector2(1f, 0.5f);
+            jrt.anchoredPosition = Vector2.zero;
+            jrt.sizeDelta = new Vector2(34f, -2f);
+            Image jimg = jump.GetComponent<Image>();
+            jimg.color = new Color(1f, 1f, 1f, 0.22f);
+            Button jbtn = jump.GetComponent<Button>();
+            jbtn.targetGraphic = jimg;
+            MakeNodeTmpText(jrt, "Text", "编辑", 11, TextAlignmentOptions.Center);
+            jbtn.onClick.AddListener(() => OpenBuffEditorForField(node, fd));
+        }
+
+        /// <summary>打开「当前字段所选增益」的编辑器（= 增益规则图模式；未选/找不到给提示，不静默）</summary>
+        private void OpenBuffEditorForField(GraphNode node, FieldDef fd)
+        {
+            if (node == null || fd == null)
+                return;
+            string id = GetFieldValue(node, fd.name, fd.def ?? "");
+            if (string.IsNullOrEmpty(id))
+            {
+                SetStatus("还没有选增益：先在「" + fd.display_name + "」里选一个增益");
+                return;
+            }
+            BuffData bd = BuffPoolIO.Get(id);
+            if (bd == null)
+            {
+                //下拉值可能是「标题 (id)」或旧数据写法 → 退化为扫描增益池（与运行期 F11 修复同口径）
+                foreach (BuffData b in BuffPoolIO.GetAll())
+                {
+                    if (b == null)
+                        continue;
+                    if (b.id == id || b.GetTitle() == id)
+                    {
+                        bd = b;
+                        break;
+                    }
+                }
+            }
+            if (bd == null)
+            {
+                SetStatus("增益池里找不到该项：" + id);
+                return;
+            }
+            OpenBuff(bd);
         }
 
         /// <summary>内联按钮下拉（button 口）：显示「标题 (id)」、存储 BattleButtonData.id（列出按钮库全部按钮）。
@@ -13074,72 +13784,181 @@ namespace TcgEngine.UI
             return null;
         }
 
-        /// <summary>关闭并返回卡牌编辑器</summary>
+        /// <summary>关闭并返回上一页。用户要求（2026-10-01）：**凡涉及保存的编辑界面**
+        /// （卡牌 / 关键词 / 增益 / 按钮 / 自定义节点）关闭前若有未保存改动，一律先弹确认；
+        /// 没改动才按各自的"上一页"返回。</summary>
         private void OnClose()
         {
             //★ 本方法已经**显式**把"上一页"显示出来了，所以要清掉 return_to ——
             //  否则 AfterHide 里的黑屏兜底会再消费一次陈旧值（实测：关键词退规则图时被陈旧的
             //  "卡牌编辑器"顶掉，落点错了一层）。
             return_to = null;
-            Hide();
+
             if (editing_button_config != null)
             {
                 //按钮模式：返回卡牌编辑器（按钮编辑器内嵌其中），刷新按钮列表
-                CardEditorPanel panel = CardEditorPanel.Get();
-                if (panel == null)
-                    panel = FindObjectOfType<CardEditorPanel>(true);
-                if (panel != null)
-                {
-                    panel.Show();
-                    panel.NotifyButtonGraphClosed();
-                }
+                if (ConfirmLeaveIfUnsaved("按钮", CloseToCardEditor))
+                    return;
+                CloseToCardEditor();
                 return;
             }
             if (editing_custom_node != null)
             {
-                //★自定义节点模式：返回卡池编辑器（变量配置 → 自定义节点）
-                CardEditorPanel panel = CardEditorPanel.Get();
-                if (panel == null)
-                    panel = FindObjectOfType<CardEditorPanel>(true);
-                if (panel != null)
-                    panel.Show();
+                //自定义节点模式：返回卡池编辑器（变量配置 → 自定义节点）
+                if (ConfirmLeaveIfUnsaved("自定义节点", CloseToCardEditor))
+                    return;
+                CloseToCardEditor();
                 return;
             }
             if (editing_buff != null)
             {
-                //★ 导航修复：**不能**再 Show() 增益管理页（BuffPanel 已作废；而且 EditBuff 设的 opened_for_edit=true
-                //  会绕过作废拦截，于是"点 × 又回到增益管理页"——用户实报）。
-                //  增益的完整编辑已统一到本编辑器的「增益参数」，所以退出即回到**变量配置的宿主**（卡牌编辑器）。
-                CardEditorPanel host = return_to as CardEditorPanel;
-                if (host == null)
-                    host = CardEditorPanel.Get();
-                if (host == null)
-                    host = FindObjectOfType<CardEditorPanel>(true);
-                if (host != null)
-                {
-                    host.Show();
-                    host.NotifyGraphClosed();
-                }
+                //增益模式：从卡图进来 → 退回那张卡图；否则回卡牌编辑器
+                if (ConfirmLeaveIfUnsaved("增益", CloseBuffAndReturn))
+                    return;
+                CloseBuffAndReturn();
                 return;
             }
             if (editing_keyword != null)
             {
                 //★ 导航修复：关键词模式原先**漏了这一支** → 从「关键词管理」进入规则图后点「返回」，
                 //  会一路落到最后的 CardEditorPanel 分支 = 回到卡牌编辑器，等于"回不到上一页"。
-                KeywordPanel kpanel = FindObjectOfType<KeywordPanel>(true);
-                if (kpanel != null)
-                {
-                    kpanel.Show();
+                if (ConfirmLeaveIfUnsaved("关键词", CloseToKeywordPanel))
                     return;
-                }
+                CloseToKeywordPanel();
+                return;
             }
-            CardEditorPanel editor = CardEditorPanel.Get();
-            if (editor == null)
-                editor = FindObjectOfType<CardEditorPanel>(true);
-            if (editor != null)
+            //卡牌模式（含未命中任何模式的兜底）
+            if (ConfirmLeaveIfUnsaved("卡牌", CloseToCardEditor))
+                return;
+            CloseToCardEditor();
+        }
+
+        /// <summary>【未保存守卫】关闭/返回前统一拦一次：有改动 → 弹通用确认层并返回 true（调用方不要再导航）。
+        /// leave = 真正的"返回上一页"动作（保存并返回 / 放弃改动并返回 都复用它）。</summary>
+        private bool ConfirmLeaveIfUnsaved(string what, Action leave)
+        {
+            if (!EditHasUnsavedChanges())
+                return false;
+
+            Debug.Log("[未保存] " + what + "：脏标记=" + edit_dirty + "｜快照空=" + string.IsNullOrEmpty(edit_entry_snapshot)
+                + "｜节点=" + (graph != null ? graph.nodes.Count : -1) + "｜连线=" + (graph != null ? graph.links.Count : -1));
+
+            Transform popup_parent = field_select_popup != null && field_select_popup.transform.parent != null
+                ? field_select_popup.transform.parent : transform;
+            UnsavedChangesPopup.Show(popup_parent,
+                what + "有未保存的修改",
+                "直接退出会丢掉这些修改。要保存吗？",
+                () => { OnSave(); leave(); },                    //保存并返回
+                () => { RevertGraphToEntry(); leave(); });       //放弃改动并返回
+            return true;
+        }
+
+        /// <summary>是否有未保存改动：① 显式脏标记（结构改动 / 效果图增删 / 表单改动）；
+        /// ② 进入点快照对比（字段值等非结构性改动）。两者取或。</summary>
+        private bool EditHasUnsavedChanges()
+        {
+            if (edit_dirty)
+                return true;
+            string now = graph != null ? JsonUtility.ToJson(graph) : null;
+            return now != edit_entry_snapshot;
+        }
+
+        /// <summary>挂"表单改动 → 置脏"监听（卡属性 / 增益参数 / 按钮参数 / 自定义节点参数）。
+        /// 这些表单**保存时才读**，不在图 JSON 里，所以必须单独监听控件，否则"只改了卡名就退出"不会提示。
+        /// 只在编辑会话内计数（进入模式取基线的瞬间不算改动）。</summary>
+        private void HookFormDirty()
+        {
+            UnsavedWatch.HookAll(transform, () =>
             {
-                editor.Show();
-                editor.NotifyGraphClosed();
+                if (edit_entry_snapshot != null)
+                    edit_dirty = true;
+            });
+        }
+
+        /// <summary>放弃改动：把当前图回滚到"进入点快照"（表单由各模式 Refresh 重新读回）</summary>
+        private void RevertGraphToEntry()
+        {
+            if (!string.IsNullOrEmpty(edit_entry_snapshot) && graph != null)
+            {
+                try { JsonUtility.FromJsonOverwrite(edit_entry_snapshot, graph); } catch { }
+            }
+            edit_dirty = false;
+        }
+
+        /// <summary>离开本页 = 会话结束：清掉进入点快照与脏标记（下次打开重新取基线）</summary>
+        public override void AfterHide()
+        {
+            base.AfterHide();
+            edit_entry_snapshot = null;
+            edit_dirty = false;
+            session_pending = false;
+            UnsavedChangesPopup.Hide();
+        }
+
+        /// <summary>返回卡牌编辑器（按钮模式额外刷新按钮列表）</summary>
+        private void CloseToCardEditor()
+        {
+            Hide();
+            CardEditorPanel panel = CardEditorPanel.Get();
+            if (panel == null)
+                panel = FindObjectOfType<CardEditorPanel>(true);
+            if (panel != null)
+            {
+                panel.Show();
+                if (editing_button_config != null)
+                    panel.NotifyButtonGraphClosed();
+                else
+                    panel.NotifyGraphClosed();
+            }
+        }
+
+        /// <summary>返回关键词管理页</summary>
+        private void CloseToKeywordPanel()
+        {
+            Hide();
+            KeywordPanel kpanel = FindObjectOfType<KeywordPanel>(true);
+            if (kpanel != null)
+                kpanel.Show();
+        }
+
+        // ==================== 增益模式：未保存确认 + 退回上一页（用户 2026-10-01 要求） ====================
+
+        /// <summary>关闭增益模式：从某张卡的规则图点「编辑」进来的 → 退回**那张图**（= 上一个界面）；
+        /// 没记住来处（从增益列表直接进）→ 维持老行为：回卡牌编辑器。</summary>
+        private void CloseBuffAndReturn()
+        {
+            CardCustomData back_card = buff_return_card;
+            CardPoolData back_pool = buff_return_pool;
+            string back_path = buff_return_save_path;
+            int back_fx = buff_return_fx;
+            buff_return_card = null;
+            buff_return_pool = null;
+            buff_return_save_path = null;
+            buff_return_fx = 0;
+            edit_entry_snapshot = null;   //会话结束：退回卡图后重新取基线（AfterHide 也会清）
+            editing_buff = null;
+
+            if (back_card != null && back_pool != null)
+            {
+                //退回"上一个界面" = 该卡的规则图：走卡的打开流程（标题/右侧页签/节点库都回到卡模式）
+                return_to = null;
+                Open(back_pool, back_card, back_path);
+                if (back_fx > 0)
+                    SelectEffect(back_fx);
+                SetStatus("已返回：" + (string.IsNullOrEmpty(back_card.title) ? back_card.id : back_card.title) + " 的规则图");
+                return;
+            }
+
+            Hide();
+            CardEditorPanel host = return_to as CardEditorPanel;
+            if (host == null)
+                host = CardEditorPanel.Get();
+            if (host == null)
+                host = FindObjectOfType<CardEditorPanel>(true);
+            if (host != null)
+            {
+                host.Show();
+                host.NotifyGraphClosed();
             }
         }
 

@@ -1,0 +1,3 @@
+PASS	① 开战后英雄身上出现起动式技能	Activate 能力数=1（原英雄定义=1）
+PASS	② 技能效果执行（伤害 3）	掉血=3
+PASS	③ 技能卡不能从手牌打出	CanPlayCard=False

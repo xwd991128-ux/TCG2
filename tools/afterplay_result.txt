@@ -1,0 +1,5 @@
+PASS	① 入口 OnAfterPlay 可执行 → 伤害 3	掉血=3
+INFO	② 前置检查	CanPlayCard=True slot.IsValid=True 卡类型=Character IsBoardCard=True 在手上=True
+PASS	② 打出卡牌流程正常（末尾广播 OnAfterPlay）	手牌 1→0，已进战场=True
+INFO	③ 编译产物能力	id=graph_probe_onafterplay_minion_OnAfterPlay_1d20a665 trigger=OnAfterPlay effects=1
+PASS	③ 真实打出 → OnAfterPlay 唤起图 → 添加增益(攻击+3)	攻击=4（基础1 期望4） HasBuff=True AddAttack状态=3 进战场=True 卡实例能力数=1

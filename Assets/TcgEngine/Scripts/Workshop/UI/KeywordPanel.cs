@@ -58,7 +58,7 @@ namespace TcgEngine.UI
             status_select_text = UISelectPopup.AttachToDropdown(dropdown_status, OnClickStatusSelect);
             if (btn_new != null) btn_new.onClick.AddListener(OnClickNew);
             if (btn_save != null) btn_save.onClick.AddListener(OnClickSave);
-            if (btn_close != null) btn_close.onClick.AddListener(() => Hide());
+            if (btn_close != null) btn_close.onClick.AddListener(OnClickClose);   //有未保存改动先弹确认
             if (btn_add_rule != null) btn_add_rule.onClick.AddListener(OnClickAddRule);
         }
 
@@ -68,6 +68,28 @@ namespace TcgEngine.UI
             KeywordData.Load();
             RefreshList();
             SelectKeyword(selected);
+
+            //★未保存监听：本页表单（标题/描述/原生机制/规则行）都是"保存时才读"的 → 监听控件改动。
+            //  挂完再清一次脏标记：上面的程序化填充会触发回调，不能算用户改动。
+            UnsavedWatch.HookAll(transform, () => { form_dirty = true; });
+            form_dirty = false;
+        }
+
+        private bool form_dirty;   //表单/规则被改过（用户 2026-10-01：关闭前要提示未保存）
+
+        /// <summary>关闭：有未保存改动 → 先弹通用确认框（保存并返回 / 放弃改动 / 取消）</summary>
+        private void OnClickClose()
+        {
+            if (!form_dirty)
+            {
+                Hide();
+                return;
+            }
+            UnsavedChangesPopup.Show(transform,
+                "关键词有未保存的修改",
+                "直接退出会丢掉这些修改。要保存吗？",
+                () => { form_dirty = false; OnClickSave(); Hide(); },   //保存并返回
+                () => { form_dirty = false; Hide(); });                 //放弃改动并返回
         }
 
         // ---------------- 列表 ----------------

@@ -227,13 +227,118 @@ public class NodeBatchProbe : MonoBehaviour
             + (string.IsNullOrEmpty(s.note) ? extra : (s.note + "｜" + extra));
     }
 
+    /// <summary>自己开一局人机对战（与 GraphEditorPanel 的「模拟测试」同一条路径）：
+    /// 拼一个测试卡组（全用卡池里第一张角色卡 + 默认英雄）→ 设好 GameClient 设置 → MainMenu.StartGame。</summary>
+    private void StartTestMatch()
+    {
+        try
+        {
+            CardData pick = null;
+            CardData hero = null;
+            foreach (CardData c in CardData.GetAll())
+            {
+                if (c == null || string.IsNullOrEmpty(c.id))
+                    continue;
+                if (hero == null && c.type == CardType.Hero)
+                    hero = c;
+                if (pick == null && c.type == CardType.Character)
+                    pick = c;
+            }
+            if (pick == null)
+            {
+                Debug.LogWarning("[节点批量测试] 卡池里没有可用的角色卡 → 无法自动开局");
+                return;
+            }
+
+            int deck_size = GameplayData.Get().deck_size;
+            UserDeckData mine = new UserDeckData();
+            mine.tid = "probe_batch_" + System.Guid.NewGuid().ToString("N").Substring(0, 6);
+            mine.title = "批量测试";
+            mine.hero = hero != null ? new UserCardData(hero, VariantData.GetDefault()) : new UserCardData();
+            mine.cards = new UserCardData[]
+            {
+                new UserCardData { tid = pick.id, variant = VariantData.GetDefault().id, quantity = deck_size }
+            };
+
+            DeckData ai_data = GameplayData.Get().GetRandomAIDeck();
+            if (ai_data == null)
+            {
+                Debug.LogWarning("[节点批量测试] 没有可用的 AI 卡池 → 无法自动开局");
+                return;
+            }
+
+            TcgEngine.Client.GameClient.player_settings.deck = mine;
+            TcgEngine.Client.GameClient.ai_settings.deck = new UserDeckData(ai_data);
+            TcgEngine.Client.GameClient.ai_settings.ai_level = GameplayData.Get().ai_level;
+            TcgEngine.Client.GameClient.game_settings.test_full_mana = true;
+            TcgEngine.UI.MainMenu.Get().StartGame(GameType.Solo, GameMode.Casual);
+            Debug.Log("[节点批量测试] 已请求开局（测试卡组=" + pick.id + "）");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[节点批量测试] 自动开局失败：" + e.Message);
+        }
+    }
+
+    /// <summary>测试台自给自足：保证池里存在**固定 id** 的测试增益（用例写死的 buff_8c5cfda5），
+    /// 并把它施加到施法卡上。为什么不能依赖玩家增益池：池会被删/改名/替换，
+    /// 实测全量用例里 106002「获取增益定义」/206001「添加增益」因为池里找不到该 id 而失败。</summary>
+    private void EnsureProbeBuff()
+    {
+        if (caster == null)
+            return;
+        BuffData bd = BuffPoolIO.Get("buff_8c5cfda5");
+        if (bd == null)
+        {
+            bd = BuffPoolIO.New();
+            bd.title = "批量测试增益";
+            bd.id = "buff_8c5cfda5";
+            bd.props = new List<BuffProp>
+            {
+                new BuffProp(BuffRuntime.ATK_KEY, 1),
+                new BuffProp(BuffRuntime.HP_KEY, 1),
+            };
+            try
+            {
+                //BuffPoolIO.New() 是按"随机 id"登记的 → 把随机键换成固定 id（否则 Get(固定id) 取不到）。
+                FieldInfo dict_fi = typeof(BuffPoolIO).GetField("buff_dict", BindingFlags.Static | BindingFlags.NonPublic);
+                object dict_obj = dict_fi != null ? dict_fi.GetValue(null) : null;
+                MethodInfo setter = dict_obj != null ? dict_obj.GetType().GetMethod("set_Item") : null;
+                if (setter != null)
+                    setter.Invoke(dict_obj, new object[] { bd.id, bd });
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[节点批量测试] 注册测试增益失败：" + e.Message);
+            }
+        }
+        if (!BuffRuntime.HasBuff(caster, bd.id))
+        {
+            CardBuff cb = BuffRuntime.AddBuff(logic, caster, bd, 99);
+            seed_info = "施加=" + (cb != null) + " caster.buffs="
+                + (caster.buffs != null ? caster.buffs.Count : -1) + "｜" + seed_info;
+        }
+    }
+
     // ---------------- 主流程 ----------------
     private IEnumerator Run()
     {
-        for (int i = 0; i < 40 && logic_obj == null; i++)
+        for (int i = 0; i < 8 && logic_obj == null; i++)
         {
             logic_obj = FindLogicObj();
             if (logic_obj == null) yield return new WaitForSeconds(1f);
+        }
+        if (logic_obj == null)
+        {
+            //★没有进行中的对局 → 自己开一局（与编辑器「模拟测试」同一条路径）。
+            //  这样整套用例在"纯菜单启动"下也能无人值守跑完，不用人先进对局。
+            Debug.Log("[节点批量测试] 未发现进行中的对局 → 自动开一局测试对战");
+            StartTestMatch();
+            for (int i = 0; i < 90 && logic_obj == null; i++)
+            {
+                logic_obj = FindLogicObj();
+                if (logic_obj == null) yield return new WaitForSeconds(1f);
+            }
         }
         if (logic_obj == null) { Debug.Log("[节点批量测试] ❌ 没找到 GameLogic"); yield break; }
         logic = logic_obj as GameLogic;
@@ -573,7 +678,12 @@ public class NodeBatchProbe : MonoBehaviour
             if (p0 != null) p0.hp = hp_set;
             if (p1 != null) p1.hp = hp_set;
         }
-        //★ 读增益类用例（106003 / 106006）自带前提：**本用例内重新施加一次**（池被清空时先重载）。
+        //★ 每条用例开跑前先保证"测试增益"存在并已施加（用例里写死的 buff id 与玩家实际增益池无关 ——
+        //  池会被删/改名/替换，实测全量下 106002/206001 因池里没有该 id 而失败）。
+        //  原来这段只在 106003/106006 里做 → 前面的 106002/206001 拿不到定义。
+        EnsureProbeBuff();
+
+        //（下面这段保留为兼容老逻辑的注释说明，实际已并入 EnsureProbeBuff）
         //  为什么：① 前面有「沉默(202015)」「消灭(202016)」等用例会清掉施法卡的状态/增益；
         //          ② 长会话里增益池可能被重新加载 → `BuffPoolIO.Get` 取不到定义（实测全量下 caster.buffs=0）。
         //  用例不依赖顺序，失败才是产品问题而不是"顺序假问题"。
@@ -582,13 +692,33 @@ public class NodeBatchProbe : MonoBehaviour
             BuffData bd_seed = BuffPoolIO.Get("buff_8c5cfda5");
             if (bd_seed == null)
             {
-                BuffPoolIO.LoadAll();                     //兜底：重载增益池后再取一次
-                bd_seed = BuffPoolIO.Get("buff_8c5cfda5");
-                seed_info = "池内无该定义 → 已重载（池内=" + BuffPoolIO.GetAll().Count + "）";
+                //★测试台自给自足：用例里写死的增益 id 与**玩家实际增益池**无关（池会被删/改名/替换）。
+                //  这里直接注册一个固定 id 的测试增益（反射写 BuffPoolIO 的 buff_dict），不再依赖池内容。
+                bd_seed = BuffPoolIO.New();
+                bd_seed.title = "批量测试增益";
+                bd_seed.id = "buff_8c5cfda5";
+                bd_seed.props = new List<BuffProp>
+                {
+                    new BuffProp(BuffRuntime.ATK_KEY, 1),
+                    new BuffProp(BuffRuntime.HP_KEY, 1),
+                };
+                try
+                {
+                    FieldInfo dict_fi = typeof(BuffPoolIO).GetField("buff_dict", BindingFlags.Static | BindingFlags.NonPublic);
+                    object dict_obj = dict_fi != null ? dict_fi.GetValue(null) : null;
+                    MethodInfo setter = dict_obj != null ? dict_obj.GetType().GetMethod("set_Item") : null;
+                    if (setter != null)
+                        setter.Invoke(dict_obj, new object[] { bd_seed.id, bd_seed });
+                    seed_info = "池内无该定义 → 已注册固定 id 的测试增益（池内=" + BuffPoolIO.GetAll().Count + "）";
+                }
+                catch (Exception e)
+                {
+                    seed_info = "注册测试增益失败：" + e.Message;
+                }
             }
             if (bd_seed != null)
             {
-                CardBuff cb_seed = BuffRuntime.AddBuff(caster, bd_seed, 99);
+                CardBuff cb_seed = BuffRuntime.AddBuff(logic, caster, bd_seed, 99);
                 seed_info = "施加=" + (cb_seed != null) + " caster.buffs="
                     + (caster.buffs != null ? caster.buffs.Count : -1) + "｜" + seed_info;
             }

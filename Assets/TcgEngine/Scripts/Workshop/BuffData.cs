@@ -390,8 +390,8 @@ namespace TcgEngine.Workshop
             if (string.IsNullOrEmpty(m.mode))
                 m.mode = BuffModMode.Add;
             m.mode = m.mode.Trim();
-            if (m.mode == BuffModMode.Reference)
-                m.mode = BuffModMode.Set;
+            if (m.mode == BuffModMode.Reference && string.IsNullOrEmpty(m.value_source))
+                m.mode = BuffModMode.Set;   //★有变量来源（value_source 非空）时保留"引用属性"语义：数值取变量当前值
 
             //目标属性别名归一：旧 props 里常见「生命值 / 攻击力 / 攻击加成 / 法力费用 / 护甲值 / 关键字 / 特性」，
             //不归一的话运行时 StatusOf() 认不出 → 规则看起来存在但改不动真实属性。
@@ -442,6 +442,8 @@ namespace TcgEngine.Workshop
             {
                 if (m == null || m.mode == BuffModMode.Reference || m.mode == BuffModMode.Remove)
                     continue;                       //引用/移除无法用固定数值表达
+                if (!string.IsNullOrEmpty(m.value_source))
+                    continue;                       //★变量来源（value_source 非空）是名字不是数值：写进 props 只会变成误导的 0
                 string key = m.target == BuffModTarget.Attack ? BuffRuntime.ATK_KEY
                     : m.target == BuffModTarget.HP ? BuffRuntime.HP_KEY
                     : m.target;
@@ -485,8 +487,26 @@ namespace TcgEngine.Workshop
         public int duration = 0;                  // 剩余回合（0=永久）
         public bool permanent = true;
 
+        /// <summary>【光环来源】施加这个实例的**光环载体卡 uid**（空=不是光环给的，是 206001 等普通路径施加的）。
+        /// 为什么必须记在**实例**上：光环的失效判定是"来源卡还在不在/目标还在不在范围内"，
+        /// 只有知道"这个实例是谁给的"才能精确移除（不能按 buff_id 删 —— 同一个增益可能同时来自光环和手动施加）。
+        /// 见 GameLogic.SyncAuraEffects（差分扫描：进入范围施加一次、离开范围精确移除）。</summary>
+        public string source_uid;
+        /// <summary>【光环来源】施加它的光环分组键（AbilityData.aura_group，同一光环节点唯一）。
+        /// 与 source_uid 合用做定位：同一张光环卡可能有多个光环入口。</summary>
+        public string source_group;
+
         [NonSerialized]
         private BuffData data = null;
+
+        /// <summary>是否由光环（规则图「光环效果入口」）施加</summary>
+        public bool IsFromAura { get { return !string.IsNullOrEmpty(source_uid); } }
+
+        /// <summary>是否由指定光环（来源卡 + 分组键）施加</summary>
+        public bool IsFromAuraSource(string aura_uid, string aura_group)
+        {
+            return !string.IsNullOrEmpty(aura_uid) && source_uid == aura_uid && source_group == aura_group;
+        }
 
         public CardBuff() { }
 

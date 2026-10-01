@@ -54,11 +54,14 @@ namespace TcgEngine
             CheckDeckData();
             CheckVariantData();
 
-            //加载本地自定义卡池（创意工坊下载/玩家导入的 JSON 卡包）
-            CardPoolIO.LoadCustomPools();
-
+            //★顺序要求：增益池必须在**卡池之前**加载。
+            //  原因：卡池导入时会把规则图编译成能力，光环的「增益定义」要在增益池里按 id 解析；
+            //  若增益池晚于卡池，光环会被当成未知 StatusType 静默丢掉（冷启动后光环完全不生效，实测踩到）。
             //加载本地自定义增益池（规则编辑器「增益」界面设计，Workshop/buffs.json）
             BuffPoolIO.LoadAll();
+
+            //加载本地自定义卡池（创意工坊下载/玩家导入的 JSON 卡包）
+            CardPoolIO.LoadCustomPools();
 
             //加载战斗界面自定义按钮配置（按钮编辑器设计，Workshop/buttons.json）
             BattleButtonIO.LoadAll();

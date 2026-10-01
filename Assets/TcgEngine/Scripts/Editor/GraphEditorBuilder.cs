@@ -1734,6 +1734,6 @@ namespace TcgEngine.UI
             dd.itemImage = item_bg_img;
         }
 
-        private static readonly string[] TYPE_NAMES = { "随从", "法术", "英雄", "神器", "奥秘", "装备" };
+        private static readonly string[] TYPE_NAMES = { "随从", "法术", "技能", "英雄", "神器", "奥秘", "装备" };
     }
 }

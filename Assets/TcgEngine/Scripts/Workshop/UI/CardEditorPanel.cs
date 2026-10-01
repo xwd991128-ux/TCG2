@@ -772,6 +772,11 @@ namespace TcgEngine.UI
             SetInput(input_author, current_pool.author);
             if (file_text != null)
                 file_text.text = string.IsNullOrEmpty(current_path) ? "（未保存）" : current_path;
+
+            //★未保存监听：本页表单是"保存时才读"的 → 监听控件改动（挂一次即可，控件不会整页重建）。
+            //  挂完再清一次脏标记：上面的程序化赋值会触发回调，不能算用户改动。
+            UnsavedWatch.HookAll(transform, () => { card_form_dirty = true; });
+            card_form_dirty = false;
         }
 
         private void ReadForm()
@@ -901,9 +906,27 @@ namespace TcgEngine.UI
 
             VariantData variant = VariantData.GetDefault();
             ccard.SetCard(card, variant, 0);
+            ccard.SetGrayscale(false);      //★强制真彩色：卡面预制体复制自卡牌界面，可能残留"未拥有"的灰度材质
 
-            //高亮标记（放在选中时叠加一层，简化：用卡面的翻转角度/透明度区分）
+            //选中高亮：原来是"把未选中的卡全变灰"来反衬选中，去掉灰度后选中就看不出来了。
+            //卡面预制体里并没有 Selected 层（实测高亮数=0），所以这里补一个**外框**：
+            //放在最底层、比卡面大 6px，只露出边缘 → 既不改变卡面颜色，又能清楚看出选中了哪张。
             Image highlight = inst.transform.Find("Selected")?.GetComponent<Image>();
+            if (highlight == null)
+            {
+                GameObject hl = new GameObject("Selected", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                RectTransform hrt = hl.GetComponent<RectTransform>();
+                hrt.SetParent(inst.transform, false);
+                hrt.anchorMin = Vector2.zero;
+                hrt.anchorMax = Vector2.one;
+                hrt.offsetMin = new Vector2(-6f, -6f);
+                hrt.offsetMax = new Vector2(6f, 6f);
+                hl.transform.SetAsFirstSibling();      //在最底层：只在卡面外侧露出一圈
+                Image hi = hl.GetComponent<Image>();
+                hi.color = UITheme.Accent;             //主题高亮色（与项目其它高亮一致）
+                hi.raycastTarget = false;
+                highlight = hi;
+            }
 
             CardLine entry = new CardLine();
             entry.card = cdata;
@@ -927,8 +950,15 @@ namespace TcgEngine.UI
             foreach (CardLine entry in card_lines)
             {
                 bool sel = entry.card == card;
+
+                //★ 卡牌编辑器里**一律显示真彩色**：
+                //  原实现 `SetGrayscale(!sel)` 会把"未选中的卡"全部转成灰度材质，
+                //  而进入界面时当前选中为空 → 整个网格瞬间全是灰白（用户实报）。
+                //  选中态改由高亮层 + 轻微放大表示，不再牺牲颜色。
                 if (entry.ccard != null)
-                    entry.ccard.SetGrayscale(!sel);
+                    entry.ccard.SetGrayscale(false);
+                if (entry.highlight != null)
+                    entry.highlight.enabled = sel;
                 if (entry.rect != null)
                     entry.rect.localScale = sel ? Vector3.one * 1.06f : Vector3.one;
             }
@@ -1340,6 +1370,7 @@ namespace TcgEngine.UI
                 case "Artifact": return "神器";
                 case "Secret": return "奥秘";
                 case "Equipment": return "装备";
+                case "Skill": return "技能";
                 default: return string.IsNullOrEmpty(type) ? "随从" : type;
             }
         }
@@ -1533,8 +1564,26 @@ namespace TcgEngine.UI
             }
         }
 
-        /// <summary>关闭编辑器并返回上一层页面（卡池管理页；兜底回首页）</summary>
+        private bool card_form_dirty;   //表单/卡属性被改过（用户 2026-10-01：退出前要提示未保存）
+
+        /// <summary>关闭编辑器并返回上一层页面（卡池管理页；兜底回首页）。
+        /// 用户要求（2026-10-01）：有未保存改动 → 先弹通用确认框（保存并返回 / 放弃改动 / 取消）。</summary>
         private void OnClose()
+        {
+            if (card_form_dirty)
+            {
+                UnsavedChangesPopup.Show(transform,
+                    "卡牌编辑器有未保存的修改",
+                    "直接退出会丢掉这些修改。要保存吗？",
+                    () => { card_form_dirty = false; OnSave(); CloseToPoolPanel(); },   //保存并返回
+                    () => { card_form_dirty = false; CloseToPoolPanel(); });            //放弃改动并返回
+                return;
+            }
+            CloseToPoolPanel();
+        }
+
+        /// <summary>真正的"返回上一页"动作（卡池管理页；兜底回首页）</summary>
+        private void CloseToPoolPanel()
         {
             Hide();
 

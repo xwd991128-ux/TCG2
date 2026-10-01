@@ -526,9 +526,16 @@ namespace TcgEngine.Server
                 if(Authenticator.Get().IsApi())
                     user = await ApiClient.Get().LoadUserData(username); //Online game, validate from api
 
+                //★ 模拟测试（Workshop 的「模拟测试」按钮）**跳过全部卡组校验**：
+                //  那里的我方卡组是"一整套全是同一张卡"（张数 = 主卡上限），本来就是为测单卡行为造出来的；
+                //  校验只会把测试卡死在 Connecting（2026-09-24 实测：地裂术 ×30 被拒，对局永远开不了）。
+                //  判定依据 = GameSettings.test_full_mana：它由两个「模拟测试」入口设置、随设置过网，
+                //  全库没有其它写入点，语义上等价于"这是模拟测试"。
+                bool test_mode = game_data.settings != null && game_data.settings.test_full_mana;
+
                 //Use user API deck
                 UserDeckData udeck = user?.GetDeck(deck.tid);
-                if (user != null && udeck != null)
+                if (user != null && udeck != null && !test_mode)
                 {
                     //构筑规则校验（服务端权威）：与客户端对局前拦截用同一个入口，规则取自对局设置
                     List<DeckError> derrors = DeckValidator.Validate(udeck, game_data.settings);
@@ -551,6 +558,14 @@ namespace TcgEngine.Server
                     }
                 }
 
+                //模拟测试：直接采信客户端传来的卡组（它的 tid 是现造的随机值，账号里查不到、没有预置卡组都正常）
+                if (test_mode)
+                {
+                    SafeSetPlayerDeck(player, deck);
+                    SendPlayerReady(player);
+                    return;
+                }
+
                 //Use premade deck
                 DeckData cdeck = DeckData.Get(deck.tid);
                 if (cdeck != null)
@@ -559,6 +574,7 @@ namespace TcgEngine.Server
                 //Trust client in test mode：★采信客户端卡组**也要过构筑规则校验**
                 //（联机时这是"卡组 tid 既不在账号里也不是预置卡组"的伪造路径；单机同一份代码，
                 //  在这里放行等于改包只在联机能测出问题，单机永远测不出来）
+                //注意：上面的「模拟测试」已提前放行 —— 它不属于"改包"，是开发者的正常测试路径。
                 else if (Authenticator.Get().IsTest())
                 {
                     List<DeckError> derrors = DeckValidator.Validate(deck, game_data.settings);

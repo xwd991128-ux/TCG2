@@ -1,4 +1,4 @@
-# TITLE: full pass FINAL4
+# TITLE: full 301-node pass (auto defaults + curated overlay)
 # cols: id|assert|expect|fields|src1|dst1|note|src2|src2_const|child_action|child_field|child_value
 112001|value_notnull|||||auto
 112002|value_notnull|||||auto
@@ -227,6 +227,9 @@
 113002|value_notnull|||||auto
 209101|exec|||||auto
 209102|exec|||||auto
+202050|exec|||||auto
+101030|value_notnull|||||auto
+EFCardOwner|value_notnull|||||auto
 105002|list_count|1||PILE_CARD||F4：pile←102029(施法卡=英雄) → 英雄区恰 1 张
 105002|list_count_either|deck||PILE||F4 对照：pile←101017(玩家1牌库) → 记录个数（该夹具玩家1牌库=0，故对空集恒真）
 105003|value_notnull|||PILE||F4：牌堆名（实测「牌库」）

@@ -133,6 +133,8 @@ namespace TcgEngine
                 return false;
 
             Player player = GetPlayer(card.player_id);
+            if (card.CardData != null && card.CardData.type == CardType.Skill)
+                return false; //★技能卡不能从手牌打出（挂在英雄身上，对局开始时自动变成英雄技能按钮）
             if (!skip_cost && !player.CanPayMana(card))
                 return false; //Cant pay mana
             if (!player.HasCard(player.cards_hand, card))

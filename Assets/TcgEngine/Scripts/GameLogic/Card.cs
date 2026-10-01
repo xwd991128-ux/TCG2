@@ -41,6 +41,21 @@ namespace TcgEngine
         public List<string> buff_added_keywords = new List<string>();    //增益附加的关键词（KeywordData.id）
         public List<string> buff_removed_keywords = new List<string>();  //增益移除的关键词（抑制 HasKeyword）
 
+        /// <summary>卡自身**持久移除**的关键词（KeywordData.id）= 抑制表，语义"这张卡已经失去了它"。
+        /// 与上面两张 buff_* 表的**关键区别**：它不挂在任何增益上，也**不被 BuffRuntime.ReapplyNative 清空重建** ——
+        /// 所以"失去圣盾/潜行"能稳定生效。若只 RemoveStatus，下一次任何增益增减触发重算，
+        /// 引擎会按 Card.keywords 把状态补回来（表现=删了又冒出来）。
+        /// 判定口径：keywords 列表**仍保留**该 id（来源不变），但 HasKeyword/GetAllKeywords/关键词规则图/状态重建都跳过它。
+        /// 生命周期：进入本表后本局持续，直到 RestoreKeyword，或被 Clear()（复位/离场重进）整体清空回到卡面初始。</summary>
+        public List<string> removed_keywords = new List<string>();
+
+        /// <summary>卡牌**自定义属性**的**当前值**（key=属性名，value=当前值）。
+        /// 与「增益」那套完全同构：**声明**来自卡池（CardCustomData.custom_prop_defs，见 CardPoolIO.GetCustomData），
+        /// 这里只存"这张卡当前的取值"；没被规则图改过时读到的就是声明里的初始值（见 GetCustomProp）。
+        /// 与关键词/状态的 key-value 表分开存：它们是存在性，这里是可自由命名的数值。
+        /// 生命周期：Clear()（复位/离场重进）清空 → 回到声明初始值。</summary>
+        public List<BuffProp> custom_props = new List<BuffProp>();
+
         public List<CardStatus> status = new List<CardStatus>();
         public List<CardStatus> ongoing_status = new List<CardStatus>();
 
@@ -48,6 +63,14 @@ namespace TcgEngine
 
         public List<string> abilities = new List<string>();
         public List<string> abilities_ongoing = new List<string>();
+
+        /// <summary>这张卡**当前已生效**的「被动效果」分组键（AbilityData.passive_group：被动入口的 生效/失效 线共用）。
+        /// 语义：分组键在表里 = 该被动的「生效动作」已执行过、还没执行「失效动作」。
+        /// 与 buff_* / removed_keywords 一样属于**运行期状态**，但有一条关键约定：**Clear() 不清它** ——
+        /// 离场/复位/送区域后，由 GameLogic.SyncPassiveEffects 扫到"已生效但已不在生效区域"才补发失效动作
+        /// （若在此清掉，下一帧就再也看不出它曾经生效过 → 失效动作会被吞掉）。
+        /// AI 预测树的克隆必须同步本表，否则预测会重复触发生效/失效线（见 Clone）。</summary>
+        public List<string> passive_groups = new List<string>();
 
         [System.NonSerialized] private int hash = 0;
         [System.NonSerialized] private CardData data = null;
@@ -64,6 +87,8 @@ namespace TcgEngine
             ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
             buff_added_traits.Clear(); buff_removed_traits.Clear();
             buff_added_keywords.Clear(); buff_removed_keywords.Clear();
+            removed_keywords.Clear();   //复位 = 回到卡面初始：持久移除的关键词在此恢复（离场重进后圣盾会回来）
+            custom_props.Clear();       //自定义属性的"当前值"也清空 → 回到卡池声明里的初始值
             SetCard(CardData, VariantData); //Reset to initial stats
             equipped_uid = null;
         }
@@ -141,6 +166,10 @@ namespace TcgEngine
                 if (keyword == null || keywords.Contains(keyword.id))
                     continue;
                 keywords.Add(keyword.id);
+                //★ 被持久移除的关键词（removed_keywords）：id 照常记录（来源不变），但**不挂状态** ——
+                //  否则任何一次 SetCard/重建都会把"已经失去的圣盾"加回来。
+                if (removed_keywords.Contains(keyword.id))
+                    continue;
                 //原生机制关键词（风怒/冲锋/圣盾…）：直接转成永久状态，复用 GameLogic 原有机制判定
                 if (keyword.status_type != StatusType.None)
                     AddStatus(keyword.status_type, 0, 0);
@@ -151,26 +180,190 @@ namespace TcgEngine
         {
             if (string.IsNullOrEmpty(id))
                 return false;
+            if (removed_keywords.Contains(id))
+                return false;                       //被卡自身**持久移除**（本局持续，直到 RestoreKeyword/复位）
             if (buff_removed_keywords.Contains(id))
                 return false;                       //被增益属性修改移除（抑制，直到增益消失）
             return keywords.Contains(id) || buff_added_keywords.Contains(id);
         }
 
-        /// <summary>全部关键词（基础 + 增益附加，去掉被移除的）</summary>
+        /// <summary>该关键词是否已被卡自身持久移除（removed_keywords）。给规则图/UI 判断"是否永久失去"用。</summary>
+        public bool IsKeywordRemoved(string id)
+        {
+            return !string.IsNullOrEmpty(id) && removed_keywords.Contains(id);
+        }
+
+        /// <summary>
+        /// 【失去关键词（持久）】记进 removed_keywords，并**立即移除**该关键词绑定的原生状态
+        /// （"当前有没有"马上变，如圣盾/潜行当场消失）。
+        /// 与"增益移除关键词"的区别：本表生命周期属于**这张卡自己**，不随增益消失或重算而恢复 ——
+        /// 因此不会被下一次任何增益增减（BuffRuntime.ReapplyNative）重新加回来。
+        /// 恢复用 RestoreKeyword；Clear()（复位/离场重进）会清空本表，回到卡面初始。
+        /// 返回 true = 本次新记入。
+        /// </summary>
+        public bool RemoveKeywordPersist(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+
+            bool added = !removed_keywords.Contains(id);
+            if (added)
+                removed_keywords.Add(id);
+
+            KeywordData kw = KeywordData.Get(id);
+            if (kw != null && kw.status_type != StatusType.None)
+                RemoveStatus(kw.status_type);       //立即生效（不只等下次重算）
+            return added;
+        }
+
+        /// <summary>【恢复关键词（撤销持久移除）】从 removed_keywords 移出；若该卡当前确实应有此关键词
+        /// （定义或增益给的、且没被增益另行抑制），补挂它的原生状态。返回 true = 确实移出了记录。</summary>
+        public bool RestoreKeyword(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+            if (!removed_keywords.Remove(id))
+                return false;
+
+            if (!keywords.Contains(id) && !buff_added_keywords.Contains(id))
+                return true;                        //这张卡本来就没有它 → 只清记录
+            if (buff_removed_keywords.Contains(id))
+                return true;                        //仍被增益抑制 → 不补状态
+
+            KeywordData kw = KeywordData.Get(id);
+            if (kw != null && kw.status_type != StatusType.None && !HasStatus(kw.status_type))
+                AddStatus(kw.status_type, 0, 0);
+            return true;
+        }
+
+        /// <summary>
+        /// 【状态存在性】统一写入入口：把某状态设为"有 / 没有"。对应参考节点里
+        /// 「具有隐匿 / 具有护盾 / 被封印 / 被禁锢」这类可设置的**存在性属性**。
+        ///   · on = true  → 挂状态（value = 状态数值，如护甲值/冻结值；0 = 只表示"有"且永久）；
+        ///                  若该状态由"卡自身关键词"承载且此前被持久移除过 → 先 RestoreKeyword（否则会被抑制挡住）。
+        ///   · on = false → 优先按**关键词来源**走 RemoveKeywordPersist（持久移除，之后任何重算都不会复活）；
+        ///                  找不到关键词来源（增益/效果临时挂的状态）才退回 RemoveStatus。
+        /// value != 0 时按"整值替换"（先移除再加），避免护甲/冻结这类数值状态叠加。
+        /// 返回 true = 确实执行了改动。
+        /// </summary>
+        public bool SetStatusPresence(StatusType type, bool on, int value = 0)
+        {
+            if (type == StatusType.None)
+                return false;
+
+            string kw_id = KeywordData.KeywordIdForStatus(type);   //该状态由哪个关键词承载（可能没有）
+
+            if (on)
+            {
+                if (!string.IsNullOrEmpty(kw_id) && removed_keywords.Contains(kw_id))
+                    RestoreKeyword(kw_id);                          //曾被持久移除 → 先恢复关键词（内部会补挂状态）
+                if (value != 0)
+                {
+                    RemoveStatus(type);                             //整值替换（护甲值 / 冻结值）
+                    AddStatus(type, value, 0);
+                }
+                else if (!HasStatus(type))
+                {
+                    AddStatus(type, 0, 0);
+                }
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(kw_id))
+                return RemoveKeywordPersist(kw_id);                 //持久移除（之后重算不会复活）
+            RemoveStatus(type);                                     //无关键词来源：只删状态（增益/效果临时挂的）
+            return true;
+        }
+
+        /// <summary>全部关键词（基础 + 增益附加，去掉"卡自身持久移除"与"增益移除"的）</summary>
         public List<string> GetAllKeywords()
         {
             List<string> all = new List<string>();
             foreach (string k in keywords)
             {
-                if (!buff_removed_keywords.Contains(k) && !all.Contains(k))
+                if (!removed_keywords.Contains(k) && !buff_removed_keywords.Contains(k) && !all.Contains(k))
                     all.Add(k);
             }
             foreach (string k in buff_added_keywords)
             {
-                if (!all.Contains(k))
+                if (!removed_keywords.Contains(k) && !all.Contains(k))
                     all.Add(k);
             }
             return all;
+        }
+
+        //---------------- 自定义属性（当前值） ----------------
+        //声明来自卡池（CardCustomData.custom_prop_defs，用 CardPoolIO.GetCustomData(id) 取），
+        //运行时只存"这张卡当前的取值"。没被改过时读到的是声明里的初始值 —— 与「增益」那套完全同构。
+
+        /// <summary>读自定义属性**当前值**：本卡改过用本卡的；否则回退卡池声明里的**初始值**；都没有 = 0。</summary>
+        public int GetCustomProp(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return 0;
+            if (custom_props != null)
+            {
+                foreach (BuffProp p in custom_props)
+                {
+                    if (p != null && p.key == name)
+                        return p.value;
+                }
+            }
+            return GetCustomPropInit(name);
+        }
+
+        /// <summary>卡池声明里的初始值（找不到 → 0）。声明存在 CardPoolIO 的登记表里
+        /// —— 运行时 CardData 是 ScriptableObject 资产，装不下这些声明（项目既有约定）。</summary>
+        public int GetCustomPropInit(string name)
+        {
+            if (string.IsNullOrEmpty(name) || CardData == null)
+                return 0;
+            CardCustomData raw = CardPoolIO.GetCustomData(CardData.id);
+            return raw != null ? raw.CustomPropInit(name) : 0;
+        }
+
+        /// <summary>该名字是否是卡池里**声明过**的自定义属性（用于读取时区分"自定义属性"与"关键词"）。</summary>
+        public bool IsDeclaredCustomProp(string name)
+        {
+            if (string.IsNullOrEmpty(name) || CardData == null)
+                return false;
+            CardCustomData raw = CardPoolIO.GetCustomData(CardData.id);
+            return raw != null && raw.FindCustomProp(name) != null;
+        }
+
+        /// <summary>本卡是否存过该自定义属性的**当前值** —— 没在卡池声明过也能被规则图写上（202037 设自定义属性），
+        /// 所以读取判定要"声明过 **或** 存过"两条件都看，否则"设了却读不回来"。</summary>
+        public bool HasStoredCustomPropValue(string name)
+        {
+            if (string.IsNullOrEmpty(name) || custom_props == null)
+                return false;
+            foreach (BuffProp p in custom_props)
+            {
+                if (p != null && p.key == name)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>写自定义属性**当前值**（同名覆盖、没有则新增）。返回 true = 值真的变了。</summary>
+        public bool SetCustomProp(string name, int value)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+            if (custom_props == null)
+                custom_props = new List<BuffProp>();
+            foreach (BuffProp p in custom_props)
+            {
+                if (p != null && p.key == name)
+                {
+                    if (p.value == value)
+                        return false;
+                    p.value = value;
+                    return true;
+                }
+            }
+            custom_props.Add(new BuffProp { key = name, value = value });
+            return true;
         }
 
         public void SetAbilities(CardData icard)
@@ -713,6 +906,18 @@ namespace TcgEngine
             dest.buff_removed_traits = new List<string>(source.buff_removed_traits);
             dest.buff_added_keywords = new List<string>(source.buff_added_keywords);
             dest.buff_removed_keywords = new List<string>(source.buff_removed_keywords);
+            dest.removed_keywords = new List<string>(source.removed_keywords);   //持久移除表也要一致，否则 AI 预测会算错
+            //被动效果「已生效分组」同样必须一致：否则预测副本会重复执行 生效/失效 线（两侧状态错位）
+            dest.passive_groups = source.passive_groups != null ? new List<string>(source.passive_groups) : new List<string>();
+            dest.custom_props = new List<BuffProp>();                            //自定义属性当前值同样要一致
+            if (source.custom_props != null)
+            {
+                foreach (BuffProp cp in source.custom_props)
+                {
+                    if (cp != null)
+                        dest.custom_props.Add(new BuffProp { key = cp.key, value = cp.value });
+                }
+            }
             CardStatus.CloneList(source.status, dest.status);
             CardStatus.CloneList(source.ongoing_status, dest.ongoing_status);
             GameTool.CloneList(source.abilities, dest.abilities); 

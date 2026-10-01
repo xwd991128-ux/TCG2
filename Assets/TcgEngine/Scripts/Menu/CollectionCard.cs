@@ -45,20 +45,18 @@ namespace TcgEngine.UI
                 this.quantity.enabled = quantity > 0;
         }
 
+        /// <summary>
+        /// 切换卡面材质：grayscale=true 用灰度材质（"未拥有"），false 用彩色材质（真彩色）。
+        /// 注意：color_mat / grayscale_mat 允许为空（为空即用默认材质，同样是真彩色）；
+        ///       并且必须做空判断 —— 卡牌编辑器的卡面预制体并不保证有 quantity_bar。
+        /// </summary>
         public void SetGrayscale(bool grayscale)
         {
-            if (grayscale)
-            {
-                quantity_bar.material = grayscale_mat;
-                quantity_bar.material = grayscale_mat;
-                card_ui.SetMaterial(grayscale_mat);
-            }
-            else
-            {
-                quantity_bar.material = color_mat;
-                quantity_bar.material = color_mat;
-                card_ui.SetMaterial(color_mat);
-            }
+            Material mat = grayscale ? grayscale_mat : color_mat;
+            if (quantity_bar != null)
+                quantity_bar.material = mat;
+            if (card_ui != null)
+                card_ui.SetMaterial(mat);
         }
 
         public CardData GetCard()

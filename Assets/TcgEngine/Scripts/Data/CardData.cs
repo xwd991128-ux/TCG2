@@ -17,6 +17,7 @@ namespace TcgEngine
         Artifact = 30,
         Secret = 40,
         Equipment = 50,
+        Skill = 60,   //★技能（英雄技能/主动技卡）：行为与法术一致（从手牌使用→结算→进墓地），但类型独立、可单独判定/筛选
     }
 
     /// <summary>
@@ -57,6 +58,10 @@ namespace TcgEngine
         [Header("Abilities")]
         public AbilityData[] abilities;
 
+        [Header("Hero Skills")]
+        public List<string> skills = new List<string>();   //★英雄技能卡（type=Hero 时：技能卡的卡牌 id；
+                                                          //  开战时把技能卡上的起动式能力挂到英雄卡实例上）
+
         [Header("Card Text")]
         [TextArea(3, 5)]
         public string text;
@@ -84,6 +89,23 @@ namespace TcgEngine
 
         public static List<CardData> card_list = new List<CardData>();                              //Faster access in loops
         public static Dictionary<string, CardData> card_dict = new Dictionary<string, CardData>();    //Faster access in Get(id)
+
+        /// <summary>
+        /// 静态数据清零（每次 Play 都会执行一次，即使关闭了域重载）。
+        ///
+        /// 为什么必须有：项目在 Editor 里关闭了域重载（Enter Play Mode Options），
+        /// 静态字段会**跨 Play 存活**，而 CardData.Load() 用的是"只在列表为空时加载"的保护。
+        /// 于是在同一个 Editor 进程里反复进入游戏时，注册表会累积到两倍（实测卡数 175 → 350），
+        /// CheckCardData() 便逐张报「Dupplicate Card ID」（175 条）与「has null ability」（140 条）——
+        /// 合计正好 315 条，全部是编辑器里的启动噪音（对局数据本身按 id 查表仍是对的）。
+        /// SubsystemRegistration 是 Unity 对这种模式的官方复位点（本项目的 GameLog 已在用）。
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            card_list.Clear();
+            card_dict.Clear();
+        }
 
         public static void Load(string folder = "")
         {
@@ -127,9 +149,11 @@ namespace TcgEngine
             //if (game_data.GetActivePlayer() != null)
             //    textTemp = textTemp.Replace("{mana}",game_data.GetActivePlayer().ToString());
             else textTemp = textTemp.Replace("{mana}", "1");
-            //关键词名前置显示在卡面文本前（如 "<b>冲锋。</b>..."），所有用 GetText 的卡面 UI 自动带上
-            string kw = GetKeywordsTitleText();
-            return string.IsNullOrEmpty(kw) ? textTemp : kw + textTemp;
+            //★ 不再把关键词名拼到卡面文本前面：
+            //  旧实现返回 kw + textTemp（如 "<b>冲锋。</b>…"），导致只要设了关键词，卡面就自动多出这些字
+            //  —— 用户明确要求卡面只显示"卡牌文本"里写的内容，不展示关键词名。
+            //  GetKeywordsTitleText() 仍保留（如需按需取关键词名，调用方自己拼）。
+            return textTemp;
         }
 
         /// <summary>关键词名串（"<b>冲锋。</b>风怒。"），无关键词返回空串</summary>
@@ -184,6 +208,8 @@ namespace TcgEngine
                 return "secret";
             if (type == CardType.Equipment)
                 return "equipment";
+            if (type == CardType.Skill)
+                return "skill";
             return "";
         }
 
@@ -220,7 +246,7 @@ namespace TcgEngine
 
         public bool IsRequireTargetSpell()
         {
-            if (type != CardType.Spell)
+            if (type != CardType.Spell && type != CardType.Skill)
                 return false;
             
             foreach (AbilityData ability in abilities)

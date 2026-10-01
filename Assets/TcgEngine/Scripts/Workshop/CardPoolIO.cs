@@ -111,6 +111,19 @@ namespace TcgEngine.Workshop
         }
 
         //记录运行时导入/创建的自定义卡牌 id，用于"仅导出自定义卡"
+        /// <summary>
+        /// 每次 Play 复位卡池的运行时状态（理由同 CardData.ResetStatics：
+        /// Editor 关闭域重载时静态字段跨 Play 存活，会让卡池注册表反复累积）。
+        /// 复位后由 DataLoader 重新导入本地卡池，内容不变。
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            custom_ids.Clear();
+            pool_file_cards.Clear();
+            custom_data.Clear();
+        }
+
         private static readonly HashSet<string> custom_ids = new HashSet<string>();
 
         //记录每个本地卡池文件注册的卡牌 id，删除卡池时按文件从内存卸载对应卡
@@ -143,6 +156,13 @@ namespace TcgEngine.Workshop
         {
             if (!File.Exists(path))
                 return false;
+            //★ 基础卡池不可删除（**硬门禁**：不依赖界面上按钮是否隐藏 —— 隐藏按钮 ≠ 不允许）
+            if (IsBasePoolFile(Path.GetFileName(path)))
+            {
+                Debug.LogError("[卡池] 拒绝删除基础卡池：" + Path.GetFileName(path)
+                    + "（它承载内置卡迁移数据，误删等于丢掉整份迁移产物）");
+                return false;
+            }
             //先从内存卸载该文件注册的自定义卡，使卡牌构筑等界面即时减少
             UnloadPoolCards(path);
             File.Delete(path);
@@ -198,6 +218,57 @@ namespace TcgEngine.Workshop
             public List<CardData> cards;     // 卡牌列表（builtin 时直接可用）
 
             public bool IsReadonly { get { return source == "builtin"; } }
+
+            /// <summary>基础卡池：承载内置卡迁移数据的池（既不可删除也不可导出）</summary>
+            public bool IsBasePool { get { return CardPoolIO.IsBasePoolFile(file); } }
+        }
+
+        /// <summary>基础卡池的文件名前缀（v1/v2… 都算，避免写死版本号）</summary>
+        public const string BasePoolPrefix = "base_pool";
+
+        /// <summary>「允许覆盖内置卡的池清单」文件名（项目既有的迁移验证开关，内容每行一个池文件名）</summary>
+        public const string OverrideFlagFile = "override_builtin.txt";
+
+        /// <summary>
+        /// 是否为基础卡池 —— 判定按**文件名**（显示名会被改名，文件名才是稳定标识）：
+        ///   ① 文件名以 "base_pool" 开头（v1/v2… 都覆盖）；
+        ///   ② 或该文件登记在 override_builtin.txt 清单里（项目自己的"基础池"登记处）。
+        /// 为什么要有这个判定：基础卡池**不可删除**（误删=丢掉整份迁移数据）、**不可导出**
+        /// （它是"替代内置卡"的池，不是给普通 mod 分发的产物）。
+        /// </summary>
+        public static bool IsBasePoolFile(string file_name)
+        {
+            if (string.IsNullOrEmpty(file_name))
+                return false;
+
+            string stem = Path.GetFileNameWithoutExtension(file_name);
+            if (!string.IsNullOrEmpty(stem) && stem.StartsWith(BasePoolPrefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string flag = Path.Combine(SaveFolder, OverrideFlagFile);
+            if (!File.Exists(flag))
+                return false;
+            try
+            {
+                string txt = File.ReadAllText(flag).Trim();
+                if (string.IsNullOrEmpty(txt))
+                    return false;   //清单为空 = 允许所有池覆盖，此时不据此判定（否则会把所有池都当基础池）
+                foreach (string line in txt.Split('\n'))
+                {
+                    if (line.Trim().Equals(file_name, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[卡池] 读取 " + OverrideFlagFile + " 失败：" + e.Message);
+            }
+            return false;
+        }
+
+        public static bool IsBasePool(PoolInfo info)
+        {
+            return info != null && IsBasePoolFile(info.file);
         }
 
         /// <summary>内置卡池：按卡包划分（每个卡包一个池，池内卡属于该包）</summary>
@@ -303,6 +374,27 @@ namespace TcgEngine.Workshop
             return true;
         }
 
+        /// <summary>卡牌所属的**卡池标识**（供 103025「获取卡牌定义所属卡池」用）：
+        /// 返回池文件的显示名（去目录与扩展名）；不在任何池里返回空串。
+        /// 为什么不能只读 CardData.packs：卡包(PackData)是内置资产，池卡导入时 packs 被置成空数组，
+        /// 直接读 packs 会让该节点对**所有池卡**恒返回空（实测全量用例 103025 ❌）。</summary>
+        public static string PoolIdOf(string card_id)
+        {
+            if (string.IsNullOrEmpty(card_id))
+                return "";
+            foreach (KeyValuePair<string, List<string>> kv in pool_file_cards)
+            {
+                if (kv.Value == null || !kv.Value.Contains(card_id))
+                    continue;
+                string key = kv.Key ?? "";
+                if (key.StartsWith("file:"))
+                    key = key.Substring(5);
+                string name = Path.GetFileNameWithoutExtension(key);
+                return string.IsNullOrEmpty(name) ? key : name;
+            }
+            return "";
+        }
+
         // ---------------- 导出 ----------------
 
         /// <summary>把卡牌列表导出为 CardPoolData</summary>
@@ -381,6 +473,7 @@ namespace TcgEngine.Workshop
                         data.keywords.Add(keyword.id);
                 }
             }
+            data.skills = card.skills != null ? new List<string>(card.skills) : new List<string>();   //英雄技能卡引用（导出保留）
             return data;
         }
 
@@ -630,6 +723,8 @@ namespace TcgEngine.Workshop
             card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
             ApplyTraits(card, data);   //种族支持多选（traits 列表），并兼容旧单字段 trait
             card.keywords = ResolveKeywords(data.keywords);
+            //★英雄技能卡引用（type=Hero 时）：id 列表原样带入运行期定义（开战时挂载到英雄卡实例）
+            card.skills = data.skills != null ? new List<string>(data.skills) : new List<string>();
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;
@@ -711,6 +806,7 @@ namespace TcgEngine.Workshop
             card.rarity = string.IsNullOrEmpty(data.rarity) ? RarityData.GetFirst() : RarityData.Get(data.rarity);
             ApplyTraits(card, data);   //种族支持多选（traits 列表），并兼容旧单字段 trait
             card.keywords = ResolveKeywords(data.keywords);
+            card.skills = data.skills != null ? new List<string>(data.skills) : new List<string>();   //英雄技能卡引用
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;
@@ -786,6 +882,11 @@ namespace TcgEngine.Workshop
                 if (ev == null || ev.type != GraphNodeType.Event)
                     continue;
 
+                //★被动效果入口（PassiveEffect）的「生效/失效」两条预留线：编译成独立能力（状态切换驱动）。
+                //  两条线都没接线 = 不生成任何能力 → 对既有卡（含只用亡语动作口的卡）零影响。
+                if (ev.action == "PassiveEffect")
+                    CompilePassiveStateLines(data, graph, effdto, ev, result);
+
                 AbilityTrigger trigger = ResolveEventTrigger(ev);
                 if (trigger == AbilityTrigger.None)
                 {
@@ -796,17 +897,16 @@ namespace TcgEngine.Workshop
                         (ev.action == "EventEffect" ? "（监听事件: " + GraphRuntime.GetFieldString(ev, "event_name", "") + "）" : ""));
                     continue;
                 }
-                //光环入口的下游 NodeDoc 动作线：Ongoing 管线不走 EffectRunGraph，执行层未接入，提前警告（光环本体增益仍会编译）
-                if (ev.action == "AuraEffect" && GraphHasNodeDocAction(graph, ev.id))
-                {
-                    Debug.LogWarning("[规则图] " + (ev.title ?? ev.action) + " 下游的 NodeDoc 动作线暂不执行（光环动作线执行层待接入）");
-                }
+                //光环入口的下游 NodeDoc 动作线：由 GameLogic.SyncAuraEffects 在**目标被这个光环施加的那一刻执行一次**
+                //（不是每帧执行 → 伤害/抽牌这类一次性动作也安全）。若想让某个数值"持续跟随后变化"，
+                //用它施加的「增益定义」来承载（增益系统的属性修改是持续生效的）。
 
-                //光环效果入口：增益由入口节点自身定义（增益定义/生效区域/作用区域），直接编译为 Ongoing 光环能力；
-                //下游动作线（Ongoing 管线不执行 Flow）暂不编译，见上方警告
+                //光环效果入口：增益由入口节点自身定义（增益定义/生效区域/作用区域）；
+                //· 具名增益（buffs.json 的 BuffData.id）→ aura_group/aura_buff，由 SyncAuraEffects 差分施加/移除；
+                //· 旧式 StatusType 枚举 → EffectAddStatus + 每帧 Ongoing 重算（原行为不变）。
                 if (ev.action == "AuraEffect")
                 {
-                    AbilityData aura = BuildAuraAbility(data, ev);
+                    AbilityData aura = BuildAuraAbility(data, graph, ev);
                     if (aura != null)
                     {
                         RegisterAbility(aura);
@@ -837,7 +937,7 @@ namespace TcgEngine.Workshop
                 if (has_node_doc || has_chain_only)
                 {
                     AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
-                    ab.id = "graph_" + data.id + "_" + ev.action + "_node" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                    ab.id = StableAbilityId(data.id, ev.action, ev.id);   //★稳定 id（同入口重导入/保存不换 id）
                     ab.trigger = trigger;
 
                     //图中含"需选择目标"类动作(伤害/消灭/治疗目标卡) → 需要目标解析
@@ -898,6 +998,8 @@ namespace TcgEngine.Workshop
                     run.graph = graph;
                     run.trigger_action = ev.action;
                     ab.effects = new EffectData[] { run };
+                    Debug.Log("[事件编译] 卡=" + data.id + " 入口=" + ev.action + " 触发器=" + trigger
+                        + " 能力id=" + ab.id + " 动作线=" + (FindReachableActions(graph, ev.id).Count > 0 ? "有" : "无"));
                     //★迁移期新增（内置卡迁移 D 批）：**数据型条件**直通（CardEffectData.conditions_trigger/target）。
                     //  图里表达不了的条件（ConditionCount / SlotRange / 类型含阵营·种族 / SelectedValue…）不再让
                     //  整条能力作废，而是原样交回引擎判定（发动前 AreTriggerConditionsMet、解析目标集合
@@ -929,8 +1031,11 @@ namespace TcgEngine.Workshop
                     //  引擎在 AfterAbilityResolved 里逐个 TriggerCardAbility(chain, caster)，与旧能力逐行一致；
                     //  被引用的连锁能力资产=池内 id 引用（同 EffectAddAbility，Phase 5 打包随池打）。
                     ab.chain_abilities = ResolveAbilityList(effdto != null ? effdto.chain_ability_ids : null);
+                    //★标题只作**内部标识**；描述**默认留空** —— 卡面/悬浮提示会把"有描述的能力"渲染成一行
+                    //  （CardData.GetAbilitiesDesc → "<b>标题:</b> 描述"），留样板文字会让卡面多出一行
+                    //  "主动效果入口：规则图执行"（实测的"显示异常"）。要让卡面显示，请在入口节点填「能力描述」。
                     ab.title = (ev.title ?? ev.action) + "：规则图执行";
-                    ab.desc = ab.title;
+                    ab.desc = "";
                     ApplyEntryOverrides(ab, ev, is_spell, graph);
                     RegisterAbility(ab);
                     result.Add(ab);
@@ -949,8 +1054,7 @@ namespace TcgEngine.Workshop
                     }
 
                     AbilityData ability = ScriptableObject.CreateInstance<AbilityData>();
-                    ability.id = "graph_" + data.id + "_" + ev.action + "_" + act.action + "_" +
-                                 Guid.NewGuid().ToString("N").Substring(0, 6);
+                    ability.id = StableAbilityId(data.id, ev.action + "_" + act.action, act.id);   //★稳定 id
                     ability.trigger = trigger;
                     GraphTargetInfo gt = GetGraphTarget(act, is_spell);
                     ability.target = gt.target;
@@ -1018,6 +1122,7 @@ namespace TcgEngine.Workshop
                 case "AuraEffect": return AbilityTrigger.Ongoing;       //光环效果入口（zmcs）
                 //图事件入口（EventContext 广播）：action 名与 AbilityTrigger 枚举名一致（事件预设 BuildGraphEventPresets）
                 case "OnBeforePlay": return AbilityTrigger.OnBeforePlay;
+                case "OnAfterPlay": return AbilityTrigger.OnAfterPlay;   //使用卡牌后（打出结算完成后广播）
                 case "OnBeforeDamage": return AbilityTrigger.OnBeforeDamage;
                 case "OnAfterDamage": return AbilityTrigger.OnAfterDamage;
                 case "OnAfterDraw": return AbilityTrigger.OnAfterDraw;
@@ -1042,6 +1147,27 @@ namespace TcgEngine.Workshop
                 //起动式（Activate）能力的「时/后」：GameLogic.CastAbility 与 AfterAbilityResolved 广播
                 case "OnBeforeActivate": return AbilityTrigger.OnBeforeActivate;
                 case "OnAfterActivate": return AbilityTrigger.OnAfterActivate;
+                //禁锢（202014）的「时/后」：NodeDocRunner 202014 分支广播
+                case "OnBeforeFreeze": return AbilityTrigger.OnBeforeFreeze;
+                case "OnAfterFreeze": return AbilityTrigger.OnAfterFreeze;
+                //增益属性变动（206003 设置增益属性）的「时/后」：NodeDocRunner 206003 分支广播
+                case "OnBeforeBuffPropChange": return AbilityTrigger.OnBeforeBuffPropChange;
+                case "OnAfterBuffPropChange": return AbilityTrigger.OnAfterBuffPropChange;
+                //卡牌属性变动（202037 设置卡牌属性 / SetCardHpClearDamage 设置生命值清伤害）的「时/后」：
+                //由 NodeDocRunner 这两处写入分支广播；口径A=只有显式设置属性算变动（受伤/治疗/增益重算不算）
+                case "OnBeforeCardPropChange": return AbilityTrigger.OnBeforeCardPropChange;
+                case "OnAfterCardPropChange": return AbilityTrigger.OnAfterCardPropChange;
+                //护甲变动（202018 增加护甲 / 202019 增加固定数量护甲 / 202020 失去护甲）的「时/后」：
+                //主体=持有护甲的英雄卡；202018/202019 是"加值"、202020 是"设为剩余值"，都在 NodeDocRunner 广播
+                case "OnBeforeArmorChange": return AbilityTrigger.OnBeforeArmorChange;
+                case "OnAfterArmorChange": return AbilityTrigger.OnAfterArmorChange;
+                //封印(沉默)变动（202040 封印=施加 Silenced；清状态=移除 Silenced）的「时/后」：主体=该卡
+                case "OnBeforeSilenceChange": return AbilityTrigger.OnBeforeSilenceChange;
+                case "OnAfterSilenceChange": return AbilityTrigger.OnAfterSilenceChange;
+                //全局图事件：添加增益时/后（BuffRuntime.AddBuff 广播）
+                //（爆牌时/后已下线：用户决定"爆牌不做"）
+                case "OnBeforeAddBuff": return AbilityTrigger.OnBeforeAddBuff;
+                case "OnAfterAddBuff": return AbilityTrigger.OnAfterAddBuff;
                 default: return AbilityTrigger.None;
             }
         }
@@ -1071,6 +1197,8 @@ namespace TcgEngine.Workshop
                 case "回合结束": return AbilityTrigger.EndOfTurn;
                 case "回合开始": return AbilityTrigger.StartOfTurn;
                 case "打出牌": return AbilityTrigger.OnPlayOther;   //zmcs UseEvent=任意卡打出（含其他卡）
+                case "使用卡牌后":
+                case "使用后": return AbilityTrigger.OnAfterPlay;   //打出并结算完成后
                 case "攻击时": return AbilityTrigger.OnBeforeAttack;
                 case "死亡时": return AbilityTrigger.OnDeath;
                 case "抽到时": return AbilityTrigger.OnDraw;
@@ -1078,15 +1206,34 @@ namespace TcgEngine.Workshop
             }
         }
 
-        /// <summary>光环效果入口 → Ongoing 光环能力：增益定义编译为 EffectAddStatus（走 DoOngoingEffect 持续刷新），
-        /// 生效区域 → AbilityTarget，作用区域 → 目标归属条件（ConditionOwner）。返回 null 表示增益未配置/未识别。</summary>
-        private static AbilityData BuildAuraAbility(CardCustomData data, GraphNode ev)
+        /// <summary>光环效果入口 → Ongoing 光环能力，两条通道：
+        /// · 增益定义 = **具名增益**（buffs.json 的 BuffData.id）→ 写 aura_group/aura_buff，
+        ///   由 GameLogic.SyncAuraEffects 差分施加（目标进入范围施加一次、离开/来源离场精确移除），
+        ///   入口「动作」出口的动作线随"施加那一刻"执行一次；
+        /// · 增益定义 = 旧式 StatusType 枚举 → EffectAddStatus + 每帧 Ongoing 重算（原行为不变）。
+        /// 生效区域 → AbilityTarget，作用区域 → 目标归属条件（ConditionOwner）。返回 null 表示未配置/未识别。</summary>
+        private static AbilityData BuildAuraAbility(CardCustomData data, GraphData graph, GraphNode ev)
         {
             string buff = GraphRuntime.GetFieldString(ev, "buff", "AddAttack");
+
+            //★ 具名增益通道（增益池里能查到 → 走"持续施加这份增益"）
+            BuffData bdef = ResolveAuraBuffDefine(buff);
+            if (bdef != null)
+                return BuildAuraBuffAbility(data, graph, ev, bdef);
+            //★顺序兜底：增益池若此刻尚未加载（历史 DataLoader 顺序：卡池在前），值长得像增益 id（buff_…）时
+            //  仍按"具名增益"编译（真定义运行时由 BuffPoolIO.Get 取），否则这条光环会被当成未知 StatusType 丢掉。
+            if (!string.IsNullOrEmpty(buff) && buff.StartsWith("buff_", System.StringComparison.Ordinal))
+            {
+                BuffData stub = new BuffData();
+                stub.id = buff;
+                Debug.Log("[规则图] 光环的增益定义此刻未加载 → 按具名增益 id 编译：" + buff + "（运行期取真实定义）");
+                return BuildAuraBuffAbility(data, graph, ev, stub);
+            }
+
             StatusData sdata = StatusData.Get(ParseEnum(buff, StatusType.None));
             if (sdata == null)
             {
-                Debug.LogWarning("[规则图] 光环效果入口的增益定义未识别: " + buff);
+                Debug.LogWarning("[规则图] 光环效果入口的增益定义未识别（既不是增益池里的增益，也不是状态枚举）: " + buff);
                 return null;
             }
 
@@ -1096,20 +1243,9 @@ namespace TcgEngine.Workshop
             effect.duration = 0;
 
             AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
-            ab.id = "graph_" + data.id + "_aura_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            ab.id = StableAbilityId(data.id, "aura", ev.id);   //★稳定 id
             ab.trigger = AbilityTrigger.Ongoing;
-            string live_area = GraphRuntime.GetFieldString(ev, "live_area", "场上");
-            ab.target = live_area == "手牌" ? AbilityTarget.AllCardsHand
-                      : live_area == "全部区域" ? AbilityTarget.AllCardsAllPiles
-                      : AbilityTarget.AllCardsBoard;
-
-            List<ConditionData> tconds = new List<ConditionData>();
-            string target_area = GraphRuntime.GetFieldString(ev, "target_area", "双方");
-            if (target_area == "己方")
-                tconds.Add(MakeOwnerCondition(true));
-            else if (target_area == "敌方")
-                tconds.Add(MakeOwnerCondition(false));
-            ab.conditions_target = tconds.ToArray();
+            ApplyAuraTargetArea(ab, ev);
 
             ab.effects = new EffectData[] { effect };
             ab.value = 1;
@@ -1118,8 +1254,122 @@ namespace TcgEngine.Workshop
             ab.status = new StatusData[0];
             ab.chain_abilities = new AbilityData[0];
             ab.title = (ev.title ?? "光环效果入口") + "：" + buff;
-            ab.desc = ab.title;
+            ab.desc = "";   //★描述留空：卡面不给"有描述的能力"多渲染一行样板文字（显示异常）
             return ab;
+        }
+
+        /// <summary>「增益定义」按**增益池**解析：先按 id 精确查（与编辑器下拉一致），
+        /// 再遍历池按 id/标题匹配（兼容把标题写进字段的情况）。不是增益池里的 → 返回 null（交给旧 StatusType 通道）。</summary>
+        private static BuffData ResolveAuraBuffDefine(string buff)
+        {
+            if (string.IsNullOrEmpty(buff))
+                return null;
+            BuffData bd = BuffPoolIO.Get(buff);
+            if (bd != null)
+                return bd;
+            List<BuffData> all = BuffPoolIO.GetAll();
+            if (all != null)
+            {
+                foreach (BuffData b in all)
+                {
+                    if (b == null)
+                        continue;
+                    if (b.id == buff)
+                        return b;
+                    if (!string.IsNullOrEmpty(b.title) && b.title == buff)
+                        return b;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>光环动作线能否"每次同步重算"：只允许**幂等**动作（设置属性 / 设置增益属性 / 控制流）。
+        /// 伤害 / 抽牌 / 加增益 / 召唤 这类每帧执行会重复发生 → 不重算（只在目标进入范围时执行一次）。</summary>
+        private static bool AllAuraActionsAreRepeatable(GraphData graph, string from_id)
+        {
+            List<GraphNode> acts = FindReachableActionsFromPin(graph, from_id, "out");
+            for (int i = 0; i < acts.Count; i++)
+            {
+                GraphNode a = acts[i];
+                if (a == null)
+                    continue;
+                switch (a.action)
+                {
+                    case "202037":   //设置卡牌属性
+                    case "202007":   //设置属性
+                    case "206003":   //设置增益属性（值不变则不写入、不广播，可安全重算）
+                    case "212001":   //分支动作
+                    case "212002":   //重复动作
+                    case "212005":   //重复动作直到
+                    case "212006":   //停止重复动作
+                    case "212007":   //跳过重复动作
+                        break;
+                    default:
+                        Debug.Log("[规则图] 光环动作线含「" + a.action + "」→ 只在目标进入范围时执行一次（不按状态重算）");
+                        return false;
+                }
+            }
+            return acts.Count > 0;
+        }
+
+        /// <summary>具名增益型光环：Ongoing 能力（aura_group / aura_buff）+ 动作线。
+        /// 动作线全为幂等动作（设置属性/设置增益属性）→ 每次收敛点按当前状态重算（值随状态跟随）；
+        /// 含一次性动作 → 只在目标进入范围时执行一次。</summary>
+        private static AbilityData BuildAuraBuffAbility(CardCustomData data, GraphData graph, GraphNode ev, BuffData bdef)
+        {
+            AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
+            ab.id = StableAbilityId(data.id, "aurabuff", ev.id);   //★稳定 id
+            ab.trigger = AbilityTrigger.Ongoing;
+            ApplyAuraTargetArea(ab, ev);
+            ab.aura_group = "ag_" + data.id + "_" + ev.id;   //★账本分组键（同一张卡的多个光环入口可区分）
+            ab.aura_buff = bdef.id;                          //★要持续施加的具名增益（SyncAuraEffects 用）
+            ab.value = 1;
+            ab.conditions_trigger = new ConditionData[0];
+            ab.filters_target = new FilterData[0];
+            ab.status = new StatusData[0];
+            ab.chain_abilities = new AbilityData[0];
+
+            //动作线（入口「动作」出口）
+            bool has_line = graph != null && FindReachableActionsFromPin(graph, ev.id, "out").Count > 0;
+            if (has_line)
+            {
+                EffectRunGraph run = ScriptableObject.CreateInstance<EffectRunGraph>();
+                run.graph = graph;
+                run.trigger_action = ev.action;   //入口匹配仍按 AuraEffect
+                ab.effects = new EffectData[] { run };
+            }
+            else
+            {
+                ab.effects = new EffectData[0];
+            }
+
+            //动作线可否重算（幂等动作线 → 每次收敛点重跑，值随状态跟随；否则只在进入范围时跑一次）
+            ab.aura_repeat = has_line && AllAuraActionsAreRepeatable(graph, ev.id);
+            Debug.Log("[光环编译] 卡=" + data.id + " 节点=" + ev.id + " 增益=" + ab.aura_buff
+                + " 分组=" + ab.aura_group
+                + " 生效区域=" + GraphRuntime.GetFieldString(ev, "live_area", "?")
+                + " 作用区域=" + GraphRuntime.GetFieldString(ev, "target_area", "?")
+                + " 动作线=" + (has_line ? "有" : "无") + " 可重算=" + ab.aura_repeat);
+
+            ab.title = (ev.title ?? "光环效果入口") + "：" + (string.IsNullOrEmpty(bdef.title) ? bdef.id : bdef.title);
+            ab.desc = "";   //★同上：描述留空，避免卡面多出样板行
+            return ab;
+        }
+
+        /// <summary>光环入口的 生效区域/作用区域 → 能力字段。
+        /// 生效区域 = 载体（本卡）需要在的区域；作用区域 = 被施加增益的卡所在区域。
+        /// 两者都是 ZoneNames 口径的区域名（"任意"= 不限）。</summary>
+        private static void ApplyAuraTargetArea(AbilityData ab, GraphNode ev)
+        {
+            if (ab == null || ev == null)
+                return;
+            ab.aura_zone = GraphRuntime.GetFieldString(ev, "live_area", "任意");
+            ab.aura_target_zone = GraphRuntime.GetFieldString(ev, "target_area", "任意");
+            //引擎 Ongoing 通道的口径（旧式 StatusType 光环仍走它）：战场/手牌/其它→所有牌堆
+            ab.target = ab.aura_target_zone == "手牌" ? AbilityTarget.AllCardsHand
+                      : ab.aura_target_zone == "战场" ? AbilityTarget.AllCardsBoard
+                      : AbilityTarget.AllCardsAllPiles;
+            ab.conditions_target = new ConditionData[0];
         }
 
         /// <summary>入口的一个目标槽（读自图节点字段 target_type{i}/target_side{i}/target_error{i}）。</summary>
@@ -1243,6 +1493,11 @@ namespace TcgEngine.Workshop
             string ab_title_any = GraphRuntime.GetFieldString(ev, "ability_title", "");
             if (!string.IsNullOrEmpty(ab_title_any))
                 ab.title = ab_title_any;
+            //★「能力描述」同样对**所有入口**生效（原来只有起动式入口读它）：
+            //  图编译出的能力默认 desc 为空（卡面不会多渲染样板行）；想让它显示在卡面上就填这个字段。
+            string ab_desc_any = GraphRuntime.GetFieldString(ev, "ability_desc", "");
+            if (!string.IsNullOrEmpty(ab_desc_any))
+                ab.desc = ab_desc_any;
 
             if (GraphRuntime.GetFieldString(ev, "once_per_turn", "false") == "true")
                 ab.conditions_trigger = AppendCondition(ab.conditions_trigger,
@@ -1444,6 +1699,115 @@ namespace TcgEngine.Workshop
                     return true;
             }
             return false;
+        }
+
+        // ============ 被动效果入口（PassiveEffect）的「生效/失效」线编译 ============
+        // 背景：被动入口有三个 Flow 出口 —— 动作(out，亡语等主效果) / 生效(enable) / 失效(disable)。
+        // 动作口的触发时机由入口「标签列表」映射成 AbilityTrigger（亡语=OnDeath）；后两者是**状态切换**语义：
+        // 卡进入/离开入口「生效区域」、以及变形（SetCard 换定义）时，应执行对应的动作线。
+        // 做法：两条线各编译成一个独立能力（trigger = OnPassiveEnable/OnPassiveDisable，共享 passive_group 分组键、
+        // 带 passive_area 生效区域），运行时由 GameLogic.SyncPassiveEffects 做「区域状态差分」后触发
+        // （进场=生效、离场=失效、变形=旧形态失效+新形态生效）。
+        // ★没有接线就不生成能力 → 对既有卡零影响。
+
+        /// <summary>编译被动入口的 生效/失效 两条线（各自只在有可达动作时才生成能力）</summary>
+        private static void CompilePassiveStateLines(CardCustomData data, GraphData graph, CardEffectData effdto,
+            GraphNode ev, List<AbilityData> result)
+        {
+            if (data == null || graph == null || ev == null || result == null)
+                return;
+            //分组键：同一入口的 生效/失效 两条线共用（Card.passive_groups 记录"这张卡当前已生效的分组"）
+            string group = "pg_" + data.id + "_" + ev.id;
+            //生效区域：与入口字段同名同口径（战场/手牌/牌库/墓地/装备区/全部区域）
+            string area = GraphRuntime.GetFieldString(ev, "live_area", "战场");
+            CompileOnePassiveStateLine(data, graph, effdto, ev, "enable", AbilityTrigger.OnPassiveEnable, group, area, result);
+            CompileOnePassiveStateLine(data, graph, effdto, ev, "disable", AbilityTrigger.OnPassiveDisable, group, area, result);
+        }
+
+        /// <summary>编译被动入口的一条状态切换线（pin=enable/disable）</summary>
+        private static void CompileOnePassiveStateLine(CardCustomData data, GraphData graph, CardEffectData effdto,
+            GraphNode ev, string pin, AbilityTrigger trigger, string group, string area, List<AbilityData> result)
+        {
+            List<GraphNode> acts = FindReachableActionsFromPin(graph, ev.id, pin);
+            if (acts.Count == 0)
+                return;   //该线没接任何动作 → 不生成能力（保持"预留出口"的零影响）
+
+            AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
+            ab.id = StableAbilityId(data.id, "passive_" + pin, ev.id);   //★稳定 id
+            ab.trigger = trigger;
+            //状态切换触发：**不走目标选择**（否则进出场/变形时会弹目标选择框）。
+            //线内动作若引用了「目标卡牌」口且没连线，按解释器既有回退口径落到施法卡自身（见 NodeDocRunner.ResolveInputCard）。
+            ab.target = AbilityTarget.None;
+            ConditionData[] dtrigger = effdto != null
+                ? DeserializeComponents<ConditionData>(effdto.conditions_trigger) : null;
+            ab.conditions_trigger = (dtrigger != null && dtrigger.Length > 0) ? dtrigger : new ConditionData[0];
+            ab.conditions_target = new ConditionData[0];
+            ab.filters_target = new FilterData[0];
+            ab.passive_group = group;
+            ab.passive_area = string.IsNullOrEmpty(area) ? "战场" : area;
+
+            EffectRunGraph run = ScriptableObject.CreateInstance<EffectRunGraph>();
+            run.graph = graph;
+            run.trigger_action = ev.action;     //入口匹配仍按 PassiveEffect（同一条入口节点）
+            run.entry_pin = pin;                //★只走这条出口（解释器据此跳过另一条线与动作口）
+            ab.effects = new EffectData[] { run };
+
+            ab.title = (ev.title ?? ev.action) + "：" + (pin == "enable" ? "生效" : "失效") + "：规则图执行";
+            ab.desc = "";   //★描述留空（同上）
+            ApplyEntryOverrides(ab, ev, false, graph);   //入口级覆盖（能力名/能力描述/每回合一次；目标槽部分对非主动入口直接返回）
+            RegisterAbility(ab);
+            result.Add(ab);
+        }
+
+        /// <summary>只沿入口指定出口(pin)找可达动作（被动入口的 生效/失效 线专用）。
+        /// 与 FindReachableActions 的区别：起点只展开 pin 这一个 Flow 出口，其余出口（含动作口 out）一律不走。</summary>
+        private static List<GraphNode> FindReachableActionsFromPin(GraphData graph, string from_id, string pin)
+        {
+            List<GraphNode> result = new List<GraphNode>();
+            if (graph == null)
+                return result;
+
+            Stack<GraphNode> stack = new Stack<GraphNode>();
+            HashSet<string> visited = new HashSet<string>();
+            GraphNode start = graph.GetNode(from_id);
+            if (start != null)
+            {
+                visited.Add(start.id);
+                foreach (GraphLink link in graph.GetOutgoing(start.id))
+                {
+                    GraphPin out_pin = graph.GetPin(start.id, link.from_pin);
+                    if (out_pin == null || out_pin.name != pin)
+                        continue;
+                    if (out_pin.type != NodeValueType.Flow && out_pin.type != NodeValueType.None)
+                        continue;
+                    GraphNode next = graph.GetNode(link.to_node);
+                    if (next != null)
+                        stack.Push(next);
+                }
+            }
+
+            while (stack.Count > 0)
+            {
+                GraphNode node = stack.Pop();
+                if (node == null || visited.Contains(node.id))
+                    continue;
+                visited.Add(node.id);
+                if (node.type == GraphNodeType.Action)
+                {
+                    result.Add(node);
+                    continue;   //动作节点不再向下
+                }
+                foreach (GraphLink link in graph.GetOutgoing(node.id))
+                {
+                    GraphPin out_pin = graph.GetPin(node.id, link.from_pin);
+                    if (out_pin != null && out_pin.type != NodeValueType.Flow && out_pin.type != NodeValueType.None)
+                        continue;   //取值线不驱动执行
+                    GraphNode next = graph.GetNode(link.to_node);
+                    if (next != null)
+                        stack.Push(next);
+                }
+            }
+            return result;
         }
 
         /// <summary>从事件节点出发，沿输出连线查找可达的动作节点（跳过条件/值节点）。
@@ -1791,14 +2155,36 @@ namespace TcgEngine.Workshop
             return true;
         }
 
-        /// <summary>注册生成的 AbilityData 到静态字典（id 冲突时跳过）</summary>
+        /// <summary>★稳定能力 id：同卡同入口重复导入/保存时 id 不变 → 注册表**替换**而非累积。
+        /// 旧实现带随机 Guid：每次保存/导入都生成新 id → 同一张图的能力在注册表里越积越多
+        /// → 事件广播时同一条图被执行 N 遍（增益翻倍/伤害翻倍），且已发到手牌的卡实例引用旧 id 失效。</summary>
+        private static string StableAbilityId(string card_id, string kind, string key)
+        {
+            string raw = (card_id ?? "") + "|" + (kind ?? "") + "|" + (key ?? "");
+            int h = 0;
+            foreach (char ch in raw)
+                h = h * 31 + ch;
+            return "graph_" + card_id + "_" + (kind ?? "ev") + "_" + h.ToString("x8");
+        }
+
+        /// <summary>注册生成的 AbilityData 到静态字典（★id 冲突时**替换**：重导入/重保存后以最新编译为准）</summary>
         public static bool RegisterAbility(AbilityData ability)
         {
             if (ability == null || string.IsNullOrEmpty(ability.id))
                 return false;
 
-            if (AbilityData.Get(ability.id) != null)
-                return false;
+            //★不能用 AbilityData.Get(id) != null 判断"是否已注册"：AbilityData 是 ScriptableObject，
+            //  重开卡池/刷新列表时旧实例被 Destroy，字典里留下已销毁引用 —— Unity 的 == 重载
+            //  把已销毁对象判成 null → Get 取到了引用却"看似 null" → 误走 Add 分支 →
+            //  「An item with the same key has already been added」（实测：点卡池「编辑」即崩）。
+            //  用 ContainsKey 纯字典判断，销毁与否都走"替换"路径。
+            if (AbilityData.ability_dict.ContainsKey(ability.id))
+            {
+                AbilityData.ability_dict[ability.id] = ability;                 //替换字典
+                AbilityData.ability_list.RemoveAll(a => a == null || a.id == ability.id);  //顺带清掉已销毁的旧条目（先判 null 再取 id，防 MissingReference）
+                AbilityData.ability_list.Add(ability);                          //列表同步去重
+                return true;
+            }
 
             AbilityData.ability_list.Add(ability);
             AbilityData.ability_dict.Add(ability.id, ability);

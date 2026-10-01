@@ -1038,6 +1038,8 @@ namespace TcgEngine.Gameplay
 
         /// <summary>触发单个宿主：能力 trigger 匹配且含 EffectRunGraph 的事件图才交给 NodeDocRunner 执行。
         /// is_extra=事件主体卡（任意牌堆都可响应）；普通宿主按其事件入口「生效牌堆」字段过滤当前所在区域。</summary>
+        private static int fireEvent_debug_left = 24;   //事件分发诊断日志节流
+
         private void FireEventHost(Card host, GraphEventContext ctx, bool is_extra)
         {
             if (host == null || ctx == null)
@@ -1045,6 +1047,22 @@ namespace TcgEngine.Gameplay
             if (host.HasStatus(StatusType.Silenced))
                 return;     //被沉默的卡不响应图事件
             string zone = GetCardZone(host);   //宿主当前所在牌堆（空=不在任何已知牌堆）
+
+            //★分发诊断（节流）：为什么"事件广播了但图没跑"——宿主有没有能力、触发器名对不对，一眼可见
+            if (fireEvent_debug_left > 0)
+            {
+                fireEvent_debug_left--;
+                int n_ab = 0;
+                string trig_list = "";
+                foreach (AbilityData ab in host.GetAbilities())
+                {
+                    n_ab++;
+                    trig_list += (trig_list.Length > 0 ? "," : "") + (ab != null ? ab.trigger.ToString() : "（空能力）");
+                }
+                Debug.Log("[事件分发] action=" + ctx.action + " 宿主=" + (host.CardData != null ? host.CardData.id : "?")
+                    + " is_extra=" + is_extra + " zone=" + (string.IsNullOrEmpty(zone) ? "无" : zone)
+                    + " 能力数=" + n_ab + " 触发器=[" + trig_list + "]");
+            }
 
             foreach (AbilityData ab in host.GetAbilities())
             {
@@ -1061,6 +1079,14 @@ namespace TcgEngine.Gameplay
                         continue;   //入口「生效堆」不含宿主当前所在牌堆 → 该宿主不响应
                     //定位入口节点：写「标签列表」；「启动后触发」还要读 延迟/等待事件 参数
                     GraphNode entry = FindEntryNode(rg.graph, ctx.action);
+                    if (fireEvent_debug_left > 0)
+                    {
+                        fireEvent_debug_left--;
+                        Debug.Log("[事件分发·命中] action=" + ctx.action + " 宿主=" + (host.CardData != null ? host.CardData.id : "?")
+                            + " rg=" + (rg != null ? "有" : "null") + " graph=" + (rg != null && rg.graph != null ? "有" : "null")
+                            + " trigger_action=" + (rg != null ? rg.trigger_action : "?")
+                            + " entry=" + (entry != null ? "有" : "无") + " → 执行 RunEvent");
+                    }
                     if (entry != null)
                     {
                         string tags = GraphRuntime.GetFieldString(entry, "tags", "");
@@ -1164,6 +1190,7 @@ namespace TcgEngine.Gameplay
             switch (action)
             {
                 case "OnBeforePlay":
+                case "OnAfterPlay":
                 case "OnBeforeDamage":
                 case "OnAfterDamage":
                 case "OnAfterDraw":
@@ -1289,6 +1316,50 @@ namespace TcgEngine.Gameplay
                 ShuffleDeck(player.cards_deck);
         }
 
+        /// <summary>英雄技能卡挂载：英雄定义（CardData.skills）指定的技能卡（type=Skill），
+        /// 把上面的起动式能力（ActivateAbility）挂到英雄卡实例上 → 对局里成为英雄的技能按钮。
+        /// 与火精灵「火焰」同一条执行链（cast_ability → RunGraph）。</summary>
+        private void MountHeroSkills(Player player)
+        {
+            if (player == null || player.hero == null)
+                return;
+            CardData hero_data = player.hero.CardData;
+            if (hero_data == null || hero_data.skills == null || hero_data.skills.Count == 0)
+                return;
+            if (player.hero.abilities == null)
+                player.hero.abilities = new List<string>();
+            if (player.hero.abilities_ongoing == null)
+                player.hero.abilities_ongoing = new List<string>();
+            int mounted = 0;
+            foreach (string sid in hero_data.skills)
+            {
+                if (string.IsNullOrEmpty(sid))
+                    continue;
+                CardData sd = CardData.Get(sid);
+                if (sd == null)
+                {
+                    Debug.LogWarning("[英雄技能] 技能卡未注册：" + sid + "（英雄=" + hero_data.id + "）→ 已跳过");
+                    continue;
+                }
+                if (sd.type != CardType.Skill)
+                    Debug.LogWarning("[英雄技能] 引用的不是技能卡：" + sid + "（type=" + sd.type + "）→ 仍会挂载其能力");
+                if (sd.abilities == null)
+                    continue;
+                foreach (AbilityData a in sd.abilities)
+                {
+                    if (a == null || string.IsNullOrEmpty(a.id))
+                        continue;
+                    if (a.trigger == AbilityTrigger.Ongoing)
+                        player.hero.abilities_ongoing.Add(a.id);
+                    else
+                        player.hero.abilities.Add(a.id);
+                    mounted++;
+                }
+            }
+            if (mounted > 0)
+                Debug.Log("[英雄技能] 英雄 " + hero_data.id + " 已挂载 " + mounted + " 个技能能力");
+        }
+
         //Set deck using custom deck in save file or database
         public virtual void SetPlayerDeck(Player player, UserDeckData deck)
         {
@@ -1302,7 +1373,10 @@ namespace TcgEngine.Gameplay
                 CardData hdata = CardData.Get(deck.hero.tid);
                 VariantData hvariant = VariantData.Get(deck.hero.variant);
                 if (hdata != null && hvariant != null)
+                {
                     player.hero = Card.Create(hdata, hvariant, player);
+                    MountHeroSkills(player);   //★英雄技能卡（CardData.skills）→ 挂成英雄的技能按钮
+                }
                 else
                     Debug.LogWarning("[Game] 卡组英雄解析失败：tid=" + deck.hero.tid + " → 玩家 p" + player.player_id
                         + " 将没有英雄卡（「获取玩家英雄」类节点与英雄伤害/治疗都会失效）");
@@ -1331,9 +1405,11 @@ namespace TcgEngine.Gameplay
             //Shuffle deck
             ShuffleDeck(player.cards_deck);
 
-            //空卡组会在开局按「手牌/战场/牌库全空=死亡」立即判负（Player.IsDead），这里显式报出来
+            //空卡组不再立即判负（2026-09-24 起改走疲劳：无牌可抽 → 每回合递增掉血，见 DrawFatigue）。
+            //但仍然要报出来：它几乎一定是配置问题（卡组没配卡或全部卡牌无效），不报就会看不到。
             if (player.cards_deck.Count == 0)
-                Debug.LogError("[Game] 玩家 p" + player.player_id + " 卡组为空（卡组没配卡或全部卡牌无效）→ 开局将立即判负");
+                Debug.LogError("[Game] 玩家 p" + player.player_id + " 卡组为空（卡组没配卡或全部卡牌无效）"
+                    + "→ 不会立即判负，但每次抽牌都会吃疲劳伤害");
         }
 
         //---- Gameplay Actions --------------
@@ -1421,8 +1497,29 @@ namespace TcgEngine.Gameplay
 
                 RefreshData();
 
+                //图事件「使用卡牌后」（全场监听；此时已扣费、已入场、战吼等已结算；value=费用供读取）
+                //★放在结算队列 ResolveAll 之后：保证"打出的牌的后效"已经生效完，再通知监听者。
                 onCardPlayed?.Invoke(card, slot);
                 resolve_queue.ResolveAll(0.3f);
+
+                try
+                {
+                    GraphEventContext actx = new GraphEventContext();
+                    actx.action = "OnAfterPlay";
+                    actx.phase = GraphEventPhase.After;
+                    actx.card = card;
+                    actx.source_card = card;
+                    actx.player = player;
+                    actx.value = card.CardData != null ? card.CardData.mana : 0;
+                    EmitGraphEvent(actx, card);
+                    //★事件里加的增益/属性要在**本次打出内**可见：广播后再做一次收敛
+                    //（否则 AddAttack 等状态要等下一次 UpdateOngoing 才反映到攻击/费用上，实测"打出去数值不变"）
+                    UpdateOngoing();
+                }
+                catch (System.Exception e_ap)
+                {
+                    Debug.LogError("[使用卡牌后] 事件广播异常（已忽略，不影响本次打出）：" + e_ap);
+                }
             }
         }
 
@@ -1503,7 +1600,8 @@ namespace TcgEngine.Gameplay
                 Player player = game_data.GetPlayer(card.player_id);
                 if (!is_ai_predict && iability.target != AbilityTarget.SelectTarget)
                     player.AddHistory(GameAction.CastAbility, card, iability);
-                card.RemoveStatus(StatusType.Stealth);
+                //★ 潜行在"发动能力后"失去：走持久移除（理由见圣盾处），避免被重算复活
+                card.SetStatusPresence(StatusType.Stealth, false);
                 TriggerCardAbility(iability, card);
                 resolve_queue.ResolveAll();
             }
@@ -1645,7 +1743,8 @@ namespace TcgEngine.Gameplay
             else
                 onAttackStart?.Invoke(attacker, target_card);
 
-            attacker.RemoveStatus(StatusType.Stealth);
+            //★ 潜行在"攻击后"失去：持久移除（理由见圣盾处）
+            attacker.SetStatusPresence(StatusType.Stealth, false);
             UpdateOngoing();
 
             if (vs_player)
@@ -1803,20 +1902,53 @@ namespace TcgEngine.Gameplay
                     TriggerPlayerCardsAbilityType(player, AbilityTrigger.OnDraw);
                     UpdateOngoingCards(); 
                 }
+                else if (player.cards_deck.Count == 0)
+                {
+                    //★★ 无牌可抽 → 疲劳（不再直接判负，也不会白抽一张什么都不发生）
+                    //  注意：只在**牌库空**时触发；"手牌已满但牌库还有牌"不算无牌可抽（那种情况保持原行为：不抽、不疲劳）
+                    DrawFatigue(player);
+                }
             }
 
             onCardDrawn?.Invoke(nb);
         }
+
+        /// <summary>
+        /// 疲劳结算：疲劳层数 +1，并造成**等于新层数**的伤害（第一次 1 点、第二次 2 点…）。
+        ///   · 伤害走 DamagePlayer(attacker=null)：能吃到既有的伤害事件管线（OnBefore/OnAfterDamage、减免等）；
+        ///   · 打完**立刻 CheckForWinner()**：否则血量归零要等下一个回合边界才判负，会多打一整回合；
+        ///   · 计数器用 Player 的「疲劳层数」特性（与规则图节点同键），规则图也能读/改它。
+        /// </summary>
+        protected virtual void DrawFatigue(Player player)
+        {
+            if (player == null || game_data.state == GameState.GameEnded)
+                return;
+
+            int level = player.GetTraitValue(Player.TraitFatigue) + 1;
+            player.SetTrait(Player.TraitFatigue, level);
+
+            GameLog.Log("[疲劳] p" + player.player_id + " 无牌可抽：疲劳 " + level + " 层 → 受到 " + level + " 点伤害");
+            DamagePlayer(null, player, level);
+
+            CheckForWinner();
+        }
         //Put a card from deck into discard
+        /// <summary>弃掉牌库顶 N 张（旧 EffectDiscard 的玩家目标分支；也是"回合结束的弃牌"这类行为的实现）。
+        /// ★与「弃牌行为」统一：改走标准 `DiscardCard` —— 会广播「弃牌时/后」图事件、走正常离场处理
+        /// （旧实现是 deck.RemoveAt(0) + cards_discard.Add()，**不发任何事件、不走离场**，属于绕过弃牌行为）。
+        /// 「弃牌时」是可阻止事件：被阻止时 DiscardCard 会保持原状（卡仍在牌库），这里据此中断本次弃牌。</summary>
         public virtual void DrawDiscardCard(Player player, int nb = 1)
         {
+            if (player == null)
+                return;
             for (int i = 0; i < nb; i++)
             {
                 if (player.cards_deck.Count > 0)
                 {
                     Card card = player.cards_deck[0];
-                    player.cards_deck.RemoveAt(0);
-                    player.cards_discard.Add(card);
+                    DiscardCard(card);
+                    if (player.cards_deck.Contains(card))
+                        break;   //被「弃牌时」阻止：本次不弃（避免对同一张卡反复尝试）
                 }
             }
         }
@@ -1871,6 +2003,589 @@ namespace TcgEngine.Gameplay
             return acard;
         }
 
+        // ==================== 被动效果：生效 / 失效（进场 / 离场 / 变形） ====================
+        // 被动效果入口（PassiveEffect）有三条线：动作(out，亡语等主效果) / 生效(enable) / 失效(disable)。
+        // 后两条由 CardPoolIO 编译成能力（trigger = OnPassiveEnable / OnPassiveDisable，共享 passive_group 分组键），
+        // 本段负责**驱动**它们：
+        //   · 该卡在其入口「生效区域」内 且 未生效 → 执行「生效动作」线
+        //   · 该卡已生效 但已不在生效区域内（或已被封印）→ 执行「失效动作」线
+        //   · 变形（SetCard 换定义）→ 旧形态整组失效 + 新形态重新生效（见 TransformCard）
+        // 为什么用「区域状态差分」而不是逐个挂钩子：进场（打出/召唤/置入）、离场（死亡/弃牌/回手/洗回/进墓地/
+        // 暂存）、变形、复位，全都在扫描时自动覆盖 —— 逐个挂入口一定会漏（本项目区域改动路径有 9 处以上）。
+        // 执行口径：两条线**同步执行**（AbilityData.DoEffects → EffectRunGraph），**不走 resolve_queue** ——
+        // 与引擎既有的「关键词规则图」同口径（见 TriggerCardKeywords 注释：关键词规则不走 resolve_queue，直接同步执行）。
+        // 走队列有两个坑（探针实测踩到）：① AddAbility 只入队，必须再点火；而 ResolveAll() 无参在"当前正处于
+        // 结算中"时是**空操作**（is_resolving 直接 return）→ 被动线会一直躺在队列里，直到别人偶然再点一次火；
+        // ② 延迟执行会让"生效/失效"与触发它的那次区域变化错开，图里读到的可能已是旧状态。
+        // ★没有接 生效/失效 线的卡（绝大多数）完全不受影响：它没有 OnPassiveEnable 能力 → 本段对其零操作。
+        [System.NonSerialized] private bool passive_syncing = false;   //重入保护：生效/失效线自身又会触发图执行
+
+        /// <summary>同步所有卡的被动效果「生效/失效」状态（差分扫描）。
+        /// 调用点：UpdateOngoing 末尾、DiscardCard 末尾、TransformCard 内、以及图执行（NodeDocRunner.Run）末尾 ——
+        /// 这几处覆盖了所有会改变卡区域的操作。</summary>
+        public virtual void SyncPassiveEffects()
+        {
+            if (passive_syncing || game_data == null || game_data.players == null)
+                return;   //嵌套同步直接跳过（差额由下一次扫描补上，状态不会丢）
+            passive_syncing = true;
+            try
+            {
+                for (int i = 0; i < game_data.players.Length; i++)
+                {
+                    Player p = game_data.players[i];
+                    if (p == null)
+                        continue;
+                    //逐区域扫描（不建临时列表：本方法调用很频繁）
+                    SyncPassiveCard(p, p.hero);
+                    SyncPassiveCards(p, p.cards_board);
+                    SyncPassiveCards(p, p.cards_equip);
+                    SyncPassiveCards(p, p.cards_hand);
+                    SyncPassiveCards(p, p.cards_deck);
+                    SyncPassiveCards(p, p.cards_discard);
+                    SyncPassiveCards(p, p.cards_secret);
+                    SyncPassiveCards(p, p.cards_temp);
+                }
+                //★光环效果（具名增益）同步：与被动共用"任何区域变化都收敛到这里"的时机，
+                //  所以不必再给光环单独挂钩子（多了迟早漏一处）。
+                SyncAuraEffects();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[被动效果] 生效/失效同步异常（已忽略，不影响对局）：" + e);
+            }
+            finally
+            {
+                passive_syncing = false;
+            }
+        }
+
+        // ==================== 光环效果：具名增益的「进入范围施加 / 离开范围移除」 ====================
+        // 「光环效果入口」的增益定义填**具名增益**（BuffData.id）时由本段驱动；填 StatusType 的旧式光环
+        // 仍走 EffectAddStatus + 每帧 Ongoing 重算，完全不经过这里（旧卡零影响）。
+        //
+        // 为什么必须"差分"而不是"每帧施加"：BuffRuntime 的施加入口会广播图事件「添加增益时/后」并播放增益特效，
+        // 每帧调用 = 每帧广播 + 属性无限叠加。所以只做**状态发生变化**的那一次：
+        //   · 目标进入光环范围（或光环刚上场）→ 施加一次（实例同时交给动作线的「目标增益」口）
+        //   · 目标离开范围 / 载体离场·被封印·变形 / 该实例被驱散 → 精确移除该来源的实例
+        // 逐实例记账（CardBuff.source_uid + source_group）保证：只删光环自己给的那份，
+        // 手动施加的同名增益、另一张光环卡给的同名增益都不受影响。
+        [System.NonSerialized] private bool aura_syncing = false;   //重入保护：动作线自身也可能改动区域
+
+        /// <summary>正在执行的光环动作线"刚施加"的增益实例，供图的「目标增益」输出口读取
+        /// （NodeDocRunner.ResolveInputBuff → 入口 target_buff 口）。</summary>
+        [System.NonSerialized] public CardBuff aura_grant_buff = null;
+
+        /// <summary>光环诊断日志（节流：最多 200 条，避免每帧刷屏；排查用，不影响逻辑）</summary>
+        private static int aura_log_left = 200;
+
+        /// <summary>已打过"被生效条件挡下"日志的光环节点（每个光环只报一次，避免逐目标刷屏）</summary>
+        [System.NonSerialized] private HashSet<string> aura_cond_logged;
+
+        /// <summary>增益实例的变量列表文本（诊断用）</summary>
+        private static string PropsText(CardBuff b)
+        {
+            if (b == null || b.props == null || b.props.Count == 0)
+                return "[]";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder("[");
+            for (int i = 0; i < b.props.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(", ");
+                sb.Append(b.props[i].key).Append('=').Append(b.props[i].value);
+            }
+            return sb.Append(']').ToString();
+        }
+        private static void AuraLog(string msg)
+        {
+            if (aura_log_left <= 0)
+                return;
+            aura_log_left--;
+            Debug.Log("[光环] " + msg + (aura_log_left <= 0 ? "（后续光环日志已静音）" : ""));
+        }
+
+        /// <summary>同步所有光环的施加状态（差分扫描）。由 SyncPassiveEffects 末尾统一调用。</summary>
+        public virtual void SyncAuraEffects()
+        {
+            if (aura_syncing || game_data == null || game_data.players == null)
+                return;
+            aura_syncing = true;
+            try
+            {
+                //1) 算出"此刻应当存在"的光环增益：key = 目标uid|来源卡uid|分组键
+                HashSet<string> should = new HashSet<string>();
+                List<AuraGrant> grants = new List<AuraGrant>();
+                CollectAuraGrants(should, grants);
+                if (grants.Count > 0)
+                    AuraLog("本次应有 " + grants.Count + " 个目标（目标|来源|分组 组合数）");
+
+                //2) 移除"不该再存在"的：扫全部区域的卡，只动 aura 来源的实例（普通增益一律不碰）
+                for (int i = 0; i < game_data.players.Length; i++)
+                {
+                    Player p = game_data.players[i];
+                    if (p == null)
+                        continue;
+                    RemoveStaleAuraBuffsOnCard(p.hero, should);
+                    RemoveStaleAuraBuffs(p.cards_board, should);
+                    RemoveStaleAuraBuffs(p.cards_equip, should);
+                    RemoveStaleAuraBuffs(p.cards_hand, should);
+                    RemoveStaleAuraBuffs(p.cards_deck, should);
+                    RemoveStaleAuraBuffs(p.cards_discard, should);
+                    RemoveStaleAuraBuffs(p.cards_secret, should);
+                    RemoveStaleAuraBuffs(p.cards_temp, should);
+                }
+
+                //3) 补上缺口：施加 + 跑该光环的动作线（动作线可以为空 = 纯数据光环）
+                for (int i = 0; i < grants.Count; i++)
+                {
+                    AuraGrant g = grants[i];
+                    CardBuff exist = BuffRuntime.GetAuraBuff(g.target, g.source.uid, g.ability.aura_group);
+                    if (exist != null)
+                    {
+                        //★已在身上：动作线若全是**可重算的幂等动作**（设置属性 / 设置增益属性 等），就按当前状态再算一遍。
+                        //  否则动作线算出来的值会永远停在"第一次施加的那一刻" —— 表现就是
+                        //  "卡牌写每受到1点伤害费用降低1点，但费用始终不变"（实测踩到）。
+                        //  非幂等动作线（伤害/抽牌/召唤…）仍然只在进入范围时执行一次，不会每帧重复发生。
+                        if (g.ability.aura_repeat)
+                            RunAuraActionLine(g, exist);
+                        continue;
+                    }
+                    BuffData define = BuffPoolIO.Get(g.ability.aura_buff);
+                    if (define == null)
+                    {
+                        AuraLog("光环增益定义找不到：aura_buff=" + g.ability.aura_buff + "（buffs.json 里没这条增益）");
+                        continue;
+                    }
+                    AuraLog("光环施加：" + define.id + " → 目标卡 " + (g.target != null ? g.target.CardData?.id : "?")
+                        + "（来源 " + (g.source != null ? g.source.CardData?.id : "?") + " 分组 " + g.ability.aura_group + "）");
+                    CardBuff inst = BuffRuntime.AddAuraBuff(this, g.target, define,
+                        define.duration, g.source.uid, g.ability.aura_group);
+                    if (inst == null)
+                        continue;   //被「添加增益时」阻止 → 下次扫描重试
+                    RunAuraActionLine(g, inst);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[光环效果] 施加/移除同步异常（已忽略，不影响对局）：" + e);
+            }
+            finally
+            {
+                aura_syncing = false;
+            }
+        }
+
+        /// <summary>一次"目标该被某光环施加"的记录</summary>
+        private class AuraGrant
+        {
+            public Card source;         //光环载体（能力所在卡）
+            public AbilityData ability; //光环能力（aura_group / aura_buff）
+            public Card target;         //被施加的卡
+        }
+
+        private static string AuraKey(Card target, string source_uid, string group)
+        {
+            return (target != null ? target.uid : "?") + "|" + source_uid + "|" + group;
+        }
+
+        /// <summary>收集当前所有"应当生效"的光环目标（来源卡必须在场上/装备区/英雄位）</summary>
+        private void CollectAuraGrants(HashSet<string> should, List<AuraGrant> grants)
+        {
+            for (int i = 0; i < game_data.players.Length; i++)
+            {
+                Player p = game_data.players[i];
+                if (p == null)
+                    continue;
+                CollectAuraGrantsFrom(p.hero, should, grants);
+                CollectAuraGrantsFromList(p.cards_board, should, grants);
+                CollectAuraGrantsFromList(p.cards_equip, should, grants);
+                //★手牌也能当光环来源：手牌里的卡给自己/己方手牌持续施加增益（如"英雄每损失1点生命，此牌费用-1"）
+                //  是很常见的写法；不扫手牌的话这类光环**永远不生效**（实测踩到）。
+                CollectAuraGrantsFromList(p.cards_hand, should, grants);
+            }
+        }
+
+        private void CollectAuraGrantsFromList(List<Card> carriers, HashSet<string> should, List<AuraGrant> grants)
+        {
+            if (carriers == null)
+                return;
+            for (int i = 0; i < carriers.Count; i++)
+                CollectAuraGrantsFrom(carriers[i], should, grants);
+        }
+
+        private void CollectAuraGrantsFrom(Card src, HashSet<string> should, List<AuraGrant> grants)
+        {
+            if (src == null || !src.CanDoAbilities())
+                return;   //被封印的来源：整组光环停用（解封后下一轮自动补上）
+            List<AbilityData> abs = src.GetAbilities();
+            if (abs == null)
+                return;
+            for (int i = 0; i < abs.Count; i++)
+            {
+                AbilityData ab = abs[i];
+                if (ab == null || ab.trigger != AbilityTrigger.Ongoing)
+                    continue;
+                if (string.IsNullOrEmpty(ab.aura_group) || string.IsNullOrEmpty(ab.aura_buff))
+                    continue;   //不是"具名增益"型光环（旧式 StatusType 光环不走这里）
+                if (!IsCardInZone(src, ab.aura_zone))
+                    continue;   //载体不在「生效区域」→ 本光环不生效（离开该区域即整组失效）
+                CollectAuraTargets(src, ab, should, grants);
+            }
+        }
+
+        /// <summary>卡是否处于指定区域（ZoneNames 口径；空/「任意」= 不限区域）。
+        /// 手牌/牌库/墓地/装备区/奥秘区/暂存区按玩家区域表判定；「英雄」= 该玩家英雄位。</summary>
+        private bool IsCardInZone(Card card, string zone)
+        {
+            if (card == null)
+                return false;
+            if (string.IsNullOrEmpty(zone) || zone == "任意")
+                return true;
+            Player p = game_data != null ? game_data.GetPlayer(card.player_id) : null;
+            if (p == null)
+                return false;
+            switch (zone)
+            {
+                case "英雄": return p.hero == card;
+                case "战场":
+                case "场上": return p.cards_board != null && p.cards_board.Contains(card);
+                case "手牌":
+                case "初始手牌": return p.cards_hand != null && p.cards_hand.Contains(card);
+                case "牌库": return p.cards_deck != null && p.cards_deck.Contains(card);
+                case "墓地": return p.cards_discard != null && p.cards_discard.Contains(card);
+                case "装备区":
+                case "装备": return p.cards_equip != null && p.cards_equip.Contains(card);
+                case "奥秘区":
+                case "奥秘": return p.cards_secret != null && p.cards_secret.Contains(card);
+                case "暂存区":
+                case "延迟": return p.cards_temp != null && p.cards_temp.Contains(card);
+                default: return false;   //未知区域判否（不静默当成某个区域）
+            }
+        }
+
+        /// <summary>按光环入口的「作用区域」（=被施加增益的卡所在区域）枚举目标</summary>
+        private void CollectAuraTargets(Card src, AbilityData ab, HashSet<string> should, List<AuraGrant> grants)
+        {
+            for (int i = 0; i < game_data.players.Length; i++)
+            {
+                Player tp = game_data.players[i];
+                if (tp == null)
+                    continue;
+                if (!string.IsNullOrEmpty(ab.aura_target_zone))
+                {
+                    AddAuraTargetsByName(src, ab, tp, ab.aura_target_zone, should, grants);
+                    continue;
+                }
+                switch (ab.target)
+                {
+                    case AbilityTarget.AllCardsHand:
+                        AddAuraTargets(src, ab, tp.cards_hand, should, grants);
+                        break;
+                    case AbilityTarget.AllCardsAllPiles:
+                        AddAuraTargets(src, ab, tp.cards_board, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_equip, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_hand, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_deck, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_discard, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_secret, should, grants);
+                        AddAuraTargets(src, ab, tp.cards_temp, should, grants);
+                        break;
+                    default:   //战场（入口默认）
+                        AddAuraTargets(src, ab, tp.cards_board, should, grants);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>按区域名把该玩家对应区域的卡纳入光环候选（区域名 = ZoneNames 口径；空/「任意」= 全部区域）</summary>
+        private void AddAuraTargetsByName(Card src, AbilityData ab, Player tp, string zone,
+            HashSet<string> should, List<AuraGrant> grants)
+        {
+            if (tp == null)
+                return;
+            switch (zone)
+            {
+                case "英雄":
+                    AddAuraTargetsOne(src, ab, tp.hero, should, grants);
+                    break;
+                case "战场":
+                case "场上":
+                    AddAuraTargets(src, ab, tp.cards_board, should, grants);
+                    break;
+                case "手牌":
+                case "初始手牌":
+                    AddAuraTargets(src, ab, tp.cards_hand, should, grants);
+                    break;
+                case "牌库":
+                    AddAuraTargets(src, ab, tp.cards_deck, should, grants);
+                    break;
+                case "墓地":
+                    AddAuraTargets(src, ab, tp.cards_discard, should, grants);
+                    break;
+                case "装备区":
+                case "装备":
+                    AddAuraTargets(src, ab, tp.cards_equip, should, grants);
+                    break;
+                case "奥秘区":
+                case "奥秘":
+                    AddAuraTargets(src, ab, tp.cards_secret, should, grants);
+                    break;
+                case "暂存区":
+                case "延迟":
+                    AddAuraTargets(src, ab, tp.cards_temp, should, grants);
+                    break;
+                default:   //任意 / 全部区域
+                    AddAuraTargetsOne(src, ab, tp.hero, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_board, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_equip, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_hand, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_deck, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_discard, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_secret, should, grants);
+                    AddAuraTargets(src, ab, tp.cards_temp, should, grants);
+                    break;
+            }
+        }
+
+        /// <summary>单张卡作为光环候选（英雄位用）</summary>
+        private void AddAuraTargetsOne(Card src, AbilityData ab, Card one, HashSet<string> should, List<AuraGrant> grants)
+        {
+            if (one == null)
+                return;
+            if (!ab.AreTargetConditionsMet(game_data, src, one))
+                return;
+            if (!IsAuraConditionMet(src, ab, one))
+                return;
+            string key = AuraKey(one, src.uid, ab.aura_group);
+            if (!should.Add(key))
+                return;
+            AuraGrant g = new AuraGrant();
+            g.source = src;
+            g.ability = ab;
+            g.target = one;
+            grants.Add(g);
+        }
+
+        private void AddAuraTargets(Card src, AbilityData ab, List<Card> zone, HashSet<string> should, List<AuraGrant> grants)
+        {
+            if (zone == null)
+                return;
+            for (int i = 0; i < zone.Count; i++)
+            {
+                Card t = zone[i];
+                if (t == null)
+                    continue;
+                if (!ab.AreTargetConditionsMet(game_data, src, t))
+                {
+                    AuraLog("目标 " + (t.CardData != null ? t.CardData.id : "?") + " 被「作用区域」条件挡下"
+                        + "（conditions_target=" + (ab.conditions_target != null ? ab.conditions_target.Length : 0) + " 条）");
+                    continue;   //作用区域（己方/敌方/双方）等目标条件
+                }
+                if (!IsAuraConditionMet(src, ab, t))
+                {
+                    //★这条最容易造成"光环完全不生效却毫无提示"：生效条件（cond 口）求值为假时，该目标不施加。
+                    //  逐目标打会刷屏 → 每个光环节点只报一次（列出被挡的第一个目标做样例）。
+                    if (aura_cond_logged == null)
+                        aura_cond_logged = new HashSet<string>();
+                    string ck = (src.uid ?? "?") + "|" + ab.id;
+                    if (aura_cond_logged.Add(ck))
+                    {
+                        AuraLog("目标 " + (t.CardData != null ? t.CardData.id : "?") + " 等被「生效条件」挡下"
+                            + "（cond 连线的布尔源求值为假 → 这些目标不施加；不需要条件就把这条线去掉=放行）");
+                    }
+                    continue;   //入口「生效条件」口（cond，无连线=放行）
+                }
+                string key = AuraKey(t, src.uid, ab.aura_group);
+                if (!should.Add(key))
+                    continue;   //同一来源同一分组只算一次
+                AuraGrant g = new AuraGrant();
+                g.source = src;
+                g.ability = ab;
+                g.target = t;
+                grants.Add(g);
+            }
+        }
+
+        /// <summary>光环入口「生效条件」口求值（图 cond；没接图/没连线 = 放行）</summary>
+        private bool IsAuraConditionMet(Card src, AbilityData ab, Card target)
+        {
+            EffectRunGraph run = GetAuraRunGraph(ab);
+            if (run == null || run.graph == null)
+                return true;
+            return NodeDocRunner.IsEntryConditionMet(this, run.graph, "AuraEffect", src, target, null);
+        }
+
+        /// <summary>取光环能力携带的规则图（动作线）；纯数据光环返回 null</summary>
+        private static EffectRunGraph GetAuraRunGraph(AbilityData ab)
+        {
+            if (ab == null || ab.effects == null)
+                return null;
+            for (int i = 0; i < ab.effects.Length; i++)
+            {
+                EffectRunGraph run = ab.effects[i] as EffectRunGraph;
+                if (run != null)
+                    return run;
+            }
+            return null;
+        }
+
+        /// <summary>执行光环的动作线（一次性：目标进入范围时），期间把"刚施加的增益"暴露给「目标增益」口</summary>
+        private void RunAuraActionLine(AuraGrant g, CardBuff inst)
+        {
+            if (g.ability.effects == null || g.ability.effects.Length == 0)
+                return;
+            aura_grant_buff = inst;
+            try
+            {
+                for (int i = 0; i < g.ability.effects.Length; i++)
+                {
+                    if (g.ability.effects[i] != null)
+                        g.ability.effects[i].DoEffect(this, g.ability, g.source, g.target);
+                }
+            }
+            finally
+            {
+                aura_grant_buff = null;
+            }
+            //★诊断（排查用，不影响逻辑）：动作线跑完后，把"写进增益实例的变量"与"目标卡当前费用"一并打出来。
+            //  一行即可判断断点：变量有没有写进去 / 写了有没有合进 mana_ongoing。
+            AuraLog("动作线执行完毕：" + (g.target != null && g.target.CardData != null ? g.target.CardData.id : "?")
+                + " 实例变量=" + PropsText(inst)
+                + "｜目标费用=" + (g.target != null ? g.target.GetMana() : -1)
+                + " mana_ongoing=" + (g.target != null ? g.target.mana_ongoing : 0));
+        }
+
+        /// <summary>清掉一组卡上"来源已不再成立"的光环增益</summary>
+        private void RemoveStaleAuraBuffs(List<Card> cards, HashSet<string> should)
+        {
+            if (cards == null)
+                return;
+            for (int i = 0; i < cards.Count; i++)
+                RemoveStaleAuraBuffsOnCard(cards[i], should);
+        }
+
+        /// <summary>清单张卡上"来源已不再成立"的光环增益（按实例精确删除，只动 aura 来源的实例）</summary>
+        private void RemoveStaleAuraBuffsOnCard(Card card, HashSet<string> should)
+        {
+            if (card == null || card.buffs == null || card.buffs.Count == 0)
+                return;
+            for (int i = card.buffs.Count - 1; i >= 0; i--)
+            {
+                CardBuff b = card.buffs[i];
+                if (b == null || !b.IsFromAura)
+                    continue;   //不是光环给的 → 一律不碰
+                if (!should.Contains(AuraKey(card, b.source_uid, b.source_group)))
+                    BuffRuntime.RemoveBuffInstance(card, b);
+            }
+        }
+
+        /// <summary>逐区域扫描的一层（集合）</summary>
+        private void SyncPassiveCards(Player p, List<Card> cards)
+        {
+            if (cards == null)
+                return;
+            for (int i = 0; i < cards.Count; i++)
+                SyncPassiveCard(p, cards[i]);
+        }
+
+        /// <summary>单张卡：把它「该生效的被动」与「已生效的被动」逐组对比，补差额（生效/失效各触发一次）</summary>
+        private void SyncPassiveCard(Player p, Card card)
+        {
+            if (p == null || card == null)
+                return;
+            List<AbilityData> abs = card.GetAbilities();
+            if (abs == null || abs.Count == 0)
+                return;
+            //只以「生效」线驱动扫描；同组的「失效」线由 FindPassiveAbility 按分组键找到
+            for (int i = 0; i < abs.Count; i++)
+            {
+                AbilityData ab = abs[i];
+                if (ab == null || ab.trigger != AbilityTrigger.OnPassiveEnable || string.IsNullOrEmpty(ab.passive_group))
+                    continue;
+                //该生效 = 卡在入口「生效区域」内。
+                //★刻意**不看封印**（Silenced）：封印是引擎在"执行能力"那一层统一拦截的（ResolveCardAbility 开头就 return）。
+                //  若把封印也算作"不该生效"，封印瞬间会触发一次失效线——而失效线同样被封印拦掉 →
+                //  表现就是"记账已销、动作从未执行"，解封后也不会补（与卡上实际状态对不上）。
+                bool should = IsCardInPassiveArea(p, card, ab.passive_area);
+                bool is_on = card.passive_groups != null && card.passive_groups.Contains(ab.passive_group);
+                if (should == is_on)
+                    continue;
+                if (should)
+                    EnablePassive(card, ab.passive_group);
+                else
+                    DisablePassive(card, ab.passive_group);
+            }
+        }
+
+        /// <summary>卡是否处于该被动入口的「生效区域」（口径与入口字段 live_area 一致：
+        /// 战场/手牌/牌库/墓地/装备区/全部区域）</summary>
+        private static bool IsCardInPassiveArea(Player p, Card card, string area)
+        {
+            if (p == null || card == null)
+                return false;
+            switch (area)
+            {
+                case "手牌": return p.cards_hand != null && p.cards_hand.Contains(card);
+                case "牌库": return p.cards_deck != null && p.cards_deck.Contains(card);
+                case "墓地": return p.cards_discard != null && p.cards_discard.Contains(card);
+                case "装备区": return p.cards_equip != null && p.cards_equip.Contains(card);
+                case "全部区域": return true;   //不论在哪个区域都生效
+                default: return p.cards_board != null && p.cards_board.Contains(card);   //战场（入口默认）
+            }
+        }
+
+        /// <summary>让某被动分组「生效」：**先记账再入队** —— 生效线内部若又触发一次扫描，不会重复执行。
+        /// 触发条件不满足时同样先记账（否则每次扫描都会重试同一条件，行为不可预期）；封印中由上层判为"不该生效"。</summary>
+        public virtual void EnablePassive(Card card, string group)
+        {
+            if (card == null || string.IsNullOrEmpty(group))
+                return;
+            if (card.passive_groups == null)
+                card.passive_groups = new List<string>();
+            if (card.passive_groups.Contains(group))
+                return;
+            card.passive_groups.Add(group);
+            AbilityData ab = FindPassiveAbility(card, group, AbilityTrigger.OnPassiveEnable);
+            if (ab != null && ab.AreTriggerConditionsMet(game_data, card, card))
+                ab.DoEffects(this, card);   //★同步执行该被动线（口径见下方注释）
+        }
+
+        /// <summary>让某被动分组「失效」：**先销账**（无论有没有失效线，都不该再算"已生效"），再触发失效线。</summary>
+        public virtual void DisablePassive(Card card, string group)
+        {
+            if (card == null || string.IsNullOrEmpty(group))
+                return;
+            if (card.passive_groups != null)
+                card.passive_groups.Remove(group);
+            AbilityData ab = FindPassiveAbility(card, group, AbilityTrigger.OnPassiveDisable);
+            if (ab != null && ab.AreTriggerConditionsMet(game_data, card, card))
+                ab.DoEffects(this, card);   //同上：同步执行
+        }
+
+        /// <summary>让这张卡当前**已生效**的全部被动失效（变形：旧形态整组失效 → 换定义后再按新形态重新生效）</summary>
+        public virtual void DisableAllPassiveGroups(Card card)
+        {
+            if (card == null || card.passive_groups == null || card.passive_groups.Count == 0)
+                return;
+            List<string> groups = new List<string>(card.passive_groups);   //复制后遍历（DisablePassive 会改本表）
+            for (int i = 0; i < groups.Count; i++)
+                DisablePassive(card, groups[i]);
+        }
+
+        /// <summary>按「分组键 + 触发器」找这张卡上的被动线能力（找不到返回 null = 该线没接线）</summary>
+        private static AbilityData FindPassiveAbility(Card card, string group, AbilityTrigger trigger)
+        {
+            List<AbilityData> abs = card != null ? card.GetAbilities() : null;
+            if (abs == null)
+                return null;
+            for (int i = 0; i < abs.Count; i++)
+            {
+                AbilityData ab = abs[i];
+                if (ab != null && ab.trigger == trigger && ab.passive_group == group)
+                    return ab;
+            }
+            return null;
+        }
+
         //Transform card into another one
         public virtual Card TransformCard(Card card, CardData transform_to)
         {
@@ -1888,7 +2603,22 @@ namespace TcgEngine.Gameplay
                     return card;    //被阻止：保持原卡不变
             }
 
+            //★被动效果：变形 = 旧形态整组失效（此刻卡上还挂着旧定义的能力与字段）→ 换定义 → 新形态重新生效。
+            //  被「变形时」阻止时上面已 return，所以那种情况"既没有失效也没有生效"，语义干净。
+            DisableAllPassiveGroups(card);
+
             card.SetCard(transform_to, card.VariantData);
+
+            //★换定义后**清空**旧形态的全部分组记账：变形语义 = 旧形态整体失效 → 新形态**全部重新生效**。
+            //  不能只清"在新形态里找不到对应能力的分组"，两个原因（探针实测）：
+            //   ① 若新旧形态恰好共用分组键，新形态的生效线会被"已记账"挡住 → 永不执行；
+            //   ② 更关键：上面的失效线是同步执行的，而图执行收尾（NodeDocRunner.Run 的 finally）会再同步一次 ——
+            //      那一刻卡还是旧形态、且仍在生效区域内 → 旧形态的被动会被**自动重新记账**（回马枪）。
+            //  整体清空 + 紧接着 SyncPassiveEffects() 才能得到确定行为。
+            if (card.passive_groups != null)
+                card.passive_groups.Clear();
+
+            SyncPassiveEffects();   //新定义按「生效区域」重新判定（变形后卡还在原区域 → 新形态的被动立即生效）
 
             onCardTransformed?.Invoke(card);
 
@@ -1993,8 +2723,32 @@ namespace TcgEngine.Gameplay
         }
 
         //Damage a player
-        public virtual void DamagePlayer(Card attacker, Player target, int value)
+        private static int damage_mitigate_log_left = 40;   //减伤诊断日志的节流计数
+
+        public virtual void DamagePlayer(Card attacker, Player target, int value, bool spell_damage = false)
         {
+            //★英雄侧减伤（护甲 / 免疫）：**直接以玩家为目标的伤害**（节点 target=玩家、法术打脸等）原先完全没有这一层，
+            //  护甲只在"以英雄卡为目标"的分支里判过 → 两条路都必须判，否则表现就是"护甲卡对脸没用"。
+            if (target != null && target.hero != null)
+            {
+                int raw = value;
+                bool imm = !spell_damage && target.hero.HasStatus(StatusType.Immunity);
+                int armor = (!spell_damage && target.hero.HasStatus(StatusType.Armor))
+                    ? target.hero.GetStatusValue(StatusType.Armor) : 0;
+                if (imm)
+                    value = 0;
+                if (armor != 0)
+                    value = Mathf.Max(value - armor, 0);
+                //诊断（节流）：被减伤吃掉时留痕 —— 否则"被打不掉血"完全无迹可寻
+                if (value != raw && damage_mitigate_log_left > 0)
+                {
+                    damage_mitigate_log_left--;
+                    Debug.Log("[伤害] 玩家" + target.player_id + " 被减伤：原 " + raw + " → " + value
+                        + "（免疫=" + imm + " 护甲=" + armor + " 法术=" + spell_damage + "）"
+                        + (damage_mitigate_log_left <= 0 ? "（后续减伤日志已静音）" : ""));
+                }
+            }
+
             //图事件「伤害时」（对玩家伤害：攻击玩家/法术打玩家）；全场监听，可阻止=本次伤害取消、改值=改写伤害量
             if (value > 0)
             {
@@ -2195,18 +2949,20 @@ namespace TcgEngine.Gameplay
             if (attacker == null || target == null)
                 return;
 
+            if (target.HasStatus(StatusType.Invincibility))
+                return; //Invincible
+
             //英雄=卡牌 最小路由：命中 CardType.Hero 的卡时转调玩家版，伤害落回玩家 hp
             //（否则 damage 累加在英雄卡对象上不可见、且英雄不在 board 上永远不会被结算死亡——"打英雄有的行有的不行"的根因）
+            //★减伤交给 DamagePlayer（它现在判护甲/免疫）。原先这里直接转发**且不传 spell 标记** →
+            //  打到英雄的伤害绕过护甲/免疫/圣盾（实测：英雄带 5 护甲，4 点普通伤害照样打满血）。
             if (IsHeroCard(target))
             {
                 Player hero_player = game_data.GetPlayer(target.player_id);
                 if (hero_player != null)
-                    DamagePlayer(attacker, hero_player, value);
+                    DamagePlayer(attacker, hero_player, value, spell_damage);
                 return;
             }
-
-            if (target.HasStatus(StatusType.Invincibility))
-                return; //Invincible
 
             if (target.HasStatus(StatusType.SpellImmunity) && attacker.CardData.type != CardType.Character)
                 return; //Spell immunity
@@ -2215,7 +2971,10 @@ namespace TcgEngine.Gameplay
             bool doublelife = target.HasStatus(StatusType.Shell);
             if (doublelife && value > 0)
             {
-                target.RemoveStatus(StatusType.Shell);
+                //★ 圣盾被打碎 = **失去**：走 SetStatusPresence(false) 记住"持久移除"。
+                //  否则之后任何一次增益重算（BuffRuntime.ReapplyNative 按关键词重建状态）都会把圣盾加回来
+                //  —— 表现就是"圣盾碎了下一次增益变化又出现"（实测坐实过）。
+                target.SetStatusPresence(StatusType.Shell, false);
                 return;
             }
 
@@ -2388,6 +3147,10 @@ namespace TcgEngine.Gameplay
             actx.player = player;
             actx.value = 0;
             EmitGraphEvent(actx, card);
+
+            //★被动效果「失效」同步：卡已从所有区域移入墓地/消失 → 不在生效区域 → 执行它的「失效动作」线。
+            //放在最后（亡语与「死亡后」图都发完之后），保证执行顺序是"亡语 → 死亡后 → 被动失效"。
+            SyncPassiveEffects();
         }
 
         public int RollRandomValue(int dice)
@@ -2469,6 +3232,10 @@ namespace TcgEngine.Gameplay
 
             foreach (string keyword_id in caster.keywords)
             {
+                //★ 被卡自身持久移除的关键词（失去圣盾/潜行）：规则图**同样不得触发** ——
+                //  与 HasKeyword 保持同一口径，否则会出现"关键词没了但它的规则还在跑"。
+                if (caster.IsKeywordRemoved(keyword_id))
+                    continue;
                 KeywordData kdata = KeywordData.Get(keyword_id);
                 if (kdata == null || !kdata.HasRules)
                     continue;
@@ -2747,6 +3514,10 @@ namespace TcgEngine.Gameplay
             Profiler.BeginSample("Update Ongoing");
             UpdateOngoingCards(); //Update status and stats
             UpdateOngoingKills(); //Kill cards with 0 HP
+            //★被动效果「生效/失效」同步：本方法是"进场/离场/装备/回合开始"的统一收敛点
+            //（PlayCard/PlaceCardOnBoard/DiscardCard/StartTurn/AfterAbilityResolved/MoveCard 都会走到这里），
+            //放在最后 → 卡的区域已经稳定，扫描到的就是最终状态。
+            SyncPassiveEffects();
             Profiler.EndSample();
         }
 

@@ -1,0 +1,7 @@
+结果	断言	说明
+PASS	进入作用区域施加	buff=buff_5f1ca05c src=8JNsIu0hYYK7
+PASS	离开作用区域移除	移到手牌后不应再带该来源的增益
+PASS	手动同名增益就位	source_uid=null
+PASS	载体离场移除光环增益	光环那份应被移除
+PASS	手动同名增益不被误删	手动那份必须保留
+PASS	载体不在生效区域则不施加	载体在手牌 → 不应施加

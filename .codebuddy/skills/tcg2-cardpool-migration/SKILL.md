@@ -17,6 +17,14 @@ description: TCG2（Unity 2022.3）内置卡牌迁移项目——把 155 张内�
 
 ## 当前进度（165 个能力 / 155 卡）
 
+> **2026-10-01 修复会话（要点，细节见 pitfalls.md G4/G5/G12/G13）**：
+> 又修掉一批引擎真 bug —— 未知比较运算符静默当"等于"、增益属性双通道重复应用＋实例值被当绝对值、
+> 未知端口/字段静默忽略（新增卡池接线审计 `tools/audit_pool.ps1`）、能力 id 带随机 Guid 导致图越积越多/翻倍
+> （改稳定 id + 替换式注册）、`RegisterAbility` 假 null 崩溃（SO 已销毁引用 → 改 `ContainsKey` 判存在）、
+> OnAfterPlay 广播后补 `UpdateOngoing`。语义断言探针扩到 **47 条全 PASS**（`tools/probe/SemanticProbe.cs`），
+> 真实卡端到端（熔岩人费用链）PASS。「技能」与「法术」是**两种独立 CardType**（Skill=60 / Spell=20），
+> 守卫类型选错是"没生效"的高频原因。探针临时池 json 用完必须删（会出现在用户卡池面板）。
+
 | 通道 | 数量 | 说明 |
 |---|---|---|
 | 图（节点编辑器） | 98 | 差分验证 **97 一致 + 1 跳过（bear 的 ChoiceSelector 夹具不支持）、0 DIFF、0 warn** |
@@ -90,6 +98,11 @@ TODO 分类（**3，之前误报为 2**）：corruption_potion（`AbilityTrigger
    当前：**38 种 action / 501 实例，0 违规、0 标题不一致**。详见 pitfalls C10。
 4. **节点测试** `NodeBatchProbe.cs`（历史遗留，仍可用）：单节点级测试台。
 5. 改动产品代码后必须走编译验证 + 全量日志 grep `error CS`（见 pitfalls 第 1 条）。
+6. **光环（具名增益）费用实测** `AuraCostProbe.cs`（★改光环/增益属性修改/变量→费用 链路时的必跑项）：
+   建 `tools/aura_cost_flag.txt` → **进 Play** → 写 `tools/aura_cost_result.tsv`（9 条断言：手牌来源施加 / 幂等动作线每次同步重跑 / 变量→`mana_ongoing` / 移除还原 / **用户真实卡 `custom_ZJixIZiYOx4` 费用 20→19→18**）。
+   夹具按真实对局口径：英雄必须是 `CardData.type == Hero`，血量在 `Player.hp/hp_max`（英雄卡字段不随伤害变化）。
+   排查顺序与已修 bug 见 `references/pitfalls.md` D 节；**遇"对局里不生效"先跑探针，不要靠人反复试**。
+7. **分配伤害 / 卡面显示实测** `WrathProbe.cs`（改多目标伤害、卡面 desc 时的必跑项）：建 `tools/wrath_flag.txt` → 进 Play → 写 `tools/wrath_result.tsv`（直接读卡池 JSON 跑用户那张卡的图：分配伤害总量是否 = N、是否打到死者；并打印卡面字段 + 编译能力的 title/desc）。两个真 bug 见 pitfalls E 节。
 
 ★ **探针分工（务必知道）**：差分探针跑「图 → `NodeDocRunner.Run`」（效果等价），**不覆盖** `CardPoolIO.CompileGraphAbilities`（图 → AbilityData：target/trigger/条件/过滤器/状态/白名单）。
 所以编译侧的改动 = **冒烟探针 + 差分探针都要绿**；只有动作/条件求值语义的改动才只看差分。两轮 Play 标记可以同时写（冒烟秒级、差分 ~20s），但**必须先进 Play 再等待**：探针只在进入 Play（AfterSceneLoad）时读标记，Play 已开着写标记不会重跑。

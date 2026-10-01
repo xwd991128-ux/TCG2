@@ -281,13 +281,26 @@ namespace TcgEngine.UI
             Text name_text = line.transform.Find("NameText")?.GetComponent<Text>();
             Text count_text = line.transform.Find("CountText")?.GetComponent<Text>();
             if (name_text != null)
-                name_text.text = info.name + (info.IsReadonly ? "  <color=#9FD5FF>（内置）</color>" : "  <color=#FFE08A>（本地）</color>");
+            {
+                //基础卡池单独标出来：它的"不可删除/不可导出"是硬规则，写清楚免得被当成 bug
+                string tag = info.IsBasePool
+                    ? "  <color=#FFD37A>（基础卡池·不可删除/导出）</color>"
+                    : (info.IsReadonly ? "  <color=#9FD5FF>（内置）</color>" : "  <color=#FFE08A>（本地）</color>");
+                name_text.text = info.name + tag;
+            }
             if (count_text != null)
                 count_text.text = info.card_count + " 张";
 
             Button export_btn = line.transform.Find("ExportBtn")?.GetComponent<Button>();
             if (export_btn != null)
-                export_btn.onClick.AddListener(() => OnExportOne(info));
+            {
+                //内置池 = "按卡包分组的视图"，基础卡池 = "替代内置卡"的迁移池 —— 导出它们都没有分发意义，
+                //而且基础卡池被导出后很容易被当成普通 mod 池再次导入，反而绕开了保护
+                if (info.IsReadonly || info.IsBasePool)
+                    export_btn.gameObject.SetActive(false);
+                else
+                    export_btn.onClick.AddListener(() => OnExportOne(info));
+            }
 
             Button edit_btn = line.transform.Find("EditBtn")?.GetComponent<Button>();
             if (edit_btn != null)
@@ -301,7 +314,7 @@ namespace TcgEngine.UI
             Button del_btn = line.transform.Find("DeleteBtn")?.GetComponent<Button>();
             if (del_btn != null)
             {
-                if (info.IsReadonly)
+                if (info.IsReadonly || info.IsBasePool)   //基础卡池是本地池，IsReadonly 不覆盖它，必须单独判
                     del_btn.gameObject.SetActive(false);
                 else
                     del_btn.onClick.AddListener(() => OnDelete(info));
@@ -407,17 +420,31 @@ namespace TcgEngine.UI
                 folder = CardPoolIO.SaveFolder;
 
             int count = 0;
+            int skipped = 0;
             foreach (CardPoolIO.PoolInfo info in selected)
             {
+                if (CardPoolIO.IsBasePool(info))
+                {
+                    skipped++;   //勾到基础卡池也直接跳过，并在结果里说明（免得玩家以为"勾了没反应"）
+                    continue;
+                }
                 if (ExportPool(info, folder))
                     count++;
             }
-            SetStatus("已导出 " + count + " 个卡池到: " + folder);
+            SetStatus("已导出 " + count + " 个卡池到: " + folder
+                + (skipped > 0 ? "（已跳过 " + skipped + " 个基础卡池）" : ""));
         }
 
         /// <summary>导出一个卡池到指定目录（内置重新序列化，本地解析后一并打包资源为 .tcgpool）</summary>
         private bool ExportPool(CardPoolIO.PoolInfo info, string folder)
         {
+            //★ 硬门禁：基础卡池不参与导出（按钮已隐藏，这里再挡一次，避免将来别处调用绕过界面）
+            if (CardPoolIO.IsBasePool(info))
+            {
+                SetStatus("基础卡池不支持导出：" + info.name);
+                Debug.LogError("[卡池] 拒绝导出基础卡池：" + info.name + "（它是替代内置卡的迁移池，不作为可分发卡池）");
+                return false;
+            }
             try
             {
                 if (info.IsReadonly)

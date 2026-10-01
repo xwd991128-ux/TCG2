@@ -135,6 +135,32 @@ namespace TcgEngine
         {
             return keyword_list;
         }
+
+        private static Dictionary<StatusType, string> status_keyword_cache;
+        private static int status_keyword_cache_count = -1;
+
+        /// <summary>状态类型 → 承载它的关键词 id（找不到返回 null）。
+        /// 用途：把"某个状态没了"翻译成"哪个关键词被移除了"，从而写进 Card.removed_keywords 做**持久移除** ——
+        /// 圣盾/潜行这类"一次性关键词"被消耗时必须走这条，否则重算会按定义把状态加回来。
+        /// 多个关键词绑同一状态时取**第一个**（按 keyword_list 顺序）。缓存随列表条数变化自动重建
+        /// （避免在数据加载前被建空缓存后一直失效）。</summary>
+        public static string KeywordIdForStatus(StatusType type)
+        {
+            if (type == StatusType.None)
+                return null;
+            if (status_keyword_cache == null || status_keyword_cache_count != keyword_list.Count)
+            {
+                status_keyword_cache = new Dictionary<StatusType, string>();
+                foreach (KeywordData k in keyword_list)
+                {
+                    if (k != null && k.status_type != StatusType.None && !status_keyword_cache.ContainsKey(k.status_type))
+                        status_keyword_cache[k.status_type] = k.id;
+                }
+                status_keyword_cache_count = keyword_list.Count;
+            }
+            string id;
+            return status_keyword_cache.TryGetValue(type, out id) ? id : null;
+        }
     }
 
     /// <summary>
