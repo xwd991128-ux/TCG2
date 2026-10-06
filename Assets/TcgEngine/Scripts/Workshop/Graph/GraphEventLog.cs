@@ -33,9 +33,22 @@ namespace TcgEngine.Workshop
     {
         public const int CAPACITY = 512;
 
-        private static readonly List<GraphEventRecord> records = new List<GraphEventRecord>();
-        private static Game last_game = null;          //按 Game 实例身份判定"是否换局"
-        private static int debug_logged = 0;           //每局只打前几条（便于运行时确认记录已生效，不刷屏）
+        //★线程隔离（[ThreadStatic]）：本类被**两条线程**写 —— 主线程（真实对局）与 AI 推演线程
+        //  （AILogic.ai_thread → NodeDocRunner.Run → NoteGame/Record，其中 Game 是 is_ai_predict 快照）。
+        //  以前是纯静态单例，导致两个真问题：
+        //   ① AI 一跑 NoteGame(快照Game) 就因"Game 实例变了"把**真实对局的历史清空** →
+        //      历史回查类节点（109002/109003/109004/109005/109006/109007/109009）随即读到空；
+        //   ② 同一个 List 被两线程并发增删 → 还有"集合被修改"异常的风险（这段就在图执行路径上）。
+        //  改法沿用 NodeDocRunner 的「线程隔离」惯例：引用类型必须用懒初始化 getter
+        //  （[ThreadStatic] 的字段初始化器只对第一个碰它的线程执行）。
+        [System.ThreadStatic] private static List<GraphEventRecord> _records;
+        private static List<GraphEventRecord> records
+        {
+            get { return _records != null ? _records : (_records = new List<GraphEventRecord>()); }
+        }
+
+        [System.ThreadStatic] private static Game last_game;   //"是否换局"按线程各自判定（AI 的快照换局不再影响主对局）
+        [System.ThreadStatic] private static int debug_logged; //每局只打前几条（便于运行时确认记录已生效，不刷屏）
 
         /// <summary>换局检测：Game 实例变化 → 清空历史</summary>
         public static void NoteGame(Game game)
@@ -66,7 +79,8 @@ namespace TcgEngine.Workshop
             r.action = action ?? "";
             r.player_id = player_id;
             r.value = value;
-            r.time = Time.realtimeSinceStartup;
+            //★Time 只在主线程读：本方法也会被 AI 推演线程调用（记录时间仅用于排查顺序，后台线程给 0 即可）
+            r.time = MainThreadUtil.IsMainThread ? Time.realtimeSinceStartup : 0f;
             r.source = Snapshot(source);
             r.target = Snapshot(target);
             records.Add(r);

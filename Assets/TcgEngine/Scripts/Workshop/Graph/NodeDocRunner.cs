@@ -82,6 +82,16 @@ namespace TcgEngine.Workshop
                 cur_event.action = trigger_action;
                 cur_event.phase = GraphEventPhase.After;
                 cur_event.card = caster;
+                //★奥秘（陷阱）特殊：**奥秘卡不是事件主体，它是"旁观反应者"**。
+                //  触发链是 TriggerSecrets → TriggerCardAbilityType(OnBeforeAttack, 奥秘卡, 攻击者)，
+                //  所以 caster=奥秘卡自己、target_card=发起攻击的那张卡。
+                //  醉梦传说口径（用户参考图）：「攻击时」入口的「卡牌」口给的是**发起攻击的那张卡** ——
+                //  "当一个敌方仆从攻击时" 那张图里 `拥有者(卡牌) ≠ 拥有者(这张卡)` 与 `类型判断(卡牌)=随从`
+                //  以及 `伤害.目标卡牌 ← 卡牌` 全都建立在这一点上。
+                //  若这里照旧给 caster，条件恒等/目标变成自己 → 图一模一样也不生效（用户实报）。
+                if (caster != null && caster.CardData != null
+                    && caster.CardData.type == CardType.Secret && target_card != null)
+                    cur_event.card = target_card;
                 cur_event.source_card = target_card;
                 //主动效果入口的「玩家」输出口语义 = 施法卡（caster）的拥有者，恒定不随被选目标漂移：
                 //旧实现 target_player 非空时（选中了英雄/玩家目标）会变成"被选目标"，与拥有者语义不符
@@ -130,7 +140,15 @@ namespace TcgEngine.Workshop
                         if (ev_bid != button_id)
                             continue;
                     }
-                    if (!IsEventConditionMet(logic, graph, ev, caster, target_card, target_player))
+                    //★被动「生效/失效」线（entry_pin=enable/disable）**不受入口 cond 约束**（实测 bug 修复）：
+                    //  两条线是"生效区域差分"驱动的 —— 该不该生效由 GameLogic.SyncPassiveEffects 用**同一个 cond**
+                    //  算出 should（GameLogic.cs:2689），再由 EnablePassive/DisablePassive 触发；
+                    //  尤其**失效线是回滚线**：条件由真转假时正是靠它把已施加的增益撤销。
+                    //  若这里再用 cond 挡一遍 ⇒ 条件转假时回滚永不执行 ⇒ **被动增益永久泄漏**
+                    //  （实测复现：PassiveCondProbe ⑤「条件=false → 补执行失效线」动作数=0、血量不变）。
+                    //  EffectRunGraph.cs:26-30 的注释早已写明本意图（"生效线/失效线必须照跑"），此处补齐实现。
+                    bool is_state_line = entry_pin == "enable" || entry_pin == "disable";
+                    if (!is_state_line && !IsEventConditionMet(logic, graph, ev, caster, target_card, target_player))
                         continue;   //事件入口「条件」输入口：连线布尔为假则本入口不触发（事件筛选）
                     matched.Add(ev);
                 }
@@ -295,15 +313,62 @@ namespace TcgEngine.Workshop
             return IsEventConditionMet(logic, graph, ev, caster, target_card, target_player);
         }
 
+        /// <summary>带**事件上下文**执行某个入口（供"全局入口"在广播事件里使用）：
+        /// 必须既设 cur_event（否则图里读不到 事件主体/事件值/事件玩家 —— 伤害值、被试目标这类都取不到），
+        /// 又要按**入口自己的 action** 匹配（不能用 ctx.action：EventEffect 这类入口的节点 action 与事件名不同）。
+        /// 只跑该入口这一条流，不连带同图其它入口。</summary>
+        public static int RunEventEntry(GameLogic logic, GraphEventContext ctx, GraphData graph, Card host, string entry_action)
+        {
+            GraphEventContext prev = cur_event;
+            cur_event = ctx;
+            try
+            {
+                return Run(logic, graph, host,
+                    ctx != null ? ctx.card : null,
+                    ctx != null ? ctx.player : null,
+                    entry_action);
+            }
+            finally
+            {
+                cur_event = prev;
+            }
+        }
+
+        /// <summary>求值某入口的**指定布尔端口**（例：攻击类入口的 "limit" 攻击限制口）。</summary>
+
+        /// 与 <see cref="IsEntryConditionMet"/> 的区别：一张卡可能有**多个同名入口**（例如多个"攻击时"效果），
+        /// 这里对有连线的入口取「**全部为真才放行**」（更严者胜）；一个都没接线 → 放行。
+        /// 用途：攻击目标限制这类**事前**判定（UI 高亮 / AI 候选 / 结算前校验）——只算条件，不执行任何动作节点。</summary>
+        public static bool IsEntryPortMet(GameLogic logic, GraphData graph, string entry_action, string port_name,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph == null || graph.nodes == null || string.IsNullOrEmpty(entry_action) || string.IsNullOrEmpty(port_name))
+                return true;
+            for (int i = 0; i < graph.nodes.Count; i++)
+            {
+                GraphNode n = graph.nodes[i];
+                if (n == null || n.type != GraphNodeType.Event || n.action != entry_action)
+                    continue;
+                GraphPin pin = graph.GetPinByName(n.id, port_name);
+                if (pin == null)
+                    continue;
+                if (graph.GetIncomingLink(n.id, pin.id) == null)
+                    continue;   //没接线 = 不限制
+                if (!IsEventConditionMet(logic, graph, n, caster, target_card, target_player, port_name))
+                    return false;   //任一条限制不通过 → 拒绝
+            }
+            return true;
+        }
+
         /// 事件入口「条件(cond)」输入口的筛选求值：无连线=放行；连线的布尔源为假=该入口本次不触发。
         /// 专用求值：卡牌相等/卡牌归属/玩家归属（需事件上下文，读 cur_event/caster 判定"己方/敌方"）；
         /// 其余布尔源（常量/102032 卡牌类型判断等）走通用条件链。</summary>
         private static bool IsEventConditionMet(GameLogic logic, GraphData graph, GraphNode ev,
-            Card caster, Card target_card, Player target_player)
+            Card caster, Card target_card, Player target_player, string pin_name = "cond")
         {
             if (graph == null || ev == null)
                 return true;
-            GraphPin pin = graph.GetPinByName(ev.id, "cond");
+            GraphPin pin = graph.GetPinByName(ev.id, string.IsNullOrEmpty(pin_name) ? "cond" : pin_name);
             if (pin == null)
                 return true;
             GraphLink link = graph.GetIncomingLink(ev.id, pin.id);
@@ -347,8 +412,38 @@ namespace TcgEngine.Workshop
                     return enemy ? !own : own;
                 }
                 default:
-                    return EvaluateConditionNode(logic, graph, src, caster, target_card);
+                    //★透传 target_player：判定类入口（攻击限制/被攻击限制）会把"目标玩家"带进来，
+                    //  而"攻击英雄"时目标卡是空的，条件里的玩家判断只能靠它。
+                    return EvaluateConditionNode(logic, graph, src, caster, target_card, null, null, null, target_player);
             }
+        }
+
+        /// <summary>取入口的"拒绝原因"文案（入口节点字段 reject_text；空则用 fallback）。
+        /// 供 Game.CanAttackTargetByRules 在被规则图拒绝时给出可读原因（UI 提示 / 日志 / 控制台）。
+        /// 传了 port_name 时优先取"该端口有接线"的那条入口（就是它拒绝的）。</summary>
+        public static string GetEntryRejectText(GraphData graph, string entry_action, string fallback, string port_name = null)
+        {
+            if (graph == null || graph.nodes == null || string.IsNullOrEmpty(entry_action))
+                return fallback;
+            string first_found = null;
+            for (int i = 0; i < graph.nodes.Count; i++)
+            {
+                GraphNode n = graph.nodes[i];
+                if (n == null || n.type != GraphNodeType.Event || n.action != entry_action)
+                    continue;
+                string t = GraphRuntime.GetFieldString(n, "reject_text", "");
+                if (string.IsNullOrEmpty(port_name))
+                    return string.IsNullOrEmpty(t) ? fallback : t;
+                GraphPin pin = graph.GetPinByName(n.id, port_name);
+                if (pin == null || graph.GetIncomingLink(n.id, pin.id) == null)
+                {
+                    if (first_found == null)
+                        first_found = t;      //没接限制口的入口：退而求其次（取第一条的文案）
+                    continue;
+                }
+                return string.IsNullOrEmpty(t) ? fallback : t;
+            }
+            return string.IsNullOrEmpty(first_found) ? fallback : first_found;
         }
 
         /// <summary>白名单动作（用于旧图类型残留提示）</summary>
@@ -565,6 +660,21 @@ namespace TcgEngine.Workshop
 
         /// <summary>已告警过的"比较节点用 &gt; &lt; 但操作数不是数值"的节点（每个节点只报一次，避免刷屏）</summary>
         private static readonly HashSet<string> warned_bad_compare = new HashSet<string>();
+
+        /// <summary>★线程安全写入上面的节流集合：本类的图执行上下文都用 [ThreadStatic] 隔离（见「线程隔离」段），
+        /// 但这两个告警集合是**跨线程共享**的 —— AI 推演线程（AILogic.ai_thread → NodeDocRunner.Run）与主线程
+        /// 都会在比较节点上报到，无锁 HashSet 并发 Add 会损坏内部结构甚至抛异常，而这里就在图求值路径上。</summary>
+        private static readonly object warned_bad_compare_lock = new object();
+
+        private static bool MarkBadCompareWarned(string node_id)
+        {
+            lock (warned_bad_compare_lock)
+            {
+                if (warned_bad_compare.Count > 500)
+                    warned_bad_compare.Clear();     //防御性上限（正常对局远达不到）
+                return warned_bad_compare.Add(node_id);
+            }
+        }
 
         /// <summary>比较运算符归一：面板可能存中文（等于/大于/小于/不等于/大于等于/小于等于）或符号，统一成符号。
         /// 不归一的话中文"等于"会绕过 == 的"对象按 uid 判等"分支 → 落到字符串比较 → 对象比较恒假（静默失败）。</summary>
@@ -7269,6 +7379,14 @@ namespace TcgEngine.Workshop
         {
             if (src == null)
                 return null;
+            //★ScriptableObject.Instantiate 只能在主线程调用，而 AI 推演线程同样会执行图动作（走到这里）。
+            //  后台线程直接返回 null（调用方按"没有副本"处理），避免抛异常打断整轮 AI 搜索。
+            if (!MainThreadUtil.IsMainThread)
+            {
+                WarnThrottled("clone_define_offthread",
+                    "[规则图] 克隆卡牌定义需要主线程（AI 推演阶段跳过该动作）：" + (src.id ?? "?"));
+                return null;
+            }
             CardData copy = ScriptableObject.Instantiate(src);
             copy.name = src.name + "_runtime";
             return copy;
@@ -8909,7 +9027,7 @@ namespace TcgEngine.Workshop
         /// 定义筛选时 elem_filter+cur_define 提供 111012「元素」输出口的逐元素绑定，
         /// 卡牌筛选时 cur_elem 提供当前遍历卡牌（条件节点卡牌口连「元素」输出口时生效）。</summary>
         private static bool EvaluateConditionNode(GameLogic logic, GraphData graph, GraphNode node, Card caster, Card target_card,
-            GraphNode elem_filter = null, CardData cur_define = null, Card cur_elem = null)
+            GraphNode elem_filter = null, CardData cur_define = null, Card cur_elem = null, Player target_player = null)
         {
             if (node == null)
                 return true;
@@ -8927,8 +9045,9 @@ namespace TcgEngine.Workshop
                 }
                 case "112002":  //比较：运算符 + A + B → 真值（同类型数值按大小，否则按字符串/引用比较）
                 {
-                    object A = GetObjectInput(logic, graph, node, "A", caster, target_card, null);
-                    object B = GetObjectInput(logic, graph, node, "B", caster, target_card, null);
+                    //★游戏内真实玩家要透传（判断类入口会代入"目标玩家"，打英雄时目标卡为空，只能靠它）
+                    object A = GetObjectInput(logic, graph, node, "A", caster, target_card, target_player);
+                    object B = GetObjectInput(logic, graph, node, "B", caster, target_card, target_player);
                     string op = NormalizeCompareOp(GraphRuntime.GetFieldString(node, "operator", "=="));
                     //★静默恒假防护："> < >= <=" 只对**数值**有意义。若操作数不是数值（例如两张卡、玩家…），
                     //  引擎按字符串比较 → 卡/玩家的 ToString 相同 → 结果恒假（不是报错，是无声失败，极难排查）。
@@ -8936,7 +9055,7 @@ namespace TcgEngine.Workshop
                     double _a, _b;
                     if ((op == ">" || op == "<" || op == ">=" || op == "<=")
                         && !(TryNumber(A, out _a) && TryNumber(B, out _b))
-                        && warned_bad_compare.Add(node.id))
+                        && MarkBadCompareWarned(node.id))   //★跨线程安全写入（AI 线程与主线程都会到这里）
                     {
                         Debug.LogWarning("[规则图] 比较节点「" + (string.IsNullOrEmpty(node.title) ? node.id : node.title)
                             + "」用「" + op + "」但操作数不是数值（A=" + DescribeOperand(A) + "，B=" + DescribeOperand(B)

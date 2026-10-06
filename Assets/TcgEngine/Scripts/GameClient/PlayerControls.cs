@@ -104,7 +104,10 @@ namespace TcgEngine.Client
                     if (card.exhausted)
                         WarningText.ShowExhausted();
                     else
+                    {
+                        WarnIfAttackIllegal(card, tslot.GetPlayer(), null);
                         GameClient.Get().AttackPlayer(card, tslot.GetPlayer());
+                    }
                 }
                 else if (target != null && target.uid != card.uid && target.player_id != card.player_id)
                 {
@@ -114,7 +117,10 @@ namespace TcgEngine.Client
                     if (card.exhausted)
                         WarningText.ShowExhausted();
                     else
+                    {
+                        WarnIfAttackIllegal(card, null, target);
                         GameClient.Get().AttackTarget(card, target);
+                    }
                 }
                 else if (tslot != null && tslot is BoardSlot)
                 {
@@ -129,6 +135,25 @@ namespace TcgEngine.Client
                 //选了卡却不在自己的行动回合：给一次提示，而不是"点了完全没反应"
                 WarningText.ShowNotYourTurn();
             }
+        }
+
+        /// <summary>攻击前**客户端预检**并把"为什么不能打"提示出来（不阻断发送，仍以服务端判定为准）。
+        /// 为什么需要：旧写法直接发出去、服务端按规则静默拒绝 → 用户只看到"点了完全没反应"，
+        /// 分不清是召唤失调、嘲讽、还是卡牌规则图（攻击限制/被攻击限制/全局规则）拦的。
+        /// 提示文案就是 Game.CanAttackTarget 给出的 reason（含入口节点的「拒绝提示」）。</summary>
+        private static void WarnIfAttackIllegal(Card card, Player tplayer, Card tcard)
+        {
+            if (card == null)
+                return;
+            Game gdata = GameClient.Get().GetGameData();
+            if (gdata == null)
+                return;
+            string why = null;
+            bool ok = tplayer != null
+                ? gdata.CanAttackTarget(card, tplayer, false, out why)
+                : gdata.CanAttackTarget(card, tcard, false, out why);
+            if (!ok && !string.IsNullOrEmpty(why))
+                WarningText.ShowText(why);
         }
 
         public void UnselectAll()

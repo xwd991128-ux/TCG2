@@ -30,6 +30,7 @@ namespace TcgEngine
         public const ushort Resign = 1050;
         public const ushort BattleButton = 1060;    //战斗界面自定义按钮（全局按钮，客户端→服务器）
         public const ushort ChatMessage = 1090;
+        public const ushort DevCommand = 1095;      //调试控制台指令（人机/模拟对局；联机对局由 GameServer 直接拒绝）
 
         public const ushort PlayerSettings = 1100; //After connect, send player data
         public const ushort PlayerSettingsAI = 1102; //After connect, send player data
@@ -102,6 +103,8 @@ namespace TcgEngine
                 return "resign";
             if (type == GameAction.ChatMessage)
                 return "chat";
+            if (type == GameAction.DevCommand)
+                return "dev_cmd";
             return type.ToString();
         }
     }

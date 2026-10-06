@@ -210,9 +210,25 @@ namespace TcgEngine.AI
             if (player.cards_board.Count > 0 && game_data.IsPlayerActionTurn(player))
             {
                 Card random = player.GetRandomCard(player.cards_board, rand);
-                Card rtarget = game_data.GetRandomBoardCard(rand);
-                if (random != null && rtarget != null)
-                    gameplay.AttackTarget(random, rtarget);
+                if (random == null)
+                    return;
+                //★随机也要挑**合法**目标：以前是"随机挑一张就打"，非法目标会被 StartAttack 静默丢弃 →
+                //  表现就是"AI 像无视了攻击限制"（其实它在白打）。这里按 Game.CanAttackTarget 收集合法候选。
+                List<Card> candidates = new List<Card>();
+                for (int p = 0; p < 2; p++)
+                {
+                    Player other = game_data.GetPlayer(p);
+                    if (other == null || other.player_id == player.player_id)
+                        continue;
+                    foreach (Card c in other.cards_board)
+                    {
+                        if (c != null && game_data.CanAttackTarget(random, c))
+                            candidates.Add(c);
+                    }
+                }
+                if (candidates.Count == 0)
+                    return;
+                gameplay.AttackTarget(random, candidates[rand.Next(candidates.Count)]);
             }
         }
 
@@ -223,12 +239,22 @@ namespace TcgEngine.AI
 
             Game game_data = gameplay.GetGameData();
             Player player = game_data.GetPlayer(player_id);
-            Player oplayer = game_data.GetRandomPlayer(rand);
             if (player.cards_board.Count > 0 && game_data.IsPlayerActionTurn(player))
             {
                 Card random = player.GetRandomCard(player.cards_board, rand);
-                if (random != null && oplayer != null && oplayer != player)
-                    gameplay.AttackPlayer(random, oplayer);
+                if (random == null)
+                    return;
+                //同理：只挑"打得到"的玩家目标（否则会被合法性校验拒绝、白费一次行动）
+                List<Player> candidates = new List<Player>();
+                for (int p = 0; p < 2; p++)
+                {
+                    Player other = game_data.GetPlayer(p);
+                    if (other != null && other.player_id != player.player_id && game_data.CanAttackTarget(random, other))
+                        candidates.Add(other);
+                }
+                if (candidates.Count == 0)
+                    return;
+                gameplay.AttackPlayer(random, candidates[rand.Next(candidates.Count)]);
             }
         }
 

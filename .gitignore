@@ -103,3 +103,11 @@ InitTestScene*.unity*
 
 # Unity 升级日志
 UpgradeLog.htm
+
+# 探针临时落点（探针源码在 tools/probe/ 下受版本控制；工程内副本只是运行期落点，跑完即删）
+/[Aa]ssets/[Tt]cgEngine/[Ss]cripts/__TempProbe/
+/[Aa]ssets/[Tt]cgEngine/[Ss]cripts/__TempProbe.meta
+
+# 本地卡池备份 / 探针标记文件（审计与探针运行时生成，不进版本控制）
+/tools/_bak_pool/
+/tools/*flag*.txt

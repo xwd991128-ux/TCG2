@@ -45,7 +45,10 @@ namespace TcgEngine.FX
             if (card != null)
             {
                 CardData icard = CardData.Get(card.card_id);
-                if (icard.type == CardType.Spell)
+                //★icard 可能解析不到（卡池里已没有这个 id / 客户端与主机卡池不一致）→ 以前这里直接 icard.type 就是
+                //  空引用，而本方法**每次出牌都会走**。另外技能卡按设计「行为与法术一致」（CardData.cs:20 枚举注释），
+                //  施法特效/音效应与法术同款——此前只有 Spell 走这段，技能卡出牌没有特效音效。
+                if (icard != null && (icard.type == CardType.Spell || icard.type == CardType.Skill))
                 {
                     GameObject prefab = player_id == card.player_id ? AssetData.Get().play_card_fx : AssetData.Get().play_card_other_fx;
                     GameObject obj = FXTool.DoFX(prefab, Vector3.zero);

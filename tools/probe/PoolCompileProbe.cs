@@ -160,7 +160,9 @@ public static class PoolCompileProbe
                     + FilterNames(a.filters_target) + "\t" + StatusNames(a.status) + "\t" + EffectNames(a.effects) + "\t"
                     + ChainNames(a.chain_abilities));
                 //只核对 NodeDoc 图编译出来的能力（内置直通动作走 GetGraphTarget，不读 target_mode）
-                if (a.id != null && a.id.Contains("_node"))
+                //★稳定 id 时代（graph_卡片_入口_hash）也要认：旧过滤只认 "_node"，
+                //  新 id 全被漏掉 → "编译侧 target 为空"的假报警，入口 target_mode 对账形同虚设。
+                if (a.id != null && (a.id.Contains("_node") || a.id.StartsWith("graph_")))
                     actualTargets.Add(a.target.ToString());
             }
             expectTargets.Sort();

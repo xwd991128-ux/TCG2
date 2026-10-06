@@ -323,8 +323,8 @@ namespace TcgEngine.EditorTool
                 string stats = "";
                 if (card.type == CardType.Character)
                     stats = $"({card.mana}/{card.attack}/{card.hp})";
-                else if (card.type == CardType.Spell || card.type == CardType.Secret)
-                    stats = $"({card.mana})";
+                else if (card.type == CardType.Spell || card.type == CardType.Skill || card.type == CardType.Secret)
+                    stats = $"({card.mana})";   //★技能卡与法术同款（只显示费用）——此前漏了 Skill 会显示成"无费用信息"
                 else if (card.type == CardType.Equipment)
                     stats = $"({card.mana}/{card.attack}/{card.hp})";
                 else if (card.type == CardType.Artifact)

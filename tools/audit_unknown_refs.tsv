@@ -1,5 +1,4 @@
 owner_ability	key	kind	target_path	guid
-[molisha]_spells	conditions_trigger		Assets\TcgEngine\Resources\Conditions\has_no_board_[molisha].asset	0ef6e4157c5aca9429d8996576dce800
 activate_boost1	caster_fx		Assets\TcgEngine\Prefabs\FX\CastFX.prefab	baadd1fc54b9b4f4fa6d0aee484bc9f8
 activate_burst	target_fx		Assets\TcgEngine\Prefabs\FX\Phoenix.prefab	a12deeffd1eefbb4f878c6692e5363fd
 activate_chain_get+1+2	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
@@ -22,7 +21,6 @@ attack_paralyse1	target_fx		Assets\TcgEngine\Prefabs\FX\Leaf.prefab	8d68eb12f4dd
 attack_poison	target_fx		Assets\TcgEngine\Prefabs\FX\Leaf.prefab	8d68eb12f4dda644184359acd4008081
 attack_suffer_damage	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
 chain_damage3_repeart	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
-chain_destroy_zero_atk	conditions_trigger	缺失	(缺失)	c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7
 chain_draw1	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
 chain_projectile1	projectile_fx		Assets\TcgEngine\Prefabs\FX\FlameProjectile.prefab	80ec2da95252be64b8bcbf8556e05234
 chain_quickdraw	projectile_fx		Assets\TcgEngine\Prefabs\FX\FlameProjectile.prefab	80ec2da95252be64b8bcbf8556e05234
@@ -60,7 +58,6 @@ spell_damage3	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774da
 spell_damage4	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
 spell_destroy	target_fx		Assets\TcgEngine\Prefabs\FX\Phoenix.prefab	a12deeffd1eefbb4f878c6692e5363fd
 spell_destroy_all	target_fx		Assets\TcgEngine\Prefabs\FX\Phoenix.prefab	a12deeffd1eefbb4f878c6692e5363fd
-spell_give_flying_ability	effects	缺失	(缺失)	12345678901234567890123456789012
 spell_heal_full	target_fx		Assets\TcgEngine\Prefabs\FX\PotionFX.prefab	be19380a491c8c245afe0dd96e02ba78
 spell_hibernate	target_fx		Assets\TcgEngine\Prefabs\FX\Leaf.prefab	8d68eb12f4dda644184359acd4008081
 spell_hp2	target_fx		Assets\TcgEngine\Prefabs\FX\PotionFX.prefab	be19380a491c8c245afe0dd96e02ba78
@@ -72,7 +69,6 @@ spell_return_all	target_fx		Assets\TcgEngine\Prefabs\FX\WaterFX.prefab	0a338e869
 spell_send_board	target_fx		Assets\TcgEngine\Prefabs\FX\WaterFX.prefab	0a338e869785e474db7ea79bc0f3b554
 spell_send_hand	target_fx		Assets\TcgEngine\Prefabs\FX\WaterFX.prefab	0a338e869785e474db7ea79bc0f3b554
 spell_set_all_hp1	target_fx		Assets\TcgEngine\Prefabs\FX\WaterFX.prefab	0a338e869785e474db7ea79bc0f3b554
-spell_silence_buff	effects	缺失	(缺失)	3c7e8d9f0a1b2c3d4e5f6a7b8c9d0e1f
 trap_damage_all2	target_fx		Assets\TcgEngine\Prefabs\FX\Flame.prefab	b66600b51774daa49964ead5c6a00c49
 trap_paralyse3	target_fx		Assets\TcgEngine\Prefabs\FX\TrapFX.prefab	5b9c8cff8f15ea54aba19dca5a83d4e8
 trap_transform_fish	target_fx		Assets\TcgEngine\Prefabs\FX\WaterFX.prefab	0a338e869785e474db7ea79bc0f3b554

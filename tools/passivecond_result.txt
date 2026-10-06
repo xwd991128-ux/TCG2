@@ -1,0 +1,15 @@
+① 卡定义 = probe_passive_cond hp=30 能力数=3
+   能力 id=graph_probe_passive_cond_passive_enable_1f8c62df trigger=OnPassiveEnable entry_pin=enable group=pg_probe_passive_cond_ev
+   能力 id=graph_probe_passive_cond_passive_disable_009757d0 trigger=OnPassiveDisable entry_pin=disable group=pg_probe_passive_cond_ev
+   能力 id=graph_probe_passive_cond_PassiveEffect_d9feede8 trigger=OnDeath entry_pin= group=
+PASS	① 条件=false 进场扫描 → 生效线不执行	p0.hp=30 damage=0 已生效分组=0
+PASS	② 条件=false 直接执行动作线 → 被挡	damage=0 p0.hp=30
+PASS	③ 条件=true 进场扫描 → 生效线执行(伤害2)	p0.hp=30→28 已生效分组=1
+PASS	④ 条件=true 执行动作线(+3伤害)	damage=3
+PASS	⑤ 条件=false → 补执行失效线(伤害4)	p0.hp=28→24 已生效分组=0
+   [诊断] (d) Run(disable, target=card)：动作数=1 hp 24→20 触发条件=True
+   [诊断] (e) DoEffects(disable 1参)：hp 20→16
+   [诊断] (a) DoEffects(1参)：hp 16→14
+   [诊断] (a2) Run(target=null, 带slots)：hp 14→12
+   [诊断] (b) Run(target=null, 无slots)：动作数=1 hp 12→10
+   [诊断] (c) Run(target=card, 无slots)：动作数=1 hp 10→8

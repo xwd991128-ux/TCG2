@@ -691,7 +691,9 @@ namespace TcgEngine
                 for (int i = abilities_data.Count - 1; i >= 0; i--)
                 {
                     AbilityData ability = abilities_data[i];
-                    if (abilities_ongoing.Contains(ability.id))
+                    //★空条目必须就地清掉：历史版本会把"解析不到的能力 id"塞成 null，
+                    //  这里在每次 Ongoing 重算都会跑 → 直接解引用就是**每帧空引用**。
+                    if (ability == null || abilities_ongoing.Contains(ability.id))
                         abilities_data.RemoveAt(i);
                 }
             }
@@ -761,14 +763,46 @@ namespace TcgEngine
             if (abilities_data == null)
             {
                 abilities_data = new List<AbilityData>(abilities.Count + abilities_ongoing.Count);
+                //★解析不到的 id 以前会被**静默塞成 null**：卡少了能力却零日志（"配了没反应"里最难查的一种），
+                //  而且这个 null 会在 ClearOngoingAbility 里被解引用 → 每帧 Ongoing 重算抛空引用。
+                //  现在：跳过 null + 打一条节流警告（含卡 id / 能力 id，直接定位到是哪张卡没接上）。
                 for (int i = 0; i < abilities.Count; i++)
-                    abilities_data.Add(AbilityData.Get(abilities[i]));
+                    AddResolvedAbility(abilities[i]);
                 for (int i = 0; i < abilities_ongoing.Count; i++)
-                    abilities_data.Add(AbilityData.Get(abilities_ongoing[i]));
+                    AddResolvedAbility(abilities_ongoing[i]);
             }
 
             //Return
             return abilities_data;
+        }
+
+        /// <summary>解析能力 id 并加入列表；解析不到就跳过并打节流警告（绝不把 null 放进 abilities_data）。
+        /// 为什么要吵这一句：能力 id 通常写卡池/卡资产里，写错或资产丢失时表现只是"这张卡少了个能力"，
+        /// 静默跳过会让人以为图/条件写错了，白查半天。</summary>
+        private void AddResolvedAbility(string ability_id)
+        {
+            if (string.IsNullOrEmpty(ability_id))
+                return;
+            AbilityData ability = AbilityData.Get(ability_id);
+            if (ability == null)
+            {
+                WarnMissingAbility(ability_id);
+                return;
+            }
+            abilities_data.Add(ability);
+        }
+
+        /// <summary>节流表：同一个(卡,能力)只提示一次，避免每帧刷屏</summary>
+        private static readonly HashSet<string> warned_missing_abilities = new HashSet<string>();
+
+        private void WarnMissingAbility(string ability_id)
+        {
+            if (!warned_missing_abilities.Add(card_id + "|" + ability_id))
+                return;
+            if (warned_missing_abilities.Count > 500)
+                warned_missing_abilities.Clear();   //防御性上限（正常对局远达不到）
+            Debug.LogWarning("[能力解析] 卡「" + card_id + "」的能力 id「" + ability_id + "」解析不到（未注册/资产丢失）→ 该能力被跳过；"
+                + "请检查这张卡的能力引用是否有效（数据直通能力必须能在 AbilityData.Get 里查到）");
         }
 
         //---- Action Check ---------

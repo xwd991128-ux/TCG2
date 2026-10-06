@@ -1,3 +1,15 @@
-PASS	① 开战后英雄身上出现起动式技能	Activate 能力数=1（原英雄定义=1）
-PASS	② 技能效果执行（伤害 3）	掉血=3
-PASS	③ 技能卡不能从手牌打出	CanPlayCard=False
+① 用户卡 custom_szVEcbUN = 新卡 22 type=Character 能力数=1
+   能力 id=graph_custom_szVEcbUN_OnAfterPlay_698e868a trigger=OnAfterPlay target=None effects=1
+      EffectRunGraph trigger_action=OnAfterPlay graph=有 节点8 连线10
+② 英雄卡数=4
+   英雄=hero_fire/火精灵 skills=0 能力数=1
+     能力 id=graph_hero_fire_ActivateAbility_c5d71c77 trigger=Activate target=SelectTarget
+   技能卡上下文定义=hero_skill_graph_hero_fire_ActivateAbility_c5d71c77 type=Skill title=火焰
+PASS	③ A局直接广播「使用卡牌后」→ 该卡攻击力 1→3	实际=1→3 增益数=1
+PASS	③b 再次触发（同一增益二次施加）→ 攻击力仍是 3	实际=3
+④ CastAbility 后 selector=SelectTarget 攻击=1
+   选完目标 selector=None
+PASS	④ B局真机路径（CastAbility→选目标→结算）→ 攻击力 1→3	实际=1→3 增益数=1
+   最近事件: OnBeforeActivate | OnBeforeDamage | OnAfterDamage | OnAfterActivate | OnAfterPlay | OnBeforeAddBuff | OnAfterAddBuff | 
+PASS	⑤ 后台线程调用（AI 推演线程）	OK（返回 null，未在后台线程建 SO）
+PASS	⑥ 主线程调用可正常建出并缓存	hero_skill_graph_hero_fire_ActivateAbility_c5d71c77 type=Skill

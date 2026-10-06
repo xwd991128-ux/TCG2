@@ -21,9 +21,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 707ab85bffdfd2643a7375e15b2fa634, type: 2}
   filters_target: []
   effects:
-  - {fileID: 11400000, guid: 3c7e8d9f0a1b2c3d4e5f6a7b8c9d0e1f, type: 2}
   - {fileID: 11400000, guid: c14a48b31a743494f983c03ec81a7f2d, type: 2}
-  status: []
+  - {fileID: 11400000, guid: 55165dd4996d59642a883f20c7b3e07f, type: 2}
+  status:
+  - {fileID: 11400000, guid: 8580d5669cd3e624c825c09fbba0b4f0, type: 2}
   value: 0
   duration: 0
   chain_abilities: []

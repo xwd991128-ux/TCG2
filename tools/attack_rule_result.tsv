@@ -1,0 +1,10 @@
+结果	断言	说明
+PASS	A1 接了限制口 → 登记为整局攻击规则	GlobalAttackGraphs=1
+PASS	A2 带限制的卡打英雄被拒 + 有原因	can=False reason=该卡不能攻击此目标
+PASS	A3 其它卡打英雄同样被拒（整局生效）	can=False reason=该卡不能攻击此目标
+PASS	A4 打随从允许	can=True reason=(空)
+PASS	A5 判定幂等（连调三次一致）	三次=False/False/False
+PASS	B1 无逻辑上下文（客户端副本）可判定且不抛异常	被拒=True
+PASS	B2 缺作用范围=仅本卡 / 显式全部卡牌=全局	缺字段=False 显式=True
+PASS	B3 旧数据未进全局入口表（保护内置卡）	OnBeforeDefend 全局入口=0
+PASS	B4 判定是只读的（状态数不变）	before=0 after=0

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: graveyard_draw
   m_EditorClassIdentifier: 
   id: graveyard_draw
-  trigger: 41
+  trigger: 42
   conditions_trigger:
   - {fileID: 11400000, guid: 7463bf87d3794e249b7610c9de9c5327, type: 2}
   target: 4

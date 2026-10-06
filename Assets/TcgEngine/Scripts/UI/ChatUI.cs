@@ -52,6 +52,10 @@ namespace TcgEngine.UI
             if (!GameClient.Get().IsReady())
                 return;
 
+            //调试控制台开着时，Return 归它（否则在控制台里回车会同时把聊天框也呼出来）
+            if (DevConsoleUI.IsOpen)
+                return;
+
             int player_id = is_opponent ? GameClient.Get().GetOpponentPlayerID() : GameClient.Get().GetPlayerID();
             Game data = GameClient.Get().GetGameData();
             Player player = data.GetPlayer(player_id);

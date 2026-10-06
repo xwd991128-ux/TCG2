@@ -38,6 +38,11 @@ namespace TcgEngine.AI
         private AIHeuristic heuristic;
         private Thread ai_thread;
 
+        //★节流表：AI 执行「发动能力」动作时，卡或能力 id 解析不到 → CastAbility 会在 CanCastAbility 里静默判 false，
+        //  表现是"AI 这一步白过"（零日志、极难查）。这里补一条可定位的告警；AI 跑在后台线程 → 用锁保护。
+        private static readonly HashSet<string> warned_missing_cast = new HashSet<string>();
+        private static readonly object warned_missing_cast_lock = new object();
+
         private NodeState first_node = null;
         private NodeState best_move = null;
 
@@ -702,7 +707,26 @@ namespace TcgEngine.AI
             {
                 Card card = player.GetCard(action.card_uid);
                 AbilityData ability = AbilityData.Get(action.ability_id);
-                game_logic.CastAbility(card, ability);
+                //★不静默：card/ability 为空时 CastAbility 走 CanCastAbility 直接 return（不崩，但这一步等于没做）。
+                //  给一条包含卡/能力 id 的告警，免得又变成"AI 卡住却查不出原因"。
+                if (card == null || ability == null)
+                {
+                    string key = (action.ability_id ?? "?") + "|" + (card != null ? card.card_id : "nocard");
+                    bool first = false;
+                    lock (warned_missing_cast_lock)
+                    {
+                        first = warned_missing_cast.Add(key);
+                        if (warned_missing_cast.Count > 200)
+                            warned_missing_cast.Clear();
+                    }
+                    if (first)
+                        Debug.LogWarning("[AI] 发动能力动作无效：卡=" + (card != null ? card.card_id : "null(不在该玩家手里)")
+                            + " 能力=" + (action.ability_id ?? "null") + " → 本次发动被跳过（检查能力 id 是否已注册）");
+                }
+                else
+                {
+                    game_logic.CastAbility(card, ability);
+                }
             }
 
             if (action.type == GameAction.SelectCard)

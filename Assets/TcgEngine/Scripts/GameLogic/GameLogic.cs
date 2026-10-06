@@ -74,11 +74,94 @@ namespace TcgEngine.Gameplay
         //   该入口可配「延迟(毫秒)」/「等待事件」，两者任一满足即执行一次（由 Update 统一消费，跨回合保留）。
         private const string ACTIVATE_BEFORE = "OnBeforeActivate";
         private const string ACTIVATE_AFTER = "OnAfterActivate";
+        //「使用卡牌后」= OnAfterPlay：打出卡牌结算后广播；发动英雄技能（技能卡）时同样广播（主体=技能卡）
+        private const string PLAY_AFTER = "OnAfterPlay";
 
         /// <summary>该事件入口是否支持"延迟 / 等待事件后执行"（当前＝「起动后」入口）</summary>
         public static bool IsDelayableEntry(string action)
         {
             return action == ACTIVATE_AFTER;
+        }
+
+        /// <summary>对局开始挂载英雄技能时登记的能力 id → 技能卡定义（MountHeroSkills 写入，仅"技能卡挂载"这种配置才有）。</summary>
+        private readonly Dictionary<string, CardData> hero_skill_defs = new Dictionary<string, CardData>();
+
+        /// <summary>英雄卡**自带**起动式能力 → 合成技能卡定义（按能力 id 缓存，避免每次发动都新建 SO）。
+        /// 本项目的内置英雄把技能写在**英雄卡自己的规则图**里（`起动式效果入口` 节点），
+        /// 并不经过 `hero_data.skills` 的技能卡挂载，所以需要这一路兜底。
+        /// 用 ConcurrentDictionary：主线程发动技能时可能写，AI 推演线程同时在读。</summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CardData> hero_skill_synth_defs
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, CardData>();
+
+        /// <summary>合成技能卡定义 id 前缀（便于从卡牌 id 一眼看出是"英雄技能"而不是真实卡池卡）。
+        /// ★public：<c>Game.CanPlayCard</c> 靠它区分"合成英雄技能定义（不可从手牌打出）"与
+        /// "真实技能卡（工作台类型=技能，与法术同款可从手牌打出）"。</summary>
+        public const string HERO_SKILL_DEF_PREFIX = "hero_skill_";
+
+        /// <summary>技能卡上下文卡的 uid 序号（保证同一次对局里 uid 不重复）</summary>
+        private int skill_ctx_seq = 0;
+
+        /// <summary>本次发动的能力对应的技能卡定义（"技能卡挂载"配置下的真实技能卡；没有则 null）</summary>
+        private CardData GetHeroSkillDef(AbilityData ability)
+        {
+            if (ability == null || string.IsNullOrEmpty(ability.id))
+                return null;
+            CardData def;
+            return hero_skill_defs.TryGetValue(ability.id, out def) ? def : null;
+        }
+
+        /// <summary>本次发动是不是「英雄技能」→ 返回它的**技能卡定义**（用于「使用卡牌后」的事件主体）。
+        /// 两种来源都算：①英雄卡自带图里的起动式能力（内置英雄的写法）→ 按能力合成一张 type=Skill 的定义；
+        /// ②`hero_data.skills` 挂载的技能卡能力 → 直接用技能卡定义。
+        /// 为什么合成：技能本身没有卡实例，而「使用卡牌后」的现有写法是「卡牌类型判断=技能」「获取卡牌拥有者=施法玩家」，
+        /// 合成一张 type=Skill 的定义后这些写法原样成立（等价于"把英雄技能当成一张技能牌"）。
+        /// 非英雄卡（随从/装备主动技）返回 null——它们不是"使用一张牌"。
+        /// ★线程约束：`ScriptableObject.CreateInstance` 只能主线程调用（AI 推演在**后台线程**执行图，
+        ///   在那里创建会抛 UnityException 并把整次 AI 计算打掉）。所以：对局开始时已在主线程
+        ///   `WarmupHeroSkillDefs` 预热，后台线程只读缓存；缓存未命中且不在主线程 → 返回 null（该次不广播）。</summary>
+        private CardData ResolveSkillDefForUse(Card caster, AbilityData ability)
+        {
+            CardData mounted = GetHeroSkillDef(ability);
+            if (mounted != null)
+                return mounted;
+            if (caster == null || caster.CardData == null || ability == null
+                || string.IsNullOrEmpty(ability.id) || caster.CardData.type != CardType.Hero)
+                return null;
+            CardData def;
+            if (hero_skill_synth_defs.TryGetValue(ability.id, out def) && def != null)
+                return def;
+            if (!MainThreadUtil.IsMainThread)
+                return null;        //后台线程（AI 推演）：绝不在这里建 ScriptableObject
+            return CreateSynthSkillDef(ability);
+        }
+
+        /// <summary>按能力合成一张 type=Skill 的"技能卡定义"并缓存（★只能在主线程调用）</summary>
+        private CardData CreateSynthSkillDef(AbilityData ability)
+        {
+            CardData def;
+            if (hero_skill_synth_defs.TryGetValue(ability.id, out def) && def != null)
+                return def;
+            def = ScriptableObject.CreateInstance<CardData>();
+            def.id = HERO_SKILL_DEF_PREFIX + ability.id;
+            def.title = string.IsNullOrEmpty(ability.title) ? ability.id : ability.title;
+            def.type = CardType.Skill;      //★关键：让「卡牌类型判断=技能」成立
+            hero_skill_synth_defs[ability.id] = def;
+            return def;
+        }
+
+        /// <summary>对局开始（主线程）预热英雄技能的合成卡定义：AI 推演在后台线程执行图时只读缓存，
+        /// 从而既能照常预测「英雄技能→使用卡牌后」的收益，又不会在后台线程碰 CreateInstance。</summary>
+        private void WarmupHeroSkillDefs(Card hero)
+        {
+            if (hero == null || hero.CardData == null || hero.CardData.type != CardType.Hero)
+                return;
+            if (!MainThreadUtil.IsMainThread || hero.CardData.abilities == null)
+                return;
+            foreach (AbilityData a in hero.CardData.abilities)
+            {
+                if (a != null && a.trigger == AbilityTrigger.Activate && !string.IsNullOrEmpty(a.id))
+                    CreateSynthSkillDef(a);
+            }
         }
 
         /// <summary>一条待执行的延后触发：事件 action + 宿主卡 + 规则图 + 条件（延迟时长 / 等待事件；任一满足即执行一次）。</summary>
@@ -111,13 +194,25 @@ namespace TcgEngine.Gameplay
         public GameLogic(Game game)
         {
             game_data = game;
+            SetGameBackRef(game);
             resolve_queue = new ResolveQueue(game, false);
         }
 
         public virtual void SetData(Game game)
         {
             game_data = game;
+            SetGameBackRef(game);
             resolve_queue.SetData(game);
+        }
+
+        /// <summary>给 Game 挂"运行期反向引用"：<c>Game.CanAttackTarget</c> 要问卡牌的规则图，
+        /// 而 UI 高亮只拿得到 Game（拿不到 logic）→ 没有这个引用，规则图就只对 AI/结算生效、UI 高亮失效。
+        /// ★AI 预测实例（is_ai_predict）**不抢**这个引用：它们与主逻辑共享同一个 Game，
+        /// 若被预测实例覆盖，UI 判定就会读到预测态（目标高亮错乱）。</summary>
+        private void SetGameBackRef(Game game)
+        {
+            if (game != null && !is_ai_predict)
+                game.logic = this;
         }
 
         public virtual void Update(float delta)
@@ -375,7 +470,9 @@ namespace TcgEngine.Gameplay
             }
 
             //Turn timer and history
-            game_data.turn_timer = GameplayData.Get().turn_duration;
+            game_data.turn_timer = (game_data.settings != null && game_data.settings.NoTurnTimer)
+                ? GameSettings.NoTurnTimerValue                      //人机/模拟：不下发倒计时（999=GameUI 不显示）
+                : GameplayData.Get().turn_duration;
             player.history_list.Clear();
 
             //Player poison
@@ -860,6 +957,11 @@ namespace TcgEngine.Gameplay
                     if (ctx.phase == GraphEventPhase.Before && ctx.cancelled)
                         break;  //先到先得：某宿主阻止后，后续监听者不再收到本事件
                 }
+                //★全局入口（作用范围=全部卡牌）：广播类事件（伤害时/治疗时/死亡时/添加增益时/护甲变动…）
+                //  同样**不限制发动主体** —— 除"宿主卡自身的图"外，全局入口图也要在本事件里跑一遍。
+                //  用带事件上下文的执行（RunEventEntry）→ 图里能读到 事件主体/事件值/事件玩家。
+                RunGlobalEntriesForEvent(ctx);
+
                 //主体卡「广播后」快照（108009 用）
                 if (ctx.card != null)
                     ctx.card_after = Card.CloneNew(ctx.card);
@@ -872,6 +974,31 @@ namespace TcgEngine.Gameplay
             {
                 event_ctx = prev;
                 event_depth--;
+            }
+        }
+
+        /// <summary>广播事件的"全局入口"执行（作用范围=全部卡牌）：按事件名映射到触发器 → 逐个跑（**带事件上下文**）。
+        /// 发动主体不受限（任何卡满足条件都算）；异常隔离，坏图不影响对局。</summary>
+        private void RunGlobalEntriesForEvent(GraphEventContext ctx)
+        {
+            if (ctx == null)
+                return;
+            List<Workshop.CardPoolIO.GlobalEntry> list = Workshop.CardPoolIO.GetGlobalEntries(Workshop.CardPoolIO.MapTrigger(ctx.action));
+            if (list == null || list.Count == 0)
+                return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Workshop.CardPoolIO.GlobalEntry ge = list[i];
+                if (ge == null || ge.graph == null)
+                    continue;
+                try
+                {
+                    Workshop.NodeDocRunner.RunEventEntry(this, ctx, ge.graph, ctx.card, ge.action);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[全局入口] " + ge.action + " 执行失败（已忽略，不影响对局）：" + e.Message);
+                }
             }
         }
 
@@ -1353,6 +1480,7 @@ namespace TcgEngine.Gameplay
                         player.hero.abilities_ongoing.Add(a.id);
                     else
                         player.hero.abilities.Add(a.id);
+                    hero_skill_defs[a.id] = sd;   //登记能力→技能卡定义：供「使用卡牌后」覆盖英雄技能时构造事件主体
                     mounted++;
                 }
             }
@@ -1376,6 +1504,7 @@ namespace TcgEngine.Gameplay
                 {
                     player.hero = Card.Create(hdata, hvariant, player);
                     MountHeroSkills(player);   //★英雄技能卡（CardData.skills）→ 挂成英雄的技能按钮
+                    WarmupHeroSkillDefs(player.hero);   //主线程预热"英雄技能=一张技能牌"的合成定义（供 AI 推演线程只读）
                 }
                 else
                     Debug.LogWarning("[Game] 卡组英雄解析失败：tid=" + deck.hero.tid + " → 玩家 p" + player.player_id
@@ -1607,19 +1736,25 @@ namespace TcgEngine.Gameplay
             }
         }
 
+        /// <summary>构造「起动」类图事件上下文（主体=发动能力的卡：英雄技能=英雄卡；值=本次灵力费用）</summary>
+        private GraphEventContext BuildCastCtx(string action, GraphEventPhase phase, Card caster, int mana_cost)
+        {
+            GraphEventContext ctx = new GraphEventContext();
+            ctx.action = action;
+            ctx.phase = phase;                       //Before 才能被「阻止本事件」/「修改事件值」
+            ctx.card = caster;
+            ctx.player = game_data.GetPlayer(caster.player_id);
+            ctx.value = mana_cost;                   //只读提示；实际扣费仍按能力定义
+            return ctx;
+        }
+
         /// <summary>「起动时」广播（起动式能力发动结算前）。返回 false = 被「阻止本事件」取消本次发动。
         /// 施法卡作为额外宿主，保证其自身图无论所在区域都能响应。</summary>
         private bool EmitActivateBefore(Card caster, AbilityData ability)
         {
             if (caster == null || ability == null || game_data == null)
                 return true;
-            GraphEventContext ctx = new GraphEventContext();
-            ctx.action = ACTIVATE_BEFORE;
-            ctx.phase = GraphEventPhase.Before;      //Before 才能被「阻止本事件」/「修改事件值」
-            ctx.card = caster;                       //事件主体=发动该能力的卡（英雄技能=英雄卡）
-            ctx.player = game_data.GetPlayer(caster.player_id);
-            ctx.value = ability.mana_cost;           //事件值=本次灵力费用（只读提示；实际扣费仍按能力定义）
-            bool cancelled = EmitGraphEvent(ctx, caster);
+            bool cancelled = EmitGraphEvent(BuildCastCtx(ACTIVATE_BEFORE, GraphEventPhase.Before, caster, ability.mana_cost), caster);
             if (cancelled)
                 GameLog.Log("[起动触发] " + (caster.CardData != null ? caster.CardData.id : "?")
                     + " 的起动被「阻止本事件」取消（本次不扣灵力、不结算）");
@@ -1627,18 +1762,34 @@ namespace TcgEngine.Gameplay
         }
 
         /// <summary>「起动后」广播（起动式能力结算完成后：灵力已扣、exhausted 已生效、效果已结算）。
+        /// 英雄技能额外按「使用卡牌后」广播一次（主体=技能卡，见 BuildSkillContextCard）。
         /// 入口若配了「延迟/等待事件」，由 FireEventHost 转为入队延后执行。纯通知，不可阻止。</summary>
         private void EmitActivateAfter(Card caster, AbilityData ability)
         {
             if (caster == null || ability == null || game_data == null || game_data.state == GameState.GameEnded)
                 return;
-            GraphEventContext ctx = new GraphEventContext();
-            ctx.action = ACTIVATE_AFTER;
-            ctx.phase = GraphEventPhase.After;
-            ctx.card = caster;
-            ctx.player = game_data.GetPlayer(caster.player_id);
-            ctx.value = ability.mana_cost;
-            EmitGraphEvent(ctx, caster);
+            EmitGraphEvent(BuildCastCtx(ACTIVATE_AFTER, GraphEventPhase.After, caster, ability.mana_cost), caster);
+            CardData skill_def = ResolveSkillDefForUse(caster, ability);
+            if (skill_def == null)
+                return;
+            //「使用卡牌后」覆盖英雄技能（英雄技能=一张"技能牌"）：主体=技能卡上下文卡 → 「卡牌类型判断=技能」
+            //「获取卡牌拥有者=施法玩家」这类写法与「打出一张牌」完全同构，用户图无需改动。
+            Card skill_ctx = BuildSkillContextCard(skill_def, caster);
+            if (skill_ctx != null)
+                EmitGraphEvent(BuildCastCtx(PLAY_AFTER, GraphEventPhase.After, skill_ctx, ability.mana_cost), skill_ctx);
+        }
+
+        /// <summary>为「使用卡牌后」构造**技能卡上下文卡**：技能卡没有卡实例（其能力直接挂在英雄上），
+        /// 这里按技能卡定义临时建一张，仅作事件主体求值用——**不写入 player.cards_all**，
+        /// 因此不会出现在任何牌堆/卡牌查询/UI 里（避免了"假卡"污染对局状态）。</summary>
+        private Card BuildSkillContextCard(CardData skill_def, Card caster)
+        {
+            if (skill_def == null || caster == null)
+                return null;
+            skill_ctx_seq++;
+            Card card = new Card(skill_def.id, "skillctx_" + skill_def.id + "_" + skill_ctx_seq, caster.player_id);
+            card.SetCard(skill_def, null);
+            return card;
         }
 
         //----- 攻击（统一骨架：仆从/英雄/玩家 共用一条链，差异仅命中落点与回调组） -----
@@ -1678,11 +1829,20 @@ namespace TcgEngine.Gameplay
             if (attacker == null || (vs_player && target_player == null) || (!vs_player && target_card == null))
                 return;
 
+            //★带原因的版本：卡牌规则图（「攻击时/被攻击时」入口上的 攻击限制/被攻击限制 口）拒绝时，
+            //  以前这里是**静默 return** —— 表现就是"点了没反应"，或误以为"AI 无视了攻击限制"
+            //  （其实非法攻击根本没造成伤害，只是白打）。现在把原因打出来，一行定位。
+            string reject = null;
             bool can_attack = vs_player
-                ? game_data.CanAttackTarget(attacker, target_player, skip_cost)
-                : game_data.CanAttackTarget(attacker, target_card, skip_cost);
+                ? game_data.CanAttackTarget(attacker, target_player, skip_cost, out reject)
+                : game_data.CanAttackTarget(attacker, target_card, skip_cost, out reject);
             if (!can_attack)
+            {
+                if (!is_ai_predict && !string.IsNullOrEmpty(reject))
+                    GameLog.Log("[攻击被拒] " + attacker.CardData.id + " → "
+                        + (vs_player ? "玩家" + target_player.player_id : target_card.CardData.id) + "：" + reject);
                 return;
+            }
 
             Player player = game_data.GetPlayer(attacker.player_id);
             if (!is_ai_predict)
@@ -2162,6 +2322,10 @@ namespace TcgEngine.Gameplay
                     if (inst == null)
                         continue;   //被「添加增益时」阻止 → 下次扫描重试
                     RunAuraActionLine(g, inst);
+                    //★诊断（一行定位"光环好像没生效"）：把目标卡**此刻的真实状态**打出来。
+                    //   缺 关键词对应状态（如冲锋=Haste）⇒ 问题在"增益关键词→状态"没落地；
+                    //   有 Haste ⇒ 光环已生效，"打不了"另有原因（攻击规则图/嘲讽/召唤失调残留）。
+                    AuraLog("施加后目标状态：" + AuraStatusText(g.target));
                 }
             }
             catch (System.Exception e)
@@ -2172,6 +2336,23 @@ namespace TcgEngine.Gameplay
             {
                 aura_syncing = false;
             }
+        }
+
+        /// <summary>目标卡当前状态文本（排查用：例 "SummonDisorder(1), Haste(0)"）</summary>
+        private static string AuraStatusText(Card card)
+        {
+            if (card == null)
+                return "?";
+            if (card.status == null || card.status.Count == 0)
+                return "(无状态)";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < card.status.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(", ");
+                sb.Append(card.status[i].type).Append('(').Append(card.status[i].value).Append(')');
+            }
+            return sb.ToString();
         }
 
         /// <summary>一次"目标该被某光环施加"的记录</summary>
@@ -2408,14 +2589,14 @@ namespace TcgEngine.Gameplay
         /// <summary>光环入口「生效条件」口求值（图 cond；没接图/没连线 = 放行）</summary>
         private bool IsAuraConditionMet(Card src, AbilityData ab, Card target)
         {
-            EffectRunGraph run = GetAuraRunGraph(ab);
+            EffectRunGraph run = GetAbilityRunGraph(ab);
             if (run == null || run.graph == null)
                 return true;
             return NodeDocRunner.IsEntryConditionMet(this, run.graph, "AuraEffect", src, target, null);
         }
 
-        /// <summary>取光环能力携带的规则图（动作线）；纯数据光环返回 null</summary>
-        private static EffectRunGraph GetAuraRunGraph(AbilityData ab)
+        /// <summary>取能力携带的规则图（光环的增益动作线 / 被动的生效·失效线都用它读入口「生效条件」）；无图返回 null</summary>
+        private static EffectRunGraph GetAbilityRunGraph(AbilityData ab)
         {
             if (ab == null || ab.effects == null)
                 return null;
@@ -2501,11 +2682,13 @@ namespace TcgEngine.Gameplay
                 AbilityData ab = abs[i];
                 if (ab == null || ab.trigger != AbilityTrigger.OnPassiveEnable || string.IsNullOrEmpty(ab.passive_group))
                     continue;
-                //该生效 = 卡在入口「生效区域」内。
+                //该生效 = 卡在入口「生效区域」内 **且** 入口「生效条件」成立（无连线=放行）。
                 //★刻意**不看封印**（Silenced）：封印是引擎在"执行能力"那一层统一拦截的（ResolveCardAbility 开头就 return）。
                 //  若把封印也算作"不该生效"，封印瞬间会触发一次失效线——而失效线同样被封印拦掉 →
                 //  表现就是"记账已销、动作从未执行"，解封后也不会补（与卡上实际状态对不上）。
-                bool should = IsCardInPassiveArea(p, card, ab.passive_area);
+                EffectRunGraph prun = GetAbilityRunGraph(ab);
+                bool should = IsCardInPassiveArea(p, card, ab.passive_area)
+                    && (prun == null || NodeDocRunner.IsEntryConditionMet(this, prun.graph, "PassiveEffect", card, card, null));
                 bool is_on = card.passive_groups != null && card.passive_groups.Contains(ab.passive_group);
                 if (should == is_on)
                     continue;
@@ -2557,8 +2740,14 @@ namespace TcgEngine.Gameplay
             if (card.passive_groups != null)
                 card.passive_groups.Remove(group);
             AbilityData ab = FindPassiveAbility(card, group, AbilityTrigger.OnPassiveDisable);
-            if (ab != null && ab.AreTriggerConditionsMet(game_data, card, card))
-                ab.DoEffects(this, card);   //同上：同步执行
+            //★失效线是**回滚线**：必须执行，不能被触发条件挡住。
+            //  与 NodeDocRunner 里"生效/失效线不受入口 cond 约束"是同一原理 ——
+            //  图级 cond（入口口）与能力级 conditions_trigger 是**两个独立的拦截点**，缺一个就泄漏：
+            //  条件由真转假时恰恰是"条件不满足"的时刻，若在这里把关，回滚永远不执行
+            //  ⇒ 已施加的增益永久残留（EffectRunGraph 的注释早已写明"生效线/失效线必须照跑"）。
+            //  记账（passive_groups 移除）在上面已经做完，这里只负责执行回滚。
+            if (ab != null)
+                ab.DoEffects(this, card);   //同步执行
         }
 
         /// <summary>让这张卡当前**已生效**的全部被动失效（变形：旧形态整组失效 → 换定义后再按新形态重新生效）</summary>
@@ -3130,6 +3319,10 @@ namespace TcgEngine.Gameplay
             {
                 //Trigger on death abilities（引擎亡语语义不变）
                 TriggerCardAbilityType(AbilityTrigger.OnDeath, card);
+                //★增益承载的"遗言"：卡身上带效果图的增益也要在死亡时跑一次
+                //  （增益图原本没有死亡触发点，导致"给仆从挂遗言"的画法永不生效；另外死亡不走"移除增益"事件）。
+                //  必须放在这里：此刻 cards_to_clear 还没 Clear，card.buffs 仍在。
+                BuffRuntime.TriggerCarrierDeath(this, card);
                 TriggerOtherCardsAbilityType(AbilityTrigger.OnDeathOther, card);
                 TriggerSecrets(AbilityTrigger.OnDeathOther, card);
                 UpdateOngoingCards(); //Not UpdateOngoing() here to avoid recursive calls in UpdateOngoingKills
@@ -3180,9 +3373,25 @@ namespace TcgEngine.Gameplay
 
             TriggerCardKeywords(type, caster, triggerer, null);
 
-            Card equipped = game_data.GetEquipCard(caster.equipped_uid);
-            if (equipped != null)
-                TriggerCardAbilityType(type, equipped, triggerer);
+            //★全局入口（作用范围=全部卡牌）：**发动主体不受限** —— 任何卡触发这个时机都要跑它们。
+            //  旧数据没有作用范围字段 → 不算全局（内置卡迁移图仍是"卡自身"，不会互相触发）。
+            bool prev_guard = global_entries_guard;
+            try
+            {
+                if (!prev_guard)
+                {
+                    global_entries_guard = true;
+                    RunGlobalEntries(type, caster, triggerer, null);
+                }
+
+                Card equipped = game_data.GetEquipCard(caster.equipped_uid);
+                if (equipped != null)
+                    TriggerCardAbilityType(type, equipped, triggerer);   //装备递归里不再重复跑全局入口
+            }
+            finally
+            {
+                global_entries_guard = prev_guard;
+            }
         }
 
         public virtual void TriggerCardAbilityType(AbilityTrigger type, Card caster, Player triggerer)
@@ -3197,9 +3406,57 @@ namespace TcgEngine.Gameplay
 
             TriggerCardKeywords(type, caster, null, triggerer);
 
-            Card equipped = game_data.GetEquipCard(caster.equipped_uid);
-            if (equipped != null)
-                TriggerCardAbilityType(type, equipped, triggerer);
+            bool prev_guard = global_entries_guard;
+            try
+            {
+                if (!prev_guard)
+                {
+                    global_entries_guard = true;
+                    RunGlobalEntries(type, caster, null, triggerer);
+                }
+
+                Card equipped = game_data.GetEquipCard(caster.equipped_uid);
+                if (equipped != null)
+                    TriggerCardAbilityType(type, equipped, triggerer);
+            }
+            finally
+            {
+                global_entries_guard = prev_guard;
+            }
+        }
+
+        [System.NonSerialized] private bool global_entries_guard;   //本次时机是否已在跑全局入口（防逐卡循环/装备递归重复执行）
+
+        /// <summary>执行"全局入口"（作用范围=「全部卡牌」的事件类入口）：
+        /// 事件发生时，除"本卡自己的能力"外还要跑这些图 —— 任何卡满足条件都算，效果对所有满足条件的目标生效。
+        /// caster = 本次事件主体（攻击时=攻击者；被攻击时=被攻击的卡…）；triggerer = 事件的对手（卡/玩家）。
+        /// 只跑该入口自己的那条流（Run 的 trigger_action = 入口 action），不会连带跑同图其它入口。</summary>
+        private void RunGlobalEntries(AbilityTrigger type, Card caster, Card triggerer, Player triggerer_player)
+        {
+            if (caster == null)
+            {
+                //没有"事件主体卡"（例：回合事件但该玩家没有英雄卡）→ 图里「卡牌/目标」口全空，动作可能无源/条件误判。
+                //宁可跳过并告警，也不要跑出错误效果（这一类失败以前是完全静默的）。
+                Debug.LogWarning("[全局入口] " + type + " 无事件主体卡，跳过全局入口执行");
+                return;
+            }
+            List<Workshop.CardPoolIO.GlobalEntry> list = Workshop.CardPoolIO.GetGlobalEntries(type);
+            if (list == null || list.Count == 0)
+                return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Workshop.CardPoolIO.GlobalEntry ge = list[i];
+                if (ge == null || ge.graph == null)
+                    continue;
+                try
+                {
+                    Workshop.NodeDocRunner.Run(this, ge.graph, caster, triggerer, triggerer_player, ge.action);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[全局入口] " + ge.action + " 执行失败（已忽略，不影响对局）：" + e.Message);
+                }
+            }
         }
 
         /// <summary>
@@ -3249,23 +3506,47 @@ namespace TcgEngine.Gameplay
 
         public virtual void TriggerOtherCardsAbilityType(AbilityTrigger type, Card triggerer)
         {
-            foreach (Player oplayer in game_data.players)
+            bool prev_guard = global_entries_guard;
+            global_entries_guard = true;    //逐卡循环：全局入口在循环外只跑一次
+            try
             {
-                if (oplayer.hero != null)
-                    TriggerCardAbilityType(type, oplayer.hero, triggerer);
+                foreach (Player oplayer in game_data.players)
+                {
+                    if (oplayer.hero != null)
+                        TriggerCardAbilityType(type, oplayer.hero, triggerer);
 
-                foreach (Card card in oplayer.cards_board)
-                    TriggerCardAbilityType(type, card, triggerer);
+                    foreach (Card card in oplayer.cards_board)
+                        TriggerCardAbilityType(type, card, triggerer);
+                }
             }
+            finally
+            {
+                global_entries_guard = prev_guard;
+            }
+            //★全局入口：一次事件只跑一次，主体=事件主体(triggerer)
+            RunGlobalEntries(type, triggerer, null, null);
         }
 
         public virtual void TriggerPlayerCardsAbilityType(Player player, AbilityTrigger type)
         {
-            if (player.hero != null)
-                TriggerCardAbilityType(type, player.hero, player.hero);
+            if (player == null)
+                return;
+            bool prev_guard = global_entries_guard;
+            global_entries_guard = true;    //逐卡循环：全局入口在循环外只跑一次
+            try
+            {
+                if (player.hero != null)
+                    TriggerCardAbilityType(type, player.hero, player.hero);
 
-            foreach (Card card in player.cards_board)
-                TriggerCardAbilityType(type, card, card);
+                foreach (Card card in player.cards_board)
+                    TriggerCardAbilityType(type, card, card);
+            }
+            finally
+            {
+                global_entries_guard = prev_guard;
+            }
+            //★全局入口：一次回合事件只跑一次（主体=英雄，玩家一起传进去）
+            RunGlobalEntries(type, player.hero, null, player);
         }
 
         public virtual void TriggerCardAbility(AbilityData iability, Card caster)
@@ -4557,7 +4838,9 @@ namespace TcgEngine.Gameplay
         protected virtual void GoToMulligan()
         {
             game_data.phase = GamePhase.Mulligan;
-            game_data.turn_timer = GameplayData.Get().turn_duration;
+            game_data.turn_timer = (game_data.settings != null && game_data.settings.NoTurnTimer)
+                ? GameSettings.NoTurnTimerValue                      //人机/模拟：不下发倒计时（999=GameUI 不显示）
+                : GameplayData.Get().turn_duration;
             foreach (Player player in game_data.players)
                 player.ready = false;
             RefreshData();

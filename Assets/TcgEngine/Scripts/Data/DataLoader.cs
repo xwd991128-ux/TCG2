@@ -142,11 +142,24 @@ namespace TcgEngine
             ability_ids.Clear();
             foreach (AbilityData ability in AbilityData.GetAll())
             {
+                if (ability == null)
+                {
+                    //★旧资产脏数据：列表里可能混入空引用，直接跳过并点名，不要每局都抛 NRE（启动日志就该是干净的）
+                    Debug.LogWarning("[数据检查] AbilityData 列表里存在空引用（旧资产脏数据），已跳过");
+                    continue;
+                }
                 if (string.IsNullOrEmpty(ability.id))
                     Debug.LogError(ability.name + " id is empty");
                 if (ability_ids.Contains(ability.id))
                     Debug.LogError("Dupplicate Ability ID: " + ability.id);
 
+                //★数组为 null 时遍历必 NRE（约定：数组字段应置空数组而非 null）；这里挡住并点名
+                if (ability.chain_abilities == null)
+                {
+                    Debug.LogWarning("[数据检查] " + ability.id + " 的 chain_abilities 为 null（应置空数组），已跳过遍历");
+                    ability_ids.Add(ability.id);
+                    continue;
+                }
                 foreach (AbilityData chain in ability.chain_abilities)
                 {
                     if (chain == null)

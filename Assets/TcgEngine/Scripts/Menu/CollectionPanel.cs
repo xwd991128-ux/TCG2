@@ -343,10 +343,17 @@ namespace TcgEngine.UI
         private void RefreshCardsQuantities()
         {
             UserData udata = Authenticator.Get().UserData;
+            if (udata == null)
+                return;
             foreach (CollectionCard card in card_list)
             {
                 CardData icard = card.GetCard();
                 VariantData ivariant = card.GetVariant();
+                //★工坊自定义卡（作者自建卡池）：拥有数不足时按需补齐到 2 张。
+                //  为什么放这里：卡池自动加载发生在启动早期，那时玩家数据可能还没读完（异步），
+                //  只靠加载路径授予会漏掉；构筑界面刷新时数据必定已就绪 → 这里兜住，
+                //  保证"作者自己做好的卡"永远可以加入构筑（用户实报的问题）。
+                CardPoolIO.EnsureCustomCardOwned(icard);
                 bool owned = IsCardOwned(udata, icard, ivariant, 1);
                 int quantity = udata.GetCardQuantity(icard, ivariant);
                 card.SetQuantity(quantity);
@@ -1398,6 +1405,11 @@ namespace TcgEngine.UI
                 int in_deck = CountDeckCards(icard, variant);
                 int in_deck_same = CountDeckCards(icard);
                 UserData udata = Authenticator.Get().UserData;
+                if (udata == null)
+                    return;
+
+                //工坊自定义卡：点它之前先确保拥有（幂等补齐），否则下面 owner 判定必然失败
+                CardPoolIO.EnsureCustomCardOwned(icard);
 
                 bool owner = IsCardOwned(udata, card.GetCard(), card.GetVariant(), in_deck + 1);
                 int max_duplicate = GameplayData.Get().deck_duplicate_max;
@@ -1411,6 +1423,18 @@ namespace TcgEngine.UI
                 {
                     AddDeckCard(icard, variant);
                     RefreshDeckCards();
+                }
+                //★不能静默失败：以前这里默默 return，用户只看到"点卡没反应"（实报"无法加入构筑"）。
+                else if (!owner)
+                {
+                    Debug.LogWarning("[构筑] 无法加入「" + icard.title + "(" + icard.id + ")」：未拥有该卡（拥有 "
+                        + udata.GetCardQuantity(icard, variant) + " 张，本次需要 " + (in_deck + 1)
+                        + " 张）。内置卡需通过开包/购买获得；工坊自定义卡会自动授予 " + CardPoolIO.CustomOwnCount + " 张。");
+                }
+                else
+                {
+                    Debug.LogWarning("[构筑] 无法加入「" + icard.title + "(" + icard.id + ")」：同名卡已达上限 "
+                        + max_duplicate + " 张（卡组中已有 " + in_deck_same + " 张）。");
                 }
             }
         }

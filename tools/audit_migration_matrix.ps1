@@ -20,7 +20,9 @@ Get-ChildItem "Assets\TcgEngine\Scripts" -Recurse -Filter *.cs.meta | ForEach-Ob
 }
 $assetInfo = @{}
 Get-ChildItem "Assets\TcgEngine\Resources" -Recurse -Filter *.asset | ForEach-Object {
-    $meta = $_.FullName + ".meta"; if (-not (Test-Path $meta)) { return }
+    #★必须 -LiteralPath：卡名里带 [] 的资产（如 has_no_board_[molisha].asset）会被 Test-Path 当通配符
+    #  → 判为"不存在" → 漏出索引 → 后面所有指向它的引用都被误报成"未解析引用"（实测踩到过）
+    $meta = $_.FullName + ".meta"; if (-not (Test-Path -LiteralPath $meta)) { return }
     $g = Get-Guid $meta; if (-not $g) { return }
     $m = [regex]::Match((Read-Text $_.FullName), "m_Script:\s*\{fileID:\s*11500000,\s*guid:\s*([0-9a-fA-F]+)")
     $cls = if ($m.Success -and $guid2class.ContainsKey($m.Groups[1].Value)) { $guid2class[$m.Groups[1].Value] } else { "" }

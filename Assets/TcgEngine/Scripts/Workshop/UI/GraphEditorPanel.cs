@@ -44,6 +44,9 @@ namespace TcgEngine.UI
         public GameObject node_template;     // 节点行模板（隐藏）
         public GameObject link_template;     // 连线模板（隐藏）
         public GameObject pin_template;      // 引脚模板（隐藏）
+        private bool canvas_isolated;        // 画布区子 Canvas 是否已补挂（见 EnsureCanvasIsolation）
+        private bool canvas_graphic_warned;  // 画布图形数诊断：本会话是否已提醒过（见 DiagnoseCanvasGraphics）
+        private const int CANVAS_GRAPHIC_WARN = 1200;   // 画布内图形数告警阈值（常规图约 300~500）
 
         [Header("右侧属性区")]
         public TMP_InputField input_name;    // 卡牌名称（TMP）
@@ -562,6 +565,11 @@ namespace TcgEngine.UI
                 new string[] { "OnBuffAdded", "添加增益后", "增益已挂上、属性已生效之后触发" },
                 new string[] { "OnBuffRemoving", "移除增益时", "增益正要移除之前触发" },
                 new string[] { "OnBuffRemoved", "移除增益后", "增益已移除之后触发" },
+                //★携带者死亡时（=遗言/亡语）：由 GameLogic 死亡处理调用 BuffRuntime.TriggerCarrierDeath。
+                //  为什么要它：增益图原先只有 添加/移除/回合 六个入口，"给仆从挂一个遗言"这种画法没有触发点
+                //  （死亡也不走"移除增益"事件，只有 duration 到期才走）→ 图永远不执行。
+                //  注：直接画「被动效果入口(亡语)」也已被支持（同一时刻触发），二选一即可。
+                new string[] { "OnBuffCarrierDeath", "携带者死亡时", "携带本增益的卡死亡时触发（=遗言/亡语）：可对敌方英雄造成伤害等" },
                 new string[] { "OnBuffTurnStart", "每回合开始", "携带增益的卡所属玩家回合开始时触发（每回合一次，配合 duration 递减）" },
                 new string[] { "OnBuffTurnEnd", "每回合结束", "携带增益的卡所属玩家回合结束时触发" },
             };
@@ -731,7 +739,7 @@ namespace TcgEngine.UI
             string[][] evs = new string[][]
             {
                 new string[] { "OnBeforePlay", "使用卡牌时", "任意玩家使用（打出）一张牌之前触发；可阻止该牌打出，value=费用" },
-                new string[] { "OnAfterPlay", "使用卡牌后", "任意玩家使用（打出）一张牌**并结算完成后**触发（已扣费、已入场/已生效）；事件主体=打出的牌，value=费用" },
+                new string[] { "OnAfterPlay", "使用卡牌后", "任意玩家使用（打出）一张牌**并结算完成后**触发（已扣费、已入场/已生效）；事件主体=打出的牌，value=费用。英雄发动技能卡（英雄技能）也走本入口，此时主体=技能卡（type=Skill）" },
                 new string[] { "OnBeforeDamage", "伤害时", "任意卡牌/玩家受伤害结算前触发；可阻止本次伤害，或把 value 改 0=免伤" },
                 new string[] { "OnAfterDamage", "伤害后", "任意卡牌/玩家受伤害结算后触发（实际伤害=value，来源=source）" },
                 new string[] { "OnAfterDraw", "抽卡后", "任意玩家每次抽到 1 张牌后触发（抽到的牌=subject）" },
@@ -748,6 +756,7 @@ namespace TcgEngine.UI
                 //起动式（activated）能力的「时/后」：由 GameLogic.CastAbility / AfterAbilityResolved 广播
                 new string[] { "OnBeforeActivate", "起动时", "任意玩家发动「起动式能力」（英雄技能/卡牌主动技/装备主动技）之前触发；可阻止（本次发动取消、不扣灵力）；value=本次灵力费用" },
                 new string[] { "OnAfterActivate", "起动后", "起动式能力发动结算后触发（灵力已扣、横置已生效、效果已结算）。可配「延迟(毫秒)」与「等待事件」——两者任一满足即执行一次；都留空=立即执行" },
+
                 new string[] { "OnBeforeGameStart", "对战开始时", "对局初始化前通知（纯通知，不可阻止）" },
                 new string[] { "OnAfterGameStart", "对战开始后", "玩家开战点（mulligan/首回合前）通知（纯通知）" },
                 new string[] { "OnBeforeGameEnd", "游戏结束时", "胜负判定后、对局结束前通知（纯通知）" },
@@ -829,6 +838,25 @@ namespace TcgEngine.UI
             presets.Add(GraphEventEntryAddBuff("OnAfterAddBuff", "添加增益后",
                 "任意卡牌被施加任意增益、且已生效之后触发（不可阻止）；输出口给出 卡牌/增益(实例)", true));
             //（「爆牌后」同上下线：爆牌不做）
+
+            //★「攻击时 / 攻击后」（用户提供参考图）：字段与其它事件入口一致，输出口=触发/卡牌(攻击者)/目标卡牌
+            //  · 攻击时 = 本卡发起攻击、伤害结算**之前**（可阻止=本次攻击取消）；对应 AbilityTrigger.OnBeforeAttack
+            //  · 攻击后 = 攻击结算完成且自己还活着时；对应 AbilityTrigger.OnAfterAttack
+            //「攻击时」带【攻击限制】口（第 4 个参数）：cond=要不要触发效果（事中），
+            //攻击限制=允许打谁（**事前**，只被 Game.CanAttackTarget 读取）——两者语义独立，别混用。
+            presets.Add(GraphEventEntryAttack("OnAttack", "攻击时",
+                "本卡发起攻击、伤害结算**之前**触发（能力触发路径，不支持取消本次攻击）；卡牌=攻击者，目标卡牌=被攻击的卡（打脸时为空）。\n" +
+                "【攻击限制】口 = 允许攻击这个目标（真=允许，不接线=不限制）：它只决定「能不能打」（UI 高亮/AI/合法性校验），不影响本入口的效果是否触发。",
+                "攻击限制"));
+            presets.Add(GraphEventEntryAttack("OnAfterAttack", "攻击后",
+                "本卡发起攻击、结算完成后（自己还活着）触发；卡牌=攻击者，目标卡牌=被攻击过的卡（已死亡或打脸时为空）"));
+            //★「被攻击时」入口：引擎其实一直在触发它（GameLogic.cs:1828 TriggerCardAbilityType(OnBeforeDefend, 被攻击者, 攻击者)，
+            //  事件名表 NodeDocRunner.cs:7889 也有"被攻击时"），但**编辑器里一直漏了这个入口** → 补上，
+            //  并带【被攻击限制】口（允许被哪名攻击者打）。注意：打玩家(英雄)不会触发本入口的效果（引擎既有行为）。
+            presets.Add(GraphEventEntryAttack("OnBeforeDefend", "被攻击时",
+                "本卡被攻击、伤害结算**之前**触发；卡牌=被攻击者(自己)，目标卡牌=攻击者。\n" +
+                "【被攻击限制】口 = 允许被这名攻击者攻击（真=允许，不接线=不限制）：只决定「能不能被打」。",
+                "被攻击限制"));
 
             //★「护甲变动时 / 护甲变动后」：**单属性版**（主体=持有护甲的英雄卡，只有 原值/值 两个数据口）。
             //  运行时由 NodeDocRunner 的 202018 / 202019（增加护甲）与 202020（失去护甲）广播。
@@ -1122,11 +1150,22 @@ namespace TcgEngine.UI
             p.type = GraphNodeType.Event;
             p.action = action;
             p.title = title;
-            p.desc = desc;
+            p.desc = (desc ?? "") +
+                "\n【作用范围】全部卡牌 = 任何卡满足条件都算（图里「卡牌」口 = 本次事件主体，不是「规则所属的那张卡」）；" +
+                "只想管本卡请选「仅本卡」—— 全局运行时无法用条件引用规则所属的那张卡。";
             p.category = CAT_EVENT;
             p.supported = true;
 
             p.fields.Add(BoolField("cond", "触发条件", "true"));        //★字段与端口同名 → 勾选框画进端口那一行
+            //★作用范围（=发动主体）：除 主动/起动式/被动 外，事件类入口的语义是"不限制发动主体" ——
+            //  任何卡满足触发条件都算。**新拖入**的入口由创建处显式写成「全部卡牌」。
+            //  ⚠这里的预设默认值**同时决定旧节点在界面上的显示**（旧数据没有该字段）→ 必须与引擎口径一致，
+            //   否则"显示"和"行为"不符：
+            //     · 攻击时 / 被攻击时：它们的"限制口"历史口径是**整局**（缺字段=整局）→ 显示必须是「全部卡牌」
+            //     · 其它事件入口：缺字段=**仅本卡**（保护内置迁移图）→ 显示「仅本卡」
+            //  ⚠全局运行时图里「卡牌」口 = 本次事件主体，**无法**引用"规则所属的那张卡"；只想管本卡 → 选「仅本卡」。
+            string scope_def = (action == "OnAttack" || action == "OnBeforeDefend") ? "全部卡牌" : "仅本卡";
+            p.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, scope_def));
             p.fields.Add(EnumField("tags", "标签列表", new string[] { "无", "战吼", "亡语" }, "无"));
             p.fields.Add(new FieldDef("zones", "生效区域", FieldEditType.MultiOptions,
                 new string[] { "任意", "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" },
@@ -1139,6 +1178,41 @@ namespace TcgEngine.UI
             p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
             p.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
             p.pins.Add(new PinDef("pos", "位置", NodeValueType.Int32, true));
+            return p;
+        }
+
+        /// <summary>
+        /// 按参考图构建「攻击时 / 攻击后」入口（用户提供的截图，与「XX时/后」事件入口同款排版）：
+        ///   字段顺序 = 触发条件(勾选) → 标签列表 → 生效区域 → 优先级 → 自定义效果属性
+        ///   输出口（参考图右侧）= 触发(Flow) / 卡牌(Card=攻击者) / 目标卡牌(Card=被攻击的卡；打脸时为空)
+        /// 触发名与编译映射保持一致：OnAttack→AbilityTrigger.OnBeforeAttack、OnAfterAttack→OnAfterAttack
+        /// （见 CardPoolIO.MapGraphTrigger 1147/1153），运行时机由 GameLogic 的攻击流程触发
+        /// （TriggerCardAbilityType(OnBeforeAttack/OnAfterAttack, …)，1811/1912 一带）。
+        /// 注：走的是**能力触发**路径 → 不支持"阻止本次攻击"（要可阻止得改成 EmitGraphEvent 广播）。
+        /// ★端口名必须用 target_card：NodeDocRunner 里 "target"/"target_card" 都认（2444 行），
+        ///   而能力触发上下文里 target_card 就是被攻击的目标（TriggerCardAbility → ResolveCardAbility）。
+        /// </summary>
+        private static NodePreset GraphEventEntryAttack(string action, string title, string desc, string limit_label = null)
+        {
+            NodePreset p = GraphEventEntryWithConditionToggle(action, title, desc);
+            p.pins.Clear();
+            p.pins.Add(new PinDef("cond", "触发条件", NodeValueType.Boolean, false));
+            if (!string.IsNullOrEmpty(limit_label))
+            {
+                //★【攻击限制 / 被攻击限制】口：**事前**判定（UI 高亮/AI 候选/结算前校验）只读它，
+                //  与上面的 cond（**事中**：决定本入口的效果要不要跑）语义独立、互不影响。
+                //  不接线 = 不限制；同一张卡有多个本类入口时取「全真才放行」（更严者胜）。
+                p.pins.Add(new PinDef("limit", limit_label, NodeValueType.Boolean, false));
+                //★限制口 = **整局规则**：任何卡（含 AI）的这次攻击/被攻击都要满足它。
+                //  与「攻击时/攻击后」这类**触发入口**的区别：那些是"这张卡自己的触发时机"（天然只属于本卡），
+                //  而限制口约束的是"整局里哪种攻击合法"，所以对所有卡牌生效（不再有作用范围选项）。
+                //  只想管某张卡时，在条件里自己判断（112002 比较：入口.卡牌 == 102001 这张卡牌）。
+                p.fields.Add(new FieldDef("reject_text", "拒绝提示", FieldEditType.Input, null,
+                    limit_label == "攻击限制" ? "该卡不能攻击此目标" : "该目标不能被攻击"));
+            }
+            p.pins.Add(new PinDef("out", "触发", NodeValueType.Flow, true));
+            p.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
+            p.pins.Add(new PinDef("target_card", "目标卡牌", NodeValueType.Card, true));
             return p;
         }
 
@@ -1299,22 +1373,28 @@ namespace TcgEngine.UI
             aura.pins.Add(new PinDef("target_buff", "目标增益", NodeValueType.Buff, true));  //刚施加的增益实例（供 106004/106005 等消费）
             presets.Add(aura);
 
-            //3) 被动效果入口（亡语；生效/失效为预留出口，执行层不驱动）
+            //3) 被动效果入口（亡语；生效/失效线**由引擎驱动** —— 不是预留口，别按旧注释理解）
             NodePreset pas = new NodePreset();
             pas.type = GraphNodeType.Event;
             pas.action = "PassiveEffect";
             pas.title = "被动效果入口";
             pas.desc = "zmcs 被动=本卡自带的能力：动作从「动作」出口接出（按「标签列表」的时机触发，亡语=本卡死亡时）；"
                 + "「生效动作/失效动作」两条线由引擎在卡进入/离开「生效区域」以及变形时执行 —— "
-                + "进场=生效、离场（死亡/回手/洗回/进墓地/暂存）=失效、变形=旧形态失效+新形态生效";
+                + "进场=生效、离场（死亡/回手/洗回/进墓地/暂存）=失效、变形=旧形态失效+新形态生效；"
+                + "「生效条件」为假 → 该被动不生效（生效线不执行，条件变假时补执行失效线；动作线也不执行）";
             pas.category = CAT_ENTRY;
             pas.supported = true;
             pas.fields.Add(new FieldDef("tag_list", "标签列表", FieldEditType.Dropdown, new string[] { "战吼", "亡语" }, "亡语"));
             pas.fields.Add(new FieldDef("live_area", "生效区域", FieldEditType.Dropdown, new string[] { "战场", "手牌", "牌库", "墓地", "装备区", "全部区域" }, "战场"));
             pas.fields.Add(IntField("priority", "优先级", "0"));
+            //生效条件（对齐「光环效果入口」的同名输入口）：无连线=放行；为假 → 该被动不生效
+            pas.pins.Add(new PinDef("cond", "生效条件", NodeValueType.Boolean, false));
             pas.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
-            pas.pins.Add(new PinDef("enable", "生效动作", NodeValueType.Flow, true));     //预留：不驱动执行
-            pas.pins.Add(new PinDef("disable", "失效动作", NodeValueType.Flow, true));    //预留：不驱动执行
+            //★这两条线**会被执行**：卡进入/离开「生效区域」或变形时，由 GameLogic.SyncPassiveEffects
+            //  按区域差分触发（CompilePassiveStateLines 把它编译成 OnPassiveEnable/OnPassiveDisable 能力）。
+            //  要点：失效线是**回滚线**，不受「生效条件」约束（条件由真转假时正是靠它撤销已施加的增益）。
+            pas.pins.Add(new PinDef("enable", "生效动作", NodeValueType.Flow, true));     //进场/进入生效区域时执行
+            pas.pins.Add(new PinDef("disable", "失效动作", NodeValueType.Flow, true));    //离场/条件转假时执行（回滚）
             pas.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, true));
             pas.pins.Add(new PinDef("card", "卡牌", NodeValueType.Card, true));
             presets.Add(pas);
@@ -1329,6 +1409,8 @@ namespace TcgEngine.UI
             evn.supported = true;
             evn.fields.Add(new FieldDef("event_name", "监听事件", FieldEditType.Dropdown,
                 new string[] { "回合结束", "回合开始", "打出牌", "攻击时", "死亡时", "抽到时" }, "回合结束"));
+            //★作用范围：与其它事件入口一致（缺字段=仅本卡，保护内置迁移图；新拖入由创建处写「全部卡牌」）
+            evn.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, "仅本卡"));
             evn.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
             //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
             presets.Add(evn);
@@ -1360,8 +1442,11 @@ namespace TcgEngine.UI
                 np.pins.Add(new PinDef("target", "目标", NodeValueType.Object, true));
                 np.fields.Add(new FieldDef("tags", "效果标签", FieldEditType.Dropdown, new string[] { "无", "战吼", "亡语" }, "无"));
                 np.fields.Add(IntField("priority", "优先级", "0"));
+                //★作用范围：同其它事件入口（缺字段=仅本卡；新拖入由创建处写「全部卡牌」）
+                np.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, "仅本卡"));
                 presets.Add(np);
             }
+
             return presets;
         }
 
@@ -2066,17 +2151,19 @@ namespace TcgEngine.UI
             if (ui_setup_pending && gameObject.activeInHierarchy)
             {
                 ui_setup_pending = false;
-                EnsureTmpUI();
+                //★每一步各自隔离：任一步抛异常都不能吃掉后面的初始化（否则「卡牌文本/描述」这类
+                //  靠后面步骤补建点击入口的行会静默失效 —— 表现就是"点了没反应"）
+                SafeSetup("画布隔离", EnsureCanvasIsolation);
+                SafeSetup("TMP迁移", EnsureTmpUI);
                 if (card != null)
                 {
-                    RefreshForm();             //把当前卡的值填进新换上的 TMP 控件
-                    RefreshCardExtraFields();
+                    SafeSetup("填表单", () => { RefreshForm(); RefreshCardExtraFields(); });   //把当前卡的值填进新换上的 TMP 控件
                 }
-                ReplaceFilterDropdown();       //分类过滤：下拉 → 选择按钮+弹层（旧下拉会渲染出空白方块）
-                HideLibTitle();                //节点库标题与 Tab 上的「节点库」重复，隐藏
-                FixDeckbuildingToggle();       //「可组卡」：去掉丢失 sprite 的白方块，改成灰阶「开/关」标记
-                RewireAudioPreviewButtons();   //试听按钮重挂监听（编辑器加的监听不存场景）
-                EnsureAudioDiyButtons();       //音效DIY按钮（运行时补建，避免重跑生成工具）
+                SafeSetup("分类筛选", ReplaceFilterDropdown);   //分类过滤：下拉 → 选择按钮+弹层（旧下拉会渲染出空白方块）
+                SafeSetup("节点库标题", HideLibTitle);          //节点库标题与 Tab 上的「节点库」重复，隐藏
+                SafeSetup("可组卡开关", FixDeckbuildingToggle);  //「可组卡」：去掉丢失 sprite 的白方块，改成灰阶「开/关」标记
+                SafeSetup("试听按钮", RewireAudioPreviewButtons);//试听按钮重挂监听（编辑器加的监听不存场景）
+                SafeSetup("音效DIY按钮", EnsureAudioDiyButtons); //音效DIY按钮（运行时补建，避免重跑生成工具）
                 SetupRichTextRow("卡牌文本", input_text, "RichTextText");    //多行文本框 → 富文本编辑弹层
                 SetupRichTextRow("描述", input_desc, "RichTextDesc");
                 SetupArtClipRows();            //卡面图/面板图：点击预览图 → 卡图裁切弹框（支持本地文件导入）
@@ -2511,6 +2598,16 @@ namespace TcgEngine.UI
                 if (!HasField(node, fd.name))
                     node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
             }
+            //★新拖入的事件类入口：作用范围显式写「全部卡牌」（发动主体不受限，用户口径）。
+            //  预设默认值必须是「仅本卡」以便旧节点显示与行为一致 → 新节点的全局默认在这里补。
+            if (node.type == GraphNodeType.Event
+                && node.action != "ActivateEffect" && node.action != "ActivateAbility"
+                && node.action != "PassiveEffect" && node.action != "AuraEffect")
+            {
+                for (int i = 0; i < node.fields.Count; i++)
+                    if (node.fields[i] != null && node.fields[i].name == "scope")
+                        node.fields[i].value = "全部卡牌";
+            }
             graph.nodes.Add(node);
             CreateNodeUI(node);
             RecordRecent(preset.action);
@@ -2731,7 +2828,7 @@ namespace TcgEngine.UI
                 //多效果栏只在「卡牌模式」存在（增益/按钮模式是单张共享图，没有多效果语义）。
                 //这条日志用于核对"左上角多效果入口不见了"到底是模式问题还是真被隐藏。
                 if (effs == null)
-                    Debug.Log("[效果Tab] 当前不是卡牌模式（未打开卡牌）→ 隐藏多效果栏（切换/新增/删除仅在卡牌模式提供）");
+                    WorkshopLog.Info("[效果Tab] 当前不是卡牌模式（未打开卡牌）→ 隐藏多效果栏（切换/新增/删除仅在卡牌模式提供）");
                 return;
             }
             //当前选中的图要与 graph 引用一致（多图模式下打开时可能记着上一次的下标）
@@ -3075,7 +3172,7 @@ namespace TcgEngine.UI
                     if (p.transform.IsChildOf(transform) || !fix)
                         continue;
                     p.gameObject.SetActive(false);
-                    Debug.Log("[规则编辑器] " + tag + "已停用隐形遮挡页面：" + p.name);
+                    WorkshopLog.Info("[规则编辑器] " + tag + "已停用隐形遮挡页面：" + p.name);
                 }
 
                 //④ 全屏隐形遮罩：自身与祖先都没有任何交互控件，却仍拦截射线
@@ -3125,14 +3222,14 @@ namespace TcgEngine.UI
             es.RaycastAll(pd, hits);
             if (hits.Count == 0)
             {
-                Debug.Log("[规则编辑器] 输入自检[" + tag + label + "] 命中：<无> —— 该位置没有任何可点击对象");
+                WorkshopLog.Info("[规则编辑器] 输入自检[" + tag + label + "] 命中：<无> —— 该位置没有任何可点击对象");
                 return;
             }
             GameObject top = hits[0].gameObject;
             bool ok = HasInteractive(top.transform, true);
             if (ok)
             {
-                Debug.Log("[规则编辑器] 输入自检[" + tag + label + "] 顶层命中：" + PathOf(top.transform) + "（可交互 ✓）");
+                WorkshopLog.Info("[规则编辑器] 输入自检[" + tag + label + "] 顶层命中：" + PathOf(top.transform) + "（可交互 ✓）");
                 return;
             }
             //RaycastResult 没有 graphic 字段（那是物理 RaycastHit 的 API）：从命中对象上取组件
@@ -3524,7 +3621,7 @@ namespace TcgEngine.UI
             scroll.content = custom_content;
 
             custom_form_rt.gameObject.SetActive(false);
-            Debug.Log("[自定义节点面板] 构建完成：名称/类型/说明 + 输入·输出端口（增删/上移下移/改类型）→ 写入 CustomNodeData");
+            WorkshopLog.Info("[自定义节点面板] 构建完成：名称/类型/说明 + 输入·输出端口（增删/上移下移/改类型）→ 写入 CustomNodeData");
         }
 
         /// <summary>刷新自定义节点面板（填值 + 重建端口行）</summary>
@@ -4023,7 +4120,7 @@ namespace TcgEngine.UI
 
             buff_form_rt.gameObject.SetActive(false);
             //版本标记：用于确认"运行的确实是新版面板"（旧面板/旧编译产物一眼可辨）
-            Debug.Log("[增益参数面板] 构建完成 v11：属性修改第三格 = 【变量】（填变量名，中文原样保存到 value_source，"
+            WorkshopLog.Info("[增益参数面板] 构建完成 v11：属性修改第三格 = 【变量】（填变量名，中文原样保存到 value_source，"
                 + "运行时取该变量当前值）；只有旧数据里本来就是数字的才按固定值读（兼容）");
         }
 
@@ -4142,7 +4239,7 @@ namespace TcgEngine.UI
             scroll.content = button_form_content;
 
             button_form_rt.gameObject.SetActive(false);
-            Debug.Log("[按钮参数面板] 构建完成 v1：按钮名称 / 按钮背景(选图+裁剪) / 按钮描述 / 自定义参数");
+            WorkshopLog.Info("[按钮参数面板] 构建完成 v1：按钮名称 / 按钮背景(选图+裁剪) / 按钮描述 / 自定义参数");
         }
 
         /// <summary>刷新「按钮参数」面板（名称/描述/背景预览 + 自定义参数行）</summary>
@@ -4395,7 +4492,7 @@ namespace TcgEngine.UI
                     string raw = b.input.text != null ? b.input.text.Trim() : "";
                     ApplyValueCellText(b.mod, raw);   //数字 → 固定值；中文等 → 变量名（写进 value_source）
                     written++;
-                    Debug.Log("[增益值] 保存回写：target=" + b.mod.target + " mode=" + b.mod.mode
+                    WorkshopLog.Info("[增益值] 保存回写：target=" + b.mod.target + " mode=" + b.mod.mode
                         + " 界面文本=\"" + raw + "\" → 固定值=" + b.mod.value + " 变量=\"" + b.mod.value_source + "\"");
                 }
             }
@@ -4415,13 +4512,13 @@ namespace TcgEngine.UI
                         string raw = inp.text != null ? inp.text.Trim() : "";
                         ApplyValueCellText(mods[mi], raw);   //数字 → 固定值；中文等 → 变量名
                         written++;
-                        Debug.Log("[增益值] 兜底扫描回写：第 " + mi + " 条 → 固定值=" + mods[mi].value
+                        WorkshopLog.Info("[增益值] 兜底扫描回写：第 " + mi + " 条 → 固定值=" + mods[mi].value
                             + " 变量=\"" + mods[mi].value_source + "\"（界面文本=\"" + raw + "\"）");
                     }
                     mi++;
                 }
             }
-            Debug.Log("[增益值] 保存前共回写 " + written + " 个数值框（绑定数="
+            WorkshopLog.Info("[增益值] 保存前共回写 " + written + " 个数值框（绑定数="
                 + (buff_mod_value_bindings != null ? buff_mod_value_bindings.Count : -1) + "）");
         }
 
@@ -4506,7 +4603,7 @@ namespace TcgEngine.UI
                 Destroy(c.gameObject);
             }
             buff_mod_value_bindings.Clear();   //行全部重建 → 旧绑定作废（下一轮循环按新行登记）
-            Debug.Log("[增益值] 重建属性修改行（重建后界面会按模型重新填值）");
+            WorkshopLog.Info("[增益值] 重建属性修改行（重建后界面会按模型重新填值）");
 
             List<BuffPropMod> mods = editing_buff.EnsureMods();
             CreateBuffSectionTitle("增益参数");
@@ -4745,6 +4842,7 @@ namespace TcgEngine.UI
                         rich_text_popup = RichTextPopupUI.Create(transform);
                     if (rich_text_popup == null)
                         return;
+                    BringPopupToFront(rich_text_popup.gameObject);   //弹层置顶（只调层级顺序）
                     rich_text_popup.Open(cp.init_value, v =>
                     {
                         cp.init_value = v;
@@ -4993,6 +5091,7 @@ namespace TcgEngine.UI
             CanvasGroup cg = cp_dialog.GetComponent<CanvasGroup>();
             cg.blocksRaycasts = true;
             cg.interactable = true;
+            BringPopupToFront(cp_dialog);   //弹层置顶（只调层级顺序）（否则遮罩挡不住节点点击）
 
             GameObject box_go = new GameObject("Box", typeof(RectTransform), typeof(Image));
             RectTransform box = box_go.GetComponent<RectTransform>();
@@ -5277,7 +5376,7 @@ namespace TcgEngine.UI
             RectTransform row = CreateBuffRow("Mod_" + index, null, 34f);
             float x = 2f;
             //建行日志：第 3 格是输入框（固定数值）还是选择格（枚举），一眼可辨；同时打印模型当前值
-            Debug.Log("[增益值] 建行 Mod_" + index + "：" + m.target + "/" + m.mode + " 模型值=" + m.value
+            WorkshopLog.Info("[增益值] 建行 Mod_" + index + "：" + m.target + "/" + m.mode + " 模型值=" + m.value
                 + " 第三格=" + (BuffModTarget.IsEnum(m.target) ? "枚举选择格" : "数值输入框"));
 
             //① 增益属性（= 增益自身的属性，不是卡牌属性；含下面自定义参数）
@@ -5367,7 +5466,7 @@ namespace TcgEngine.UI
                 TMP_InputField val_input = MakeBuffInput(cell, ValueCellText(m), false, 16, v =>
                 {
                     ApplyValueCellText(m, v);
-                    Debug.Log("[增益值] 数值格：\"" + (v != null ? v.Trim() : "") + "\" → " + m.target + "/" + m.mode
+                    WorkshopLog.Info("[增益值] 数值格：\"" + (v != null ? v.Trim() : "") + "\" → " + m.target + "/" + m.mode
                         + " 固定值=" + m.value + " 变量=\"" + m.value_source + "\"");
                 });
                 //★登记绑定：保存时会再按界面文本回写一次（防"填完直接点保存"丢值，实测踩过）
@@ -5726,6 +5825,24 @@ namespace TcgEngine.UI
             return null;
         }
 
+        /// <summary>从行内某个子物体往上找它所属的"属性行"（父物体 = 属性表单容器的那一级）。
+        /// 用途：按标签找不到行时的兜底（输入框一定在自己那一行里，比标签文字更可靠）</summary>
+        private RectTransform FindRowOfChild(Transform child)
+        {
+            RectTransform content = PropFormContent();
+            if (child == null || content == null)
+                return null;
+            Transform cur = child;
+            int guard = 0;
+            while (cur != null && guard++ < 24)
+            {
+                if (cur.parent == content)
+                    return cur as RectTransform;
+                cur = cur.parent;
+            }
+            return null;
+        }
+
         /// <summary>属性行标签文本（兼容旧版 Text 与 TMP）</summary>
         private static string RowLabelOf(RectTransform row)
         {
@@ -5848,7 +5965,7 @@ namespace TcgEngine.UI
             }
 
             triple_rows_fixed = true;
-            Debug.Log("[属性区] 已把「类型/阵营/稀有度」「费用/攻击/生命」从三列紧凑布局改为与其它字段一致的单字段行"
+            WorkshopLog.Info("[属性区] 已把「类型/阵营/稀有度」「费用/攻击/生命」从三列紧凑布局改为与其它字段一致的单字段行"
                 + "（原布局标签与控件纵向重叠 20px）；搬移控件 " + moved + " 个");
         }
 
@@ -6713,7 +6830,7 @@ namespace TcgEngine.UI
             if (legacy_rt != null)
             {
                 legacy_rt.gameObject.SetActive(false);   //旧控件整体隐藏（TMP 下拉的模板会渲染出空白方块）
-                Debug.Log("[节点库] 已隐藏旧的分类控件：" + legacy_rt.name);
+                WorkshopLog.Info("[节点库] 已隐藏旧的分类控件：" + legacy_rt.name);
             }
 
             Transform stale = parent.Find("FilterSelect");
@@ -6762,7 +6879,7 @@ namespace TcgEngine.UI
             SetStretchRect(t.rectTransform, 26, 0, 26, 0);
             t.raycastTarget = false;
             txt_filter_select = t;
-            Debug.Log("[节点库] 分类筛选已换成「选择按钮 + 多选弹层」（旧控件="
+            WorkshopLog.Info("[节点库] 分类筛选已换成「选择按钮 + 多选弹层」（旧控件="
                 + (legacy_rt != null ? legacy_rt.name : "未找到（已按搜索框下方兜底建按钮）") + "）");
         }
 
@@ -6900,7 +7017,7 @@ namespace TcgEngine.UI
             if (legacy.gameObject.activeSelf)
             {
                 legacy.gameObject.SetActive(false);
-                Debug.Log("[节点库] 隐藏残留的旧分类控件：" + legacy.name);
+                WorkshopLog.Info("[节点库] 隐藏残留的旧分类控件：" + legacy.name);
             }
         }
 
@@ -6911,7 +7028,7 @@ namespace TcgEngine.UI
         /// 配色/边框/选中态与既有多选框完全一致）。「全部」=清空选择（不过滤）；其余分类可多选。</summary>
         private void OnClickFilterSelect()
         {
-            Debug.Log("[节点库] 点击分类筛选（当前：" + FilterLabelText() + "）→ 打开居中多选弹层");
+            WorkshopLog.Info("[节点库] 点击分类筛选（当前：" + FilterLabelText() + "）→ 打开居中多选弹层");
             try
             {
                 OpenFilterMultiSelect();
@@ -7644,44 +7761,75 @@ namespace TcgEngine.UI
         private void SetupRichTextRow(string label, TMP_InputField source, string btn_name)
         {
             if (source == null)
+            {
+                Debug.LogWarning("[规则编辑器] 「" + label + "」行没有绑定输入框（input 字段为空）→ 富文本入口无法建立");
                 return;
+            }
+            //行定位：先按标签找（常规路径）；找不到就**从输入框自己往上找**（输入框一定在自己那一行里）。
+            //  为什么要有兜底：标签文字被改过 / PropLabel 名字变化 / 行结构不同，都会让按标签查找失败，
+            //  旧写法直接 return → 这两行永远点不了，而且不报错（实测就是这个症状）。
             RectTransform row = FindPropRow(PropFormContent(), label);
             if (row == null)
+                row = FindRowOfChild(source.transform);
+            if (row == null)
+            {
+                Debug.LogWarning("[规则编辑器] 「" + label + "」行定位失败（按标签与按输入框都找不到）→ 富文本入口未建立");
                 return;
+            }
             Transform field = row.Find("Field");
             if (field == null)
+                field = source.transform.parent;      //兜底：控件所在容器即可（按钮铺满它）
+            if (field == null)
+            {
+                Debug.LogWarning("[规则编辑器] 「" + label + "」行里找不到 Field，也没有可用父容器 → 富文本入口未建立");
                 return;
+            }
             Transform stale = field.Find(btn_name);
             if (stale != null)
                 Destroy(stale.gameObject);
-            source.gameObject.SetActive(false);   //原输入框隐藏（值仍在，保存逻辑不变）
 
-            GameObject go = new GameObject(btn_name, typeof(RectTransform), typeof(Image), typeof(Button));
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(field, false);
-            SetStretchRect(rt, 0, 0, 0, 0);
-            Image img = go.GetComponent<Image>();
-            img.color = new Color(1f, 1f, 1f, 0.16f);
-            Button btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-            TMP_Text t = MakeNodeTmpText(rt, "Text", RichTextSummary(source.text), 14, TextAlignmentOptions.Left);
-            SetStretchRect(t.rectTransform, 8, 6, 8, 6);
-            t.enableWordWrapping = true;
-            t.overflowMode = TextOverflowModes.Overflow;
-            t.raycastTarget = false;
-            TMP_Text captured = t;
-            btn.onClick.AddListener(() =>
+            //★顺序很关键：**先把按钮建好、点击监听注册好，最后才隐藏原输入框**。
+            //  旧写法是"先 SetActive(false) 再建按钮"，中间 5 步（Image/字体/文本/FitRichTextRow）
+            //  任何一步抛异常（TMP 字体缺失、GetPreferredValues 的 TMP 已知异常…）都会留下
+            //  「输入框已隐藏 + 按钮没有点击监听」的死行 —— 表现就是这两行空着、点不动、还不报错。
+            try
             {
-                OpenRichTextEditor(label, source, v =>
+                GameObject go = new GameObject(btn_name, typeof(RectTransform), typeof(Image), typeof(Button));
+                RectTransform rt = go.GetComponent<RectTransform>();
+                rt.SetParent(field, false);
+                SetStretchRect(rt, 0, 0, 0, 0);
+                Image img = go.GetComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.16f);
+                Button btn = go.GetComponent<Button>();
+                btn.targetGraphic = img;
+                TMP_Text t = MakeNodeTmpText(rt, "Text", RichTextSummary(source.text), 14, TextAlignmentOptions.Left);
+                SetStretchRect(t.rectTransform, 8, 6, 8, 6);
+                t.enableWordWrapping = true;
+                t.overflowMode = TextOverflowModes.Overflow;
+                t.raycastTarget = false;
+                TMP_Text captured = t;
+                btn.onClick.AddListener(() =>
                 {
-                    if (captured != null)
+                    OpenRichTextEditor(label, source, v =>
                     {
-                        captured.text = RichTextSummary(v);     //= 原文（显示内容与实际保存内容一致）
-                        FitRichTextRow(row, captured);          //长了就把行撑高，不压到下一行
-                    }
+                        if (captured != null)
+                        {
+                            captured.text = RichTextSummary(v);     //= 原文（显示内容与实际保存内容一致）
+                            try { FitRichTextRow(row, captured); }   //长了就把行撑高（TMP 异常不该影响已保存的值）
+                            catch (Exception e) { Debug.LogWarning("[规则编辑器] 富文本行撑高失败（已忽略）：" + e.Message); }
+                        }
+                    });
                 });
-            });
-            FitRichTextRow(row, t);       //打开时也按当前文本撑一次
+                source.gameObject.SetActive(false);   //★按钮与监听就绪后才隐藏原输入框（值仍在，保存逻辑不变）
+                try { FitRichTextRow(row, t); }       //打开时也按当前文本撑一次
+                catch (Exception e) { Debug.LogWarning("[规则编辑器] 富文本行撑高失败（已忽略）：" + e.Message); }
+            }
+            catch (Exception e)
+            {
+                //建按钮失败 → 让这一行保持可用（输入框恢复显示），并打明确的错误
+                source.gameObject.SetActive(true);
+                Debug.LogError("[规则编辑器] 「" + label + "」富文本入口建立失败（已保留原输入框，仍可直接编辑）：" + e);
+            }
         }
 
         /// <summary>富文本摘要：去标签后的前 40 字（空值给占位提示）</summary>
@@ -7727,25 +7875,42 @@ namespace TcgEngine.UI
         /// 未绑定场景弹框时自动在同 Canvas 下创建（复用 UI/RichText 下的通用组件）。</summary>
         public void OpenRichTextEditor(string title, TMP_InputField source, System.Action<string> on_confirm)
         {
-            if (rich_text_popup == null)
-                rich_text_popup = RichTextPopupUI.Create(transform);
-            if (rich_text_popup == null)
-                return;
-
-            TMP_FontAsset node_font = NodeFont();   //复用画布已渲染成功的中文字体，避免弹框出现方块字
-            if (node_font != null)
-                rich_text_popup.font = node_font;
-            rich_text_popup.title = string.IsNullOrEmpty(title) ? "编辑卡牌描述" : title;
-
-            // 「确定」时必须把结果写回表单输入框：该输入框被隐藏但保存时 ReadForm 仍按它取值，
-            // 只调 on_confirm（仅刷新摘要）会导致卡牌文本存不进去、重开丢样式
-            rich_text_popup.Open(source != null ? source.text : "", v =>
+            try
             {
-                if (source != null)
-                    source.text = v;
-                if (on_confirm != null)
-                    on_confirm(v);
-            });
+                if (rich_text_popup == null)
+                    rich_text_popup = RichTextPopupUI.Create(transform);
+                if (rich_text_popup == null)
+                {
+                    Debug.LogError("[规则编辑器] 富文本弹框创建失败，无法打开「" + title + "」编辑");
+                    return;
+                }
+
+                //★先设字体/标题再激活：弹框若是未激活对象，激活会立刻跑 Awake→EnsureBuilt，
+                //  那时字体还没给就会按默认字体建 UI（方块字/空白）。顺序反过来才能拿到中文字体。
+                TMP_FontAsset node_font = NodeFont();   //复用画布已渲染成功的中文字体，避免弹框出现方块字
+                if (node_font != null)
+                    rich_text_popup.font = node_font;
+                rich_text_popup.title = string.IsNullOrEmpty(title) ? "编辑卡牌描述" : title;
+
+                rich_text_popup.gameObject.SetActive(true);           //兜底：若曾被"隐形遮挡自检"停用，这里恢复（否则点了没反应）
+                BringPopupToFront(rich_text_popup.gameObject);   //弹层置顶（只调层级顺序）（幂等，场景绑定的弹框也覆盖）
+
+                // 「确定」时必须把结果写回表单输入框：该输入框被隐藏但保存时 ReadForm 仍按它取值，
+                // 只调 on_confirm（仅刷新摘要）会导致卡牌文本存不进去、重开丢样式
+                rich_text_popup.Open(source != null ? source.text : "", v =>
+                {
+                    if (source != null)
+                        source.text = v;
+                    if (on_confirm != null)
+                        on_confirm(v);
+                });
+            }
+            catch (Exception e)
+            {
+                //弹框内部（TMP 输入框获焦/光标处理）可能抛异常：这里兜住并明确报错，
+                //绝不静默——否则表现就是"点了这两行没反应"，排查成本极高
+                Debug.LogError("[规则编辑器] 打开富文本弹框异常（「" + title + "」）：" + e);
+            }
         }
 
         // ---------------- 卡图裁切（点击预览图 → 裁切弹框） ----------------
@@ -8296,6 +8461,12 @@ namespace TcgEngine.UI
             TMP_Text desc = EnsureTmpText(inst.transform, "DescText");
             if (desc != null)
                 desc.text = PortSummary(preset);
+
+            //★装饰文本不吃射线：节点库一屏 300+ 行、每行 3 个文本都会进 GraphicRaycaster 的候选列表，
+            //  而每次指针事件（拖动中每帧）都要全量筛一遍。点击由行根按钮负责，关掉这些能实打实减少射线开销。
+            if (title != null) title.raycastTarget = false;
+            if (icon != null) icon.raycastTarget = false;
+            if (desc != null) desc.raycastTarget = false;
             if (!preset.supported)
             {
                 Color gray = new Color(0.55f, 0.55f, 0.58f, 1f);   //灰显但字色不透明
@@ -8707,6 +8878,16 @@ namespace TcgEngine.UI
             {
                 if (!HasField(node, fd.name))
                     node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
+            }
+            //★新拖入的事件类入口：作用范围显式写「全部卡牌」（发动主体不受限）；旧节点因为没有该字段，
+            //  引擎仍按「仅本卡」处理（与预设默认值一致，显示与行为一致）。
+            if (node.type == GraphNodeType.Event
+                && node.action != "ActivateEffect" && node.action != "ActivateAbility"
+                && node.action != "PassiveEffect" && node.action != "AuraEffect")
+            {
+                for (int i = 0; i < node.fields.Count; i++)
+                    if (node.fields[i] != null && node.fields[i].name == "scope")
+                        node.fields[i].value = "全部卡牌";
             }
 
             PushUndo();   //结构操作：记录撤销点
@@ -9445,6 +9626,7 @@ namespace TcgEngine.UI
             root.anchorMax = Vector2.one;
             root.offsetMin = Vector2.zero;
             root.offsetMax = Vector2.zero;
+            BringPopupToFront(node_help_popup);   //弹层置顶（只调层级顺序）
             Image back = node_help_popup.AddComponent<Image>();
             back.color = new Color(0, 0, 0, 0.55f);
             Button bbtn = node_help_popup.AddComponent<Button>();
@@ -9567,6 +9749,23 @@ namespace TcgEngine.UI
             RefreshEmptyHint();
             ApplyValidationMarks();   //重建后刷新缺输入角标
             RefreshCollapseBadges();  //重建后刷新收起节点「×N」角标
+            DiagnoseCanvasGraphics(); //画布图形数诊断（一次会话只提醒一次）
+        }
+
+        /// <summary>画布图形数诊断：Canvas 的**重建**与 GraphicRaycaster 的**射线检测**都是 O(画布内图形总数)，
+        /// 数量明显偏大就是"拖动节点卡顿"的直接原因；反复开关页面/切效果图会累积（重启编辑器归零）。
+        /// 只诊断不修：把数字打出来，便于判断"是不是越用越卡"（一次会话只打一条，不刷屏）。</summary>
+        private void DiagnoseCanvasGraphics()
+        {
+            if (canvas_content == null || canvas_graphic_warned)
+                return;
+            int n = canvas_content.GetComponentsInChildren<Graphic>(true).Length;
+            if (n < CANVAS_GRAPHIC_WARN)
+                return;
+            canvas_graphic_warned = true;
+            Debug.LogWarning("[规则编辑器] 画布内图形数偏大：" + n + "（阈值 " + CANVAS_GRAPHIC_WARN + "）"
+                + " → 画布重建与射线检测按图形数增长，拖动会变卡；反复开关页面会累积，重开 Unity 可归零。"
+                + "（打开菜单 TcgEngine/规则图诊断日志 可看到更详细的编译日志）");
         }
 
         private void CreateNodeUI(GraphNode node)
@@ -11820,14 +12019,15 @@ namespace TcgEngine.UI
                         other.anchoredPosition += delta;
                 }
             }
-            //移动时实时重绘相连的线（多选整组移动时，组内节点的线也要重绘）
+            //移动时实时重绘相连的线（多选整组移动时，组内节点的线也要重绘）；
+            //quick=true：拖动中不摆命中块（右键删线的判定块），松手时由 OnNodeMoved 补一次完整重绘
             foreach (NodeLink nl in links)
             {
                 if (nl == null)
                     continue;
                 if (nl.from_node == node_id || nl.to_node == node_id
                     || (group && (selected_nodes.Contains(nl.from_node) || selected_nodes.Contains(nl.to_node))))
-                    nl.Redraw();
+                    nl.Redraw(true);
             }
         }
 
@@ -11858,7 +12058,112 @@ namespace TcgEngine.UI
                     n++;
                 }
             }
+            //拖动过程走的是 quick 重绘（不摆命中块）→ 松手后补齐一次完整重绘，保证右键删线判定块归位
+            foreach (NodeLink nl in links)
+            {
+                if (nl == null)
+                    continue;
+                if (nl.from_node == node_id || nl.to_node == node_id
+                    || (n > 1 && (selected_nodes.Contains(nl.from_node) || selected_nodes.Contains(nl.to_node))))
+                    nl.Redraw();
+            }
             SetStatus(n > 1 ? ("已移动 " + n + " 个节点，记得保存") : "节点已移动，记得保存");
+        }
+
+        // ---------------- 拖动/重建性能（画布隔离 + 弹层排序保护） ----------------
+
+        /// <summary>初始化步骤异常隔离：单步失败只记一条警告，绝不吃掉后面的初始化
+        /// （历史上就出现过"某一步抛异常 → 后面的「卡牌文本/描述」点击入口没建 → 点了没反应"）</summary>
+        private void SafeSetup(string label, Action step)
+        {
+            if (step == null)
+                return;
+            try { step(); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[规则编辑器] 初始化步骤「" + label + "」异常（已跳过，不影响其它步骤）：" + e);
+            }
+        }
+
+        /// <summary>★画布区子 Canvas 隔离（运行时补挂，不改场景/不重跑生成工具）。
+        /// 问题：整个规则图编辑器共用主 Canvas（GraphEditorBuilder.GetMainCanvas），
+        /// 拖动节点时每帧改 RectTransform，Unity 会重建**整画布**批次——节点库列表（约 1500 个图形）
+        /// 也在同一画布内，于是"拖一个节点 = 重建一大片"，帧时间被拉长，表现就是拖动卡顿。
+        /// 挂子 Canvas 后，重建只发生在画布这一小块。
+        /// 挂点选「视口」而非「节点容器」：遮罩(Mask)与它的子物体同处一个子画布，stencil 写入/比较
+        /// 的先后顺序最稳（不会出现"节点溢出画布边界"）。
+        /// 必须配套 GraphicRaycaster：图形是按"最近的 Canvas"注册的，主画布的射线器扫不到子画布里的
+        /// 节点/引脚（不补就会"全部点不动"）。</summary>
+        private void EnsureCanvasIsolation()
+        {
+            if (canvas_isolated)
+                return;
+            Transform viewport = graph_canvas != null ? graph_canvas.transform
+                : (canvas_content != null ? canvas_content.parent : null);
+            if (viewport == null)
+                return;
+            Canvas sub = viewport.GetComponent<Canvas>();
+            if (sub == null)
+                sub = viewport.gameObject.AddComponent<Canvas>();
+            sub.overrideSorting = false;    //不开 overrideSorting：仍按层级顺序渲染，视觉层级完全不变
+            sub.pixelPerfect = false;
+
+            //父画布是"相机模式"时，子 Canvas 与射线器必须跟着用同一相机（否则坐标偏移/点不中）
+            Canvas root = viewport.parent != null ? viewport.parent.GetComponentInParent<Canvas>() : null;
+            if (root != null && root.renderMode != RenderMode.ScreenSpaceOverlay)
+                sub.worldCamera = root.worldCamera;
+
+            if (viewport.GetComponent<GraphicRaycaster>() == null)
+                viewport.gameObject.AddComponent<GraphicRaycaster>();
+            canvas_isolated = true;
+        }
+
+        /// <summary>弹层置顶（盖住整页，含画布区的子 Canvas），且**必须与根画布同一排序层**。
+        ///
+        /// ★血泪教训（真因）：上一版这里只写了 `overrideSorting=true; sortingOrder=100;`，
+        /// 结果弹层被排到主画布**之前**：
+        ///   ① 新建 Canvas 的 `sortingLayer` 默认是 "Default"，而整套 UI 在 "UI"，Default 排在 UI 之前
+        ///      → 弹层渲染在所有 UI 之下（视觉上=完全没画出来）；
+        ///   ② 新建的 GameObject 在 Layer 0(Default)，相机 cullingMask 只含 UI（ScreenSpaceCamera 模式）
+        ///      → 独立画布还可能被整块剔除。
+        /// 表现就是"点『卡牌文本/描述』毫无反应"：对象存在、alpha 正常在涨、射线也命中，就是看不见。
+        ///
+        /// 为什么不能干脆不给弹层独立 Canvas：画布区（CanvasArea/Viewport）为了拖拽性能挂了子 Canvas
+        /// （见 EnsureCanvasIsolation），它的 renderOrder 比根画布大，射线优先级会**压过**根画布内的弹层
+        /// → 出现"弹层看得见，但点在弹层左半边会打到下面的节点"。所以弹层要独立 Canvas + 排序层/order 对齐。</summary>
+        private void BringPopupToFront(GameObject popup)
+        {
+            if (popup == null)
+                return;
+            popup.transform.SetAsLastSibling();
+
+            Canvas root = popup.transform.parent != null ? popup.transform.parent.GetComponentInParent<Canvas>() : null;
+            if (root == null)
+                return;
+
+            //① layer 对齐根画布（**含所有子物体**）：相机画面的 cullingMask 只含 UI(Layer 5)，
+            //   而运行时新建的 UI 全在 Layer 0(Default)，层不对就会被整块剔除=不渲染。
+            //   只在开弹层时跑一次，对象数很少，开销可忽略。
+            int ui_layer = root.gameObject.layer;
+            popup.layer = ui_layer;
+            Transform[] popup_children = popup.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < popup_children.Length; i++)
+                popup_children[i].gameObject.layer = ui_layer;
+
+            //② 独立 Canvas + 同排序层、更高 order：同层内才可比，必然盖住本页（含画布子 Canvas）
+            Canvas cv = popup.GetComponent<Canvas>();
+            if (cv == null)
+                cv = popup.AddComponent<Canvas>();
+            cv.overrideSorting = true;
+            cv.sortingLayerID = root.sortingLayerID;        //★必须跟根画布一致（默认新建=Default，会掉到 UI 层后面）
+            cv.sortingOrder = root.sortingOrder + 10;       //同层内高于根画布
+            cv.pixelPerfect = root.pixelPerfect;
+            cv.planeDistance = root.planeDistance;          //与根画布同一平面（相机模式）
+            cv.worldCamera = root.renderMode == RenderMode.ScreenSpaceOverlay ? null : root.worldCamera;
+
+            //③ 独立画布的图形要自己能被射线命中（图形按"最近的 Canvas"注册到 GraphicRaycaster）
+            if (popup.GetComponent<GraphicRaycaster>() == null)
+                popup.AddComponent<GraphicRaycaster>();
         }
 
         /// <summary>选中节点并高亮（同时刷新右侧参数编辑区）。**按住 Shift = 多选**（再点一次取消该节点）</summary>
@@ -12516,6 +12821,7 @@ namespace TcgEngine.UI
 
             root_go.SetActive(false);
             field_select_popup = root_go;   //构建成功才赋值（见方法开头注释：失败时保持 null，下次重建）
+            BringPopupToFront(root_go);   //弹层置顶（只调层级顺序）（否则节点会抢走本弹层的点击）
         }
 
         /// <summary>新建文本：统一用 TMP（旧版 UGUI Text 太糊），自动应用节点字体</summary>

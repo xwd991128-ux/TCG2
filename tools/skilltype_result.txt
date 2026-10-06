@@ -1,3 +1,9 @@
-PASS	① type="Skill" 编译为 CardType.Skill	实际=Skill GetTypeId=skill
-FAIL	② 打出技能卡 → 效果结算（敌方角色分配伤害 2）	掉血=0（定义能力数=1）
+PASS	① type="Skill" 编译为 CardType.Skill	实际=Skill GetTypeId=skill [v2]
+   [诊断] 编译实例: 能力=graph_probe_skill_card_ActivateEffect_553ca51a trigger=OnPlay effects=1 [EffectRunGraph graph=有(3节点) trigger=ActivateEffect]
+   [诊断] 导入实例: 能力=graph_probe_skill_card_ActivateEffect_553ca51a trigger=OnPlay effects=1 [EffectRunGraph graph=有(3节点) trigger=ActivateEffect]
+   [诊断] 定义能力[0]=graph_probe_skill_card_ActivateEffect_553ca51a trigger=OnPlay effects=1
+PASS	② 打出技能卡 → 效果结算（敌方角色分配伤害 2）	掉血=2（定义能力数=1）
+   [诊断] 直接 DoEffects：p1.hp 28→26｜能力 trigger=OnPlay target=None id=graph_probe_skill_card_ActivateEffect_553ca51a｜手牌=False 墓地=True｜IsResolving=False｜p1.hero=st_p1hero p1.场上卡数=0
+   [诊断] 直接 Run(trigger=ActivateEffect)：执行动作数=1 → p1.hp=24
+   [诊断] 复刻效果调用：图同一=True trigger_action=ActivateEffect entry_pin=空 slots=null 复刻执行动作数=1 hp=22｜体检: 节点=3 连线=2 入口节点=True 入口pins=2 入口category=其他 伤害节点=True 伤害pins=3 连线0=ev:ev_out→d:d_in fromPin存在=True
 PASS	③ 打出后进墓地、不进战场（法术同款）	进墓地=True 进战场=False

@@ -395,6 +395,18 @@ namespace TcgEngine.Client
             SendAction(GameAction.ChatMessage, chat);
         }
 
+        /// <summary>调试控制台指令（人机/模拟对局；联机由服务端拒绝）。
+        /// 结果通过 `onServerMsg` 回到客户端（DevConsoleUI 订阅）。</summary>
+        public void SendDevCommand(string cmd)
+        {
+            if (string.IsNullOrEmpty(cmd))
+                return;
+            MsgChat payload = new MsgChat();
+            payload.msg = cmd;
+            payload.player_id = player_id;
+            SendAction(GameAction.DevCommand, payload);
+        }
+
         public void EndTurn()
         {
             SendAction(GameAction.EndTurn);

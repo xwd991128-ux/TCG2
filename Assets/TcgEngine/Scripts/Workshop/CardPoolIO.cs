@@ -460,8 +460,26 @@ namespace TcgEngine.Workshop
             {
                 foreach (AbilityData ability in card.abilities)
                 {
-                    if (ability != null)
-                        data.abilities.Add(AbilityToData(ability));
+                    if (ability == null)
+                        continue;
+                    //★图派生能力**不写进能力级 abilities**：它们由图（卡级 data.effects）代表，
+                    //  两边都写 → 导入时同一效果被编译两次（实测：技能卡伤害翻倍、能力数 1→2）。
+                    //  判断依据：能力的效果里含 EffectRunGraph（图能力的唯一标识）。
+                    bool graph_derived = false;
+                    if (ability.effects != null)
+                    {
+                        foreach (EffectData ef in ability.effects)
+                        {
+                            if (ef is EffectRunGraph)
+                            {
+                                graph_derived = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (graph_derived)
+                        continue;
+                    data.abilities.Add(AbilityToData(ability));
                 }
             }
             data.keywords.Clear();
@@ -474,6 +492,45 @@ namespace TcgEngine.Workshop
                 }
             }
             data.skills = card.skills != null ? new List<string>(card.skills) : new List<string>();   //英雄技能卡引用（导出保留）
+
+            //★把「图能力」的图回写到卡级效果列表（data.effects）——**这是导出方向的关键缺口**：
+            //  导入侧 CompileOneGraphAbilities 只认 CardEffectData.graph（能力级的 AbilityCustomData.effects
+            //  是另一套旧表示，图能力不走它）。以前这里一个字都不写 ⇒
+            //  **导出卡池 → 再导入 = 所有图效果消失**：EffectRunGraph.graph 变成 null，
+            //  图里动作一个都不跑，而且**没有任何日志**（实测：SkillTypeProbe 打出技能卡零伤害，
+            //  诊断行「导入实例 graph=★null」；探针 ② 的根因就是它）。
+            //  去重按"图实例"判定：被动入口的 生效/失效 两条线共用同一张图，只需回写一条（导入时会重新派生两条线）。
+            if (card.abilities != null)
+            {
+                foreach (AbilityData ability in card.abilities)
+                {
+                    if (ability == null || ability.effects == null)
+                        continue;
+                    foreach (EffectData ef in ability.effects)
+                    {
+                        EffectRunGraph rg = ef as EffectRunGraph;
+                        if (rg == null || rg.graph == null)
+                            continue;
+                        bool dup = false;
+                        for (int i = 0; i < data.effects.Count; i++)
+                        {
+                            CardEffectData e2 = data.effects[i];
+                            if (e2 != null && object.ReferenceEquals(e2.graph, rg.graph))
+                            {
+                                dup = true;
+                                break;
+                            }
+                        }
+                        if (dup)
+                            continue;
+                        data.effects.Add(new CardEffectData
+                        {
+                            name = string.IsNullOrEmpty(ability.title) ? ability.id : ability.title,
+                            graph = rg.graph,
+                        });
+                    }
+                }
+            }
             return data;
         }
 
@@ -557,7 +614,19 @@ namespace TcgEngine.Workshop
                 }
             }
 
-            data.effects = SerializeComponents(ability.effects);
+            //★图能力不写进"能力级 effects"：图能力的图由**卡级** data.effects 承载（见 CardToData 末尾的回写）。
+            //  两边都写 → 导入时"卡级图 + 能力级图"各编译一遍 → **同一个效果跑两次**
+            //  （实测：技能卡 2 点伤害变成 6 点、能力数 1 → 2）。
+            List<EffectData> legacy_effects = new List<EffectData>();
+            if (ability.effects != null)
+            {
+                foreach (EffectData ef in ability.effects)
+                {
+                    if (ef != null && !(ef is EffectRunGraph))
+                        legacy_effects.Add(ef);
+                }
+            }
+            data.effects = SerializeComponents(legacy_effects.ToArray());
             data.conditions_trigger = SerializeComponents(ability.conditions_trigger);
             data.conditions_target = SerializeComponents(ability.conditions_target);
             data.filters_target = SerializeComponents(ability.filters_target);
@@ -577,7 +646,10 @@ namespace TcgEngine.Workshop
             {
                 try
                 {
-                    ImportFromFile(file);
+                    //★授予拥有数量：否则工坊里做好的卡在构筑界面是"未拥有"——灰显且点不动
+                    //（用户实报"我做好的卡牌怎么无法加入构筑？"）。GrantOwnership 已改为幂等补齐，
+                    //每次启动都调也不会累加，所以这里给 true。
+                    ImportFromFile(file, true);
                 }
                 catch (Exception e)
                 {
@@ -696,16 +768,49 @@ namespace TcgEngine.Workshop
             return added;
         }
 
-        /// <summary>授予玩家拥有该自定义卡（默认变体 2 张），使其可正常构筑</summary>
+        /// <summary>自定义卡默认授予的拥有张数（=可正常构筑）</summary>
+        public const int CustomOwnCount = 2;
+
+        /// <summary>授予玩家拥有该自定义卡（默认变体 2 张），使其可正常构筑。
+        ///
+        /// ★**幂等**（"补齐到 2 张"，不是每次 +2）：启动自动加载每次都会走到这里，
+        /// 用累加会让拥有数随每次启动无限增长；补齐则稳定，且玩家自己买/开包得到的更多张数不会被削减。
+        ///
+        /// ★为什么要修：以前只有"玩家主动导入卡池"才授予拥有，启动自动加载（LoadCustomPools）不授予，
+        /// 于是工坊里做好的卡在构筑界面是"未拥有"状态 —— 表现就是**卡片灰显、点它没有任何反应**
+        /// （CollectionPanel.OnClickCard 里 `owner && deck_limit` 不成立就静默 return），
+        /// 用户实报："我做好的卡牌怎么无法加入构筑？"</summary>
         private static void GrantOwnership(CardData card)
         {
+            if (card == null || string.IsNullOrEmpty(card.id))
+                return;
             VariantData variant = VariantData.GetDefault();
             Authenticator auth = Authenticator.Get();
             if (auth == null || variant == null)
                 return;
             UserData udata = auth.UserData;
-            if (udata != null)
-                udata.AddCard(card.id, variant.id, 2);
+            if (udata == null)
+                return;      //玩家数据还没跑完（异步）：交给 EnsureCustomCardOwned 在构筑界面按需补
+            int have = udata.GetCardQuantity(card.id, variant.id, variant.is_default);
+            if (have >= CustomOwnCount)
+                return;
+            udata.AddCard(card.id, variant.id, CustomOwnCount - have);
+            Debug.Log("[卡池] 授予拥有 " + card.id + " ×" + CustomOwnCount
+                + "（补齐 " + have + "→" + CustomOwnCount + "，可在构筑界面使用）");
+        }
+
+        /// <summary>确保玩家拥有该自定义卡（补齐到 <see cref="CustomOwnCount"/> 张）。
+        /// 返回是否为**自定义卡池**的卡（内置卡返回 false）。幂等，可反复调。
+        /// 构筑界面刷新/加卡前调用：卡池自动加载发生在启动早期，那时玩家数据可能尚未读完，
+        /// 单靠加载路径授予会漏，这里兜住（"作者自己的卡"永远可构筑）。</summary>
+        public static bool EnsureCustomCardOwned(CardData card)
+        {
+            if (card == null || string.IsNullOrEmpty(card.id))
+                return false;
+            if (GetCustomData(card.id) == null)
+                return false;                    //内置卡：不参与（保持原有收集/经济语义）
+            GrantOwnership(card);
+            return true;
         }
 
         /// <summary>CardCustomData → CardData（运行时实例）</summary>
@@ -748,6 +853,10 @@ namespace TcgEngine.Workshop
             //规则图编译为能力（图 → AbilityData），使规则编辑器画的图在真实对战中生效
             abilities.AddRange(CompileGraphAbilities(data));
             card.abilities = abilities.ToArray();
+            //★判定类入口（攻击限制 / 被攻击限制）的图：不生成能力，单独挂到 CardData.attack_graph，
+            //  由 Game.CanAttackTargetByRules 直接提问（UI 高亮 / AI / 结算共用那一处判定）。
+            card.attack_graph = FindAttackGraph(data);
+            RebuildGlobalAttackGraphs();   //★"作用范围=全部卡牌"的规则：配一次，对所有卡（含 AI）生效
             //数组字段置空数组而非 null，避免 Card.SetCard/SetTraits 等遍历时报空引用
             card.stats = new TraitStat[0];
             card.packs = new PackData[0];
@@ -755,6 +864,155 @@ namespace TcgEngine.Workshop
             CardAudioLoader.LoadCardAudio(data, card);
             InheritBuiltinVisuals(card);
             return card;
+        }
+
+        /// <summary>找卡牌里带【攻击限制 / 被攻击限制】口连线的图（找不到 = null = 不做任何限制，零开销）。
+        /// 判据 = "攻击时 / 被攻击时入口的 limit 口有没有接线"：纯效果入口（限制口没接）不会让这张卡进入攻击判定。
+        /// 两个限制口放**同一张图**最省事（各入口自己带自己的限制口）。</summary>
+        private static GraphData FindAttackGraph(CardCustomData data)
+        {
+            if (data == null)
+                return null;
+            foreach (CardEffectData eff in data.EnsureEffects())
+            {
+                GraphData g = eff != null ? eff.graph : null;
+                if (g == null || g.nodes == null)
+                    continue;
+                foreach (GraphNode n in g.nodes)
+                {
+                    if (n == null || n.type != GraphNodeType.Event)
+                        continue;
+                    if (n.action != "OnAttack" && n.action != "OnBeforeDefend")
+                        continue;
+                    GraphPin pin = g.GetPinByName(n.id, "limit");
+                    if (pin != null && g.GetIncomingLink(n.id, pin.id) != null)
+                        return g;   //★有"限制"口连线 = 这张卡有攻击规则
+                }
+            }
+            return null;
+        }
+
+        /// <summary>★全局攻击规则（入口「作用范围 = 全部卡牌」）：
+        /// 不针对某一张卡，而是**任何一次攻击 / 任何一次被攻击**都要满足它 —— 包括 AI 的卡。
+        /// 用途：如"英雄不能被任何卡攻击"、"所有卡都不能无视嘲讽" 这类整局规则（配一次即可，不用每张卡配）。
+        /// 由卡池导入时重建（见 RebuildGlobalAttackGraphs）。</summary>
+        public static readonly List<GraphData> GlobalAttackGraphs = new List<GraphData>();   //攻击者侧（"OnAttack" 入口）
+        public static readonly List<GraphData> GlobalDefendGraphs = new List<GraphData>();   //被攻击侧（"OnBeforeDefend" 入口）
+
+        /// <summary>一条"全局事件入口"：图 + 入口 action（Run 时用它只跑这条入口）</summary>
+        public class GlobalEntry
+        {
+            public GraphData graph;
+            public string action;
+        }
+
+        /// <summary>★全局入口（作用范围=「全部卡牌」的事件类入口），按**触发器**归组：
+        /// 语义（用户口径）：除 主动效果/起动式/被动 外，入口**不限制发动主体**——任何卡满足触发条件都算，
+        /// 效果对所有满足条件的目标生效（想只对某张卡生效，在条件里判"主体==本卡"）。
+        /// 旧数据没有 scope 字段 → 不算全局（保持"卡自身"的旧行为，否则内置卡迁移图会互相触发）。</summary>
+        public static readonly Dictionary<AbilityTrigger, List<GlobalEntry>> GlobalEntriesByTrigger =
+            new Dictionary<AbilityTrigger, List<GlobalEntry>>();
+
+        /// <summary>取某触发器的全局入口（无则 null）</summary>
+        public static List<GlobalEntry> GetGlobalEntries(AbilityTrigger trigger)
+        {
+            List<GlobalEntry> list;
+            return GlobalEntriesByTrigger.TryGetValue(trigger, out list) ? list : null;
+        }
+
+        /// <summary>入口 action → 触发器（给引擎侧按事件查全局入口用）</summary>
+        public static AbilityTrigger MapTrigger(string action)
+        {
+            if (string.IsNullOrEmpty(action))
+                return AbilityTrigger.None;
+            if (action == "EventEffect")
+                return AbilityTrigger.None;   //按 event_name 映射，见 ResolveEventTrigger
+            return MapGraphTrigger(action);
+        }
+
+        /// <summary>入口是否"作用范围=全部卡牌"。**缺字段=仅本卡**（旧数据/内置迁移图），
+        /// 只有编辑器里显式选了"全部卡牌"（新拖入的默认值）才算全局。</summary>
+        public static bool IsGlobalScopeEntry(GraphNode n)
+        {
+            return n != null && GraphRuntime.GetFieldString(n, "scope", "仅本卡") == "全部卡牌";
+        }
+
+        /// <summary>登记一条"全局事件入口"（按触发器归组；同图同入口去重）</summary>
+        private static void RegisterGlobalEntryGraph(GraphNode n, GraphData g)
+        {
+            if (n == null || g == null || string.IsNullOrEmpty(n.action))
+                return;
+            AbilityTrigger trigger = ResolveEventTrigger(n);
+            if (trigger == AbilityTrigger.None)
+            {
+                //★不要静默：显式选了"全部卡牌"却映射不到触发时机（监听事件/标签写错）→ 用户会以为规则生效了
+                Debug.LogWarning("[全局入口] 触发时机未识别，已跳过：" + n.action
+                    + (n.action == "EventEffect" ? ("（监听事件=" + GraphRuntime.GetFieldString(n, "event_name", "") + "）") : "")
+                    + "。请检查入口的「监听事件」/标签字段。");
+                return;
+            }
+            List<GlobalEntry> list;
+            if (!GlobalEntriesByTrigger.TryGetValue(trigger, out list))
+            {
+                list = new List<GlobalEntry>();
+                GlobalEntriesByTrigger[trigger] = list;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] != null && list[i].graph == g && list[i].action == n.action)
+                    return;
+            }
+            list.Add(new GlobalEntry { graph = g, action = n.action });
+        }
+
+        /// <summary>重建全局攻击规则列表（扫全部已导入卡池数据）。无全局规则时两个列表都为空 → 判定零开销。</summary>
+        public static void RebuildGlobalAttackGraphs()
+        {
+            int prev_a = GlobalAttackGraphs.Count;
+            int prev_d = GlobalDefendGraphs.Count;
+            GlobalAttackGraphs.Clear();
+            GlobalDefendGraphs.Clear();
+            GlobalEntriesByTrigger.Clear();
+            foreach (KeyValuePair<string, CardCustomData> pair in custom_data)
+            {
+                CardCustomData data = pair.Value;
+                if (data == null)
+                    continue;
+                foreach (CardEffectData eff in data.EnsureEffects())
+                {
+                    GraphData g = eff != null ? eff.graph : null;
+                    if (g == null || g.nodes == null)
+                        continue;
+                    foreach (GraphNode n in g.nodes)
+                    {
+                        if (n == null || n.type != GraphNodeType.Event)
+                            continue;
+
+                        //★作用范围=全部卡牌 的事件入口 → 登记为"全局入口图"（任何卡满足条件都算；
+                        //  主动/起动式/被动/光环 这些是卡自身语义，不参与全局登记）。
+                        if (IsGlobalScopeEntry(n)
+                            && n.action != "ActivateEffect" && n.action != "ActivateAbility"
+                            && n.action != "PassiveEffect" && n.action != "AuraEffect")
+                            RegisterGlobalEntryGraph(n, g);
+
+                        if (n.action != "OnAttack" && n.action != "OnBeforeDefend")
+                            continue;
+                        //限制口：**缺作用范围=整局**（历史行为/用户口径），但显式写了「仅本卡」→ 只对这张卡生效
+                        //（卡自身那条路径由 CardData.attack_graph 负责）
+                        if (GraphRuntime.GetFieldString(n, "scope", "全部卡牌") == "仅本卡")
+                            continue;
+                        GraphPin pin = g.GetPinByName(n.id, "limit");
+                        if (pin == null || g.GetIncomingLink(n.id, pin.id) == null)
+                            continue;                       //限制口没接线 = 不限制
+                        List<GraphData> list = n.action == "OnAttack" ? GlobalAttackGraphs : GlobalDefendGraphs;
+                        if (!list.Contains(g))
+                            list.Add(g);
+                    }
+                }
+            }
+            if (GlobalAttackGraphs.Count != prev_a || GlobalDefendGraphs.Count != prev_d)
+                Debug.Log("[攻击规则] 全局规则（作用范围=全部卡牌）已载入：攻击者侧 " + GlobalAttackGraphs.Count
+                    + " 张图，被攻击侧 " + GlobalDefendGraphs.Count + " 张图");
         }
 
         /// <summary>★池卡覆盖同名**内置资产**时，继承它的美术/特效/音效引用。
@@ -820,6 +1078,10 @@ namespace TcgEngine.Workshop
             Sprite up_full = LoadArt(data.art_full_path);
             if (up_full != null) card.art_full = up_full;
 
+            //判定类入口（攻击限制/被攻击限制）的图也随池更新（否则改完规则要重启才生效）
+            card.attack_graph = FindAttackGraph(data);
+            RebuildGlobalAttackGraphs();   //全局规则（作用范围=全部卡牌）同样随池更新
+
             //重建能力（data.abilities + 规则图编译），使规则编辑器保存的图/能力在真实对战中立即生效
             List<AbilityData> abilities = new List<AbilityData>();
             foreach (AbilityCustomData adata in data.abilities)
@@ -882,6 +1144,13 @@ namespace TcgEngine.Workshop
                 if (ev == null || ev.type != GraphNodeType.Event)
                     continue;
 
+                //★作用范围=全部卡牌 的入口：走"全局入口"通道（任何卡触发都跑），
+                //  不再编译成本卡自己的能力 —— 否则同一张卡触发时会跑两遍。
+                if (IsGlobalScopeEntry(ev)
+                    && ev.action != "ActivateEffect" && ev.action != "ActivateAbility"
+                    && ev.action != "PassiveEffect" && ev.action != "AuraEffect")
+                    continue;
+
                 //★被动效果入口（PassiveEffect）的「生效/失效」两条预留线：编译成独立能力（状态切换驱动）。
                 //  两条线都没接线 = 不生成任何能力 → 对既有卡（含只用亡语动作口的卡）零影响。
                 if (ev.action == "PassiveEffect")
@@ -941,7 +1210,10 @@ namespace TcgEngine.Workshop
                     ab.trigger = trigger;
 
                     //图中含"需选择目标"类动作(伤害/消灭/治疗目标卡) → 需要目标解析
+                    //★同时记录"这些动作的目标口是否都已由连线给出"：图自己给了目标时不该再弹"选择目标"
+                    //  （用户实报：伤害.targets ← 入口.卡牌 已经连好了，触发陷阱还要手动选目标）。
                     bool wants_target = false;
+                    bool all_targets_wired = true;
                     foreach (GraphNode act in acts)
                     {
                         if (act != null && !string.IsNullOrEmpty(act.category)
@@ -950,7 +1222,8 @@ namespace TcgEngine.Workshop
                                 || act.action == "202041"))
                         {
                             wants_target = true;
-                            break;
+                            if (!IsTargetInputWired(graph, act))
+                                all_targets_wired = false;
                         }
                     }
 
@@ -976,6 +1249,15 @@ namespace TcgEngine.Workshop
                             //打脸/打自己英雄：直接按归属指向玩家，无需弹出选择
                             atarget = tside == "友方" ? AbilityTarget.PlayerSelf : AbilityTarget.PlayerOpponent;
                         }
+                        else if (!is_spell && all_targets_wired)
+                        {
+                            //★非法术 + 目标口已全部连线 → **不再弹"选择目标"**：
+                            //  图自己就给了目标（典型：陷阱的 伤害.targets ← 入口.卡牌，触发时=发起攻击的卡），
+                            //  再让玩家手选一遍既多余、又容易被当成"接线没生效"（用户实报：
+                            //  "这里是直接对攻击者造成伤害，为什么还要我手动选择目标"）。
+                            //  法术不走这条：法术的"打出时瞄准(PlayTarget)"是固有流程，不能去掉。
+                            atarget = AbilityTarget.None;
+                        }
                         else
                         {
                             //目标通道：法术=打出时拖选(PlayTarget)；随从/装备等=入场后弹出选择(SelectTarget)
@@ -998,7 +1280,7 @@ namespace TcgEngine.Workshop
                     run.graph = graph;
                     run.trigger_action = ev.action;
                     ab.effects = new EffectData[] { run };
-                    Debug.Log("[事件编译] 卡=" + data.id + " 入口=" + ev.action + " 触发器=" + trigger
+                    WorkshopLog.Info("[事件编译] 卡=" + data.id + " 入口=" + ev.action + " 触发器=" + trigger
                         + " 能力id=" + ab.id + " 动作线=" + (FindReachableActions(graph, ev.id).Count > 0 ? "有" : "无"));
                     //★迁移期新增（内置卡迁移 D 批）：**数据型条件**直通（CardEffectData.conditions_trigger/target）。
                     //  图里表达不了的条件（ConditionCount / SlotRange / 类型含阵营·种族 / SelectedValue…）不再让
@@ -1109,6 +1391,10 @@ namespace TcgEngine.Workshop
                 case "EndOfTurn": return AbilityTrigger.EndOfTurn;
                 case "OnDeath": return AbilityTrigger.OnDeath;
                 case "OnAttack": return AbilityTrigger.OnBeforeAttack;
+                //★被攻击时/被攻击后：编辑器新补的入口（GameLogic 早就在触发 OnBeforeDefend/OnAfterDefend，
+                //  只是 MapGraphTrigger 一直没这两个映射 → 写了入口也编译不出能力）
+                case "OnBeforeDefend": return AbilityTrigger.OnBeforeDefend;
+                case "OnAfterDefend": return AbilityTrigger.OnAfterDefend;
                 case "OnDraw": return AbilityTrigger.OnDraw;
                 //★迁移期新增（内置卡迁移 D 批）：引擎原生触发时机（非图事件广播）——
                 //  action 名与 AbilityTrigger 枚举名一致；转换器（AbilityToGraphConverter）写出的入口同名。
@@ -1188,6 +1474,22 @@ namespace TcgEngine.Workshop
             }
         }
 
+        /// <summary>该动作节点的「目标」输入口是否已有连线（=图自己提供目标，不需要玩家再选）。
+        /// 兼容不同节点的命名：targets / target / cards（伤害、消灭、治疗、指定目标等）。</summary>
+        private static bool IsTargetInputWired(GraphData graph, GraphNode act)
+        {
+            if (graph == null || act == null)
+                return false;
+            string[] names = { "targets", "target", "cards" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                GraphPin pin = graph.GetPinByName(act.id, names[i]);
+                if (pin != null && graph.GetIncomingLink(act.id, pin.id) != null)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>zmcs 事件入口的监听事件名 → TCG2 触发器（未支持返回 None）。
         /// 注：受伤/治疗类事件 TCG2 无对应触发器，暂不提供选项。</summary>
         private static AbilityTrigger MapEventName(string name)
@@ -1226,7 +1528,7 @@ namespace TcgEngine.Workshop
             {
                 BuffData stub = new BuffData();
                 stub.id = buff;
-                Debug.Log("[规则图] 光环的增益定义此刻未加载 → 按具名增益 id 编译：" + buff + "（运行期取真实定义）");
+                WorkshopLog.Info("[规则图] 光环的增益定义此刻未加载 → 按具名增益 id 编译：" + buff + "（运行期取真实定义）");
                 return BuildAuraBuffAbility(data, graph, ev, stub);
             }
 
@@ -1305,7 +1607,7 @@ namespace TcgEngine.Workshop
                     case "212007":   //跳过重复动作
                         break;
                     default:
-                        Debug.Log("[规则图] 光环动作线含「" + a.action + "」→ 只在目标进入范围时执行一次（不按状态重算）");
+                        WorkshopLog.Info("[规则图] 光环动作线含「" + a.action + "」→ 只在目标进入范围时执行一次（不按状态重算）");
                         return false;
                 }
             }
@@ -1345,7 +1647,7 @@ namespace TcgEngine.Workshop
 
             //动作线可否重算（幂等动作线 → 每次收敛点重跑，值随状态跟随；否则只在进入范围时跑一次）
             ab.aura_repeat = has_line && AllAuraActionsAreRepeatable(graph, ev.id);
-            Debug.Log("[光环编译] 卡=" + data.id + " 节点=" + ev.id + " 增益=" + ab.aura_buff
+            WorkshopLog.Info("[光环编译] 卡=" + data.id + " 节点=" + ev.id + " 增益=" + ab.aura_buff
                 + " 分组=" + ab.aura_group
                 + " 生效区域=" + GraphRuntime.GetFieldString(ev, "live_area", "?")
                 + " 作用区域=" + GraphRuntime.GetFieldString(ev, "target_area", "?")
@@ -1627,7 +1929,7 @@ namespace TcgEngine.Workshop
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             foreach (EntrySlotSpec s in slots)
                 sb.Append(s.slot).Append(':').Append(string.IsNullOrEmpty(s.type) ? "(空)" : s.type).Append(' ');
-            Debug.Log("[规则图] 入口编译 → target=" + ab.target + " multi=" + ab.multi_target
+            WorkshopLog.Info("[规则图] 入口编译 → target=" + ab.target + " multi=" + ab.multi_target
                 + " is_spell=" + is_spell + " 槽[" + sb.ToString().TrimEnd() + "]");
         }
 

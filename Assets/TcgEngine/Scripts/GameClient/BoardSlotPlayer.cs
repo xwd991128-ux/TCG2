@@ -136,7 +136,8 @@ namespace TcgEngine.Client
             if (iability != null && caster != null)
             {
                 int player_id = opponent ? GameClient.Get().GetOpponentPlayerID() : GameClient.Get().GetPlayerID();
-                if (caster.CardData.type == CardType.Spell && caster.player_id == player_id)
+                //★技能卡与法术同款（枚举注释：行为一致）：此前只对 Spell 播施法特效/音效，技能卡发动是静音无特效
+                if ((caster.CardData.type == CardType.Spell || caster.CardData.type == CardType.Skill) && caster.player_id == player_id)
                 {
                     FXTool.DoFX(iability.caster_fx, transform.position);
                     AudioTool.Get().PlaySFX("fx", iability.cast_audio);

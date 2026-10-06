@@ -19,6 +19,7 @@ namespace TcgEngine
         public const string HP_KEY = "生命加成";
 
         private const int MAX_GRAPH_DEPTH = 8;   //增益图嵌套执行深度上限（防「增益图内再添加同增益」死循环）
+        private const int MaxStackRuns = 20;     //死亡图按叠加层数执行的上限（防层数异常大时一次跑爆）
         private static int graph_depth;
 
         /// <summary>施加增益：已存在同 id → 属性叠加、持续取 max；否则新建实例并映射原生状态。
@@ -37,10 +38,24 @@ namespace TcgEngine
             CardBuff existing = GetManualBuff(card, define.id);
             if (existing != null)
             {
+                //★层数 +1：同名增益合并时记录"被施加了几次"。
+                //  用途：效果图（BuffData.graph）不会因为重复施加而多跑，所以"遗言/亡语"这种
+                //  "贴一张图"的增益必须靠层数来叠加（打出两次针山 = 两只遗言 = 死亡打 2 点），
+                //  由 TriggerCarrierDeath 按层数执行（见 CardBuff.stack 的注释）。
+                existing.stack = Mathf.Clamp(existing.stack + 1, 1, 99);
+                //★「设置为 X」类规则**必须幂等**：这类规则的实例属性就是"目标值"本身（见 ApplyModRule 的注释），
+                //  若像"增加"那样累加，第二次施加会变成 6 → 攻击变成 4（症状："攻击力变成3"用两次技能变 4/5…）。
+                //  「增加/减少」类规则保持累加（叠加语义）：+3 施加两次 = +6。
+                List<BuffPropMod> merge_rules = define.EnsureMods();
+                bool merge_has_rules = merge_rules != null && merge_rules.Count > 0;
                 if (define.props != null)
                 {
                     foreach (BuffProp p in define.props)
+                    {
+                        if (merge_has_rules && IsSetRuleProp(merge_rules, p.key))
+                            continue;   //"设置为 X"：保留原值（幂等），不累加
                         existing.SetProp(p.key, existing.GetProp(p.key) + p.value);
+                    }
                 }
                 if (duration > 0)
                     existing.duration = duration > existing.duration ? duration : existing.duration;
@@ -164,6 +179,22 @@ namespace TcgEngine
                 ReapplyNative(card);
         }
 
+        /// <summary>该实例属性（如"攻击加成"）是否由「设置为 X」类规则驱动。
+        /// 这类规则重复施加必须幂等（属性值 = 目标值，不能累加），见 AddBuff 合并分支的注释。</summary>
+        private static bool IsSetRuleProp(List<BuffPropMod> rules, string prop_key)
+        {
+            if (rules == null || string.IsNullOrEmpty(prop_key))
+                return false;
+            foreach (BuffPropMod m in rules)
+            {
+                if (m == null || !BuffModMode.IsSet(m.mode))
+                    continue;
+                if (InstanceKey(m.target) == prop_key)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>找这张卡上**非光环来源**的同 id 增益实例（= AddBuff 的合并对象；光环实例不参与合并）。
         /// 没有则返回 null → AddBuff 会另立一个新实例（与光环那份共存互不影响）。</summary>
         public static CardBuff GetManualBuff(Card card, string buff_id)
@@ -282,6 +313,84 @@ namespace TcgEngine
                     continue;
                 RunGraph(logic, card, define, trigger_action, null, b.permanent ? 0 : b.duration);
             }
+        }
+
+        /// <summary>「携带者死亡时」触发：跑这张卡身上所有**带效果图**的增益的死亡入口。
+        ///
+        /// 调用点：GameLogic 的死亡处理里（`TriggerCardAbilityType(OnDeath, card)` 之后）。
+        /// 那里安全：`DiscardCard` 把 `card.Clear()` 延后到下一次 UpdateOngoing，所以此刻 `card.buffs` 还在。
+        ///
+        /// ★为什么必须有它（用户实报「旧地狱的针山不生效」的真因）：
+        ///   增益效果图原本只有 **添加时/后、移除时/后、每回合开始/结束** 六个入口，**没有死亡触发点**；
+        ///   而且卡死亡是走 `Card.Clear()`（直接 `buffs.Clear()`），**不会**经过"移除增益"事件
+        ///   （只有 duration 到期才走 UpdateBuffDurations → OnBuffRemoving/Removed）。
+        ///   于是"用增益给仆从挂一个遗言"这种画法（增益图入口=被动效果入口/亡语）**永远不执行**。
+        ///
+        /// 兼容：增益图里用「被动效果入口(PassiveEffect)」画的（编辑器允许这么画，此前运行时从不触发）
+        /// 会在这里按 `PassiveEffect` 跑一次 —— 用户既有卡不用改图即可生效。</summary>
+        public static int TriggerCarrierDeath(GameLogic logic, Card card)
+        {
+            if (logic == null || card == null || card.buffs == null || card.buffs.Count == 0)
+                return 0;
+
+            //先收集 id（跑图过程中可能增删 card.buffs）
+            List<string> ids = new List<string>();
+            for (int i = 0; i < card.buffs.Count; i++)
+            {
+                CardBuff b = card.buffs[i];
+                if (b == null || string.IsNullOrEmpty(b.buff_id) || ids.Contains(b.buff_id))
+                    continue;
+                ids.Add(b.buff_id);
+            }
+
+            int total = 0;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                BuffData define = BuffPoolIO.Get(ids[i]);
+                if (define == null)
+                    continue;
+                CardBuff inst = GetManualBuff(card, ids[i]);
+                int duration = (inst != null && !inst.permanent) ? inst.duration : 0;
+                int stacks = inst != null ? Mathf.Clamp(inst.stack, 1, MaxStackRuns) : 1;
+
+                //只跑"图里确实有这个入口"的动作，避免给没配的图刷 no_entry 警告
+                bool has_carrier = HasEntry(define, "OnBuffCarrierDeath");
+                bool has_passive = HasEntry(define, "PassiveEffect");
+                if (!has_carrier && !has_passive)
+                    continue;
+
+                //★按层数跑：同名增益重复施加是"合并"（只累加 props），效果图不会自动多跑，
+                //  所以"遗言叠加"必须在这里显式按层数执行（打出两次针山 = 两只遗言 = 2 次伤害）。
+                for (int k = 0; k < stacks; k++)
+                {
+                    if (has_carrier)
+                        total += RunGraph(logic, card, define, "OnBuffCarrierDeath", null, duration);
+                    if (has_passive)
+                        total += RunGraph(logic, card, define, "PassiveEffect", null, duration);
+                }
+            }
+            return total;
+        }
+
+        /// <summary>该增益的效果图里是否存在 action 匹配的事件入口节点（用于挑该跑哪个触发名）</summary>
+        private static bool HasEntry(BuffData define, string action)
+        {
+            if (define == null || string.IsNullOrEmpty(action))
+                return false;
+            List<CardEffectData> graphs = define.EnsureGraphs();
+            for (int i = 0; i < graphs.Count; i++)
+            {
+                GraphData g = graphs[i] != null ? graphs[i].graph : null;
+                if (g == null || g.nodes == null)
+                    continue;
+                for (int k = 0; k < g.nodes.Count; k++)
+                {
+                    GraphNode n = g.nodes[k];
+                    if (n != null && n.type == GraphNodeType.Event && n.action == action)
+                        return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>执行增益效果图（入口事件=trigger_action，上下文：自身=card、施加者=giver、增益定义=define、剩余回合=duration）。
@@ -434,7 +543,7 @@ namespace TcgEngine
             if (BuffModMode.IsSub(m.mode))
                 v = -Mathf.Abs(v);
             if (BuffModMode.IsSet(m.mode))
-                v = v - GetTargetValue(card, m.target);   //"设置为 X" → 用 (X-当前值) 的增量实现
+                v = v - GetSetBaseValue(card, m.target);  //"设置为 X" → 用 (X-基准值) 的增量实现（★必须用基准值，见下）
             if (v == 0)
                 return;
             if (st != StatusType.None)
@@ -485,6 +594,21 @@ namespace TcgEngine
             if (target == BuffModTarget.Cost) return card.GetMana();
             if (target == BuffModTarget.Armor) return card.GetStatusValue(StatusType.Armor);
             return 0;   //自定义参数无原生值（读实例）
+        }
+
+        /// <summary>「设置为 X」的**基准值**：攻击/生命/花费用卡面基准值（不含增益/临时 ongoing 部分）；
+        /// 护甲等没有独立基准值的仍回退当前值。
+        /// ⚠为什么不能用当前值：设置类规则会被 ReapplyNative 在增删任意增益时**反复重放**，
+        ///   用"当前值"（含上一次自己加出来的 ongoing）去算差值会漂移：
+        ///   实测「攻击 / 设置为 / 3」二次施加时算成 3-3=0 → 攻击回落到 1（应该保持 3）。</summary>
+        private static int GetSetBaseValue(Card card, string target)
+        {
+            if (card == null)
+                return 0;
+            if (target == BuffModTarget.Attack) return card.attack;
+            if (target == BuffModTarget.HP) return card.hp;
+            if (target == BuffModTarget.Cost) return card.mana;
+            return GetTargetValue(card, target);
         }
 
         /// <summary>「引用属性」的数值来源：读目标卡另一个属性的当前值（未知名字按自定义参数读实例属性）</summary>

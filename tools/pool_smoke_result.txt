@@ -1,67 +1,9 @@
-卡数=21
+卡数=28
 
 == 汇总 ==
-卡数=280 图数=289 执行次数=270（战场 135 / 手牌 135）异常=0 无入口=154
-问题条数=154
+卡数=294 图数=303 执行次数=298（战场 149 / 手牌 149）异常=0 无入口=154
+问题条数=2
 
 == 明细（前 60 条）==
-custom_JJw8BRifSr8/幽幽柚子 图「幽幽柚子」没有入口(Event)节点
-custom_16kp5qHmX/魔法书 图「魔法书」没有入口(Event)节点
-custom_gveDlKduZd/新卡 18 图「NewGraph」没有入口(Event)节点
-armored_beast/装甲兽 图「装甲兽」没有入口(Event)节点
-ashes_snake/灰烬蛇 图「灰烬蛇」没有入口(Event)节点
-bear/熊 图「熊」没有入口(Event)节点
-black_widow/黑寡妇 图「NewGraph」没有入口(Event)节点
-blessing/祝福 图「NewGraph」没有入口(Event)节点
-blessing_sword/祝福之剑 图「NewGraph」没有入口(Event)节点
-bull_heat/烽牛 图「NewGraph」没有入口(Event)节点
-corruption_potion/腐败药水 图「NewGraph」没有入口(Event)节点
-crab_mana/法力蟹 图「crab_mana：掠夺」没有入口(Event)节点
-cursed_blade/诅咒之刃 图「NewGraph」没有入口(Event)节点
-death_pact/死亡契约 图「NewGraph」没有入口(Event)节点
-death_reaper/死神 图「NewGraph」没有入口(Event)节点
-divine_grace/神圣恩典 图「NewGraph」没有入口(Event)节点
-divine_judgment/神圣审判 图「NewGraph」没有入口(Event)节点
-divine_shield/神圣护盾 图「NewGraph」没有入口(Event)节点
-dragon_blue/蓝龙 图「NewGraph」没有入口(Event)节点
-dragon_green/绿龙 图「NewGraph」没有入口(Event)节点
-dragon_red/红龙 图「NewGraph」没有入口(Event)节点
-equip_rock_bow/熔岩之弓 图「NewGraph」没有入口(Event)节点
-equip_shield/木盾 图「NewGraph」没有入口(Event)节点
-equip_sword/火焰剑 图「NewGraph」没有入口(Event)节点
-forest_Axe/森林之斧 图「NewGraph」没有入口(Event)节点
-graveyard/墓地 图「NewGraph」没有入口(Event)节点
-guardian_angel/守护天使 图「NewGraph」没有入口(Event)节点
-heal_spell/治疗术 图「NewGraph」没有入口(Event)节点
-hell_hound/地狱猎犬 图「NewGraph」没有入口(Event)节点
-holy_angel/神圣天使 图「NewGraph」没有入口(Event)节点
-holy_protection/圣光庇护 图「NewGraph」没有入口(Event)节点
-holy_sword/光明圣剑 图「NewGraph」没有入口(Event)节点
-holy_temple/圣殿 图「NewGraph」没有入口(Event)节点
-kraken/克拉肯 图「克拉肯」没有入口(Event)节点
-large_eagle/自由飞鹰 图「自由飞鹰」没有入口(Event)节点
-lava_beast/熔岩兽 图「熔岩兽」没有入口(Event)节点
-light_sword/光明之剑 图「NewGraph」没有入口(Event)节点
-mammoth/猛獜 图「NewGraph」没有入口(Event)节点
-paladin/圣骑士 图「NewGraph」没有入口(Event)节点
-pegasus_knight/天马骑士 图「NewGraph」没有入口(Event)节点
-poison_frog/毒青蛙 图「NewGraph」没有入口(Event)节点
-priest/牧师 图「NewGraph」没有入口(Event)节点
-pufferfish/河豚 图「NewGraph」没有入口(Event)节点
-purify/净化 图「NewGraph」没有入口(Event)节点
-recruit/新兵 图「NewGraph」没有入口(Event)节点
-recruit_card/新兵 图「NewGraph」没有入口(Event)节点
-resurrection/复活术 图「NewGraph」没有入口(Event)节点
-sea_monster/海怪 图「NewGraph」没有入口(Event)节点
-seagull/海鸥 图「NewGraph」没有入口(Event)节点
-skeleton/骸髅 图「NewGraph」没有入口(Event)节点
-skeleton_2/骷髅 图「骷髅」没有入口(Event)节点
-skeleton_3/骸髅 图「NewGraph」没有入口(Event)节点
-small_bird/小鸟 图「NewGraph」没有入口(Event)节点
-snake_venom/毒蛇 图「NewGraph」没有入口(Event)节点
-soldier/士兵 图「NewGraph」没有入口(Event)节点
-spell_roots/树根 图「NewGraph」没有入口(Event)节点
-temple_guard/圣所守卫 图「NewGraph」没有入口(Event)节点
-temple_knight/圣殿骑士 图「NewGraph」没有入口(Event)节点
-town_forest/森林城 图「NewGraph」没有入口(Event)节点
-town_underwater/水底城 图「NewGraph」没有入口(Event)节点
+custom_JJw8BRifSr8/幽幽柚子 图「幽幽柚子」有节点但没有入口(Event)节点
+custom_JJw8BRifSr8/幽幽柚子 图「幽幽柚子」有节点但没有入口(Event)节点

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: turn_end_summon_angel_small
   m_EditorClassIdentifier: 
   id: turn_end_summon_angel_small
-  trigger: 11
+  trigger: 22
   conditions_trigger: []
   target: 1
   conditions_target: []

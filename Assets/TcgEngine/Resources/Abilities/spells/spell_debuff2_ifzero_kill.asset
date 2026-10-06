@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: spell_debuff2_ifzero_kill
   m_EditorClassIdentifier: 
   id: spell_debuff2
-  trigger: 0
+  trigger: 10
   conditions_trigger: []
   target: 72
   conditions_target:

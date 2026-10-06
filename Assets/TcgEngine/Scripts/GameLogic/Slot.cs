@@ -27,6 +27,11 @@ namespace TcgEngine
         private static Dictionary<int, List<Slot>> player_slots = new Dictionary<int, List<Slot>>();
         private static List<Slot> all_slots = new List<Slot>();
 
+        /// <summary>★静态槽位缓存的锁：AI 推演跑在后台线程（AILogic.ai_thread），它同样会调 GetAll / GetAll(pid)。
+        /// 无锁时两条线程可能同时走"缓存为空"分支 → 重复构建（拿到不同实例）；all_slots 更糟：
+        /// 并发 Add 会让 AI 枚举到**重复槽位**，甚至抛"集合被修改"异常（就在 AI 搜索循环里）。</summary>
+        private static readonly object slot_cache_lock = new object();
+
         public Slot(int pid)
         {
             this.x = 0;
@@ -134,38 +139,44 @@ namespace TcgEngine
         {
             int p = GetP(pid);
 
-            if (player_slots.ContainsKey(p))
-                return player_slots[p]; //Faster access
-
-            List<Slot> list = new List<Slot>();
-            for (int y = y_min; y <= y_max; y++)
+            lock (slot_cache_lock)   //★跨线程共享缓存（见 slot_cache_lock 注释）
             {
-                for (int x = x_min; x <= x_max; x++)
+                if (player_slots.ContainsKey(p))
+                    return player_slots[p]; //Faster access
+
+                List<Slot> list = new List<Slot>();
+                for (int y = y_min; y <= y_max; y++)
                 {
-                    list.Add(new Slot(x, y, p));
+                    for (int x = x_min; x <= x_max; x++)
+                    {
+                        list.Add(new Slot(x, y, p));
+                    }
                 }
+                player_slots[p] = list;
+                return list;
             }
-            player_slots[p] = list;
-            return list;
         }
 
         //Get all valid slots
         public static List<Slot> GetAll()
         {
-            if (all_slots.Count > 0)
-                return all_slots; //Faster access
-
-            for (int p = 0; p <= MaxP; p++)
+            lock (slot_cache_lock)   //★同上：并发 Add 会让 AI 看到重复槽位/抛"集合被修改"
             {
-                for (int y = y_min; y <= y_max; y++)
+                if (all_slots.Count > 0)
+                    return all_slots; //Faster access
+
+                for (int p = 0; p <= MaxP; p++)
                 {
-                    for (int x = x_min; x <= x_max; x++)
+                    for (int y = y_min; y <= y_max; y++)
                     {
-                        all_slots.Add(new Slot(x, y, p));
+                        for (int x = x_min; x <= x_max; x++)
+                        {
+                            all_slots.Add(new Slot(x, y, p));
+                        }
                     }
                 }
+                return all_slots;
             }
-            return all_slots;
         }
 
         public static bool operator ==(Slot slot1, Slot slot2)

@@ -58,6 +58,17 @@ namespace TcgEngine
             return game_type == GameType.Solo || game_type == GameType.Adventure;
         }
 
+        /// <summary>「无回合倒计时」的约定值：GameUI 里 `turn_timer &lt; 999f` 才显示计时器，
+        /// 所以 999 = 不显示；服务端也不会到期自动 NextStep（见 GameServer.Update）。</summary>
+        public const float NoTurnTimerValue = 999f;
+
+        /// <summary>本局是否不启用回合倒计时：人机/模拟（Solo/Adventure=单机对局）不需要限时，
+        /// 联机（Multiplayer/HostP2P）保持原样。用户要求："在模拟对战和人机里面把倒计时限制去掉"。</summary>
+        public bool NoTurnTimer
+        {
+            get { return IsOffline(); }
+        }
+
         public virtual bool IsOnline()
         {
             return game_type == GameType.HostP2P || game_type == GameType.Multiplayer || game_type == GameType.Observer;

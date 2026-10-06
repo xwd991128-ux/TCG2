@@ -55,6 +55,8 @@ namespace TcgEngine.DevTools
         private int _trace_lines;      //★ 被 GameLog 接管的高频轨迹日志条数（ResolveEffectTarget/[NodeDoc] 等）
         private int _card_calls, _card_rebuilds;
         private bool _logged_start_ok;
+        private bool _ai_vs_ai_original;       //跑自动对战之前 GameplayData.ai_vs_ai 的原值
+        private bool _ai_vs_ai_saved;          //是否已记录原值（未记录就不还原，避免误写）
 
         // ---------------- 启动入口 ----------------
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -97,6 +99,16 @@ namespace TcgEngine.DevTools
 
             try { File.Delete(FlagFile); } catch { }     //先删标记，避免下次 Play 重复触发
 
+            //★记住 ai_vs_ai 的原值：本工程可能关了域重载（Enter Play Mode Options 不勾 Reload Domain），
+            //  运行时改 ScriptableObject 会**跨 Play 会话残留** —— 不还原的话，之后进"人机 / 模拟测试"
+            //  会变成双方都由 AI 托管（用户实报："进人机对战界面直接帮我自动操作了"）。
+            GameplayData gdata = GameplayData.Get();
+            if (gdata != null)
+            {
+                _ai_vs_ai_original = gdata.ai_vs_ai;
+                _ai_vs_ai_saved = true;
+            }
+
             Debug.Log("[AutoBattle] 启动：计划 " + _cfg.battles + " 局 AI vs AI（单局上限 " + _cfg.maxSecondsPerBattle
                 + "s，卡 Connecting 判定 " + _cfg.stuckSeconds + "s）；报告将写入 " + ReportFile);
 
@@ -105,8 +117,11 @@ namespace TcgEngine.DevTools
 
         private void OnDestroy()
         {
+            RestoreGameplayFlags();     //兜底：中途停 Play / 对象被销毁也不留下脏开关
             Application.logMessageReceived -= OnLog;
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            if (_instance == this)
+                _instance = null;
         }
 
         // ---------------- 每局流程 ----------------
@@ -219,6 +234,22 @@ namespace TcgEngine.DevTools
             }
         }
 
+        /// <summary>还原本 Runner 临时改过的 GameplayData 开关。
+        /// 必须做：工程若关了域重载，运行时对 ScriptableObject 的改动会跨 Play 会话残留，
+        /// 残留的 ai_vs_ai=true 会让之后每一局"人机/模拟测试"都变成 AI 托管玩家 0。</summary>
+        private void RestoreGameplayFlags()
+        {
+            if (!_ai_vs_ai_saved)
+                return;
+            _ai_vs_ai_saved = false;
+            GameplayData gdata = GameplayData.Get();
+            if (gdata != null && gdata.ai_vs_ai != _ai_vs_ai_original)
+            {
+                gdata.ai_vs_ai = _ai_vs_ai_original;
+                Debug.Log("[AutoBattle] 已还原 ai_vs_ai = " + _ai_vs_ai_original + "（避免影响后续人机/模拟对局）");
+            }
+        }
+
         // ---------------- 指标 ----------------
         private void OnLog(string message, string stack, LogType type)
         {
@@ -311,6 +342,8 @@ namespace TcgEngine.DevTools
                 return;
             _finished = true;
             _in_battle = false;
+
+            RestoreGameplayFlags();     //★收尾必须还原临时开关（见 Begin 里的说明）
 
             _report.AppendLine("result=" + result);
             if (!string.IsNullOrEmpty(detail))

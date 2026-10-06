@@ -62,6 +62,11 @@ namespace TcgEngine
         public List<string> skills = new List<string>();   //★英雄技能卡（type=Hero 时：技能卡的卡牌 id；
                                                           //  开战时把技能卡上的起动式能力挂到英雄卡实例上）
 
+        [Header("Attack Rules")]
+        [Tooltip("攻击目标规则图（0~1 张，空 = 原有行为）：图里放「攻击限制」/「被攻击限制」入口，\n" +
+                 "入口的 cond 口为真 = 允许这次攻击。条件用现有节点拼（类型/关键词/攻击力/生命/比较/逻辑运算）。")]
+        public Workshop.GraphData attack_graph;
+
         [Header("Card Text")]
         [TextArea(3, 5)]
         public string text;

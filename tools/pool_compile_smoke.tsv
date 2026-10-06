@@ -1,265 +1,265 @@
-# 卡池编译冒烟（图 → AbilityData）  at=2026-09-30 22:43:03
+# 卡池编译冒烟（图 → AbilityData）  at=2026-10-06 23:32:26
 # 列：card | effIdx | ability | trigger | target | condTrigger | condTarget | filters | status | effects | chains
 Plague_Rat	0	<效果图>	PassiveEffect	所有角色			1		PassiveEffect 102032 EFCardOwner 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
-Plague_Rat	-	graph_Plague_Rat_PassiveEffect_nodeb5667d	OnDeath	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}	FilterRandom{amount=1}		EffectRunGraph	
+Plague_Rat	-	graph_Plague_Rat_PassiveEffect_8749ef99	OnDeath	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}	FilterRandom{amount=1}		EffectRunGraph	
 angel_kiss	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 212001 202013	
-angel_kiss	-	graph_angel_kiss_ActivateEffect_nodeea4305	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
+angel_kiss	-	graph_angel_kiss_ActivateEffect_904640e9	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
 armored_beast	-	taunt	Ongoing	Self				Protection		
 ashes_snake	-	stealth	OnPlay	Self				Stealth		
 bay	0	<效果图>	OnDeathOther	施法者玩家			0		OnDeathOther 210001	
-bay	-	graph_bay_OnDeathOther_node4a8b69	OnDeathOther	PlayerSelf	ConditionOwner{oper=IsTrue} + ConditionCardType{has_type=None;has_team=water;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
+bay	-	graph_bay_OnDeathOther_db20a410	OnDeathOther	PlayerSelf	ConditionOwner{oper=IsTrue} + ConditionCardType{has_type=None;has_team=water;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
 bear	0	<效果图>	ActivateEffect	选择器			0		ActivateEffect	choice_taunt+choice_fury
-bear	-	graph_bear_ActivateEffect_node9fed66	OnPlay	ChoiceSelector					EffectRunGraph	choice_taunt+choice_fury
+bear	-	graph_bear_ActivateEffect_ed8b70e1	OnPlay	ChoiceSelector					EffectRunGraph	choice_taunt+choice_fury
 black_widow	-	attack_poison2	OnBeforeDefend	AbilityTriggerer	ConditionSelf{oper=IsFalse}			Poisoned		
 blessing_sword	-	equip_lifesteal	Ongoing	EquippedCard				LifeSteal		
 bone_warrior	0	<效果图>	PassiveEffect	自身			0		PassiveEffect 202003	
-bone_warrior	-	graph_bone_warrior_PassiveEffect_node40135e	OnDeath	Self					EffectRunGraph	
+bone_warrior	-	graph_bone_warrior_PassiveEffect_a2c5304a	OnDeath	Self					EffectRunGraph	
 branch	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 202041	
-branch	-	graph_branch_ActivateEffect_nodeca5a69	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+branch	-	graph_branch_ActivateEffect_21b1234f	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 bravery_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 bravery_blessing	-	firststrike	Ongoing	Self				FirstStrike		
-bravery_blessing	-	graph_bravery_blessing_ActivateEffect_node983046	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+bravery_blessing	-	graph_bravery_blessing_ActivateEffect_a59257ec	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 bull_heat	-	add_spell_damage1	Ongoing	PlayerSelf					EffectAddKeyword	
 card_merchant	0	<效果图>	ActivateEffect	自身			0		ActivateEffect 210001 210001 210001	
-card_merchant	-	graph_card_merchant_ActivateEffect_node2f9c28	OnPlay	Self					EffectRunGraph	
+card_merchant	-	graph_card_merchant_ActivateEffect_2f0f9c84	OnPlay	Self					EffectRunGraph	
 cave	0	<效果图>	EventEffect	对手玩家			0		EventEffect 202041	
-cave	-	graph_cave_EventEffect_noded08019	EndOfTurn	PlayerOpponent					EffectRunGraph	
+cave	-	graph_cave_EventEffect_5d0205f1	EndOfTurn	PlayerOpponent					EffectRunGraph	
 coin	0	<效果图>	ActivateEffect	施法者玩家			0		ActivateEffect AddManaNoClamp	
-coin	-	graph_coin_ActivateEffect_node174c0c	OnPlay	PlayerSelf					EffectRunGraph	
+coin	-	graph_coin_ActivateEffect_f86fee7e	OnPlay	PlayerSelf					EffectRunGraph	
 crab_mana	0	<效果图>	OnAfterAttack	施法者玩家			0		OnAfterAttack AddManaNoClamp	
-crab_mana	-	graph_crab_mana_OnAfterAttack_nodea3a45a	OnAfterAttack	PlayerSelf	ConditionTarget{type=Player;oper=IsTrue}				EffectRunGraph	
+crab_mana	-	graph_crab_mana_OnAfterAttack_6a1d3f2e	OnAfterAttack	PlayerSelf	ConditionTarget{type=Player;oper=IsTrue}				EffectRunGraph	
 crow	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 202041	
 crow	-	flying	Ongoing	Self				Flying		
-crow	-	graph_crow_ActivateEffect_nodee61005	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+crow	-	graph_crow_ActivateEffect_c7034504	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 curse_trap	0	<效果图>	EventEffect	触发者			0		EventEffect 202016	
-curse_trap	-	graph_curse_trap_EventEffect_nodec29996	OnBeforeAttack	AbilityTriggerer	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}				EffectRunGraph	
+curse_trap	-	graph_curse_trap_EventEffect_d74c6b24	OnBeforeAttack	AbilityTriggerer	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}				EffectRunGraph	
 dark_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
-dark_blessing	-	graph_dark_blessing_ActivateEffect_node16a706	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+dark_blessing	-	graph_dark_blessing_ActivateEffect_f4902ddd	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 dark_stallion	0	<效果图>	ActivateAbility	选择目标			0		ActivateAbility 112001 102001 112002 112005 101030 112005 212001 202041	
-dark_stallion	-	graph_dark_stallion_ActivateAbility_nodeaefec3	Activate	SelectTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionSelf{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+dark_stallion	-	graph_dark_stallion_ActivateAbility_72747901	Activate	SelectTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionSelf{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 death_pact	-	vampire_lord	Ongoing	Self				LifeSteal		
 death_reaper	-	deathtouch	Ongoing	Self				Deathtouch		
 divine_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 divine_blessing	-	lifesteal	Ongoing	Self				LifeSteal		
-divine_blessing	-	graph_divine_blessing_ActivateEffect_noded47bbe	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+divine_blessing	-	graph_divine_blessing_ActivateEffect_2c3d8404	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 divine_healing	0	<效果图>	ActivateEffect	自身			0		ActivateEffect 210001 210001 210001	
-divine_healing	-	graph_divine_healing_ActivateEffect_nodeaffda2	OnPlay	Self					EffectRunGraph	
+divine_healing	-	graph_divine_healing_ActivateEffect_59378217	OnPlay	Self					EffectRunGraph	
 dragon's_anger	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 101030 112005 212001 202041	spell_summon_dragon_red_damage_chain
-dragon's_anger	-	graph_dragon's_anger_ActivateEffect_node66eacc	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	spell_summon_dragon_red_damage_chain
+dragon's_anger	-	graph_dragon's_anger_ActivateEffect_ad4248b4	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	spell_summon_dragon_red_damage_chain
 dragon_black	0	<效果图>	PassiveEffect	自身			0		PassiveEffect 202003	
 dragon_black	-	spell_immunity	Ongoing	Self				SpellImmunity		
-dragon_black	-	graph_dragon_black_PassiveEffect_node9156b5	OnDeath	Self					EffectRunGraph	
+dragon_black	-	graph_dragon_black_PassiveEffect_c00691be	OnDeath	Self					EffectRunGraph	
 dragon_blue	-	spell_immunity	Ongoing	Self				SpellImmunity		
 dragon_egg	0	<效果图>	ActivateEffect	卡牌定义			1		ActivateEffect CreateCardFromDefineRaw	chain_discover+chain_clear_temp
-dragon_egg	-	graph_dragon_egg_ActivateEffect_node0796fd	OnPlay	AllCardData		ConditionCardType{has_type=None;has_trait=dragon;oper=IsTrue} + ConditionDeckbuilding{oper=IsTrue}	FilterRandom{amount=4}		EffectRunGraph	chain_discover+chain_clear_temp
+dragon_egg	-	graph_dragon_egg_ActivateEffect_91f7b1c6	OnPlay	AllCardData		ConditionCardType{has_type=None;has_trait=dragon;oper=IsTrue} + ConditionDeckbuilding{oper=IsTrue}	FilterRandom{amount=4}		EffectRunGraph	chain_discover+chain_clear_temp
 dragon_green	-	spell_immunity	Ongoing	Self				SpellImmunity		
 dragon_knight	0	<效果图>	PassiveEffect	施法者玩家			0		PassiveEffect 202004	
 dragon_knight	-	flying	Ongoing	Self				Flying		
-dragon_knight	-	graph_dragon_knight_PassiveEffect_node19d701	OnDeath	PlayerSelf					EffectRunGraph	
+dragon_knight	-	graph_dragon_knight_PassiveEffect_646cdf18	OnDeath	PlayerSelf					EffectRunGraph	
 dragon_red	-	spell_immunity	Ongoing	Self				SpellImmunity		
 dragon_white	0	<效果图>	PassiveEffect	施法者玩家			0		PassiveEffect 202013	
 dragon_white	-	spell_immunity	Ongoing	Self				SpellImmunity		
-dragon_white	-	graph_dragon_white_PassiveEffect_node819ff3	OnDeath	PlayerSelf					EffectRunGraph	
+dragon_white	-	graph_dragon_white_PassiveEffect_e08eeed4	OnDeath	PlayerSelf					EffectRunGraph	
 eel	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 102032 EFCardOwner 112005 212001 202037	
-eel	-	graph_eel_ActivateEffect_node127d09	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
+eel	-	graph_eel_ActivateEffect_3ae30ef9	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
 equip_ring	0	<效果图>	EventEffect	施法者玩家			0		EventEffect AddManaNoClamp	chain_equip_use
-equip_ring	-	graph_equip_ring_EventEffect_nodec2abc5	StartOfTurn	PlayerSelf					EffectRunGraph	chain_equip_use
+equip_ring	-	graph_equip_ring_EventEffect_bd9e9a5f	StartOfTurn	PlayerSelf					EffectRunGraph	chain_equip_use
 equip_shield	-	equip_armor2	Ongoing	EquippedCard				Armor		
 equip_shield	-	equip_taunt	Ongoing	EquippedCard				Protection		
 equip_sword	-	equip_first_strike	Ongoing	EquippedCard				FirstStrike		
 fire_chicken	0	<效果图>	PassiveEffect	自身			0		PassiveEffect 202003	
-fire_chicken	-	graph_fire_chicken_PassiveEffect_noded39704	OnDeath	Self					EffectRunGraph	
+fire_chicken	-	graph_fire_chicken_PassiveEffect_1c494105	OnDeath	Self					EffectRunGraph	
 fire_chicken_egg	0	<效果图>	EventEffect	自身			0		EventEffect 202029	
-fire_chicken_egg	-	graph_fire_chicken_egg_EventEffect_noded93eac	StartOfTurn	Self					EffectRunGraph	
+fire_chicken_egg	-	graph_fire_chicken_egg_EventEffect_bcc714ec	StartOfTurn	Self					EffectRunGraph	
 fire_element	0	<效果图>	ActivateEffect	所有角色			0		ActivateEffect 102001 112002 112005 212001 202041	
-fire_element	-	graph_fire_element_ActivateEffect_noded0fc7a	OnPlay	AllCardsBoard		ConditionSelf{oper=IsFalse}			EffectRunGraph	
+fire_element	-	graph_fire_element_ActivateEffect_91671160	OnPlay	AllCardsBoard		ConditionSelf{oper=IsFalse}			EffectRunGraph	
 firefox	0	<效果图>	ActivateAbility	卡牌选择			0		ActivateAbility SendToPileRaw	
-firefox	-	graph_firefox_ActivateAbility_node7900a0	Activate	CardSelector	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Spell}	ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Spell;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+firefox	-	graph_firefox_ActivateAbility_0631a839	Activate	CardSelector	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Spell}	ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Spell;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 fish	0	<效果图>	PassiveEffect	施法者玩家			0		PassiveEffect 210001	
-fish	-	graph_fish_PassiveEffect_node1c6e13	OnDeath	PlayerSelf					EffectRunGraph	
+fish	-	graph_fish_PassiveEffect_c6c78cd9	OnDeath	PlayerSelf					EffectRunGraph	
 fishing_rod	0	<效果图>	OnAfterAttack	所有槽位			1		OnAfterAttack 202003	
 fishing_rod	-	equip_attack1	Ongoing	EquippedCard					EffectAddStat	
 fishing_rod	-	equip_hp1	Ongoing	EquippedCard					EffectAddStat	
-fishing_rod	-	graph_fishing_rod_OnAfterAttack_node5aa4d8	OnAfterAttack	AllSlots		ConditionSlotEmpty{oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}	FilterFirst{amount=1}		EffectRunGraph	
+fishing_rod	-	graph_fishing_rod_OnAfterAttack_2ea79072	OnAfterAttack	AllSlots		ConditionSlotEmpty{oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}	FilterFirst{amount=1}		EffectRunGraph	
 flame_eagle	0	<效果图>	ActivateEffect	自身			0		ActivateEffect SetCardExhausted	
 flame_eagle	-	flying	Ongoing	Self				Flying		
-flame_eagle	-	graph_flame_eagle_ActivateEffect_nodea75b24	OnPlay	Self					EffectRunGraph	
+flame_eagle	-	graph_flame_eagle_ActivateEffect_82fca225	OnPlay	Self					EffectRunGraph	
 forest_Axe	-	equip_lifesteal	Ongoing	EquippedCard				LifeSteal		
 forest_Axe	-	equip_attack1	Ongoing	EquippedCard					EffectAddStat	
 forest_Axe	-	equip_hp2	Ongoing	EquippedCard					EffectAddStat	
 ghoul	0	<效果图>	ActivateEffect	自身			0		ActivateEffect 102004 112003 112004 202037 102004 112003 112004 202037	
-ghoul	-	graph_ghoul_ActivateEffect_node0bb5bf	OnPlay	Self	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Character}				EffectRunGraph	
+ghoul	-	graph_ghoul_ActivateEffect_b34285b2	OnPlay	Self	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Character}				EffectRunGraph	
 gorilla	0	<效果图>	ActivateEffect	自身			0		ActivateEffect RollValue	roll_add_attack
-gorilla	-	graph_gorilla_ActivateEffect_noded4c8c8	OnPlay	Self					EffectRunGraph	roll_add_attack
+gorilla	-	graph_gorilla_ActivateEffect_bd38270f	OnPlay	Self					EffectRunGraph	roll_add_attack
 hell_hound	-	fury	Ongoing	Self				Fury		
 hero_fire	0	<效果图>	ActivateAbility	选择目标			0		ActivateAbility 112001 101030 112005 212001 202041	
-hero_fire	-	graph_hero_fire_ActivateAbility_node232c0a	Activate	SelectTarget	ConditionOnce	ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+hero_fire	-	graph_hero_fire_ActivateAbility_c5d71c77	Activate	SelectTarget	ConditionOnce	ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 hero_forest	0	<效果图>	ActivateAbility	选择目标			0		ActivateAbility 112001 101030 112005 212001 202013	
-hero_forest	-	graph_hero_forest_ActivateAbility_node943f59	Activate	SelectTarget	ConditionOnce	ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsTrue}			EffectRunGraph	
+hero_forest	-	graph_hero_forest_ActivateAbility_f46cc470	Activate	SelectTarget	ConditionOnce	ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsTrue}			EffectRunGraph	
 hero_water	0	<效果图>	ActivateAbility	施法者玩家			0		ActivateAbility 210001	
-hero_water	-	graph_hero_water_ActivateAbility_noded11d1e	Activate	PlayerSelf	ConditionOnce				EffectRunGraph	
+hero_water	-	graph_hero_water_ActivateAbility_70c5c1e0	Activate	PlayerSelf	ConditionOnce				EffectRunGraph	
 holy_angel	-	flying	Ongoing	Self				Flying		
 holy_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 holy_blessing	-	trample	Ongoing	Self				Trample		
-holy_blessing	-	graph_holy_blessing_ActivateEffect_node4e1056	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+holy_blessing	-	graph_holy_blessing_ActivateEffect_8533bdbf	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 holy_griffin	0	<效果图>	ActivateAbility	自身			0		ActivateAbility 102004 112003 112004 202037	activate_chain_get+1+2
-holy_griffin	-	graph_holy_griffin_ActivateAbility_node02fa57	Activate	Self					EffectRunGraph	activate_chain_get+1+2
+holy_griffin	-	graph_holy_griffin_ActivateAbility_12ff015a	Activate	Self					EffectRunGraph	activate_chain_get+1+2
 holy_light	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 212001 202013	
-holy_light	-	graph_holy_light_ActivateEffect_nodedbb274	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
+holy_light	-	graph_holy_light_ActivateEffect_683c7b58	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
 holy_saintess	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 holy_saintess	1	<效果图>	ActivateEffect	施法者玩家			0		ActivateEffect 202013	
 holy_saintess	2	<效果图>	ActivateEffect	自身			0		ActivateEffect 210001	
-holy_saintess	-	graph_holy_saintess_ActivateEffect_node675a8c	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
-holy_saintess	-	graph_holy_saintess_ActivateEffect_noded251ee	OnPlay	PlayerSelf					EffectRunGraph	
-holy_saintess	-	graph_holy_saintess_ActivateEffect_nodebcdd0e	OnPlay	Self					EffectRunGraph	
+holy_saintess	-	graph_holy_saintess_ActivateEffect_f1e4da7c	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
+holy_saintess	-	graph_holy_saintess_ActivateEffect_f1e4da7c	OnPlay	PlayerSelf					EffectRunGraph	
+holy_saintess	-	graph_holy_saintess_ActivateEffect_f1e4da7c	OnPlay	Self					EffectRunGraph	
 ice_girl	0	<效果图>	EventEffect	触发者			0		EventEffect 102001 112002 112005 212001 SendToPileRaw	
 ice_girl	-	fury	Ongoing	Self				Fury		
-ice_girl	-	graph_ice_girl_EventEffect_node5bcecb	OnBeforeAttack	AbilityTriggerer		ConditionSelf{oper=IsFalse}			EffectRunGraph	
+ice_girl	-	graph_ice_girl_EventEffect_0206a74e	OnBeforeAttack	AbilityTriggerer		ConditionSelf{oper=IsFalse}			EffectRunGraph	
 imp	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 202041	
-imp	-	graph_imp_ActivateEffect_node1b82ff	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+imp	-	graph_imp_ActivateEffect_e0ff1ef9	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 killer_whale	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 202016	chain_draw
-killer_whale	-	graph_killer_whale_ActivateEffect_node7e8e7c	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionStat{type=Attack;oper=LessEqual;value=4} + ConditionOwner{oper=IsFalse}			EffectRunGraph	chain_draw
+killer_whale	-	graph_killer_whale_ActivateEffect_fecc3362	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionStat{type=Attack;oper=LessEqual;value=4} + ConditionOwner{oper=IsFalse}			EffectRunGraph	chain_draw
 kraken	0	<效果图>	ActivateEffect	自身			0		ActivateEffect SetCardExhausted	
-kraken	-	graph_kraken_ActivateEffect_node5ecf27	OnPlay	Self					EffectRunGraph	
+kraken	-	graph_kraken_ActivateEffect_79363fe7	OnPlay	Self					EffectRunGraph	
 large_eagle	-	flying_attack_1	Ongoing	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionStatus{has_status=Flying;value=0;oper=IsTrue}			EffectAddStat	
 large_eagle	-	flying	Ongoing	Self				Flying		
 light_blessing	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 212001 202013	
-light_blessing	-	graph_light_blessing_ActivateEffect_nodee812b9	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
+light_blessing	-	graph_light_blessing_ActivateEffect_afbd643d	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
 light_sword	-	lifesteal	Ongoing	Self				LifeSteal		
 mammoth	-	trample	Ongoing	Self				Trample		
 necromancer	0	<效果图>	ActivateEffect	卡牌选择			1		ActivateEffect PlayCardFree	
-necromancer	-	graph_necromancer_ActivateEffect_node1ba864	OnPlay	CardSelector		ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}	FilterRandom{amount=1}		EffectRunGraph	
+necromancer	-	graph_necromancer_ActivateEffect_3b787f2c	OnPlay	CardSelector		ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}	FilterRandom{amount=1}		EffectRunGraph	
 octopus	0	<效果图>	EventEffect	自身			0		EventEffect RollValue	roll_attack_bonus
-octopus	-	graph_octopus_EventEffect_node84fc46	OnBeforeAttack	Self					EffectRunGraph	roll_attack_bonus
+octopus	-	graph_octopus_EventEffect_b3531ddf	OnBeforeAttack	Self					EffectRunGraph	roll_attack_bonus
 owl	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 ClearCardStatus ResetCardToBase	
 owl	-	flying	Ongoing	Self				Flying		
-owl	-	graph_owl_ActivateEffect_noded8b177	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}		Silenced	EffectRunGraph	
+owl	-	graph_owl_ActivateEffect_023db8b1	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}		Silenced	EffectRunGraph	
 paladin	-	shell	OnPlay	Self				Shell		
 phoenix	0	<效果图>	ActivateAbility	选择目标			0		ActivateAbility 112001 102001 112002 112005 101030 112005 212001 202041	
 phoenix	1	<效果图>	PassiveEffect	自身			0		PassiveEffect 202003	
-phoenix	-	graph_phoenix_ActivateAbility_nodeeae1a8	Activate	SelectTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionSelf{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
-phoenix	-	graph_phoenix_PassiveEffect_node821d17	OnDeath	Self					EffectRunGraph	
+phoenix	-	graph_phoenix_ActivateAbility_891201c3	Activate	SelectTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionSelf{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+phoenix	-	graph_phoenix_PassiveEffect_399ec682	OnDeath	Self					EffectRunGraph	
 phoenix_egg	0	<效果图>	EventEffect	自身			0		EventEffect 202029	
-phoenix_egg	-	graph_phoenix_egg_EventEffect_node5ca0fa	StartOfTurn	Self					EffectRunGraph	
+phoenix_egg	-	graph_phoenix_egg_EventEffect_dad12f29	StartOfTurn	Self					EffectRunGraph	
 poison_frog	-	deathtouch	Ongoing	Self				Deathtouch		
 potion_blue	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 EFCardOwner 112005 212001 202013	
 potion_blue	-	spell_shell	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}		Shell		
-potion_blue	-	graph_potion_blue_ActivateEffect_node928b60	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+potion_blue	-	graph_potion_blue_ActivateEffect_47317033	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 potion_green	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 EFCardOwner 112005 212001 102004 112003 112004 202037	
 potion_green	-	spell_taunt	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionStatus{has_status=Stealth;value=0;oper=IsFalse}		Protection		
-potion_green	-	graph_potion_green_ActivateEffect_node9fc927	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+potion_green	-	graph_potion_green_ActivateEffect_8c701bc4	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 potion_red	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 102032 EFCardOwner 112005 212001 102004 112003 112004 202037	
 potion_red	-	spell_fury	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}		Fury		
-potion_red	-	graph_potion_red_ActivateEffect_noded95810	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+potion_red	-	graph_potion_red_ActivateEffect_c6d442d2	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 power_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 power_blessing	-	taunt	Ongoing	Self				Protection		
 power_blessing	-	spell_immunity	Ongoing	Self				SpellImmunity		
-power_blessing	-	graph_power_blessing_ActivateEffect_node082b63	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+power_blessing	-	graph_power_blessing_ActivateEffect_fb2c12ee	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 pufferfish	-	defense_attack3	Ongoing	Self	ConditionTurn{oper=IsFalse}				EffectAddStat	
 purification_priest	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 ClearCardStatus ResetCardToBase	
-purification_priest	-	graph_purification_priest_ActivateEffect_node0e06f4	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}		Silenced	EffectRunGraph	
+purification_priest	-	graph_purification_priest_ActivateEffect_ec21f47a	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}		Silenced	EffectRunGraph	
 raccoon	0	<效果图>	ActivateEffect	卡牌选择			0		ActivateEffect SendToPileRaw	
-raccoon	-	graph_raccoon_ActivateEffect_node58cf3f	OnPlay	CardSelector	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Character}	ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+raccoon	-	graph_raccoon_ActivateEffect_7182a5cc	OnPlay	CardSelector	ConditionCount{target=Self;pile=Discard;oper=GreaterEqual;value=1;has_type=Character}	ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 reaper	0	<效果图>	EventEffect	所有角色			1		EventEffect 102032 212001 202016	
-reaper	-	graph_reaper_EventEffect_node7eb360	StartOfTurn	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}	FilterLowestStat{stat=10}		EffectRunGraph	
+reaper	-	graph_reaper_EventEffect_5e50ef6f	StartOfTurn	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}	FilterLowestStat{stat=10}		EffectRunGraph	
 resurrection_swamp	0	<效果图>	ActivateEffect	卡牌选择			0		ActivateEffect PlayCardFree	
-resurrection_swamp	-	graph_resurrection_swamp_ActivateEffect_nodec2c779	OnPlay	CardSelector		ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
+resurrection_swamp	-	graph_resurrection_swamp_ActivateEffect_9be3e095	OnPlay	CardSelector		ConditionOwner{oper=IsTrue} + ConditionCardPile{type=Discard;oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
 sasquatch	0	<效果图>	EventEffect	自身			0		EventEffect ClearCardStatus	
-sasquatch	-	graph_sasquatch_EventEffect_node1804c3	EndOfTurn	Self	ConditionCount{target=Self;pile=Board;oper=GreaterEqual;value=2;has_type=Character}			Stealth	EffectRunGraph	
+sasquatch	-	graph_sasquatch_EventEffect_2ca796dd	EndOfTurn	Self	ConditionCount{target=Self;pile=Board;oper=GreaterEqual;value=2;has_type=Character}			Stealth	EffectRunGraph	
 sea_monster	-	aura_attack_m1	Ongoing	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionSelf{oper=IsFalse} + ConditionOwner{oper=IsFalse}			EffectAddStat	
 sea_monster	-	activate_boost1	Activate	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsTrue}		AddAttack		
 seagull	-	flying	Ongoing	Self				Flying		
 shadow_arrow	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 101030 112005 212001 202041	
-shadow_arrow	-	graph_shadow_arrow_ActivateEffect_nodea724b1	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+shadow_arrow	-	graph_shadow_arrow_ActivateEffect_42cb63d7	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 shadow_assassin	0	<效果图>	OnAfterAttack	触发者			0		OnAfterAttack 102001 112002 112005 102032 EFCardOwner 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 shadow_assassin	-	stealth	OnPlay	Self				Stealth		
-shadow_assassin	-	graph_shadow_assassin_OnAfterAttack_node72e1e9	OnAfterAttack	AbilityTriggerer		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
+shadow_assassin	-	graph_shadow_assassin_OnAfterAttack_fa323b80	OnAfterAttack	AbilityTriggerer		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
 shadow_bat	0	<效果图>	ActivateEffect	自身			0		ActivateEffect 210001	
-shadow_bat	-	graph_shadow_bat_ActivateEffect_nodec46b87	OnPlay	Self					EffectRunGraph	
+shadow_bat	-	graph_shadow_bat_ActivateEffect_5e4b0523	OnPlay	Self					EffectRunGraph	
 shark	0	<效果图>	OnDeathOther	施法者玩家			0		OnDeathOther 210001	
-shark	-	graph_shark_OnDeathOther_nodedf8548	OnDeathOther	PlayerSelf	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
+shark	-	graph_shark_OnDeathOther_745181db	OnDeathOther	PlayerSelf	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
 sickle_girl	0	<效果图>	OnKill	对手玩家			0		OnKill 202041	
 sickle_girl	-	deathtouch	Ongoing	Self				Deathtouch		
-sickle_girl	-	graph_sickle_girl_OnKill_nodeedc45a	OnKill	PlayerOpponent	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
+sickle_girl	-	graph_sickle_girl_OnKill_9c5f67b8	OnKill	PlayerOpponent	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
 skeleton_soldier	0	<效果图>	PassiveEffect	自身			0		PassiveEffect 202003	
-skeleton_soldier	-	graph_skeleton_soldier_PassiveEffect_node0b697e	OnDeath	Self					EffectRunGraph	
+skeleton_soldier	-	graph_skeleton_soldier_PassiveEffect_580b16a1	OnDeath	Self					EffectRunGraph	
 small_bird	-	flying_ally	Ongoing	Self		ConditionOtherCardWithStatus{has_status=Flying;oper=GreaterEqual;value=1}		Flying		
 snake_venom	-	attack_poison	OnBeforeAttack	AbilityTriggerer		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue}		Poisoned		
 snake_venom	-	defend_poison	OnBeforeDefend	AbilityTriggerer		ConditionSelf{oper=IsFalse} + ConditionCardType{has_type=Character;oper=IsTrue}		Poisoned		
 soul_harvest	0	<效果图>	ActivateEffect	所有角色			0		ActivateEffect 102032 212001 202016	chain_heal_per_kill
-soul_harvest	-	graph_soul_harvest_ActivateEffect_node5f7254	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	chain_heal_per_kill
+soul_harvest	-	graph_soul_harvest_ActivateEffect_b396fa0a	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	chain_heal_per_kill
 spell_aerial_strike	0	<效果图>	ActivateEffect	施法者玩家			0		ActivateEffect 202004 202004 202004	
-spell_aerial_strike	-	graph_spell_aerial_strike_ActivateEffect_nodec9914b	OnPlay	PlayerSelf					EffectRunGraph	
+spell_aerial_strike	-	graph_spell_aerial_strike_ActivateEffect_8cfb69a1	OnPlay	PlayerSelf					EffectRunGraph	
 spell_armageddon	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 101030 112005 212001 202041	
-spell_armageddon	-	graph_spell_armageddon_ActivateEffect_nodedffbe5	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+spell_armageddon	-	graph_spell_armageddon_ActivateEffect_5fe62366	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 spell_burn	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 202041	
-spell_burn	-	graph_spell_burn_ActivateEffect_nodeb0a685	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+spell_burn	-	graph_spell_burn_ActivateEffect_7bbc8f33	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 spell_extinct	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 EFCardOwner 112005 212001 202050	
-spell_extinct	-	graph_spell_extinct_ActivateEffect_noded5013b	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
+spell_extinct	-	graph_spell_extinct_ActivateEffect_d019a00d	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
 spell_flood	0	<效果图>	ActivateEffect	所有角色			0		ActivateEffect 102032 212001 SetCardHpClearDamage	
-spell_flood	-	graph_spell_flood_ActivateEffect_node604d81	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
+spell_flood	-	graph_spell_flood_ActivateEffect_3fffd094	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
 spell_growth	0	<效果图>	ActivateEffect	所有角色			0		ActivateEffect EFCardOwner 102032 112005 212001 102004 112003 112004 202037	
 spell_growth	1	<效果图>	ActivateEffect	所有角色			0		ActivateEffect EFCardOwner 212001 102004 112003 112004 202037	
-spell_growth	-	graph_spell_growth_ActivateEffect_nodef4a345	OnPlay	AllCardsBoard		ConditionOwner{oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
-spell_growth	-	graph_spell_growth_ActivateEffect_node3df0e8	OnPlay	AllCardsBoard		ConditionOwner{oper=IsTrue}			EffectRunGraph	
+spell_growth	-	graph_spell_growth_ActivateEffect_a2f4af6b	OnPlay	AllCardsBoard		ConditionOwner{oper=IsTrue} + ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	
+spell_growth	-	graph_spell_growth_ActivateEffect_a2f4af6b	OnPlay	AllCardsBoard		ConditionOwner{oper=IsTrue}			EffectRunGraph	
 spell_hibernate	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 102032 212001 102004 112003 112004 202037 102004 112003 112004 202037	chain_hibernate
-spell_hibernate	-	graph_spell_hibernate_ActivateEffect_node078dbf	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	chain_hibernate
+spell_hibernate	-	graph_spell_hibernate_ActivateEffect_56063b68	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue}			EffectRunGraph	chain_hibernate
 spell_projectiles	0	<效果图>	ActivateEffect	无			0		ActivateEffect RepeatAbilityById	
-spell_projectiles	-	graph_spell_projectiles_ActivateEffect_node49ba49	OnPlay	None	ConditionSelectedValue{oper=Greater;value=0}				EffectRunGraph	
+spell_projectiles	-	graph_spell_projectiles_ActivateEffect_a5e63a80	OnPlay	None	ConditionSelectedValue{oper=Greater;value=0}				EffectRunGraph	
 spell_roots	-	spell_paralyse	OnPlay	PlayTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}		Paralysed		
 spell_split	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102001 112002 112005 112001 101030 112005 212001 202041	
-spell_split	-	graph_spell_split_ActivateEffect_node8a3da6	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+spell_split	-	graph_spell_split_ActivateEffect_65abb8b0	OnPlay	SelectTarget		ConditionSelf{oper=IsFalse} + ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 spell_stomp	0	<效果图>	ActivateEffect	所有角色			2		ActivateEffect 102032 212001 202016	
-spell_stomp	-	graph_spell_stomp_ActivateEffect_noded249dc	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}	FilterLowestStat{stat=20}+FilterRandom{amount=1}		EffectRunGraph	
+spell_stomp	-	graph_spell_stomp_ActivateEffect_0d6b5627	OnPlay	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue}	FilterLowestStat{stat=20}+FilterRandom{amount=1}		EffectRunGraph	
 spell_stones	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 101030 112005 212001 202041	
 spell_stones	1	<效果图>	ActivateEffect	施法者玩家			0		ActivateEffect 210001	
-spell_stones	-	graph_spell_stones_ActivateEffect_nodea37aad	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
-spell_stones	-	graph_spell_stones_ActivateEffect_node642dd1	OnPlay	PlayerSelf					EffectRunGraph	
+spell_stones	-	graph_spell_stones_ActivateEffect_d9e09692	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+spell_stones	-	graph_spell_stones_ActivateEffect_d9e09692	OnPlay	PlayerSelf					EffectRunGraph	
 spell_storm	0	<效果图>	ActivateEffect	所有角色			0		ActivateEffect SendToPileRaw	
-spell_storm	-	graph_spell_storm_ActivateEffect_node6e6526	OnPlay	AllCardsBoard					EffectRunGraph	
+spell_storm	-	graph_spell_storm_ActivateEffect_2a9560bf	OnPlay	AllCardsBoard					EffectRunGraph	
 spell_submerge	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 EFCardOwner 112005 212001 202050	
-spell_submerge	-	graph_spell_submerge_ActivateEffect_node12bec3	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+spell_submerge	-	graph_spell_submerge_ActivateEffect_520c5f9c	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 spell_treasure	0	<效果图>	ActivateEffect	施法者玩家			0		ActivateEffect SendToPileRaw	chain_treasure
-spell_treasure	-	graph_spell_treasure_ActivateEffect_node1bfba8	OnPlay	PlayerSelf					EffectRunGraph	chain_treasure
+spell_treasure	-	graph_spell_treasure_ActivateEffect_b6159493	OnPlay	PlayerSelf					EffectRunGraph	chain_treasure
 spell_wave	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 101030 112005 212001 SendToPileRaw	
-spell_wave	-	graph_spell_wave_ActivateEffect_node65cdb5	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
+spell_wave	-	graph_spell_wave_ActivateEffect_ec4b99dd	OnPlay	PlayTarget		ConditionTarget{type=Card;oper=IsTrue} + ConditionOwnerAI{oper=IsFalse}			EffectRunGraph	
 star_tower	0	<效果图>	EventEffect	施法者玩家			0		EventEffect 210001	
-star_tower	-	graph_star_tower_EventEffect_node3b2e03	OnPlayOther	PlayerSelf	ConditionCardType{has_type=Spell;oper=IsTrue} + ConditionOwner{oper=IsTrue}				EffectRunGraph	
+star_tower	-	graph_star_tower_EventEffect_37804ec2	OnPlayOther	PlayerSelf	ConditionCardType{has_type=Spell;oper=IsTrue} + ConditionOwner{oper=IsTrue}				EffectRunGraph	
 strength_blessing	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 strength_blessing	-	trample	Ongoing	Self				Trample		
-strength_blessing	-	graph_strength_blessing_ActivateEffect_nodeb8e059	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+strength_blessing	-	graph_strength_blessing_ActivateEffect_f4bea632	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 town_forest	-	town_aura_green	Ongoing	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardType{has_type=None;has_team=forest;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectAddStat	
 town_underwater	-	town_aura_blue	Ongoing	AllCardsHand		ConditionCardType{has_type=None;has_team=water;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectAddStat	
 town_volcano	-	town_aura_red	Ongoing	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardType{has_type=None;has_team=fire;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectAddStat	
 trap_explosive	0	<效果图>	EventEffect	所有角色			0		EventEffect 102032 EFCardOwner 112005 212001 202041	
-trap_explosive	-	graph_trap_explosive_EventEffect_nodeff9b6c	OnBeforeAttack	AllCardsBoard	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
+trap_explosive	-	graph_trap_explosive_EventEffect_b44aaf6b	OnBeforeAttack	AllCardsBoard	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			EffectRunGraph	
 trap_fish	0	<效果图>	EventEffect	触发者			0		EventEffect 202029	
-trap_fish	-	graph_trap_fish_EventEffect_node6550bd	OnPlayOther	AbilityTriggerer	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}				EffectRunGraph	
+trap_fish	-	graph_trap_fish_EventEffect_48b8e3b4	OnPlayOther	AbilityTriggerer	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}				EffectRunGraph	
 trap_spike	-	trap_paralyse3	OnAfterAttack	AbilityTriggerer	ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}			Paralysed		
 tree_angry	0	<效果图>	EventEffect	自身			0		EventEffect 202013	
-tree_angry	-	graph_tree_angry_EventEffect_nodee1eba9	StartOfTurn	Self					EffectRunGraph	
+tree_angry	-	graph_tree_angry_EventEffect_137b535e	StartOfTurn	Self					EffectRunGraph	
 turtle	-	taunt	Ongoing	Self				Protection		
 turtle	-	shell	OnPlay	Self				Shell		
 unicorn	-	play_boost2	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionSelf{oper=IsFalse} + ConditionOwnerAI{oper=IsTrue}		AddAttack+AddHP		
 vampire	0	<效果图>	OnKill	对手玩家			0		OnKill 202041	
 vampire	-	vampire_lord	Ongoing	Self				LifeSteal		
-vampire	-	graph_vampire_OnKill_node8c6f1c	OnKill	PlayerOpponent	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
+vampire	-	graph_vampire_OnKill_a95118a2	OnKill	PlayerOpponent	ConditionCardType{has_type=Character;oper=IsTrue}				EffectRunGraph	
 waterfowl	-	flying	Ongoing	Self				Flying		
 white_swan	0	<效果图>	ActivateEffect	打出目标			0		ActivateEffect 112001 212001 202013	
-white_swan	-	graph_white_swan_ActivateEffect_node409229	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
+white_swan	-	graph_white_swan_ActivateEffect_5fa90654	OnPlay	PlayTarget		ConditionSlotEmpty{oper=IsFalse}			EffectRunGraph	
 wolf_alpha	0	<效果图>	ActivateEffect	所有槽位			1		ActivateEffect 202003	
 wolf_alpha	-	aura_wolf	Ongoing	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionCardType{has_type=None;oper=IsTrue} + ConditionSelf{oper=IsFalse} + ConditionOwner{oper=IsTrue}			EffectAddStat	
-wolf_alpha	-	graph_wolf_alpha_ActivateEffect_node76aca2	OnPlay	AllSlots		ConditionSlotEmpty{oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionSlotRange{range_x=1;range_y=1;range_p=0}	FilterRandom{amount=1}		EffectRunGraph	
+wolf_alpha	-	graph_wolf_alpha_ActivateEffect_46112d1e	OnPlay	AllSlots		ConditionSlotEmpty{oper=IsTrue} + ConditionOwner{oper=IsTrue} + ConditionSlotRange{range_x=1;range_y=1;range_p=0}	FilterRandom{amount=1}		EffectRunGraph	
 wolf_furious	0	<效果图>	EventEffect	自身			0		EventEffect 102004 112003 112004 202037	
 wolf_furious	-	fury	Ongoing	Self				Fury		
-wolf_furious	-	graph_wolf_furious_EventEffect_noded8fe77	OnBeforeAttack	Self					EffectRunGraph	
+wolf_furious	-	graph_wolf_furious_EventEffect_9cde1484	OnBeforeAttack	Self					EffectRunGraph	
 wolf_stalker	-	stealth	OnPlay	Self				Stealth		
 woodland	0	<效果图>	EventEffect	所有角色			0		EventEffect 202013	
-woodland	-	graph_woodland_EventEffect_node816266	StartOfTurn	AllCardsBoard		ConditionCardType{has_type=None;has_team=forest;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
+woodland	-	graph_woodland_EventEffect_f3b30006	StartOfTurn	AllCardsBoard		ConditionCardType{has_type=None;has_team=forest;oper=IsTrue} + ConditionOwner{oper=IsTrue}			EffectRunGraph	
 world_tree_seedling	0	<效果图>	EventEffect	施法者玩家			0		EventEffect AddManaNoClamp	end_turn_blessing_chain_draw+end_turn_blessing_chain_heal
-world_tree_seedling	-	graph_world_tree_seedling_EventEffect_nodee2b906	EndOfTurn	PlayerSelf	ConditionTurn{oper=IsTrue}				EffectRunGraph	end_turn_blessing_chain_draw+end_turn_blessing_chain_heal
+world_tree_seedling	-	graph_world_tree_seedling_EventEffect_ea47d443	EndOfTurn	PlayerSelf	ConditionTurn{oper=IsTrue}				EffectRunGraph	end_turn_blessing_chain_draw+end_turn_blessing_chain_heal
 zombie	0	<效果图>	ActivateEffect	选择目标			0		ActivateEffect 102032 EFCardOwner 105005 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
-zombie	-	graph_zombie_ActivateEffect_node6d1f95	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
+zombie	-	graph_zombie_ActivateEffect_9f26dad3	OnPlay	SelectTarget		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse} + ConditionCardPile{type=Board;oper=IsTrue}			EffectRunGraph	
 # 汇总：含图卡=93｜效果图=98｜编译能力(图)=121｜编译能力(数据直通)=41｜过滤器 DTO=8 vs 编译后=8（一致 ✓）｜连锁 DTO=15 vs 编译后=15（一致 ✓）
 # 触发条件对账（全池·两条通道）：DTO 条件条数=28 vs 编译后=28｜带触发条件的卡=21（DTO 条件全部还原 ✓）
 # 效果图数 ≠ ok 行数 的卡：无 ✓

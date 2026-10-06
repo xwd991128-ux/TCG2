@@ -36,6 +36,15 @@ function Add-Finding([string]$key, [string]$text) {
     $rows.Add("[$key] $text")
 }
 
+# 动态编号输入槽：**不在 NodeDoc 静态声明里**，由运行时按名字解析（见 NodeDocRunner.ParamSlotBase/ParamSlotName）
+#   112004 整数运算 = arg / arg1 / arg2 …    112005 逻辑运算 = value / value1 / value2 …
+# 不排除它们 → 会误报"端口/字段不在NodeDoc"（实测：4 张卡的 8 条全是这种误报，白查一轮）
+function Test-DynamicParamSlot([string]$act, [string]$name) {
+    if ($act -eq '112004') { return $name -match '^arg\d*$' }
+    if ($act -eq '112005') { return $name -match '^value\d*$' }
+    return $false
+}
+
 function Check-Link($c, $map, [string]$nodeId, [string]$side, [string]$pin) {
     $nd = $map[$nodeId]
     if (-not $nd) { Add-Finding "断线-节点不存在" "$($c.title) → $side=$pin"; return }
@@ -61,12 +70,14 @@ foreach ($c in $cards) {
         foreach ($p in $n.pins) {
             $pn = [string]$p.name
             if ($pn -eq 'in' -or $pn -eq 'out') { continue }   # 引擎自动生成的流口
+            if (Test-DynamicParamSlot $act $pn) { continue }   # 动态编号槽（运行时解析，不在静态文档里）
             if (-not $decl.Contains($pn)) {
                 Add-Finding "端口不在NodeDoc" "$($c.title) → $act($($n.title)) 端口「$pn」"
             }
         }
         foreach ($f in $n.fields) {
             $fn = [string]$f.name
+            if (Test-DynamicParamSlot $act $fn) { continue }   # 动态编号槽
             if (-not $decl.Contains($fn)) {
                 Add-Finding "字段不在NodeDoc" "$($c.title) → $act($($n.title)) 字段「$fn」=$($f.value)"
             }

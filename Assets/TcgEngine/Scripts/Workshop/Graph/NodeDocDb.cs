@@ -76,13 +76,13 @@ namespace TcgEngine.Workshop
         /// <summary>zmcs 主题分类的稳定展示顺序（NodeDoc.xml 中出现顺序）</summary>
         public static IReadOnlyList<string> Categories
         {
-            get { Ensure(); return categories; }
+            get { Ensure(); return categories != null ? categories : empty_categories; }   //★空库也不返回 null
         }
 
         /// <summary>全部节点定义（319 条）</summary>
         public static IReadOnlyList<NodeDocDef> All
         {
-            get { Ensure(); return defs; }
+            get { Ensure(); return defs != null ? defs : empty_defs; }                     //★空库也不返回 null
         }
 
         public static NodeDocDef Get(string define_id)
@@ -93,8 +93,22 @@ namespace TcgEngine.Workshop
             return null;
         }
 
+        //★空库兜底：Ensure 在「非主线程」或「NodeDoc.xml 缺失」时不会装载 → 不能让调用方拿到 null 直接 foreach 崩
+        private static readonly List<NodeDocDef> empty_defs = new List<NodeDocDef>();
+        private static readonly List<string> empty_categories = new List<string>();
+
         private static void Ensure()
         {
+            //★Resources.Load 只能在主线程调用，而本方法会被 AI 推演线程间接触发
+            //  （AI 线程跑图执行 → 查节点文档/分类）。后台线程先到时**不装载、也不置 tried**，
+            //  等主线程来装载（主线程本来就在启动/卡池导入时装载过）；本次按"空库"返回即可，
+            //  绝不能让后台线程调 Resources.Load 抛异常打断整轮 AI 搜索。
+            if (!MainThreadUtil.IsMainThread)
+            {
+                Debug.LogWarning("[NodeDoc] 非主线程请求节点库（Resources.Load 不可在后台线程执行）→ 本次按空库处理；"
+                    + "主线程装载后即恢复正常");
+                return;
+            }
             if (defs != null || tried)
                 return;
             tried = true;

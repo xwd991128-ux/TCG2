@@ -71,9 +71,19 @@ namespace TcgEngine.UI
             // 不能用 selectionAnchorPosition/selectionFocusPosition（TMP 的字符索引空间，可能因 textInfo 过期而错位）
             if (edit_field != null && edit_field.isFocused)
             {
-                m_last_anchor = edit_field.selectionStringAnchorPosition;
-                m_last_focus = edit_field.selectionStringFocusPosition;
-                has_selection_cache = true;
+                //★TMP 已知陷阱：空文本（或 textInfo 尚未生成）时读选区下标会抛
+                //  IndexOutOfRangeException（characterInfo[-1]）。这两行每帧都跑，
+                //  一旦抛出会中断本弹框的 Update（并且刷屏），所以必须兜住。
+                try
+                {
+                    m_last_anchor = edit_field.selectionStringAnchorPosition;
+                    m_last_focus = edit_field.selectionStringFocusPosition;
+                    has_selection_cache = true;
+                }
+                catch (System.Exception)
+                {
+                    has_selection_cache = false;
+                }
             }
         }
 
@@ -121,6 +131,11 @@ namespace TcgEngine.UI
                 return null;
 
             GameObject go = new GameObject("RichTextPopup", typeof(RectTransform), typeof(CanvasGroup));
+            //★layer 必须跟父画布一致（整套 UI 在 Layer 5(UI)，而运行时新建的物体默认 Layer 0(Default)）：
+            //  相机模式的画布是按 layer 过 cullingMask 的，层不对会被整块剔掉=不渲染（曾经的现象：
+            //  "点了卡牌文本没反应"，对象存在、alpha 正常，就是看不见）。弹层不许再自己建 Canvas（见
+            //  GraphEditorPanel.BringPopupToFront 的注释），层对了才不会再有这类坑。
+            go.layer = parent.gameObject.layer;
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.SetParent(parent, false);
             rt.anchorMin = Vector2.zero;
@@ -160,17 +175,28 @@ namespace TcgEngine.UI
             ApplyFonts();   // 字体统一走全局入口覆盖
 
             // 打开后把光标放到文本末尾并激活输入框：TMP 输入框未获焦时不绘制光标，
-            // 否则用户会以为「打开就丢失光标」，必须先点一下才能输入
+            // 否则用户会以为「打开就丢失光标」，必须先点一下才能输入。
+            //★整体兜异常：空文本时 TMP 的光标/高亮生成会抛 IndexOutOfRangeException（characterInfo[-1]），
+            //  它发生在 Show() 之后——抛出会把「打开弹框」整条链打断（调用方看到的正是"点了没反应"），
+            //  所以这里绝不允许它冒出去：失败只影响光标，不影响弹框已经显示出来。
             if (edit_field != null)
             {
                 int end = edit_field.text != null ? edit_field.text.Length : 0;
                 m_last_anchor = end;
                 m_last_focus = end;
                 has_selection_cache = true;
-                edit_field.ActivateInputField();
-                ApplyCaret(end, 0);
-                if (gameObject.activeInHierarchy)
-                    StartCoroutine(CoRestoreSelection(edit_field.text, end, 0));
+                try
+                {
+                    edit_field.ActivateInputField();
+                    ApplyCaret(end, 0);
+                    if (gameObject.activeInHierarchy)
+                        StartCoroutine(CoRestoreSelection(edit_field.text, end, 0));
+                }
+                catch (System.Exception e)
+                {
+                    has_selection_cache = false;
+                    Debug.LogWarning("[富文本弹框] 设置光标失败（已忽略，文本仍可编辑）：" + e.Message);
+                }
             }
         }
 

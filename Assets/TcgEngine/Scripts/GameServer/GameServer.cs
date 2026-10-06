@@ -73,6 +73,7 @@ namespace TcgEngine.Server
             RegisterAction(GameAction.Resign, ReceiveResign);
             RegisterAction(GameAction.BattleButton, ReceiveBattleButton);
             RegisterAction(GameAction.ChatMessage, ReceiveChat);
+            RegisterAction(GameAction.DevCommand, ReceiveDevCommand);   //调试控制台（人机/模拟）
 
             //Events
             gameplay.onGameStart += OnGameStart;
@@ -157,7 +158,11 @@ namespace TcgEngine.Server
                 EndExpiredGame();
 
             //Timer during game
-            if (game_data.state == GameState.Play && !gameplay.IsResolving())
+            //★人机/模拟对局（Solo/Adventure）不启用回合倒计时：本地对局限时没有意义，
+            //  到期会自动 NextStep 把玩家的回合推进掉（用户要求去掉）。联机保持原样。
+            bool no_turn_timer = is_dedicated_server
+                || (game_data.settings != null && game_data.settings.NoTurnTimer);
+            if (game_data.state == GameState.Play && !gameplay.IsResolving() && !no_turn_timer)
             {
                 game_data.turn_timer -= Time.deltaTime;
                 if (game_data.turn_timer <= 0f)
@@ -198,7 +203,12 @@ namespace TcgEngine.Server
         protected virtual void StartGame()
         {
             //Setup AI
-            bool ai_vs_ai = !is_dedicated_server && GameplayData.Get().ai_vs_ai;
+            //★ ai_vs_ai 只认"自动对战回归"专用对局（AutoBattleRunner 用 "autobattle_" 前缀的 game_uid）。
+            //  为什么要加这个限定：该开关是 ScriptableObject 字段，工程若关了域重载（Enter Play Mode Options
+            //  不勾 Reload Domain），运行时的改动会**跨 Play 会话残留** → 一旦残留成 true，
+            //  普通人机/模拟测试的"玩家 0"也会被交给 AI 托管（用户实报："进人机界面直接帮我自动操作了"）。
+            bool ai_vs_ai = !is_dedicated_server && GameplayData.Get().ai_vs_ai
+                && !string.IsNullOrEmpty(game_uid) && game_uid.StartsWith("autobattle_", System.StringComparison.Ordinal);
             foreach (Player player in game_data.players)
             {
                 if (player.is_ai || ai_vs_ai)
@@ -486,6 +496,66 @@ namespace TcgEngine.Server
             {
                 msg.player_id = player.player_id; //Force player id to sending client to avoid spoofing
                 SendToAll(GameAction.ChatMessage, msg, NetworkDelivery.Reliable);
+            }
+        }
+
+        /// <summary>
+        /// 调试控制台指令（客户端 `DevConsoleUI` → GameAction.DevCommand）。
+        ///
+        /// 复用 MsgChat 作为载荷（只需一个字符串），避免新增可序列化类型。
+        /// **为什么要在服务端执行**：客户端 GameData 只是服务端下发的只读投影，
+        /// 客户端直接改状态会被下一次 RefreshAll 覆盖；这里执行完立刻 RefreshAll 下发。
+        /// **联机一律拒绝**：is_dedicated_server=true 说明这局跑在联机服务端上
+        /// （人机/模拟走 ServerManagerLocal → `new GameServer(uid, nb, false)`），直接回错误。
+        /// </summary>
+        public void ReceiveDevCommand(ClientData iclient, SerializedData sdata)
+        {
+            MsgChat msg = sdata.Get<MsgChat>();
+            Player player = GetPlayer(iclient);
+            if (iclient == null || msg == null)
+                return;
+
+            if (is_dedicated_server)
+            {
+                SendMsgToClient(iclient.client_id, DevCommandExecutor.PrefixErr + "这是联机对局，不允许使用调试控制台");
+                Debug.LogWarning("[控制台] 拒绝了联机客户端的调试指令：" + msg.msg);
+                return;
+            }
+            if (player == null)
+            {
+                SendMsgToClient(iclient.client_id, DevCommandExecutor.PrefixErr + "还没进入对局（无该客户端对应的玩家）");
+                return;
+            }
+
+            string result;
+            try
+            {
+                result = DevCommandExecutor.Execute(gameplay, game_data, player, msg.msg);
+            }
+            catch (System.Exception e)
+            {
+                result = DevCommandExecutor.PrefixErr + "执行异常：" + e.GetType().Name + " " + e.Message;
+            }
+            if (string.IsNullOrEmpty(result))
+                result = DevCommandExecutor.PrefixOk + "已执行";
+            SendMsgToClient(iclient.client_id, result);
+
+            if (DevCommandChangesState(msg.msg))
+                RefreshAll();      //把服务端最新状态下发给客户端（否则界面不会更新）
+        }
+
+        /// <summary>该指令是否会改状态（只读指令不必刷快照，省一次全量下发）</summary>
+        private static bool DevCommandChangesState(string line)
+        {
+            if (string.IsNullOrEmpty(line))
+                return false;
+            string cmd = line.Trim().Split(' ', '\t')[0].ToLowerInvariant();
+            switch (cmd)
+            {
+                case "help": case "?": case "state": case "cards": case "preview": case "clear": case "log": case "own":
+                    return false;
+                default:
+                    return true;
             }
         }
 

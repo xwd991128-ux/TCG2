@@ -23,8 +23,8 @@ namespace TcgEngine.UI
         public string to_pin;
         public System.Action<NodeLink> onDelete;   // 右键点击连线回调（编辑器绑定，删除该连线）
 
-        private const int SEG_COUNT = 24;           // 曲线分段数（越多越圆滑）
-        private const int HIT_SEGMENTS = 8;         // 沿曲线中段放置的命中块数量
+        private const int SEG_COUNT = 16;           // 曲线分段数（弧度加大后 10 段能看出折线；16 段在"平滑"与"拖拽开销"之间取平衡）
+        private const int HIT_SEGMENTS = 3;         // 沿曲线中段放置的命中块数量（只用于右键删线，3 块够覆盖）
         private const float ARC = 0f;               // 曲线垂直拱起高度（0=水平 S 曲线，不做上拱）
         private const float HIT_SIZE = 14f;         // 命中块尺寸
 
@@ -34,6 +34,10 @@ namespace TcgEngine.UI
         private readonly List<RectTransform> segs = new List<RectTransform>();
         private readonly List<Image> seg_imgs = new List<Image>();
         private readonly List<RectTransform> hits = new List<RectTransform>();
+        //样式缓存：颜色只在变化时写（拖动时每帧重绘，逐段写 Image.color 会白白脏一批图形）
+        private bool style_applied;
+        private Color applied_color;
+        private float applied_width;
 
         /// <summary>绑定数据：连线根铺满 content（pivot 左下），建立曲线分段与命中块</summary>
         public void Setup(RectTransform line)
@@ -123,32 +127,56 @@ namespace TcgEngine.UI
                 if (segs[i] != null)
                     segs[i].sizeDelta = new Vector2(segs[i].sizeDelta.x, w);
             }
+            style_applied = true;
+            applied_color = col;
+            applied_width = w;
         }
 
-        /// <summary>按两端引脚位置重绘（画布 content 局部坐标）</summary>
-        public void Redraw()
+        /// <summary>按两端引脚位置重绘（画布 content 局部坐标）。
+        /// quick=true：拖动中调用——跳过命中块（右键删线用，拖动时不需要，省一批 RectTransform 写入）</summary>
+        public void Redraw(bool quick = false)
         {
             if (line == null || from_ref == null || to_ref == null)
                 return;
-            Draw(from_ref.GetCanvasPos(), to_ref.GetCanvasPos());
+            Draw(from_ref.GetCanvasPos(), to_ref.GetCanvasPos(), quick);
         }
 
         /// <summary>按显式两端点重绘（拖拽临时线用）</summary>
-        public void Draw(Vector2 a, Vector2 b)
+        public void Draw(Vector2 a, Vector2 b, bool quick = false)
         {
             if (line == null)
                 return;
 
             //控制点：水平外扩 + 向上拱起（高度在节点上方）。
             //把手长度不得超过水平距离的一半，否则两端把手会互相越过 → 线会"绕一圈"打环
+            //★曲线形状（对齐醉梦传说的大弧线）：
+            //  旧算法控制点长度只按**水平距离**算（dx*0.45，下限 16）→ 两个节点几乎上下对齐时 dx≈0，
+            //  控制点被压到 16px，曲线退化成一条直线（用户实报"曲线为什么这么直"）。
+            //  新算法同时吃「水平距离」与「两点总距离」，并抬高下限/放宽上限：
+            //    · 水平错开越大 → 越贴着"横出横入"的 S 形；
+            //    · 垂直落差越大 → 靠总距离把弧度撑开（这是旧算法完全没有的一项）；
+            //    · 目标在左（回折线）时同样给足长度 → 形成醉梦传说那种绕回来的大弧。
             float dx = Mathf.Abs(b.x - a.x);
-            float h = Mathf.Clamp(dx * 0.45f, 16f, 140f);
+            float dy = Mathf.Abs(b.y - a.y);
+            float dist = Mathf.Sqrt(dx * dx + dy * dy);
+            float h = Mathf.Clamp(Mathf.Max(dx * 0.55f, dist * 0.35f), 64f, 320f);
             Vector2 c1 = a + new Vector2(h, ARC);
             Vector2 c2 = b + new Vector2(-h, ARC);
 
             bool is_action = IsActionType(style_type);
             Color col = LineColor(is_action);
             float w = LineWidth(is_action);
+
+            //样式（颜色/线宽）只在变化时写：拖动中每帧重绘，逐段写 Image.color 会白白脏一批图形
+            if (!style_applied || !col.Equals(applied_color) || !Mathf.Approximately(w, applied_width))
+            {
+                for (int i = 0; i < seg_imgs.Count; i++)
+                    if (seg_imgs[i] != null)
+                        seg_imgs[i].color = col;
+                style_applied = true;
+                applied_color = col;
+                applied_width = w;
+            }
 
             //用分段细长 Image 拼出曲线
             int n = segs.Count;
@@ -164,12 +192,12 @@ namespace TcgEngine.UI
                 rt.anchoredPosition = prev;
                 rt.sizeDelta = new Vector2(len + 1.5f, w);   //略长，避免折点处出现缝隙
                 rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                if (seg_imgs[i] != null)
-                    seg_imgs[i].color = col;
                 prev = cur;
             }
 
-            //命中块只放在曲线中段（避开两端节点区域，减少对节点点击的遮挡）
+            //命中块只放在曲线中段（避开两端节点区域，减少对节点点击的遮挡）；拖动中跳过，松手后补一次
+            if (quick)
+                return;
             int hn = hits.Count;
             for (int i = 0; i < hn; i++)
             {

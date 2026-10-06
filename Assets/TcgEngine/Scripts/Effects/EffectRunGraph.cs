@@ -22,19 +22,50 @@ namespace TcgEngine
         /// 靠本字段区分：能力触发时只执行对应那条线（见 NodeDocRunner.WalkFlowOutputs 的 only_pin）。</summary>
         public string entry_pin;
 
+        /// <summary>被动效果入口的「生效条件」：为假 → 该入口的**动作线**不执行（亡语/战吼等主效果不跑）。
+        /// 只挡动作线（entry_pin 为空的那条）：生效线/失效线必须照跑，
+        /// 否则"条件由真变假"时该补执行的失效动作会被自己挡掉。</summary>
+        private bool PassiveActionBlocked(GameLogic logic, Card caster)
+        {
+            if (trigger_action != "PassiveEffect" || !string.IsNullOrEmpty(entry_pin))
+                return false;
+            return !NodeDocRunner.IsEntryConditionMet(logic, graph, "PassiveEffect", caster, caster, null);
+        }
+
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster)
         {
+            if (PassiveActionBlocked(logic, caster))
+                return;
             //顺序逐槽多目标：选择结果在图槽号 → 卡的映射里（入口「目标卡牌N」输出口按槽取值）；
             //槽1同时作为 target_card 传入，兼容旧的单一「目标/目标卡牌」引用。
             Dictionary<int, Card> slots = logic != null ? logic.GetMultiTargetResults() : null;
             Card slot1 = null;
             if (slots != null)
                 slots.TryGetValue(1, out slot1);
+
+            //★奥秘（陷阱）必须补上"触发者"：陷阱的能力编译成 AbilityTarget.None（目标由图里连线自己解析，
+            //  不该弹选择器），此时走的是本重载 —— 没有选择结果 ⇒ slot1=null ⇒ 图里
+            //  「入口.卡牌 / 入口.目标卡牌」全为空 ⇒ 条件恒假 ⇒ **陷阱不造成任何伤害**。
+            //  （用户实报："这里直接对攻击者造成伤害，为什么还要我手动选目标" → 去掉选择器后
+            //    又变成"不造成伤害"，根因就是这一处。）
+            //  触发链 TriggerSecrets → TriggerCardAbilityType(OnBeforeAttack, 奥秘卡, 攻击者)，
+            //  引擎在 ResolveCardAbility 里把触发者存进 game_data.ability_triggerer（GameLogic.cs:3426），
+            //  这里取回来当"事件主体/目标卡牌"= 发起攻击的那张卡。
+            //  只对奥秘生效：其它卡的同名重载语义保持原样（避免影响内置卡的既有行为）。
+            if (slot1 == null && caster != null && caster.CardData != null && caster.CardData.type == CardType.Secret)
+            {
+                Game data = logic != null ? logic.GetGameData() : null;
+                if (data != null && !string.IsNullOrEmpty(data.ability_triggerer))
+                    slot1 = data.GetCard(data.ability_triggerer);
+            }
+
             NodeDocRunner.Run(logic, graph, caster, slot1, null, trigger_action, ability: ability, target_slots: slots, entry_pin: entry_pin);
         }
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)
         {
+            if (PassiveActionBlocked(logic, caster))
+                return;
             Debug.Log("[RunGraph] 图执行触发 action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null") + " 目标卡=" + (target != null ? target.CardData?.id : "无"));
             NodeDocRunner.Run(logic, graph, caster, target, null, trigger_action, ability: ability, entry_pin: entry_pin);
         }
@@ -46,6 +77,8 @@ namespace TcgEngine
         /// （如旧 EffectCreate：从目标定义创建衍生卡）。</summary>
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, CardData target)
         {
+            if (PassiveActionBlocked(logic, caster))
+                return;
             Debug.Log("[RunGraph] 图执行触发(卡牌定义目标) action=" + trigger_action + " caster="
                 + (caster != null ? caster.CardData?.id : "null") + " 定义=" + (target != null ? target.id : "无"));
             NodeDocRunner.Run(logic, graph, caster, null, null, trigger_action, ability: ability, target_define: target, entry_pin: entry_pin);
@@ -53,6 +86,8 @@ namespace TcgEngine
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Player target)
         {
+            if (PassiveActionBlocked(logic, caster))
+                return;
             Debug.Log("[RunGraph] 图执行触发(玩家目标) action=" + trigger_action + " caster=" + (caster != null ? caster.CardData?.id : "null")
                 + " 目标玩家=p" + (target != null ? target.player_id.ToString() : "null") + " 目标英雄卡=" + (target != null && target.hero != null ? target.hero.CardData?.id : "无"));
             //英雄=卡牌：选中英雄（含「英雄」类型直接指向、逐槽选英雄）时，把英雄卡同时作为 target_card 传入，
@@ -65,6 +100,8 @@ namespace TcgEngine
 
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Slot target)
         {
+            if (PassiveActionBlocked(logic, caster))
+                return;
             //选目标时以"格子"结算（SelectSlot/PlayTarget 落点）：格内有卡→卡牌目标；空己方格→玩家目标(打脸)；空敌方格→无目标
             if (target == null)
                 return;

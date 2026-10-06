@@ -18,7 +18,9 @@ namespace TcgEngine.Probe
     {
         private static string Root { get { return Path.GetFullPath(Path.Combine(Application.dataPath, "..")); } }
         private static string OutPath { get { return Path.Combine(Root, "tools/pool_smoke_result.txt"); } }
-        private static string FlagPath { get { return Path.Combine(Root, "tools/pool_smoke_flag.txt"); } }
+        //★用自己的标记名：以前与 PoolCompileProbe 共用 pool_smoke_flag.txt —— 两个探针同帧都 File.Exists
+        //  然后各自 File.Delete，先跑的那个删掉标记后另一个就不再触发（实测 PoolSmokeProbe 一次都没跑过）。
+        private static string FlagPath { get { return Path.Combine(Root, "tools/poolsmoke_flag.txt"); } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
@@ -136,10 +138,15 @@ namespace TcgEngine.Probe
                 if (g.nodes != null)
                     foreach (GraphNode n in g.nodes)
                         if (n != null && n.type == GraphNodeType.Event) { entryAction = n.action; break; }
+                //★区分"空占位图"与"真坏图"：卡池 DTO 里每张卡都可能挂一张空的 "NewGraph"
+                //  （效果其实走"数据直通能力"），以前不看节点数一律报错 → 154 条噪音，
+                //  把真正"有节点却没有入口"的坏图（这种才是打出去没反应）淹掉了。
+                bool has_node = g.nodes != null && g.nodes.Count > 0;
                 if (string.IsNullOrEmpty(entryAction))
                 {
                     noEntry++;
-                    problems.Add(cd.id + "/" + (cd.title ?? "?") + " 图「" + (g.name ?? "?") + "」没有入口(Event)节点");
+                    if (has_node)
+                        problems.Add(cd.id + "/" + (cd.title ?? "?") + " 图「" + (g.name ?? "?") + "」有节点但没有入口(Event)节点");
                     continue;
                 }
                 RunOne(sb, logic, p0, p1, cd, g, entryAction, true);

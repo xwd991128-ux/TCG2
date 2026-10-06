@@ -63,6 +63,10 @@ namespace TcgEngine.UI
                 quit_btn.text = GameClient.game_settings.IsOnlinePlayer() ? "Resign" : "Quit";
 
             RefreshBattleButtons();
+
+            //调试控制台：进战斗时兜底确保它存在（引导类的 RuntimeInitializeOnLoadMethod 在
+            //"关闭域重载"的工程设置下可能被跨会话残留的静态标记挡掉，这里再兜一次，幂等）
+            DevConsoleUI.EnsureExists();
         }
 
         private void OnDestroy()
@@ -619,11 +623,14 @@ namespace TcgEngine.UI
                 last_turn_seconds = turn_sec;
                 turn_timer.text = turn_sec.ToString();
             }
-            turn_timer.enabled = data.turn_timer > 0f;
-            turn_timer.enabled = data.turn_timer < 999f;
+            //★人机/模拟对局不显示倒计时（也不做本地倒计时）：
+            //  settings 取服务端下发的（Game.Copy 会带过来），拿不到就退回客户端自己那份。
+            GameSettings gset = data.settings != null ? data.settings : GameClient.game_settings;
+            bool no_turn_timer = gset != null && gset.NoTurnTimer;
+            turn_timer.enabled = !no_turn_timer && data.turn_timer > 0f && data.turn_timer < 999f;
 
             //Simulate timer
-            if (data.state == GameState.Play && data.turn_timer > 0f)
+            if (!no_turn_timer && data.state == GameState.Play && data.turn_timer > 0f)
                 data.turn_timer -= Time.deltaTime;
 
             //Timer warning
