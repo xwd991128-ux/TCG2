@@ -137,27 +137,36 @@ namespace TcgEngine.Probe
             Card caster = Card.Create(any, null, p0, "hm_caster");
             p0.cards_hand.Clear();
 
-            //---- ② 节点 SetHandMax(5)：抽 40 张 → 停在上限（★配置值可能是 999，必须显式设小才测得出上限）----
-            int ran0 = NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "5"), caster, p1.hero, null, "ActivateEffect");
-            int lim_set = p0.GetHandMax();
+            //---- ② 原概念闸门：默认上限（=配置值）抽 40 张 → 停在配置值 ----
+            p0.cards_hand.Clear();
             logic.DrawCard(p0, 40);
-            sb.AppendLine((ran0 > 0 && lim_set == 5 && p0.cards_hand.Count == 5 ? "PASS" : "FAIL")
-                + "\t② 设置上限=5 后抽牌停在 5\t动作数=" + ran0 + " 上限=" + lim_set + " 手牌=" + p0.cards_hand.Count);
+            sb.AppendLine((p0.GetHandMax() == cfg && p0.cards_hand.Count == cfg ? "PASS" : "FAIL")
+                + "\t② 默认上限抽牌停在配置值（原概念闸门）\t上限=" + p0.GetHandMax()
+                + " 手牌=" + p0.cards_hand.Count + "（配置 " + cfg + "）");
 
-            //---- ③ 节点 AddHandMax(+5)：上限提高，且能多抽 5 张 ----
-            int ran1 = NodeDocRunner.Run(logic, HandMaxGraph("AddHandMax", "5"), caster, p1.hero, null, "ActivateEffect");
-            int after_add = p0.GetHandMax();
+            //---- ③ 节点 SetHandMax(4)：上限改小 → 抽牌停在 4 ----
+            int ran0 = NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "4"), caster, p1.hero, null, "ActivateEffect");
+            p0.cards_hand.Clear();
             logic.DrawCard(p0, 40);
-            sb.AppendLine((ran1 > 0 && after_add == 10 && p0.cards_hand.Count == 10 ? "PASS" : "FAIL")
-                + "\t③ 增加手牌上限(+5)后能多抽\t动作数=" + ran1 + " 上限=" + after_add + " 手牌=" + p0.cards_hand.Count
-                + "（期望 10）");
+            int lim_set = p0.GetHandMax();
+            sb.AppendLine((ran0 > 0 && lim_set == 4 && p0.cards_hand.Count == 4 ? "PASS" : "FAIL")
+                + "\t③ 设置上限=4 后抽牌停在 4\t动作数=" + ran0 + " 上限=" + lim_set + " 手牌=" + p0.cards_hand.Count);
+
+            //---- ④ 节点 AddHandMax(+3)：上限提高 → 能多抽 ----
+            int ran1 = NodeDocRunner.Run(logic, HandMaxGraph("AddHandMax", "3"), caster, p1.hero, null, "ActivateEffect");
+            int after_add = p0.GetHandMax();
+            p0.cards_hand.Clear();
+            logic.DrawCard(p0, 40);
+            sb.AppendLine((ran1 > 0 && after_add == 7 && p0.cards_hand.Count == 7 ? "PASS" : "FAIL")
+                + "\t④ 增加手牌上限(+3)后能多抽\t动作数=" + ran1 + " 上限=" + after_add + " 手牌=" + p0.cards_hand.Count
+                + "（期望 7）");
 
             //---- ④ 节点 SetHandMax(3)：改小上限，且不弃现有手牌 ----
             int hand_before = p0.cards_hand.Count;
             int ran2 = NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "3"), caster, p1.hero, null, "ActivateEffect");
             int after_set = p0.GetHandMax();
             sb.AppendLine((ran2 > 0 && after_set == 3 && p0.cards_hand.Count == hand_before ? "PASS" : "FAIL")
-                + "\t④ 设置手牌上限改小不弃手牌\t动作数=" + ran2 + " 上限=" + after_set
+                + "\t⑤ 设置手牌上限改小不弃手牌\t动作数=" + ran2 + " 上限=" + after_set
                 + " 手牌 " + hand_before + "→" + p0.cards_hand.Count + "（期望不变）");
 
             //---- ⑤ 取值节点 GetHandMax → 图里读到当前上限（用它当伤害值）----
@@ -177,19 +186,19 @@ namespace TcgEngine.Probe
             int ran3 = NodeDocRunner.Run(logic, gv, caster, p1.hero, null, "ActivateEffect");
             int dmg = hp0 - p1.hp;
             sb.AppendLine((ran3 > 0 && dmg == after_set ? "PASS" : "FAIL")
-                + "\t⑤ 取值节点读到当前上限\t动作数=" + ran3 + " 掉血=" + dmg + "（期望=上限 " + after_set + "）");
+                + "\t⑥ 取值节点读到当前上限\t动作数=" + ran3 + " 掉血=" + dmg + "（期望=上限 " + after_set + "）");
 
             //---- ⑥ 设为 0 → 退回配置值（未初始化兜底语义）----
             NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "0"), caster, p1.hero, null, "ActivateEffect");
             sb.AppendLine((p0.hand_max == 0 && p0.GetHandMax() == cfg ? "PASS" : "FAIL")
-                + "\t⑥ 上限设为0退回配置值（兜底）\thand_max=" + p0.hand_max + " 生效上限=" + p0.GetHandMax());
+                + "\t⑦ 上限设为0退回配置值（兜底）\thand_max=" + p0.hand_max + " 生效上限=" + p0.GetHandMax());
 
             //---- ⑦ Clone 带上 hand_max（AI 预测树：不一致会让 AI 预判跑偏）----
             p0.hand_max = cfg + 7;
             Player clone = new Player(9);   //Player 无无参构造（Player(int id)）
             Player.Clone(p0, clone);
             sb.AppendLine((clone.hand_max == cfg + 7 ? "PASS" : "FAIL")
-                + "\t⑦ 克隆带上手牌上限（AI 预测树）\t原=" + p0.hand_max + " 副本=" + clone.hand_max);
+                + "\t⑧ 克隆带上手牌上限（AI 预测树）\t原=" + p0.hand_max + " 副本=" + clone.hand_max);
         }
     }
 }
