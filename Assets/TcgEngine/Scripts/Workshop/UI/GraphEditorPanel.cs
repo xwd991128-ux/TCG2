@@ -450,6 +450,8 @@ namespace TcgEngine.UI
                 //项目内灵力节点（分类「玩家」，与 NodeDoc 的 101014/101015 同组同风格）：
                 //zmcs 只有两档灵力（当前/上限），TCG2 三套灵力体系里的"最大灵力值"没有对应 defineId → 这里补项目内节点
                 all_presets_cache.AddRange(BuildManaPresets());
+                //项目内手牌上限节点（分类「玩家」，仿灵力上限）：NodeDoc 里没有"手牌上限"这个 defineId → 补项目内节点
+                all_presets_cache.AddRange(BuildHandMaxPresets());
                 //项目内卡牌动作（分类「卡牌」，与 NodeDoc 卡牌动作同组同风格）：
                 //「免费打出卡牌」= 旧 EffectPlay 的等价物（NodeDoc 的 210002 语义不同，见该方法注释）
                 all_presets_cache.AddRange(BuildProjectCardPresets());
@@ -948,6 +950,60 @@ namespace TcgEngine.UI
             set.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
             set.fields.Add(IntField("value", "值", "0"));
             presets.Add(set);
+
+            return presets;
+        }
+
+        /// <summary>项目内手牌上限节点（分类「玩家」）：读/设/增手牌上限。
+        /// 为什么是项目内节点而不是 NodeDoc 节点：NodeDoc.xml 里没有"手牌上限"的 defineId
+        /// （与上面的"最大灵力值"同一情况），action 用项目内保留字（GetHandMax/SetHandMax/AddHandMax），
+        /// 由 NodeDocRunner 的取值/执行通道实现；手牌上限本身是"仿灵力上限"的玩家属性
+        /// （Player.hand_max，开局从 GameplayData.cards_max 写入，局内可改）。</summary>
+        private static List<NodePreset> BuildHandMaxPresets()
+        {
+            List<NodePreset> presets = new List<NodePreset>();
+
+            //获取手牌上限（取值节点：玩家口 → 整数值）
+            NodePreset get = new NodePreset();
+            get.type = GraphNodeType.Value;
+            get.action = "GetHandMax";
+            get.title = "获取手牌上限";
+            get.desc = "读取玩家的手牌上限（开局=配置值，可被「设置/增加手牌上限」局内改写）。玩家口无连线=施法卡所属玩家";
+            get.category = "玩家";
+            get.supported = true;
+            get.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, false));
+            get.pins.Add(new PinDef("return", "值", NodeValueType.Int32, true));
+            presets.Add(get);
+
+            //设置手牌上限（动作节点：执行流 + 玩家 + 值）
+            NodePreset set = new NodePreset();
+            set.type = GraphNodeType.Action;
+            set.action = "SetHandMax";
+            set.title = "设置手牌上限";
+            set.desc = "把玩家的手牌上限设为指定值（仿「设置灵力上限」）。只影响抽牌/入手判定，不会把现有手牌弃掉";
+            set.category = "玩家";
+            set.supported = true;
+            set.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            set.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, false));
+            set.pins.Add(new PinDef("value", "值", NodeValueType.Int32, false));
+            set.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            set.fields.Add(IntField("value", "值", "0"));
+            presets.Add(set);
+
+            //增加手牌上限（动作节点：执行流 + 玩家 + 值；与 201010 增加灵力上限同口径）
+            NodePreset add = new NodePreset();
+            add.type = GraphNodeType.Action;
+            add.action = "AddHandMax";
+            add.title = "增加手牌上限";
+            add.desc = "在当前手牌上限基础上加减（可填负数降低，最低 0），仿「增加灵力上限」";
+            add.category = "玩家";
+            add.supported = true;
+            add.pins.Add(new PinDef("in", "执行", NodeValueType.Flow, false));
+            add.pins.Add(new PinDef("player", "玩家", NodeValueType.Player, false));
+            add.pins.Add(new PinDef("value", "值", NodeValueType.Int32, false));
+            add.pins.Add(new PinDef("out", "执行", NodeValueType.Flow, true));
+            add.fields.Add(IntField("value", "值", "1"));
+            presets.Add(add);
 
             return presets;
         }

@@ -405,6 +405,10 @@ namespace TcgEngine.Gameplay
                     player.mana_max = player.mana_max_total;   //模拟测试：开局双方法力直接为上限
                 player.mana = player.mana_max;
 
+                //手牌上限（仿"灵力上限"）：开局从配置 GameplayData.cards_max 写进玩家身上，
+                //之后由节点/效果局内改写（获取/设置/增加手牌上限）—— 不能再直接读全局配置，否则局内修改无效。
+                player.hand_max = GameplayData.Get().cards_max;
+
                 //Draw starting cards
                 int dcards = pdeck != null ? pdeck.start_cards : GameplayData.Get().cards_start;
                 DrawCard(player, dcards);
@@ -2042,7 +2046,7 @@ namespace TcgEngine.Gameplay
         {
             for (int i = 0; i < nb; i++)
             {
-                if (player.cards_deck.Count > 0 && player.cards_hand.Count < GameplayData.Get().cards_max)
+                if (player.cards_deck.Count > 0 && player.cards_hand.Count < player.GetHandMax())
                 {
                     Card card = player.cards_deck[0];
                     player.cards_deck.RemoveAt(0);

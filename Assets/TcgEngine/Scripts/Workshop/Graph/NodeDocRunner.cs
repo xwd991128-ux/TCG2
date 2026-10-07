@@ -563,6 +563,9 @@ namespace TcgEngine.Workshop
                 case "108003":   //转换事件类型（事件线求值通道）
                 case "GetManaMaxTotal":   //获取最大灵力值（项目内灵力节点）
                 case "SetManaMaxTotal":   //设置最大灵力值（项目内灵力节点）
+                case "GetHandMax":        //获取手牌上限（项目内玩家属性节点，仿灵力上限）
+                case "SetHandMax":        //设置手牌上限（项目内玩家属性节点）
+                case "AddHandMax":        //增加手牌上限（项目内玩家属性节点）
                 case "208003":   //更改攻击目标
                 case "208004":   //更改使用目标
                 case "208005":   //伤害/更改受伤卡牌
@@ -2205,6 +2208,11 @@ namespace TcgEngine.Workshop
                     Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
                     return p != null ? p.GetManaMaxTotal() : (int?)null;
                 }
+                case "GetHandMax":   //获取手牌上限（项目内节点，与 GetManaMaxTotal 同规：NodeDoc 无对应 defineId）
+                {
+                    Player p = ResolveValuePlayer(logic, graph, src, caster, target_player);
+                    return p != null ? p.GetHandMax() : (int?)null;
+                }
                 case "101018":   //获取玩家的当前回合数（v1 简化：返回全局回合数，未按玩家拆分）
                 {
                     return logic != null ? logic.GameData.turn_count : (int?)null;
@@ -3078,7 +3086,7 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     owner.cards_deck.Remove(tcard);
-                    if (owner.cards_hand.Count < GameplayData.Get().cards_max)
+                    if (owner.cards_hand.Count < owner.GetHandMax())
                     {
                         owner.cards_hand.Add(tcard);
                         logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
@@ -3592,7 +3600,7 @@ namespace TcgEngine.Workshop
                     }
                     else
                     {
-                        if (player.cards_hand.Count >= GameplayData.Get().cards_max)
+                        if (player.cards_hand.Count >= player.GetHandMax())
                         {
                             Debug.LogWarning("[NodeDoc] 202004 创建衍生卡失败：玩家 p" + player.player_id + " 手牌已满");
                             break;
@@ -3839,7 +3847,7 @@ namespace TcgEngine.Workshop
                         Player owner = logic.GameData.GetPlayer(c.player_id);
                         if (owner == null)
                             continue;
-                        if (owner.cards_hand.Count >= GameplayData.Get().cards_max)
+                        if (owner.cards_hand.Count >= owner.GetHandMax())
                         {
                             Debug.LogWarning("[NodeDoc] 210003 卡牌移回手牌失败：玩家 p" + owner.player_id + " 手牌已满（" + c.CardData?.id + "）");
                             continue;
@@ -4012,6 +4020,23 @@ namespace TcgEngine.Workshop
                         pl.ClampMana();   //上限/当前按新硬顶收敛
                         GameLog.Log("[NodeDoc] 设置最大灵力值 → p" + pl.player_id + " 最大=" + pl.mana_max_total
                             + "（当前/上限 " + pl.mana + "/" + pl.mana_max + "）");
+                    }
+                    break;
+                }
+                case "SetHandMax":   //设置手牌上限（项目内节点，仿 201009 设置灵力上限）
+                case "AddHandMax":   //增加手牌上限（项目内节点，仿 201010 增加灵力上限）
+                {
+                    Player pl = ResolveInputPlayer(logic, graph, act, "player", caster, target_player) ?? PlayerOf(logic, caster);
+                    int v = GetIntInput(logic, graph, act, "value", caster, target_card, target_player,
+                        GraphRuntime.GetFieldInt(act, "value", 0));
+                    if (pl != null)
+                    {
+                        //增加：基于**当前生效上限**叠加（hand_max 未初始化时先materialize，避免"加了个寂寞"）
+                        pl.hand_max = act.action == "AddHandMax"
+                            ? Mathf.Max(pl.GetHandMax() + v, 0)
+                            : Mathf.Max(v, 0);
+                        GameLog.Log("[NodeDoc] " + (act.action == "AddHandMax" ? "增加" : "设置") + "手牌上限 → p"
+                            + pl.player_id + " 上限=" + pl.GetHandMax() + "（当前手牌 " + pl.cards_hand.Count + " 张）");
                     }
                     break;
                 }

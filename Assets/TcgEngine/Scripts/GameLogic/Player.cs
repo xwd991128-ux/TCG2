@@ -32,6 +32,12 @@ namespace TcgEngine
         public int mana_max = 0;
         public int mana_max_total = 0;
 
+        /// <summary>手牌上限（**局内可改**，仿"灵力上限"的写法）：开局由 GameLogic 从
+        /// GameplayData.cards_max 写进玩家身上，之后由节点/效果增减（获取/设置/增加手牌上限）。
+        /// &lt;=0（未初始化：旧存档 / AI 预测副本 / 未走开场流程的 Player）时 GetHandMax() 退回配置值，
+        /// 避免把手牌上限钳成 0 导致"永远抽不到牌"。</summary>
+        public int hand_max = 0;
+
         public int kill_count = 0;
 
         public Dictionary<string, Card> cards_all = new Dictionary<string, Card>(); //Dictionnary for quick access to any card by UID
@@ -73,6 +79,14 @@ namespace TcgEngine
         /// <summary>最大灵力值（三套灵力体系之三）：灵力上限 mana_max 每回合增长能到达的硬顶。
         /// 详见字段区注释；节点/效果用本方法读取，避免各处理解不一致。</summary>
         public int GetManaMaxTotal() { return mana_max_total; }
+
+        /// <summary>手牌上限（可被节点/效果局内改写）。**所有"手牌是否已满"的判定必须走这里**，
+        /// 不要直接读 GameplayData.cards_max —— 直接读会让局内修改失效（上限判定散落多处正是老问题）。
+        /// 未初始化（hand_max &lt;= 0）时退回配置值。</summary>
+        public int GetHandMax()
+        {
+            return hand_max > 0 ? hand_max : GameplayData.Get().cards_max;
+        }
 
         /// <summary>灵力上限的钳制上界 = 最大灵力值。
         /// 未初始化（mana_max_total &lt;= 0，如旧存档/AI 预测副本/未走开局的 Player）时退回配置硬顶，
@@ -632,6 +646,7 @@ namespace TcgEngine
             dest.mana = source.mana;
             dest.mana_max = source.mana_max;
             dest.mana_max_total = source.mana_max_total;   //三套灵力体系：最大灵力值必须一起拷（AI 预测树用）
+            dest.hand_max = source.hand_max;               //手牌上限：同上，必须一起拷（否则 AI 预判的手牌上限与真局不一致）
             dest.kill_count = source.kill_count;
             dest.skip_turns = source.skip_turns;   //回合控制：跳过回合标记必须一起拷，否则 AI 预测会算错下家
             dest.battle_buttons = source.battle_buttons != null
