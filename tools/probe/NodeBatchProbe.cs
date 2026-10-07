@@ -333,6 +333,12 @@ public class NodeBatchProbe : MonoBehaviour
             //★没有进行中的对局 → 自己开一局（与编辑器「模拟测试」同一条路径）。
             //  这样整套用例在"纯菜单启动"下也能无人值守跑完，不用人先进对局。
             Debug.Log("[节点批量测试] 未发现进行中的对局 → 自动开一局测试对战");
+            //★先等主菜单就绪：Play 从菜单场景启动时 MainMenu 可能还没建出来，这时直接 StartGame 会
+            //  静默落空（实测：本探针曾报「❌ 没找到 GameLogic」，根因就是 MainMenu.Get() 取到 null）。
+            for (int i = 0; i < 60 && TcgEngine.UI.MainMenu.Get() == null; i++)
+                yield return new WaitForSeconds(1f);
+            if (TcgEngine.UI.MainMenu.Get() == null)
+                Debug.LogWarning("[节点批量测试] 等 60s 仍没有 MainMenu（当前场景不是菜单场景？）→ 仍尝试开局");
             StartTestMatch();
             for (int i = 0; i < 90 && logic_obj == null; i++)
             {

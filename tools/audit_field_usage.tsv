@@ -4,7 +4,7 @@ has_fx	75
 has_audio	0
 multi_target	0
 target_slots	0
-has_status	56
+has_status	57
 has_chain	34
 cond_trigger	43
 cond_target	137
