@@ -2148,7 +2148,34 @@ namespace TcgEngine.Gameplay
             return acard;
         }
 
+        // ---------------- 手牌上限闸门（统一入口） ----------------
+
+        /// <summary>手牌是否还有空位（**统一的"手牌上限"判定**）：所有"意图把卡放进手牌"的入口都应先问这里。
+        /// 上限值 = <c>Player.GetHandMax()</c>（开局来自 GameplayData.cards_max，可被"获取/设置/增加手牌上限"节点局内改写）。</summary>
+        public virtual bool HandHasRoom(Player player)
+        {
+            return player != null && player.cards_hand.Count < player.GetHandMax();
+        }
+
+        /// <summary>把手牌之外的一张卡移入手牌（统一入口，含上限闸门）。
+        /// 手牌已满 → 返回 false 且**完全不动**该卡（牌留在原处，由调用方决定告警文案）。
+        /// ★为什么要有这个统一入口：以前每个"往手牌放卡"的地方各写各的（有的读配置、有的干脆不检查），
+        ///   同一个上限出现"有的动作能超、有的不能"。
+        /// ★**中转例外**：EffectPlay / SummonCard（召唤到战场）/ 202006（创建并装备）是"先移入手牌 → 立刻打出/装备"，
+        ///   属**中转**而非入手 → 它们直接调 SummonCardHand / cards_hand.Add，**不走本闸门**
+        ///   （否则"手牌满时连召唤到战场、装备都会静默失效"）。</summary>
+        public virtual bool TryMoveCardToHand(Player player, Card card)
+        {
+            if (card == null || !HandHasRoom(player))
+                return false;
+            player.RemoveCardFromAllGroups(card);
+            player.cards_hand.Add(card);
+            return true;
+        }
+
         //Create a new card and send it to your hand
+        /// <summary>★底层 API：**不查手牌上限**（它同时服务于 SummonCard / 202006 等**中转**路径）。
+        /// 意图是"真入手"的调用方必须先判 <c>HandHasRoom</c>（或走 <c>TryMoveCardToHand</c>）。</summary>
         public virtual Card SummonCardHand(Player player, CardData card, VariantData variant)
         {
             Card acard = Card.Create(card, variant, player);

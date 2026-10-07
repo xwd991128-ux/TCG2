@@ -28,9 +28,18 @@ namespace TcgEngine
 
             if (pile == PileType.Hand)
             {
-                player.RemoveCardFromAllGroups(target);
-                player.cards_hand.Add(target);
-                target.Clear();
+                //★手牌上限闸门（统一）：满手牌时不移动该卡（牌留在原处），与 DrawCard / 210003 同口径。
+                //  （原先这里**不查上限**，而 210003 移回手牌会查 → 同一张卡"走哪条路"结果不同。）
+                if (!logic.TryMoveCardToHand(player, target))
+                {
+                    Debug.LogWarning("[送牌] 送入手牌失败：p" + player.player_id + " 手牌已满（"
+                        + player.cards_hand.Count + "/" + player.GetHandMax() + "），"
+                        + (target.CardData != null ? target.CardData.id : "?") + " 留在原处");
+                }
+                else
+                {
+                    target.Clear();
+                }
             }
 
             if (pile == PileType.Discard)

@@ -199,6 +199,78 @@ namespace TcgEngine.Probe
             Player.Clone(p0, clone);
             sb.AppendLine((clone.hand_max == cfg + 7 ? "PASS" : "FAIL")
                 + "\t⑧ 克隆带上手牌上限（AI 预测树）\t原=" + p0.hand_max + " 副本=" + clone.hand_max);
+
+            //---- ⑨ 统一性：手牌=上限(5) 时，各"入手"入口一律放不进来 ----
+            p0.hand_max = 5;
+            p0.cards_hand.Clear();
+            for (int i = 0; i < 5; i++)
+                p0.cards_hand.Add(Card.Create(any, null, p0, "hm_fill_" + i));
+            for (int i = 0; i < 10; i++)
+                p0.cards_deck.Add(Card.Create(any, null, p0, "hm_deck2_" + i));
+            int hand_full = p0.cards_hand.Count;
+            int deck_before = p0.cards_deck.Count;
+
+            AbilityData ab = ScriptableObject.CreateInstance<AbilityData>();
+
+            EffectDrawType e_draw = ScriptableObject.CreateInstance<EffectDrawType>();
+            e_draw.card_type = CardType.Character;
+            e_draw.DoEffect(logic, ab, caster, p0);
+            bool draw_blocked = p0.cards_hand.Count == hand_full && p0.cards_deck.Count == deck_before;
+
+            EffectSendPile e_send = ScriptableObject.CreateInstance<EffectSendPile>();
+            e_send.pile = PileType.Hand;
+            Card to_send = Card.Create(any, null, p0, "hm_send");
+            p0.cards_discard.Add(to_send);
+            e_send.DoEffect(logic, ab, caster, to_send);
+            bool send_blocked = p0.cards_hand.Count == hand_full && p0.cards_discard.Contains(to_send);
+
+            EffectCreate e_create = ScriptableObject.CreateInstance<EffectCreate>();
+            e_create.create_pile = PileType.Hand;
+            e_create.DoEffect(logic, ab, caster, any);
+            bool create_blocked = p0.cards_hand.Count == hand_full;
+
+            sb.AppendLine((draw_blocked && send_blocked && create_blocked ? "PASS" : "FAIL")
+                + "\t⑨ 满手牌时旧动作全部被挡\t抽指定类型=" + draw_blocked + " 送入手牌=" + send_blocked
+                + " 创建入手牌=" + create_blocked + " 手牌=" + p0.cards_hand.Count + "/" + p0.GetHandMax());
+
+            //---- ⑩ 201003 检索：满手牌时**牌留在牌库**（旧行为是"进墓地爆牌"）----
+            Card target_card = p0.cards_deck[0];
+            GraphData g2 = new GraphData { name = "探针检索图", nodes = new List<GraphNode>(), links = new List<GraphLink>() };
+            GraphNode ev3 = Node(g2, "ev", GraphNodeType.Event, "ActivateEffect", "主动效果入口");
+            Pin(ev3, "out", NodeValueType.Flow, true);
+            GraphNode pick = Node(g2, "p", GraphNodeType.Action, "201003", "抽目标卡牌");
+            Pin(pick, "in", NodeValueType.Flow, false);
+            Pin(pick, "card", NodeValueType.Card, false);
+            Link(g2, ev3, "out", pick, "in");
+            int disc0 = p0.cards_discard.Count;
+            NodeDocRunner.Run(logic, g2, caster, target_card, null, "ActivateEffect");
+            bool stayed_deck = p0.cards_deck.Contains(target_card);
+            bool no_burn = p0.cards_discard.Count == disc0;
+            sb.AppendLine((stayed_deck && no_burn && p0.cards_hand.Count == hand_full ? "PASS" : "FAIL")
+                + "\t⑩ 201003 满手牌时牌留牌库（不再爆牌进墓地）\t仍在牌库=" + stayed_deck
+                + " 墓地未增=" + no_burn + " 手牌=" + p0.cards_hand.Count);
+
+            //---- ⑪ 对照：手牌未满时这些入口都**能**生效（确认"统一"不是"一律禁掉"）----
+            p0.cards_hand.Clear();
+            int deck_b2 = p0.cards_deck.Count;
+            e_draw.DoEffect(logic, ab, caster, p0);
+            bool draw_ok = p0.cards_hand.Count == 1 && p0.cards_deck.Count == deck_b2 - 1;
+            int hand_b3 = p0.cards_hand.Count;
+            e_send.DoEffect(logic, ab, caster, to_send);
+            bool send_ok = p0.cards_hand.Count == hand_b3 + 1;
+            int hand_b4 = p0.cards_hand.Count;
+            e_create.DoEffect(logic, ab, caster, any);
+            bool create_ok = p0.cards_hand.Count == hand_b4 + 1;
+            bool pick_ok = false;
+            if (p0.cards_deck.Count > 0)
+            {
+                Card pick2 = p0.cards_deck[0];
+                NodeDocRunner.Run(logic, g2, caster, pick2, null, "ActivateEffect");
+                pick_ok = p0.cards_hand.Contains(pick2);
+            }
+            sb.AppendLine((draw_ok && send_ok && create_ok && pick_ok ? "PASS" : "FAIL")
+                + "\t⑪ 对照：未满时各入口都能生效\t抽指定类型=" + draw_ok + " 送入手牌=" + send_ok
+                + " 创建入手牌=" + create_ok + " 检索=" + pick_ok);
         }
     }
 }

@@ -35,6 +35,15 @@ namespace TcgEngine
                 Card card = player.cards_deck[i];
                 if (card.CardData.type == type)
                 {
+                    //★手牌上限闸门（统一）：以前这里**不查上限**，而 EffectDraw 走 DrawCard 会查
+                    //  → 同一个上限"抽指定类型能超、普通抽牌不能超"。满手牌时与 DrawCard 同口径：**牌留在牌库**。
+                    if (!logic.HandHasRoom(player))
+                    {
+                        Debug.LogWarning("[抽牌] 抽指定类型失败：p" + player.player_id + " 手牌已满（"
+                            + player.cards_hand.Count + "/" + player.GetHandMax() + "），"
+                            + card.CardData.id + " 留在牌库");
+                        return;
+                    }
                     player.cards_deck.RemoveAt(i);
                     player.cards_hand.Add(card);
                     logic.TriggerPlayerCardsAbilityType(player, AbilityTrigger.OnDraw);

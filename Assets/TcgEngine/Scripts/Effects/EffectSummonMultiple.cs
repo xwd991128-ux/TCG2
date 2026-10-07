@@ -15,6 +15,9 @@ namespace TcgEngine
         {
             for (int i = 0; i < count; i++)
             {
+                //★手牌上限闸门（统一）：落点是手牌 ⇒ 放不下就停（与 DrawCard(nb) 的逐张判定同口径：填到上限为止）
+                if (!logic.HandHasRoom(target))
+                    break;
                 logic.SummonCardHand(target, summon, caster.VariantData);
             }
         }
@@ -24,6 +27,8 @@ namespace TcgEngine
             Player player = logic.GameData.GetPlayer(caster.player_id);
             for (int i = 0; i < count; i++)
             {
+                if (!logic.HandHasRoom(player))
+                    break;
                 logic.SummonCardHand(player, summon, caster.VariantData);
             }
         }
@@ -54,6 +59,9 @@ namespace TcgEngine
             Player player = logic.GameData.GetPlayer(caster.player_id);
             for (int i = 0; i < count; i++)
             {
+                //★手牌上限闸门（统一）：落点是手牌 ⇒ 填到上限为止
+                if (!logic.HandHasRoom(player))
+                    break;
                 logic.SummonCardHand(player, target, caster.VariantData);
             }
         }

@@ -23,6 +23,16 @@ namespace TcgEngine
             if (create_opponent)
                 player = logic.GameData.GetOpponentPlayer(caster.player_id);
 
+            //★手牌上限闸门（统一）：目标是"创建到手牌"且手牌已满 → **不创建**（与 NodeDoc 202004 同口径）。
+            //  （原先这里直接往手牌塞，不看上限 → 同一个上限"创建类动作能超"。）
+            if (create_pile == PileType.Hand && !logic.HandHasRoom(player))
+            {
+                Debug.LogWarning("[创建] 创建卡入手牌失败：p" + player.player_id + " 手牌已满（"
+                    + player.cards_hand.Count + "/" + player.GetHandMax() + "），已取消创建 "
+                    + (target != null ? target.id : "?"));
+                return;
+            }
+
             Card card = Card.Create(target, caster.VariantData, player);
             logic.GameData.last_summoned = card.uid;
 

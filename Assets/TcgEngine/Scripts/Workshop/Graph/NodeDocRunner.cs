@@ -3085,20 +3085,20 @@ namespace TcgEngine.Workshop
                         Debug.LogWarning("[NodeDoc] 201003 抽目标卡牌失败：目标卡 " + tcard.CardData?.id + " 不在拥有者卡库中");
                         break;
                     }
+                    //★统一：**先查手牌上限，再动手** —— 满手牌时牌**留在牌库**（与 DrawCard 同口径）。
+                    //  旧行为是"先移出牌库 → 进墓地"（爆牌），于是同一个上限出现两条分叉：
+                    //  普通抽牌只是"抽不动（牌留牌库）"，而这条检索路是"牌直接没了"。统一后两条路一致。
+                    if (!logic.HandHasRoom(owner))
+                    {
+                        Debug.LogWarning("[NodeDoc] 201003 抽目标卡牌失败：玩家 p" + owner.player_id + " 手牌已满（"
+                            + owner.cards_hand.Count + "/" + owner.GetHandMax() + "），"
+                            + tcard.CardData?.id + " 留在牌库");
+                        break;
+                    }
                     owner.cards_deck.Remove(tcard);
-                    if (owner.cards_hand.Count < owner.GetHandMax())
-                    {
-                        owner.cards_hand.Add(tcard);
-                        logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
-                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " → 玩家 p" + owner.player_id);
-                    }
-                    else
-                    {
-                        //手牌满：直接进墓地（原作叫"爆牌"；用户已决定爆牌不做 → 不加任何爆牌事件，
-                        //保持既有行为：卡进墓地。这里若以后要"并入弃牌行为"，应改走 DiscardCard。）
-                        owner.cards_discard.Add(tcard);
-                        GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " 手牌满 → 进墓地");
-                    }
+                    owner.cards_hand.Add(tcard);
+                    logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
+                    GameLog.Log("[NodeDoc] 201003 抽目标卡牌 " + tcard.CardData?.id + " → 玩家 p" + owner.player_id);
                     break;
                 }
                 case "206002":   //移除增益：buff_id 引用 BuffData 移除实例（含原生状态重建）；
@@ -3279,6 +3279,8 @@ namespace TcgEngine.Workshop
                         if (pc_owner == null)
                             break;
                         Slot pc_slot = pc_owner.GetRandomEmptySlot(logic.GetRandom());
+                        //★这里**故意不查手牌上限**：这是旧 EffectPlay 的等价路径 —— "移入手牌 → 立刻免费打出"，
+                        //  进手牌只是**中转**（统一闸门见 GameLogic.TryMoveCardToHand 注释）。
                         pc_owner.RemoveCardFromAllGroups(pc);
                         pc_owner.cards_hand.Add(pc);
                         if (pc_slot != Slot.None)
@@ -3784,10 +3786,18 @@ namespace TcgEngine.Workshop
                         break;
                     }
                     //旧实现：Card.Create(定义, caster.VariantData, 玩家) + last_summoned = card.uid；区域只处理 4 个（Board 在旧实现里什么都不做）
+                    string cc_pile = GraphRuntime.GetFieldString(act, "pile", "暂存区");
+                    //★手牌上限闸门（统一）：落点是手牌且已满 → **不创建**（与 202004 / EffectCreate 同口径）。
+                    //  必须在 Card.Create 之前拦：否则会留下一张"进了 cards_all 但不在任何区域"的孤儿卡。
+                    if (cc_pile == "手牌" && !logic.HandHasRoom(cc_owner))
+                    {
+                        Debug.LogWarning("[NodeDoc] CreateCardFromDefineRaw 失败：p" + cc_owner.player_id + " 手牌已满（"
+                            + cc_owner.cards_hand.Count + "/" + cc_owner.GetHandMax() + "），已取消创建 " + cc_define.id);
+                        break;
+                    }
                     Card cc_created = Card.Create(cc_define, caster.VariantData, cc_owner);
                     if (logic.GameData != null)
                         logic.GameData.last_summoned = cc_created.uid;
-                    string cc_pile = GraphRuntime.GetFieldString(act, "pile", "暂存区");
                     if (cc_pile == "牌库") cc_owner.cards_deck.Add(cc_created);
                     else if (cc_pile == "墓地") cc_owner.cards_discard.Add(cc_created);
                     else if (cc_pile == "手牌") cc_owner.cards_hand.Add(cc_created);
@@ -3821,6 +3831,15 @@ namespace TcgEngine.Workshop
                         Player sp_owner = logic.GameData.GetPlayer(c.player_id);
                         if (sp_owner == null)
                             continue;
+                        //★手牌上限闸门（统一）：目标是手牌且已满 → 不移动（牌留在原处），
+                        //  与 EffectSendPile（旧等价物）/ 210003 同口径。必须在 RemoveCardFromAllGroups 之前拦。
+                        if (sp_pile == "手牌" && !logic.HandHasRoom(sp_owner))
+                        {
+                            Debug.LogWarning("[NodeDoc] SendToPileRaw 失败：p" + sp_owner.player_id + " 手牌已满（"
+                                + sp_owner.cards_hand.Count + "/" + sp_owner.GetHandMax() + "），"
+                                + (c.CardData != null ? c.CardData.id : "?") + " 留在原处");
+                            continue;
+                        }
                         sp_owner.RemoveCardFromAllGroups(c);
                         switch (sp_pile)
                         {
@@ -3847,13 +3866,13 @@ namespace TcgEngine.Workshop
                         Player owner = logic.GameData.GetPlayer(c.player_id);
                         if (owner == null)
                             continue;
-                        if (owner.cards_hand.Count >= owner.GetHandMax())
+                        //★统一走闸门（GameLogic.TryMoveCardToHand）：满手牌 → 返回 false 且**不动**该卡（留在原处）
+                        if (!logic.TryMoveCardToHand(owner, c))
                         {
-                            Debug.LogWarning("[NodeDoc] 210003 卡牌移回手牌失败：玩家 p" + owner.player_id + " 手牌已满（" + c.CardData?.id + "）");
+                            Debug.LogWarning("[NodeDoc] 210003 卡牌移回手牌失败：玩家 p" + owner.player_id + " 手牌已满（"
+                                + owner.cards_hand.Count + "/" + owner.GetHandMax() + "）" + c.CardData?.id);
                             continue;
                         }
-                        owner.RemoveCardFromAllGroups(c);
-                        owner.cards_hand.Add(c);
                         logic.TriggerPlayerCardsAbilityType(owner, AbilityTrigger.OnDraw);
                         GameLog.Log("[NodeDoc] 210003 卡牌移回手牌 " + c.CardData?.id + " → 玩家 p" + owner.player_id);
                     }
