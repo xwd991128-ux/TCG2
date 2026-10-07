@@ -1,4 +1,4 @@
-# 卡池编译冒烟（图 → AbilityData）  at=2026-10-06 23:32:26
+# 卡池编译冒烟（图 → AbilityData）  at=2026-10-07 11:58:32
 # 列：card | effIdx | ability | trigger | target | condTrigger | condTarget | filters | status | effects | chains
 Plague_Rat	0	<效果图>	PassiveEffect	所有角色			1		PassiveEffect 102032 EFCardOwner 112005 212001 102004 112003 112004 202037 102004 112003 112004 202037	
 Plague_Rat	-	graph_Plague_Rat_PassiveEffect_8749ef99	OnDeath	AllCardsBoard		ConditionCardType{has_type=Character;oper=IsTrue} + ConditionOwner{oper=IsFalse}	FilterRandom{amount=1}		EffectRunGraph	

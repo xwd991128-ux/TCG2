@@ -1123,6 +1123,25 @@ namespace TcgEngine.Workshop
         /// <summary>编译单张效果图为能力并追加进 result（effdto = 该效果图的数据层，携带数据型过滤器）</summary>
         private static void CompileOneGraphAbilities(CardCustomData data, GraphData graph, CardEffectData effdto, List<AbilityData> result)
         {
+            //★先体检"有节点但一个入口(Event)都没有"的图：下面 foreach 只认 type==Event，
+            //  这种图一个都进不去 ⇒ 编译出 0 个能力 ⇒ **卡打出去毫无反应**，
+            //  而且导入时不报错、运行时也不会尝试跑图（图压根没挂到任何能力上）→ 完全静默的"配了没用"坑。
+            //  实测出处：sample_pool.json 的 custom_JJw8BRifSr8「幽幽柚子」＝
+            //  Action(Draw) + IntegerConst(value=5) + 112010 + 101003，无 Event 节点，编译后 abilities=0
+            //  （PoolSmokeProbe 报"图「幽幽柚子」有节点但没有入口(Event)节点"）。
+            //  注意：0 节点的空占位图（DTO 里每卡的默认 NewGraph）是正常的，不在此列。
+            bool has_event_node = false;
+            if (graph.nodes != null)
+            {
+                foreach (GraphNode n0 in graph.nodes)
+                    if (n0 != null && n0.type == GraphNodeType.Event) { has_event_node = true; break; }
+                if (!has_event_node && graph.nodes.Count > 0)
+                    Debug.LogWarning("[规则图] 卡「" + (data.title ?? "?") + "」(" + data.id + ") 的图「" + graph.name
+                        + "」有 " + graph.nodes.Count + " 个节点，但**没有任何入口(Event)节点** → 该图编译不出任何能力，"
+                        + "打出去不会有任何效果。请从节点库拖入一个入口节点（主动效果入口/亡语入口/光环入口…）"
+                        + "并把它的动作流接到后续节点。");
+            }
+
             //控制节点(212001 分支 / 212002 重复)下游若接了内置直通动作：内置动作按无条件触发编译（不走分支/循环），提醒改用 NodeDoc 动作
             foreach (GraphNode bn in graph.nodes)
             {

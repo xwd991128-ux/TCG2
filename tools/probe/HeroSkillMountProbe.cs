@@ -13,13 +13,15 @@ namespace TcgEngine.Probe
     /// ① 走真实 SetPlayerDeck → 英雄卡实例上应出现技能卡的起动式能力；
     /// ② 技能的能力可执行（ActivateAbility → 伤害生效）；
     /// ③ 技能卡本身不能从手牌打出（CanPlayCard 拦截）。
-    /// 触发：建 tools/heroskill_flag.txt → 进 Play → 写 tools/heroskill_result.txt → 自动删标记。
+    /// 触发：建 tools/heroskill_mount_flag.txt → 进 Play → 写 tools/heroskill_mount_result.txt → 自动删标记。
+    /// ★标记/输出必须与 HeroSkillProbe 区分开：两者原先共用 tools/heroskill_flag.txt + tools/heroskill_result.txt，
+    ///   后跑的会覆盖先跑的 ⇒ 其中一个"永远跑不到"（只有一份结果，肉眼看着像全绿）。
     /// </summary>
     public class HeroSkillMountProbe : MonoBehaviour
     {
         private static string Root { get { return Path.GetFullPath(Path.Combine(Application.dataPath, "..")); } }
-        private static string OutPath { get { return Path.Combine(Root, "tools/heroskill_result.txt"); } }
-        private static string FlagPath { get { return Path.Combine(Root, "tools/heroskill_flag.txt"); } }
+        private static string OutPath { get { return Path.Combine(Root, "tools/heroskill_mount_result.txt"); } }
+        private static string FlagPath { get { return Path.Combine(Root, "tools/heroskill_mount_flag.txt"); } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()

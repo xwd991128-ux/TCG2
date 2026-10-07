@@ -1,4 +1,4 @@
-# Phase 3 差分结果（旧能力 vs 规则图）  at=2026-10-06 23:36:25
+# Phase 3 差分结果（旧能力 vs 规则图）  at=2026-10-07 11:47:46
 # 列：结果 | 卡 | 能力 | 入口 | 目标模式 | 旧差分 | 新差分 | 说明
 same	Plague_Rat	death_debuff_enemy	PassiveEffect	所有角色/AllCardsBoard	(无状态变化)	(无状态变化)	
 same	angel_kiss	spell_heal_3	ActivateEffect	打出目标/PlayTarget	(无状态变化)	(无状态变化)	

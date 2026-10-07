@@ -1,0 +1,812 @@
+{
+    "name": "Dlc1 Pack",
+    "description": "",
+    "author": "",
+    "version": "1.0",
+    "timestamp": "2026-08-30 22:04:29",
+    "cards": [
+        {
+            "id": "dragon's_anger",
+            "title": "巨龙之怒",
+            "type": "Spell",
+            "team": "fire",
+            "rarity": "mythic",
+            "mana": 11,
+            "attack": 0,
+            "hp": 0,
+            "text": "召唤1个<u>红龙</u>，造成9点伤害。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "spell_summon_dragon_red_damage",
+                    "trigger": "OnPlay",
+                    "target": "PlayTarget",
+                    "value": 9,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "龙息",
+                    "desc": "召唤1个<u>红龙</u>，造成9点伤害。",
+                    "status_ids": [],
+                    "chain_ability_ids": [
+                        "spell_summon_dragon_red_damage_chain"
+                    ],
+                    "effects": [
+                        {
+                            "type": "EffectDamage",
+                            "fields": [
+                                {
+                                    "name": "bonus_damage",
+                                    "value": "spell_damage"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [
+                        {
+                            "type": "ConditionSlotEmpty",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsFalse"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionOwnerAI",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsFalse"
+                                }
+                            ]
+                        }
+                    ],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "equip_rock_bow",
+            "title": "熔岩之弓",
+            "type": "Equipment",
+            "team": "fire",
+            "rarity": "uncommon",
+            "mana": 2,
+            "attack": 3,
+            "hp": 1,
+            "text": "",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": []
+        },
+        {
+            "id": "war_girl",
+            "title": "战狂少女",
+            "type": "Character",
+            "team": "fire",
+            "rarity": "rare",
+            "mana": 4,
+            "attack": 3,
+            "hp": 2,
+            "text": "<b>打出：</b>抽1张武器牌。\n装备着武器时，获得+2/+2。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": []
+        },
+        {
+            "id": "forest_Axe",
+            "title": "森林之斧",
+            "type": "Equipment",
+            "team": "forest",
+            "rarity": "uncommon",
+            "mana": 2,
+            "attack": 1,
+            "hp": 2,
+            "text": "装备者获得<b>吸血</b>。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "equip_lifesteal",
+                    "trigger": "Ongoing",
+                    "target": "EquippedCard",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "吸血",
+                    "desc": "装备者具有吸血。",
+                    "status_ids": [
+                        "LifeSteal"
+                    ],
+                    "chain_ability_ids": [],
+                    "effects": [],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "equip_attack1",
+                    "trigger": "Ongoing",
+                    "target": "EquippedCard",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "攻击力",
+                    "desc": "装备者+1攻击力。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "Attack"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "equip_hp2",
+                    "trigger": "Ongoing",
+                    "target": "EquippedCard",
+                    "value": 2,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "生命值",
+                    "desc": "装备者+2生命值。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "HP"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "holy_saintess",
+            "title": "神圣之女",
+            "type": "Character",
+            "team": "forest",
+            "rarity": "rare",
+            "mana": 6,
+            "attack": 3,
+            "hp": 3,
+            "text": "<b>打出时：</b>为你的英雄恢复3点生命，抽1张牌，使1个单位+3/+3。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "play_+3+3",
+                    "trigger": "OnPlay",
+                    "target": "SelectTarget",
+                    "value": 3,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "强化",
+                    "desc": "使1个单位+3/+3。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "Attack"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "HP"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [
+                        {
+                            "type": "ConditionCardType",
+                            "fields": [
+                                {
+                                    "name": "has_type",
+                                    "value": "Character"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "filters_target": []
+                },
+                {
+                    "id": "play_recover3",
+                    "trigger": "OnPlay",
+                    "target": "PlayerSelf",
+                    "value": 3,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectHeal",
+                            "fields": []
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "play_draw1",
+                    "trigger": "OnPlay",
+                    "target": "Self",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectDraw",
+                            "fields": []
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "world_tree_seedling",
+            "title": "世界之树幼苗",
+            "type": "Artifact",
+            "team": "forest",
+            "rarity": "rare",
+            "mana": 4,
+            "attack": 0,
+            "hp": 6,
+            "text": "你的回合结束时，获得1点法力值，抽1张牌，为所有友军回复3点生命值。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "end_turn_blessing",
+                    "trigger": "EndOfTurn",
+                    "target": "PlayerSelf",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "祝福",
+                    "desc": "你的回合结束时，获得1点法力值，抽1张牌，为所有友军回复3点生命值。",
+                    "status_ids": [],
+                    "chain_ability_ids": [
+                        "end_turn_blessing_chain_draw",
+                        "end_turn_blessing_chain_heal"
+                    ],
+                    "effects": [
+                        {
+                            "type": "EffectMana",
+                            "fields": [
+                                {
+                                    "name": "increase_value",
+                                    "value": "1"
+                                },
+                                {
+                                    "name": "increase_max",
+                                    "value": "0"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [
+                        {
+                            "type": "ConditionTurn",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "sickle_girl",
+            "title": "死镰少女",
+            "type": "Character",
+            "team": "swamp",
+            "rarity": "rare",
+            "mana": 4,
+            "attack": 1,
+            "hp": 6,
+            "text": "<b>致命</b>\n当这个生物消灭其他角色时，对敌方英雄造成3点伤害。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "deathtouch",
+                    "trigger": "Ongoing",
+                    "target": "Self",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "",
+                    "status_ids": [
+                        "Deathtouch"
+                    ],
+                    "chain_ability_ids": [],
+                    "effects": [],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "kill_damage3_enemy_hero",
+                    "trigger": "OnKill",
+                    "target": "PlayerOpponent",
+                    "value": 3,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "当这个生物消灭其他角色时，对敌方英雄造成2点伤害。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectDamage",
+                            "fields": [
+                                {
+                                    "name": "bonus_damage",
+                                    "value": "spell_damage"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [
+                        {
+                            "type": "ConditionCardType",
+                            "fields": [
+                                {
+                                    "name": "has_type",
+                                    "value": "Character"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "fishing_rod",
+            "title": "钓鱼竿",
+            "type": "Equipment",
+            "team": "water",
+            "rarity": "uncommon",
+            "mana": 2,
+            "attack": 1,
+            "hp": 1,
+            "text": "装备者攻击时，召唤1条<u>鱼</u>。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "fishing_rod_ability",
+                    "trigger": "OnAfterAttack",
+                    "target": "AllSlots",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "钓鱼",
+                    "desc": "装备者攻击时，召唤1个1/1的鱼。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddToDeck",
+                            "fields": [
+                                {
+                                    "name": "summon",
+                                    "value": "fish"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [
+                        {
+                            "type": "ConditionSlotEmpty",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionOwner",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionCardPile",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "Board"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "filters_target": [
+                        {
+                            "type": "FilterFirst",
+                            "fields": [
+                                {
+                                    "name": "amount",
+                                    "value": "1"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "equip_attack1",
+                    "trigger": "Ongoing",
+                    "target": "EquippedCard",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "攻击力",
+                    "desc": "装备者+1攻击力。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "Attack"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "equip_hp1",
+                    "trigger": "Ongoing",
+                    "target": "EquippedCard",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "生命值",
+                    "desc": "装备者+2生命值。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "HP"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "ice_girl",
+            "title": "冰之剑舞者",
+            "type": "Character",
+            "team": "water",
+            "rarity": "rare",
+            "mana": 6,
+            "attack": 3,
+            "hp": 7,
+            "text": "<b>狂怒</b>\n攻击生物时，将其返回拥有者手牌。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "fury",
+                    "trigger": "Ongoing",
+                    "target": "Self",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "狂怒",
+                    "desc": "一回合可以攻击2次。",
+                    "status_ids": [
+                        "Fury"
+                    ],
+                    "chain_ability_ids": [],
+                    "effects": [],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                },
+                {
+                    "id": "attack_bounce",
+                    "trigger": "OnBeforeAttack",
+                    "target": "AbilityTriggerer",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "攻击生物时，使其返回拥有者手牌。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectSendPile",
+                            "fields": [
+                                {
+                                    "name": "pile",
+                                    "value": "Hand"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [
+                        {
+                            "type": "ConditionSelf",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsFalse"
+                                }
+                            ]
+                        }
+                    ],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "large_eagle",
+            "title": "自由飞鹰",
+            "type": "Character",
+            "team": "water",
+            "rarity": "uncommon",
+            "mana": 3,
+            "attack": 2,
+            "hp": 3,
+            "text": "<b>飞行</b>\n你的飞行角色+1攻击力。",
+            "desc": "自由飞鹰是一种强大的空中猎手，拥有飞行能力，并且能为所有飞行角色提供攻击力加成。",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "flying_attack_1",
+                    "trigger": "Ongoing",
+                    "target": "AllCardsBoard",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "飞翔",
+                    "desc": "攻击力+1。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectAddStat",
+                            "fields": [
+                                {
+                                    "name": "type",
+                                    "value": "Attack"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_trigger": [],
+                    "conditions_target": [
+                        {
+                            "type": "ConditionCardType",
+                            "fields": [
+                                {
+                                    "name": "has_type",
+                                    "value": "Character"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionOwner",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionStatus",
+                            "fields": [
+                                {
+                                    "name": "has_status",
+                                    "value": "Flying"
+                                },
+                                {
+                                    "name": "value",
+                                    "value": "0"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "filters_target": []
+                },
+                {
+                    "id": "flying",
+                    "trigger": "Ongoing",
+                    "target": "Self",
+                    "value": 0,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "",
+                    "desc": "",
+                    "status_ids": [
+                        "Flying"
+                    ],
+                    "chain_ability_ids": [],
+                    "effects": [],
+                    "conditions_trigger": [],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        },
+        {
+            "id": "star_tower",
+            "title": "星之塔",
+            "type": "Artifact",
+            "team": "water",
+            "rarity": "rare",
+            "mana": 4,
+            "attack": 0,
+            "hp": 6,
+            "text": "当你打出法术牌时，抽1张牌。",
+            "desc": "",
+            "deckbuilding": true,
+            "cost": 100,
+            "abilities": [
+                {
+                    "id": "spell_draw_aura",
+                    "trigger": "OnPlayOther",
+                    "target": "PlayerSelf",
+                    "value": 1,
+                    "duration": 0,
+                    "mana_cost": 0,
+                    "exhaust": false,
+                    "title": "法术共振",
+                    "desc": "你使用法术牌后，抽1张牌。",
+                    "status_ids": [],
+                    "chain_ability_ids": [],
+                    "effects": [
+                        {
+                            "type": "EffectDraw",
+                            "fields": []
+                        }
+                    ],
+                    "conditions_trigger": [
+                        {
+                            "type": "ConditionCardType",
+                            "fields": [
+                                {
+                                    "name": "has_type",
+                                    "value": "Spell"
+                                },
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ConditionOwner",
+                            "fields": [
+                                {
+                                    "name": "oper",
+                                    "value": "IsTrue"
+                                }
+                            ]
+                        }
+                    ],
+                    "conditions_target": [],
+                    "filters_target": []
+                }
+            ]
+        }
+    ]
+}

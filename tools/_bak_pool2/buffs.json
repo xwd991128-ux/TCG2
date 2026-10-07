@@ -1,0 +1,2171 @@
+{
+    "version": "1.0",
+    "timestamp": "2026-10-05 11:50:18",
+    "buffs": [
+        {
+            "id": "buff_12902961",
+            "title": "祝福",
+            "category": "增益",
+            "desc": "祝福祝福",
+            "duration": 0,
+            "props": [
+                {
+                    "key": "攻击加成",
+                    "value": 1
+                },
+                {
+                    "key": "生命加成",
+                    "value": 2
+                }
+            ],
+            "mods": [
+                {
+                    "target": "攻击",
+                    "mode": "增加",
+                    "value": 1,
+                    "value_source": "",
+                    "enum_id": "",
+                    "enum_title": "",
+                    "is_custom": false
+                },
+                {
+                    "target": "生命",
+                    "mode": "增加",
+                    "value": 2,
+                    "value_source": "",
+                    "enum_id": "",
+                    "enum_title": "",
+                    "is_custom": false
+                }
+            ],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": true,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": [
+                {
+                    "name": "效果1",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [],
+                        "links": []
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        },
+        {
+            "id": "buff_90f3ca8b",
+            "title": "费用降低",
+            "category": "增益",
+            "desc": "每受到1点伤害，费用减少1点。",
+            "duration": 0,
+            "props": [],
+            "mods": [
+                {
+                    "target": "花费",
+                    "mode": "减少属性",
+                    "value": 0,
+                    "value_source": "费用降低",
+                    "enum_id": "",
+                    "enum_title": "",
+                    "is_custom": false
+                }
+            ],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": true,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": [
+                {
+                    "name": "效果1",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [],
+                        "links": []
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        },
+        {
+            "id": "buff_20c43d72",
+            "title": "新增益",
+            "category": "增益",
+            "desc": "",
+            "duration": 0,
+            "props": [
+                {
+                    "key": "攻击加成",
+                    "value": 3
+                }
+            ],
+            "mods": [
+                {
+                    "target": "攻击",
+                    "mode": "设置为",
+                    "value": 3,
+                    "value_source": "",
+                    "enum_id": "",
+                    "enum_title": "",
+                    "is_custom": false
+                }
+            ],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": true,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": [
+                {
+                    "name": "效果1",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [],
+                        "links": []
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        },
+        {
+            "id": "buff_c6f455b9",
+            "title": "针山",
+            "category": "增益",
+            "desc": "",
+            "duration": 0,
+            "props": [],
+            "mods": [],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": true,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [
+                    {
+                        "id": "n_soMANT",
+                        "type": 0,
+                        "action": "PassiveEffect",
+                        "title": "被动效果入口",
+                        "category": "入口",
+                        "pos": {
+                            "x": 106.55279541015625,
+                            "y": 106.54998779296875
+                        },
+                        "collapsed": false,
+                        "pins": [
+                            {
+                                "id": "n_soMANT_cond",
+                                "name": "cond",
+                                "display_name": "生效条件",
+                                "is_output": false,
+                                "type": 2,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_soMANT_out",
+                                "name": "out",
+                                "display_name": "动作",
+                                "is_output": true,
+                                "type": 1,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_soMANT_enable",
+                                "name": "enable",
+                                "display_name": "生效动作",
+                                "is_output": true,
+                                "type": 1,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_soMANT_disable",
+                                "name": "disable",
+                                "display_name": "失效动作",
+                                "is_output": true,
+                                "type": 1,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_soMANT_player",
+                                "name": "player",
+                                "display_name": "玩家",
+                                "is_output": true,
+                                "type": 6,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_soMANT_card",
+                                "name": "card",
+                                "display_name": "卡牌",
+                                "is_output": true,
+                                "type": 7,
+                                "is_array": false
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "name": "tag_list",
+                                "value": "亡语"
+                            },
+                            {
+                                "name": "live_area",
+                                "value": "战场"
+                            },
+                            {
+                                "name": "priority",
+                                "value": "0"
+                            }
+                        ],
+                        "vfx": {
+                            "enabled": true,
+                            "frame_source": "FX",
+                            "frame_names": [],
+                            "frame_rate": 12.0,
+                            "blend": 0,
+                            "sheet_path": "",
+                            "sheet_cell": 0,
+                            "sheet_cols": 5,
+                            "sheet_rows": 5,
+                            "sheet_row": -1,
+                            "sheet_start": 0,
+                            "sheet_count": 0,
+                            "sheet_scale": 1.0,
+                            "trigger": 0,
+                            "delay": 0.0,
+                            "loop": false,
+                            "loop_duration": 1.0,
+                            "bind": 0,
+                            "offset": {
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "pivot": 0,
+                            "travel": false,
+                            "bind_to": 0,
+                            "travel_duration": 0.0,
+                            "travel_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 0.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "audio_path": "",
+                            "audio_volume": 1.0,
+                            "audio_loop": false,
+                            "tint": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            },
+                            "color_over_time": {
+                                "preset": "white",
+                                "color_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "color": {
+                                            "r": 1.0,
+                                            "g": 1.0,
+                                            "b": 1.0,
+                                            "a": 1.0
+                                        }
+                                    }
+                                ],
+                                "alpha_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "a": 1.0
+                                    }
+                                ]
+                            },
+                            "scale_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "alpha_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "id": "n_1qrhYdte",
+                        "type": 3,
+                        "action": "101003",
+                        "title": "获取玩家对手",
+                        "category": "玩家",
+                        "pos": {
+                            "x": 282.05279541015627,
+                            "y": 70.54998779296875
+                        },
+                        "collapsed": false,
+                        "pins": [
+                            {
+                                "id": "n_1qrhYdte_player",
+                                "name": "player",
+                                "display_name": "玩家",
+                                "is_output": false,
+                                "type": 6,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_1qrhYdte_return",
+                                "name": "return",
+                                "display_name": "对手玩家",
+                                "is_output": true,
+                                "type": 6,
+                                "is_array": false
+                            }
+                        ],
+                        "fields": [],
+                        "vfx": {
+                            "enabled": true,
+                            "frame_source": "FX",
+                            "frame_names": [],
+                            "frame_rate": 12.0,
+                            "blend": 0,
+                            "sheet_path": "",
+                            "sheet_cell": 0,
+                            "sheet_cols": 5,
+                            "sheet_rows": 5,
+                            "sheet_row": -1,
+                            "sheet_start": 0,
+                            "sheet_count": 0,
+                            "sheet_scale": 1.0,
+                            "trigger": 0,
+                            "delay": 0.0,
+                            "loop": false,
+                            "loop_duration": 1.0,
+                            "bind": 0,
+                            "offset": {
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "pivot": 0,
+                            "travel": false,
+                            "bind_to": 0,
+                            "travel_duration": 0.0,
+                            "travel_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 0.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "audio_path": "",
+                            "audio_volume": 1.0,
+                            "audio_loop": false,
+                            "tint": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            },
+                            "color_over_time": {
+                                "preset": "white",
+                                "color_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "color": {
+                                            "r": 1.0,
+                                            "g": 1.0,
+                                            "b": 1.0,
+                                            "a": 1.0
+                                        }
+                                    }
+                                ],
+                                "alpha_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "a": 1.0
+                                    }
+                                ]
+                            },
+                            "scale_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "alpha_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "id": "n_34t8qgZS",
+                        "type": 3,
+                        "action": "101004",
+                        "title": "获取玩家英雄",
+                        "category": "玩家",
+                        "pos": {
+                            "x": 291.05279541015627,
+                            "y": 202.54998779296876
+                        },
+                        "collapsed": false,
+                        "pins": [
+                            {
+                                "id": "n_34t8qgZS_player",
+                                "name": "player",
+                                "display_name": "玩家",
+                                "is_output": false,
+                                "type": 6,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_34t8qgZS_return",
+                                "name": "return",
+                                "display_name": "卡牌",
+                                "is_output": true,
+                                "type": 7,
+                                "is_array": false
+                            }
+                        ],
+                        "fields": [],
+                        "vfx": {
+                            "enabled": true,
+                            "frame_source": "FX",
+                            "frame_names": [],
+                            "frame_rate": 12.0,
+                            "blend": 0,
+                            "sheet_path": "",
+                            "sheet_cell": 0,
+                            "sheet_cols": 5,
+                            "sheet_rows": 5,
+                            "sheet_row": -1,
+                            "sheet_start": 0,
+                            "sheet_count": 0,
+                            "sheet_scale": 1.0,
+                            "trigger": 0,
+                            "delay": 0.0,
+                            "loop": false,
+                            "loop_duration": 1.0,
+                            "bind": 0,
+                            "offset": {
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "pivot": 0,
+                            "travel": false,
+                            "bind_to": 0,
+                            "travel_duration": 0.0,
+                            "travel_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 0.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "audio_path": "",
+                            "audio_volume": 1.0,
+                            "audio_loop": false,
+                            "tint": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            },
+                            "color_over_time": {
+                                "preset": "white",
+                                "color_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "color": {
+                                            "r": 1.0,
+                                            "g": 1.0,
+                                            "b": 1.0,
+                                            "a": 1.0
+                                        }
+                                    }
+                                ],
+                                "alpha_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "a": 1.0
+                                    }
+                                ]
+                            },
+                            "scale_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "alpha_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "id": "n_vdkhYG",
+                        "type": 2,
+                        "action": "202041",
+                        "title": "造成伤害或法伤",
+                        "category": "卡牌",
+                        "pos": {
+                            "x": 474.05279541015627,
+                            "y": 92.54998779296875
+                        },
+                        "collapsed": false,
+                        "pins": [
+                            {
+                                "id": "n_vdkhYG_in",
+                                "name": "in",
+                                "display_name": "执行",
+                                "is_output": false,
+                                "type": 1,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_damage",
+                                "name": "damage",
+                                "display_name": "伤害",
+                                "is_output": false,
+                                "type": 3,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_damage2",
+                                "name": "damage2",
+                                "display_name": "+",
+                                "is_output": false,
+                                "type": 3,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_targets",
+                                "name": "targets",
+                                "display_name": "目标卡牌",
+                                "is_output": false,
+                                "type": 7,
+                                "is_array": true
+                            },
+                            {
+                                "id": "n_vdkhYG_damageSource",
+                                "name": "damageSource",
+                                "display_name": "伤害源",
+                                "is_output": false,
+                                "type": 7,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_damagetype",
+                                "name": "damagetype",
+                                "display_name": "是否为法术伤害",
+                                "is_output": false,
+                                "type": 2,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_out",
+                                "name": "out",
+                                "display_name": "执行",
+                                "is_output": true,
+                                "type": 1,
+                                "is_array": false
+                            },
+                            {
+                                "id": "n_vdkhYG_return",
+                                "name": "return",
+                                "display_name": "群体伤害事件",
+                                "is_output": true,
+                                "type": 12,
+                                "is_array": false
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "name": "damage",
+                                "value": "1"
+                            },
+                            {
+                                "name": "damage2",
+                                "value": "0"
+                            },
+                            {
+                                "name": "damagetype",
+                                "value": "false"
+                            }
+                        ],
+                        "vfx": {
+                            "enabled": true,
+                            "frame_source": "FX",
+                            "frame_names": [],
+                            "frame_rate": 12.0,
+                            "blend": 0,
+                            "sheet_path": "",
+                            "sheet_cell": 0,
+                            "sheet_cols": 5,
+                            "sheet_rows": 5,
+                            "sheet_row": -1,
+                            "sheet_start": 0,
+                            "sheet_count": 0,
+                            "sheet_scale": 1.0,
+                            "trigger": 0,
+                            "delay": 0.0,
+                            "loop": false,
+                            "loop_duration": 1.0,
+                            "bind": 0,
+                            "offset": {
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "pivot": 0,
+                            "travel": false,
+                            "bind_to": 0,
+                            "travel_duration": 0.0,
+                            "travel_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 0.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "audio_path": "",
+                            "audio_volume": 1.0,
+                            "audio_loop": false,
+                            "tint": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            },
+                            "color_over_time": {
+                                "preset": "white",
+                                "color_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "color": {
+                                            "r": 1.0,
+                                            "g": 1.0,
+                                            "b": 1.0,
+                                            "a": 1.0
+                                        }
+                                    }
+                                ],
+                                "alpha_keys": [
+                                    {
+                                        "t": 0.0,
+                                        "a": 1.0
+                                    }
+                                ]
+                            },
+                            "scale_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            },
+                            "alpha_curve": {
+                                "preset": "linear",
+                                "smooth": false,
+                                "keys": [
+                                    {
+                                        "t": 0.0,
+                                        "v": 1.0
+                                    },
+                                    {
+                                        "t": 1.0,
+                                        "v": 1.0
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "links": [
+                    {
+                        "from_node": "n_soMANT",
+                        "from_pin": "n_soMANT_out",
+                        "to_node": "n_vdkhYG",
+                        "to_pin": "n_vdkhYG_in"
+                    },
+                    {
+                        "from_node": "n_soMANT",
+                        "from_pin": "n_soMANT_card",
+                        "to_node": "n_vdkhYG",
+                        "to_pin": "n_vdkhYG_damageSource"
+                    },
+                    {
+                        "from_node": "n_soMANT",
+                        "from_pin": "n_soMANT_player",
+                        "to_node": "n_1qrhYdte",
+                        "to_pin": "n_1qrhYdte_player"
+                    },
+                    {
+                        "from_node": "n_1qrhYdte",
+                        "from_pin": "n_1qrhYdte_return",
+                        "to_node": "n_34t8qgZS",
+                        "to_pin": "n_34t8qgZS_player"
+                    },
+                    {
+                        "from_node": "n_34t8qgZS",
+                        "from_pin": "n_34t8qgZS_return",
+                        "to_node": "n_vdkhYG",
+                        "to_pin": "n_vdkhYG_targets"
+                    }
+                ]
+            },
+            "graphs": [
+                {
+                    "name": "效果1",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [
+                            {
+                                "id": "n_soMANT",
+                                "type": 0,
+                                "action": "PassiveEffect",
+                                "title": "被动效果入口",
+                                "category": "入口",
+                                "pos": {
+                                    "x": 106.55279541015625,
+                                    "y": 106.54998779296875
+                                },
+                                "collapsed": false,
+                                "pins": [
+                                    {
+                                        "id": "n_soMANT_cond",
+                                        "name": "cond",
+                                        "display_name": "生效条件",
+                                        "is_output": false,
+                                        "type": 2,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_soMANT_out",
+                                        "name": "out",
+                                        "display_name": "动作",
+                                        "is_output": true,
+                                        "type": 1,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_soMANT_enable",
+                                        "name": "enable",
+                                        "display_name": "生效动作",
+                                        "is_output": true,
+                                        "type": 1,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_soMANT_disable",
+                                        "name": "disable",
+                                        "display_name": "失效动作",
+                                        "is_output": true,
+                                        "type": 1,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_soMANT_player",
+                                        "name": "player",
+                                        "display_name": "玩家",
+                                        "is_output": true,
+                                        "type": 6,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_soMANT_card",
+                                        "name": "card",
+                                        "display_name": "卡牌",
+                                        "is_output": true,
+                                        "type": 7,
+                                        "is_array": false
+                                    }
+                                ],
+                                "fields": [
+                                    {
+                                        "name": "tag_list",
+                                        "value": "亡语"
+                                    },
+                                    {
+                                        "name": "live_area",
+                                        "value": "战场"
+                                    },
+                                    {
+                                        "name": "priority",
+                                        "value": "0"
+                                    }
+                                ],
+                                "vfx": {
+                                    "enabled": true,
+                                    "frame_source": "FX",
+                                    "frame_names": [],
+                                    "frame_rate": 12.0,
+                                    "blend": 0,
+                                    "sheet_path": "",
+                                    "sheet_cell": 0,
+                                    "sheet_cols": 5,
+                                    "sheet_rows": 5,
+                                    "sheet_row": -1,
+                                    "sheet_start": 0,
+                                    "sheet_count": 0,
+                                    "sheet_scale": 1.0,
+                                    "trigger": 0,
+                                    "delay": 0.0,
+                                    "loop": false,
+                                    "loop_duration": 1.0,
+                                    "bind": 0,
+                                    "offset": {
+                                        "x": 0.0,
+                                        "y": 0.0
+                                    },
+                                    "pivot": 0,
+                                    "travel": false,
+                                    "bind_to": 0,
+                                    "travel_duration": 0.0,
+                                    "travel_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 0.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "audio_path": "",
+                                    "audio_volume": 1.0,
+                                    "audio_loop": false,
+                                    "tint": {
+                                        "r": 1.0,
+                                        "g": 1.0,
+                                        "b": 1.0,
+                                        "a": 1.0
+                                    },
+                                    "color_over_time": {
+                                        "preset": "white",
+                                        "color_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "color": {
+                                                    "r": 1.0,
+                                                    "g": 1.0,
+                                                    "b": 1.0,
+                                                    "a": 1.0
+                                                }
+                                            }
+                                        ],
+                                        "alpha_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "a": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "scale_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "alpha_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                "id": "n_1qrhYdte",
+                                "type": 3,
+                                "action": "101003",
+                                "title": "获取玩家对手",
+                                "category": "玩家",
+                                "pos": {
+                                    "x": 282.05279541015627,
+                                    "y": 70.54998779296875
+                                },
+                                "collapsed": false,
+                                "pins": [
+                                    {
+                                        "id": "n_1qrhYdte_player",
+                                        "name": "player",
+                                        "display_name": "玩家",
+                                        "is_output": false,
+                                        "type": 6,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_1qrhYdte_return",
+                                        "name": "return",
+                                        "display_name": "对手玩家",
+                                        "is_output": true,
+                                        "type": 6,
+                                        "is_array": false
+                                    }
+                                ],
+                                "fields": [],
+                                "vfx": {
+                                    "enabled": true,
+                                    "frame_source": "FX",
+                                    "frame_names": [],
+                                    "frame_rate": 12.0,
+                                    "blend": 0,
+                                    "sheet_path": "",
+                                    "sheet_cell": 0,
+                                    "sheet_cols": 5,
+                                    "sheet_rows": 5,
+                                    "sheet_row": -1,
+                                    "sheet_start": 0,
+                                    "sheet_count": 0,
+                                    "sheet_scale": 1.0,
+                                    "trigger": 0,
+                                    "delay": 0.0,
+                                    "loop": false,
+                                    "loop_duration": 1.0,
+                                    "bind": 0,
+                                    "offset": {
+                                        "x": 0.0,
+                                        "y": 0.0
+                                    },
+                                    "pivot": 0,
+                                    "travel": false,
+                                    "bind_to": 0,
+                                    "travel_duration": 0.0,
+                                    "travel_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 0.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "audio_path": "",
+                                    "audio_volume": 1.0,
+                                    "audio_loop": false,
+                                    "tint": {
+                                        "r": 1.0,
+                                        "g": 1.0,
+                                        "b": 1.0,
+                                        "a": 1.0
+                                    },
+                                    "color_over_time": {
+                                        "preset": "white",
+                                        "color_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "color": {
+                                                    "r": 1.0,
+                                                    "g": 1.0,
+                                                    "b": 1.0,
+                                                    "a": 1.0
+                                                }
+                                            }
+                                        ],
+                                        "alpha_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "a": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "scale_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "alpha_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                "id": "n_34t8qgZS",
+                                "type": 3,
+                                "action": "101004",
+                                "title": "获取玩家英雄",
+                                "category": "玩家",
+                                "pos": {
+                                    "x": 291.05279541015627,
+                                    "y": 202.54998779296876
+                                },
+                                "collapsed": false,
+                                "pins": [
+                                    {
+                                        "id": "n_34t8qgZS_player",
+                                        "name": "player",
+                                        "display_name": "玩家",
+                                        "is_output": false,
+                                        "type": 6,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_34t8qgZS_return",
+                                        "name": "return",
+                                        "display_name": "卡牌",
+                                        "is_output": true,
+                                        "type": 7,
+                                        "is_array": false
+                                    }
+                                ],
+                                "fields": [],
+                                "vfx": {
+                                    "enabled": true,
+                                    "frame_source": "FX",
+                                    "frame_names": [],
+                                    "frame_rate": 12.0,
+                                    "blend": 0,
+                                    "sheet_path": "",
+                                    "sheet_cell": 0,
+                                    "sheet_cols": 5,
+                                    "sheet_rows": 5,
+                                    "sheet_row": -1,
+                                    "sheet_start": 0,
+                                    "sheet_count": 0,
+                                    "sheet_scale": 1.0,
+                                    "trigger": 0,
+                                    "delay": 0.0,
+                                    "loop": false,
+                                    "loop_duration": 1.0,
+                                    "bind": 0,
+                                    "offset": {
+                                        "x": 0.0,
+                                        "y": 0.0
+                                    },
+                                    "pivot": 0,
+                                    "travel": false,
+                                    "bind_to": 0,
+                                    "travel_duration": 0.0,
+                                    "travel_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 0.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "audio_path": "",
+                                    "audio_volume": 1.0,
+                                    "audio_loop": false,
+                                    "tint": {
+                                        "r": 1.0,
+                                        "g": 1.0,
+                                        "b": 1.0,
+                                        "a": 1.0
+                                    },
+                                    "color_over_time": {
+                                        "preset": "white",
+                                        "color_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "color": {
+                                                    "r": 1.0,
+                                                    "g": 1.0,
+                                                    "b": 1.0,
+                                                    "a": 1.0
+                                                }
+                                            }
+                                        ],
+                                        "alpha_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "a": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "scale_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "alpha_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                "id": "n_vdkhYG",
+                                "type": 2,
+                                "action": "202041",
+                                "title": "造成伤害或法伤",
+                                "category": "卡牌",
+                                "pos": {
+                                    "x": 474.05279541015627,
+                                    "y": 92.54998779296875
+                                },
+                                "collapsed": false,
+                                "pins": [
+                                    {
+                                        "id": "n_vdkhYG_in",
+                                        "name": "in",
+                                        "display_name": "执行",
+                                        "is_output": false,
+                                        "type": 1,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_damage",
+                                        "name": "damage",
+                                        "display_name": "伤害",
+                                        "is_output": false,
+                                        "type": 3,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_damage2",
+                                        "name": "damage2",
+                                        "display_name": "+",
+                                        "is_output": false,
+                                        "type": 3,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_targets",
+                                        "name": "targets",
+                                        "display_name": "目标卡牌",
+                                        "is_output": false,
+                                        "type": 7,
+                                        "is_array": true
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_damageSource",
+                                        "name": "damageSource",
+                                        "display_name": "伤害源",
+                                        "is_output": false,
+                                        "type": 7,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_damagetype",
+                                        "name": "damagetype",
+                                        "display_name": "是否为法术伤害",
+                                        "is_output": false,
+                                        "type": 2,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_out",
+                                        "name": "out",
+                                        "display_name": "执行",
+                                        "is_output": true,
+                                        "type": 1,
+                                        "is_array": false
+                                    },
+                                    {
+                                        "id": "n_vdkhYG_return",
+                                        "name": "return",
+                                        "display_name": "群体伤害事件",
+                                        "is_output": true,
+                                        "type": 12,
+                                        "is_array": false
+                                    }
+                                ],
+                                "fields": [
+                                    {
+                                        "name": "damage",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "name": "damage2",
+                                        "value": "0"
+                                    },
+                                    {
+                                        "name": "damagetype",
+                                        "value": "false"
+                                    }
+                                ],
+                                "vfx": {
+                                    "enabled": true,
+                                    "frame_source": "FX",
+                                    "frame_names": [],
+                                    "frame_rate": 12.0,
+                                    "blend": 0,
+                                    "sheet_path": "",
+                                    "sheet_cell": 0,
+                                    "sheet_cols": 5,
+                                    "sheet_rows": 5,
+                                    "sheet_row": -1,
+                                    "sheet_start": 0,
+                                    "sheet_count": 0,
+                                    "sheet_scale": 1.0,
+                                    "trigger": 0,
+                                    "delay": 0.0,
+                                    "loop": false,
+                                    "loop_duration": 1.0,
+                                    "bind": 0,
+                                    "offset": {
+                                        "x": 0.0,
+                                        "y": 0.0
+                                    },
+                                    "pivot": 0,
+                                    "travel": false,
+                                    "bind_to": 0,
+                                    "travel_duration": 0.0,
+                                    "travel_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 0.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "audio_path": "",
+                                    "audio_volume": 1.0,
+                                    "audio_loop": false,
+                                    "tint": {
+                                        "r": 1.0,
+                                        "g": 1.0,
+                                        "b": 1.0,
+                                        "a": 1.0
+                                    },
+                                    "color_over_time": {
+                                        "preset": "white",
+                                        "color_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "color": {
+                                                    "r": 1.0,
+                                                    "g": 1.0,
+                                                    "b": 1.0,
+                                                    "a": 1.0
+                                                }
+                                            }
+                                        ],
+                                        "alpha_keys": [
+                                            {
+                                                "t": 0.0,
+                                                "a": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "scale_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    },
+                                    "alpha_curve": {
+                                        "preset": "linear",
+                                        "smooth": false,
+                                        "keys": [
+                                            {
+                                                "t": 0.0,
+                                                "v": 1.0
+                                            },
+                                            {
+                                                "t": 1.0,
+                                                "v": 1.0
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        ],
+                        "links": [
+                            {
+                                "from_node": "n_soMANT",
+                                "from_pin": "n_soMANT_out",
+                                "to_node": "n_vdkhYG",
+                                "to_pin": "n_vdkhYG_in"
+                            },
+                            {
+                                "from_node": "n_soMANT",
+                                "from_pin": "n_soMANT_card",
+                                "to_node": "n_vdkhYG",
+                                "to_pin": "n_vdkhYG_damageSource"
+                            },
+                            {
+                                "from_node": "n_soMANT",
+                                "from_pin": "n_soMANT_player",
+                                "to_node": "n_1qrhYdte",
+                                "to_pin": "n_1qrhYdte_player"
+                            },
+                            {
+                                "from_node": "n_1qrhYdte",
+                                "from_pin": "n_1qrhYdte_return",
+                                "to_node": "n_34t8qgZS",
+                                "to_pin": "n_34t8qgZS_player"
+                            },
+                            {
+                                "from_node": "n_34t8qgZS",
+                                "from_pin": "n_34t8qgZS_return",
+                                "to_node": "n_vdkhYG",
+                                "to_pin": "n_vdkhYG_targets"
+                            }
+                        ]
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        },
+        {
+            "id": "buff_de1e35ee",
+            "title": "新增益",
+            "category": "增益",
+            "desc": "",
+            "duration": 0,
+            "props": [
+                {
+                    "key": "攻击加成",
+                    "value": 0
+                },
+                {
+                    "key": "生命加成",
+                    "value": 0
+                }
+            ],
+            "mods": [],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": false,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": []
+        },
+        {
+            "id": "buff_8c33c8e2",
+            "title": "车轮",
+            "category": "增益",
+            "desc": "",
+            "duration": 0,
+            "props": [
+                {
+                    "key": "关键词",
+                    "value": 0
+                }
+            ],
+            "mods": [
+                {
+                    "target": "关键词",
+                    "mode": "增加",
+                    "value": 0,
+                    "value_source": "",
+                    "enum_id": "charge",
+                    "enum_title": "冲锋",
+                    "is_custom": false
+                }
+            ],
+            "custom_props": [],
+            "custom_prop_defs": [],
+            "mods_migrated": true,
+            "vfx": {
+                "enabled": true,
+                "frame_source": "FX",
+                "frame_names": [],
+                "frame_rate": 12.0,
+                "blend": 0,
+                "sheet_path": "",
+                "sheet_cell": 0,
+                "sheet_cols": 5,
+                "sheet_rows": 5,
+                "sheet_row": -1,
+                "sheet_start": 0,
+                "sheet_count": 0,
+                "sheet_scale": 1.0,
+                "trigger": 0,
+                "delay": 0.0,
+                "loop": false,
+                "loop_duration": 1.0,
+                "bind": 0,
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "pivot": 0,
+                "travel": false,
+                "bind_to": 0,
+                "travel_duration": 0.0,
+                "travel_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 0.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "audio_path": "",
+                "audio_volume": 1.0,
+                "audio_loop": false,
+                "tint": {
+                    "r": 1.0,
+                    "g": 1.0,
+                    "b": 1.0,
+                    "a": 1.0
+                },
+                "color_over_time": {
+                    "preset": "white",
+                    "color_keys": [
+                        {
+                            "t": 0.0,
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    ],
+                    "alpha_keys": [
+                        {
+                            "t": 0.0,
+                            "a": 1.0
+                        }
+                    ]
+                },
+                "scale_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                },
+                "alpha_curve": {
+                    "preset": "linear",
+                    "smooth": false,
+                    "keys": [
+                        {
+                            "t": 0.0,
+                            "v": 1.0
+                        },
+                        {
+                            "t": 1.0,
+                            "v": 1.0
+                        }
+                    ]
+                }
+            },
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": [
+                {
+                    "name": "效果1",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [],
+                        "links": []
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        }
+    ]
+}

@@ -1,11 +1,11 @@
 结果	断言	说明
-PASS	A1 手牌来源光环给自己施加	buff=buff_f26ab9a4
+PASS	A1 手牌来源光环给自己施加	buff=buff_f2404173
 PASS	A2 幂等动作线每次同步重跑	第1次=1 第2次=2（aura_repeat=true）
 PASS	A3 变量=3 → mana_ongoing=-3	mana_ongoing=-3 费用=0
 PASS	A4 变量改 1 → mana_ongoing=-1（跟随）	mana_ongoing=-1
 PASS	A5 移除后 mana_ongoing=0	mana_ongoing=0
 INFO	B段夹具	英雄卡=新建 玩家血量=29/30（血量在玩家身上，英雄卡字段不动）	
-PASS	B1 光环给自己施加了「费用降低」	来源=5C66KyMXGZfb 分组=ag_custom_ZJixIZiYOx4_n_AGDJoM
+PASS	B1 光环给自己施加了「费用降低」	来源=13hz005Kfr48uE 分组=ag_custom_ZJixIZiYOx4_n_AGDJoM
 PASS	B2 动作线写入变量「费用降低」=已损失生命(1)	变量值=1（期望 1）
 PASS	B3 熔岩人费用 = 20-1 = 19	当前费用=19 mana_ongoing=-1
 PASS	B4 再掉 1 点血 → 费用 = 20-2	当前费用=18 mana_ongoing=-2

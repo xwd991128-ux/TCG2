@@ -188,7 +188,11 @@ namespace TcgEngine.Probe
                 pd3.cards = new List<CardCustomData> { d3c };
                 string tmp3 = Path.Combine(Application.persistentDataPath, "Workshop/probe_onafterplay_pool.json");
                 File.WriteAllText(tmp3, JsonUtility.ToJson(pd3), new UTF8Encoding(false));
-                CardPoolIO.ImportFromFile(tmp3, true);
+                //★第二个参数是 grantOwnership（不是"激活"）：传 true 会把探针测试卡写进**玩家存档的"已拥有"**，
+                //  之后测试卡会出现在构筑界面里（污染用户存档）；探针只关心编译/结算，不需要归属 → 传 false。
+                CardPoolIO.ImportFromFile(tmp3, false);
+                //★用完即删：否则测试池 json 会留在用户的 Workshop 目录里（会在工作台卡池列表里多出一个 "probe_..."）。
+                try { File.Delete(tmp3); } catch { }
                 CardData cd3 = CardData.Get(d3c.id);
                 if (cd3 != null && cd3.abilities != null)
                     foreach (AbilityData a in cd3.abilities)

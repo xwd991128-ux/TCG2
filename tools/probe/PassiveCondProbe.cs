@@ -153,7 +153,10 @@ namespace TcgEngine.Probe
                 pool.cards = new List<CardCustomData> { dto };
                 string tmp = Path.Combine(Application.persistentDataPath, "Workshop/probe_passive_cond_pool.json");
                 File.WriteAllText(tmp, JsonUtility.ToJson(pool), new UTF8Encoding(false));
-                CardPoolIO.ImportFromFile(tmp, true);
+                //★第二个参数是 grantOwnership：true 会把探针测试卡写进**玩家存档的"已拥有"**（污染构筑界面）；
+                //  探针只关心编译/被动生效失效，不需要归属 → false。用完即删，别把测试池留在用户 Workshop 目录。
+                CardPoolIO.ImportFromFile(tmp, false);
+                try { File.Delete(tmp); } catch { }
                 cd = CardData.Get(CardId);
             }
 

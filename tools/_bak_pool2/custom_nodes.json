@@ -1,0 +1,47 @@
+{
+    "timestamp": "2026-09-24 00:24:54",
+    "nodes": [
+        {
+            "id": "cn_9cd6f957",
+            "title": "新动作节点",
+            "desc": "",
+            "kind": 0,
+            "inputs": [
+                {
+                    "name": "输入1",
+                    "type": "Int32",
+                    "is_array": false
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "输出1",
+                    "type": "Int32",
+                    "is_array": false
+                }
+            ],
+            "tags": [],
+            "listen_action": "",
+            "graph": {
+                "name": "NewGraph",
+                "nodes": [],
+                "links": []
+            },
+            "graphs": [
+                {
+                    "name": "新动作节点",
+                    "graph": {
+                        "name": "NewGraph",
+                        "nodes": [],
+                        "links": []
+                    },
+                    "filters_target": [],
+                    "conditions_target": [],
+                    "conditions_trigger": [],
+                    "status_ids": [],
+                    "chain_ability_ids": []
+                }
+            ]
+        }
+    ]
+}
