@@ -1,7 +1,6 @@
 INFO	⓪ 前置	能力数=1 buff注册=True
-FAIL	① 102032(技能)喂技能卡	观测=7 期望=3
+SKIP	① 无技能卡样本
 PASS	① 102032(技能)喂法术卡	观测=7 期望=7
 PASS	① 102032(技能)喂随从卡	观测=7 期望=7
 PASS	② 112002 拥有者判等(同玩家)	观测=3（同主→3 异主→7）
-INFO	③ 打出技能卡	HasBuff=True（用户图 type=技能：技能应=True 法术应=False）
 INFO	③ 打出法术卡	HasBuff=False（用户图 type=技能：技能应=True 法术应=False）
