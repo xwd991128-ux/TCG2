@@ -196,6 +196,28 @@ namespace TcgEngine.Workshop
             //  ① GetCustomData(已删卡) 仍非 null → EnsureCustomCardOwned 会继续给"已被删除的卡池"里的卡授权；
             //  ② RebuildGlobalAttackGraphs 遍历 custom_data → 被删卡池的"作用范围=全部卡牌"规则**继续生效**。
             custom_data.Remove(id);
+            //★同时卸载该卡编译出的"图能力"：AbilityData 的静态表**只增不减**（RegisterAbility 只会替换同 id），
+            //  删池/切池后旧能力永久留在 ability_list/ability_dict 里 ——
+            //  全表扫描（DataLoader.CheckAbilityData、按 trigger 找宿主等）会命中"已卸载卡池"的能力。
+            RemoveAbilitiesOf(id);
+        }
+
+        /// <summary>卸载某张卡编译出的图能力。图能力 id 有稳定前缀（见 StableAbilityId："graph_&lt;卡id&gt;_…"），
+        /// 因此可精确卸载，**不会碰内置能力资产**（内置能力 id 不带该前缀）。</summary>
+        private static int RemoveAbilitiesOf(string card_id)
+        {
+            if (string.IsNullOrEmpty(card_id))
+                return 0;
+            string prefix = "graph_" + card_id + "_";
+            int removed = AbilityData.ability_list.RemoveAll(a => a != null && !string.IsNullOrEmpty(a.id)
+                && a.id.StartsWith(prefix, StringComparison.Ordinal));
+            List<string> keys = new List<string>();
+            foreach (KeyValuePair<string, AbilityData> kv in AbilityData.ability_dict)
+                if (!string.IsNullOrEmpty(kv.Key) && kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+                    keys.Add(kv.Key);
+            for (int i = 0; i < keys.Count; i++)
+                AbilityData.ability_dict.Remove(keys[i]);
+            return removed;
         }
 
         /// <summary>把卡牌列表导出为 JSON 文件到指定目录（玩家自选路径）</summary>

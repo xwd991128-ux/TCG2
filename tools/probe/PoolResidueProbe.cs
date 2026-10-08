@@ -70,6 +70,17 @@ namespace TcgEngine.Probe
             return n;
         }
 
+        /// <summary>统计某张卡编译出的图能力条数（id 前缀 "graph_&lt;卡id&gt;_"，见 CardPoolIO.StableAbilityId）</summary>
+        private static int CountAbilitiesOf(string card_id)
+        {
+            string prefix = "graph_" + card_id + "_";
+            int n = 0;
+            foreach (AbilityData ab in AbilityData.ability_list)
+                if (ab != null && !string.IsNullOrEmpty(ab.id) && ab.id.StartsWith(prefix, StringComparison.Ordinal))
+                    n++;
+            return n;
+        }
+
         // ---------------- 告警捕获：断言"真的打出告警"，而不是靠肉眼看控制台 ----------------
 
         private static readonly List<string> captured = new List<string>();
@@ -352,6 +363,43 @@ namespace TcgEngine.Probe
                         + "（只是丢掉那条条件 —— 但要让你看得见）");
                 }
                 finally { CaptureStop(); }
+
+                //---- ⑩ 删池后：该卡编译出的图能力必须一起卸载（AbilityData 静态表只增不减）----
+                string ab_path = Path.Combine(CardPoolIO.SaveFolder, POOL_NAME + "_ab.json");
+                string ab_card = CARD_ID + "_ab";
+                GraphData g10 = new GraphData
+                {
+                    name = "探针能力图",
+                    nodes = new List<GraphNode>(),
+                    links = new List<GraphLink>()
+                };
+                GraphNode ev10 = Node(g10, "ev", GraphNodeType.Event, "OnBeforeDamage", "伤害时");
+                Pin(ev10, "out", NodeValueType.Flow, true);
+                GraphNode act10 = Node(g10, "a", GraphNodeType.Action, "202001", "造成伤害");
+                Pin(act10, "in", NodeValueType.Flow, false);
+                Pin(act10, "value", NodeValueType.Int32, false);
+                Pin(act10, "out", NodeValueType.Flow, true);
+                Link(g10, ev10, "out", act10, "in");
+
+                CardPoolData abp = new CardPoolData();
+                abp.name = POOL_NAME + "_ab";
+                abp.author = "probe";
+                CardCustomData abc = new CardCustomData();
+                abc.id = ab_card;
+                abc.title = "能力卸载探针卡";
+                abc.type = CardType.Character.ToString();
+                abc.hp = 1; abc.mana = 0; abc.deckbuilding = true;
+                abc.effects = new List<CardEffectData> { new CardEffectData { name = "效果1", graph = g10 } };
+                abp.cards.Add(abc);
+                File.WriteAllText(ab_path, JsonUtility.ToJson(abp, true), new UTF8Encoding(false));
+
+                CardPoolIO.ImportFromFile(ab_path, false);
+                int ab_before = CountAbilitiesOf(ab_card);
+                CardPoolIO.DeletePoolFile(ab_path);
+                int ab_after = CountAbilitiesOf(ab_card);
+                Check("⑩ 删池后图能力一起卸载（静态表不再只增不减）", ab_before > 0 && ab_after == 0,
+                    "该卡编译出的图能力 " + ab_before + " 条 → 删池后 " + ab_after
+                    + " 条（旧行为：永久残留，全表扫描/事件广播会命中已卸载卡池的能力）");
             }
             catch (Exception e)
             {
