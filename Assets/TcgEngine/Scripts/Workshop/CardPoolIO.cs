@@ -165,6 +165,9 @@ namespace TcgEngine.Workshop
             }
             //先从内存卸载该文件注册的自定义卡，使卡牌构筑等界面即时减少
             UnloadPoolCards(path);
+            //★卸载后必须重建"全局规则"：全局入口/全局攻击规则是从 custom_data 扫出来的，
+            //  删卡不重建的话，被删卡池配的"作用范围=全部卡牌"规则会继续影响对局（删了还在生效）。
+            RebuildGlobalAttackGraphs();
             File.Delete(path);
             return true;
         }
@@ -189,6 +192,10 @@ namespace TcgEngine.Workshop
                 CardData.card_dict.Remove(id);
             }
             custom_ids.Remove(id);
+            //★必须同时清 custom_data（卡 id → 卡池 JSON 原始数据的登记表）。漏清会有两个后遗症：
+            //  ① GetCustomData(已删卡) 仍非 null → EnsureCustomCardOwned 会继续给"已被删除的卡池"里的卡授权；
+            //  ② RebuildGlobalAttackGraphs 遍历 custom_data → 被删卡池的"作用范围=全部卡牌"规则**继续生效**。
+            custom_data.Remove(id);
         }
 
         /// <summary>把卡牌列表导出为 JSON 文件到指定目录（玩家自选路径）</summary>
@@ -455,6 +462,26 @@ namespace TcgEngine.Workshop
             data.desc = card.desc;
             data.deckbuilding = card.deckbuilding;
             data.cost = card.cost;
+
+            //★美术 / 音效 / 自定义参数声明必须一起导出（导入侧本来就会读它们）。
+            //  注意这些字段**不在 CardData 上** —— CardData（ScriptableObject）只装 Sprite，
+            //  文件名与"自定义参数声明"只存在**导入/保存时登记的原始 DTO**（custom_data）里。
+            //  旧实现这里一字未写 ⇒ 纯 JSON 出口（ExportToJson / ExportToFile / ExportToPath）
+            //  导出再导入 = **卡图全黑、音效全无、高级筛选的 p:参数 消失**。
+            //  为什么一直没被发现：.tcgpool 包有"按运行时资源反编码回填文件名"的兜底
+            //  （PoolPackageIO.EnsureImage/EnsureAudio），所以只有"分享纯 JSON"这条路会暴露。
+            CardCustomData src_data = GetCustomData(card.id);
+            if (src_data != null)
+            {
+                data.art_path = src_data.art_path;
+                data.art_full_path = src_data.art_full_path;
+                data.spawn_audio_id = src_data.spawn_audio_id;
+                data.attack_audio_id = src_data.attack_audio_id;
+                data.death_audio_id = src_data.death_audio_id;
+                data.damage_audio_id = src_data.damage_audio_id;
+                if (src_data.custom_prop_defs != null && src_data.custom_prop_defs.Count > 0)
+                    data.custom_prop_defs = new List<BuffCustomProp>(src_data.custom_prop_defs);
+            }
 
             if (card.abilities != null)
             {
@@ -1097,6 +1124,12 @@ namespace TcgEngine.Workshop
             card.abilities = abilities.ToArray();
             //异步补载音频，使规则编辑器保存的音效立即生效（编辑器保存后调用本方法）
             CardAudioLoader.LoadCardAudio(data, card);
+
+            //★登记表必须跟着更新：custom_data 存的是"卡池原始数据"（美术/音效文件名、自定义参数声明），
+            //  这些字段不在 CardData 上。旧实现只在 BuildCardData（导入）时登记一次 ⇒ 编辑器里改完保存后，
+            //  GetCustomData(id) 仍是**旧 DTO**：导出会写回旧文件名、卡牌自定义参数的**声明/初始值**也是旧的
+            //  （只有重启或重新导入才自愈）。
+            custom_data[data.id] = data;
         }
 
         // ---------------- 规则图 → 能力编译 ----------------
