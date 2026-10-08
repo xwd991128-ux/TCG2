@@ -760,13 +760,34 @@ namespace TcgEngine.Workshop
             if (pool == null || pool.cards == null)
                 return 0;
 
+            //★池级规则图（CardPoolData.graph）：卡池编辑页能画，但导入侧**只读每张卡自己的效果图**，
+            //  旧实现对它一个字都不读 ⇒ 玩家配的"卡池规则"在真实对局零效果、而且**零告警**
+            //  （编辑器里看起来完全配好了）。这里先明确告警；要真正生效需把它挂成全局入口（属功能开发，
+            //  不能靠"静默忽略"冒充）。
+            if (pool.graph != null && pool.graph.nodes != null && pool.graph.nodes.Count > 0)
+                Debug.LogWarning("[卡池] 池级规则图不会被导入（引擎目前只读每张卡自己的效果图）："
+                    + Path.GetFileName(fileKey) + " 的图「" + pool.graph.name + "」有 " + pool.graph.nodes.Count
+                    + " 个节点，全部被忽略。要让它生效，请把规则配到某张卡的图里，并把入口的「作用范围」设为「全部卡牌」。");
+
             int added = 0;
             int overrode = 0;
             int art_ok = 0;
+            int skipped = 0;                 //被静默丢弃的卡（缺少 id / 类型非法）
+            string skipped_detail = "";
             bool allow_override = OverrideBuiltinFor(Path.GetFileName(fileKey));   //★迁移验证开关（按池文件名限定）
             foreach (CardCustomData cdata in pool.cards)
             {
                 CardData card = BuildCardData(cdata);
+                if (card == null)
+                {
+                    //★"静默丢弃"是"导入看着成功、卡却少了一张"的元凶：明确报出是哪几条、为什么
+                    //  （BuildCardData 对 缺 id 的条目返回 null）。旧实现连一句日志都没有。
+                    skipped++;
+                    if (skipped <= 5)
+                        skipped_detail += (skipped_detail.Length > 0 ? "、" : "")
+                            + (cdata != null && !string.IsNullOrEmpty(cdata.id) ? cdata.id : "（缺少 id 的条目）");
+                    continue;
+                }
                 bool did_override;
                 //★"改完卡池重新导入"必须生效：**同一文件里自己登记过的卡**再次导入时允许覆盖旧实例。
                 //  旧行为：RegisterCard 直接拒绝同 id（只打一条 warning），而此刻 custom_data / 能力 / 全局规则
@@ -796,6 +817,9 @@ namespace TcgEngine.Workshop
                         GrantOwnership(card);
                 }
             }
+            if (skipped > 0)
+                Debug.LogWarning("[卡池] 有 " + skipped + " 张卡被跳过（缺少 id / 类型非法）：" + skipped_detail
+                    + " —— 这些卡不会进入游戏，请检查卡池 JSON 里的 id 字段。");
             if (overrode > 0)
                 Debug.Log("[卡池] 已用池卡**覆盖同名内置卡** " + overrode + " 张（其中带卡图 " + art_ok + " 张；"
                     + "验证开关 override_builtin.txt 生效中，删除该文件并重开游戏即恢复内置卡优先）");
@@ -2412,7 +2436,14 @@ namespace TcgEngine.Workshop
             {
                 Type type = GetComponentType(cd.type);
                 if (type == null || !typeof(T).IsAssignableFrom(type))
+                {
+                    //★静默 continue = 条件/过滤器**凭空消失**（卡上看配了条件，实际一条都不判）——
+                    //  这是最难查的一类 bug，必须留痕。常见原因：类名拼错、或该类型属于没打包进来的模块。
+                    Debug.LogWarning("[卡池] 条件/过滤器类型无法还原，已跳过：\""
+                        + (cd != null ? cd.type : "null") + "\"（此处需要 " + typeof(T).Name
+                        + "；类名拼错、或该类型属于未打包的模块）");
                     continue;
+                }
 
                 ScriptableObject comp = ScriptableObject.CreateInstance(type);
                 if (comp == null)

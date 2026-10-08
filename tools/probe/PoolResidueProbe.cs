@@ -70,6 +70,63 @@ namespace TcgEngine.Probe
             return n;
         }
 
+        // ---------------- 告警捕获：断言"真的打出告警"，而不是靠肉眼看控制台 ----------------
+
+        private static readonly List<string> captured = new List<string>();
+
+        private static void OnLog(string msg, string stack, LogType type)
+        {
+            if (!string.IsNullOrEmpty(msg))
+                captured.Add(msg);
+        }
+
+        private static void CaptureStart()
+        {
+            captured.Clear();
+            Application.logMessageReceived += OnLog;
+        }
+
+        private static void CaptureStop()
+        {
+            Application.logMessageReceived -= OnLog;
+        }
+
+        private static bool Warned(string key)
+        {
+            return captured.Exists(l => l != null && l.Contains(key));
+        }
+
+        // ---------------- 图夹具小工具 ----------------
+
+        private static GraphNode Node(GraphData g, string id, GraphNodeType type, string action, string title)
+        {
+            var n = new GraphNode();
+            n.id = id; n.type = type; n.action = action; n.title = title;
+            n.pins = new List<GraphPin>();
+            n.fields = new List<FieldCustomData>();
+            n.category = type == GraphNodeType.Event ? "事件" : "其他";
+            g.nodes.Add(n);
+            return n;
+        }
+
+        private static void Pin(GraphNode n, string name, NodeValueType type, bool output)
+        {
+            n.pins.Add(new GraphPin
+            {
+                id = n.id + "_" + name, name = name, display_name = name,
+                is_output = output, type = type
+            });
+        }
+
+        private static void Link(GraphData g, GraphNode from, string fromPin, GraphNode to, string toPin)
+        {
+            g.links.Add(new GraphLink
+            {
+                from_node = from.id, from_pin = from.id + "_" + fromPin,
+                to_node = to.id, to_pin = to.id + "_" + toPin
+            });
+        }
+
         private void Run()
         {
             sb.AppendLine("结果\t断言\t说明");
@@ -190,6 +247,111 @@ namespace TcgEngine.Probe
                 int globals_after = GlobalCount();
                 Check("④ 删池后全局规则表已重建", globals_after == globals_before,
                     "全局规则条数 删前=" + globals_before + " → 删后=" + globals_after + "（必须相等，不能残留）");
+
+                //---- ⑦ 池级规则图：必须明确告警（旧行为：编辑器能画、对局零效果、零告警）----
+                string pg_path = Path.Combine(CardPoolIO.SaveFolder, POOL_NAME + "_pg.json");
+                CaptureStart();
+                try
+                {
+                    CardPoolData pg = new CardPoolData();
+                    pg.name = POOL_NAME + "_pg";
+                    pg.author = "probe";
+                    GraphData pgraph = new GraphData
+                    {
+                        name = "探针池级图",
+                        nodes = new List<GraphNode>(),
+                        links = new List<GraphLink>()
+                    };
+                    GraphNode pev = Node(pgraph, "ev", GraphNodeType.Event, "OnBeforeDamage", "伤害时");
+                    Pin(pev, "out", NodeValueType.Flow, true);
+                    pg.graph = pgraph;
+                    CardCustomData pgc = new CardCustomData();
+                    pgc.id = CARD_ID + "_pg";
+                    pgc.title = "池级图探针卡";
+                    pgc.type = CardType.Character.ToString();
+                    pgc.hp = 1; pgc.mana = 0; pgc.deckbuilding = true;
+                    pg.cards.Add(pgc);
+                    File.WriteAllText(pg_path, JsonUtility.ToJson(pg, true), new UTF8Encoding(false));
+
+                    int g_before = GlobalCount();
+                    CardPoolIO.ImportFromFile(pg_path, false);
+                    bool warned_pg = Warned("池级规则图不会被导入");
+                    bool card_pg = CardData.Get(CARD_ID + "_pg") != null;
+                    int g_after = GlobalCount();
+                    CardPoolIO.DeletePoolFile(pg_path);
+                    Check("⑦ 池级规则图：明确告警且不被当成全局规则", warned_pg && card_pg && g_after == g_before,
+                        "告警=" + warned_pg + " 同池的卡仍正常导入=" + card_pg
+                        + " 全局规则条数 " + g_before + "→" + g_after + "（池级图确实没生效，但已如实告知）");
+                }
+                finally { CaptureStop(); }
+
+                //---- ⑧ 缺 id 的卡：不再静默丢弃 ----
+                string bad_path = Path.Combine(CardPoolIO.SaveFolder, POOL_NAME + "_bad.json");
+                CaptureStart();
+                try
+                {
+                    CardPoolData bad = new CardPoolData();
+                    bad.name = POOL_NAME + "_bad";
+                    bad.author = "probe";
+                    bad.cards.Add(new CardCustomData { id = "", title = "没有 id 的卡", type = CardType.Character.ToString() });
+                    CardCustomData okc = new CardCustomData();
+                    okc.id = CARD_ID + "_ok";
+                    okc.title = "正常卡";
+                    okc.type = CardType.Character.ToString();
+                    okc.hp = 1; okc.mana = 0; okc.deckbuilding = true;
+                    bad.cards.Add(okc);
+                    File.WriteAllText(bad_path, JsonUtility.ToJson(bad, true), new UTF8Encoding(false));
+
+                    CardPoolIO.ImportFromFile(bad_path, false);
+                    bool warned_bad = Warned("张卡被跳过");
+                    bool ok_imported = CardData.Get(CARD_ID + "_ok") != null;
+                    CardPoolIO.DeletePoolFile(bad_path);
+                    Check("⑧ 缺 id 的卡不再静默丢弃", warned_bad && ok_imported,
+                        "告警=" + warned_bad + " 同池正常卡仍导入=" + ok_imported + "（旧行为：少一张卡、一句日志都没有）");
+                }
+                finally { CaptureStop(); }
+
+                //---- ⑨ 条件类型还原失败：不再静默（条件凭空消失是最难查的一类）----
+                CaptureStart();
+                try
+                {
+                    GraphData g9 = new GraphData
+                    {
+                        name = "探针条件图",
+                        nodes = new List<GraphNode>(),
+                        links = new List<GraphLink>()
+                    };
+                    GraphNode ev9 = Node(g9, "ev", GraphNodeType.Event, "OnBeforeDamage", "伤害时");
+                    Pin(ev9, "out", NodeValueType.Flow, true);
+                    GraphNode act9 = Node(g9, "a", GraphNodeType.Action, "202001", "造成伤害");
+                    Pin(act9, "in", NodeValueType.Flow, false);
+                    Pin(act9, "value", NodeValueType.Int32, false);
+                    Pin(act9, "out", NodeValueType.Flow, true);
+                    Link(g9, ev9, "out", act9, "in");
+
+                    CardCustomData c9 = new CardCustomData();
+                    c9.id = CARD_ID + "_cond";
+                    c9.title = "条件还原探针卡";
+                    c9.type = CardType.Character.ToString();
+                    c9.hp = 1; c9.mana = 0; c9.deckbuilding = true;
+                    c9.effects = new List<CardEffectData>
+                    {
+                        new CardEffectData
+                        {
+                            name = "效果1",
+                            graph = g9,
+                            conditions_trigger = new List<ComponentCustomData>
+                            {
+                                new ComponentCustomData { type = "ProbeNotExistCondition" }   //故意写一个不存在的类名
+                            }
+                        }
+                    };
+                    CardData built9 = CardPoolIO.BuildCardData(c9);
+                    Check("⑨ 条件类型还原失败不再静默", Warned("条件/过滤器类型无法还原") && built9 != null,
+                        "告警=" + Warned("条件/过滤器类型无法还原") + " 卡仍能构建=" + (built9 != null)
+                        + "（只是丢掉那条条件 —— 但要让你看得见）");
+                }
+                finally { CaptureStop(); }
             }
             catch (Exception e)
             {
