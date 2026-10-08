@@ -2974,9 +2974,7 @@ namespace TcgEngine.Gameplay
 
         public virtual void DamagePlayer(Card attacker, Player target, int value, bool spell_damage = false)
         {
-            //对战记录：对玩家的伤害（P0 记请求值；护甲/免疫后的净差值精确化留到 P1）
-            if (!is_ai_predict && target != null && value > 0)
-                BattleLog.TargetPlayer(target.player_id, BattleLogKind.Damage, null, null, target, value);
+            int bl_hp_before = target != null ? target.hp : 0;   //对战记录：记录净差值用
             //★英雄侧减伤（护甲 / 免疫）：**直接以玩家为目标的伤害**（节点 target=玩家、法术打脸等）原先完全没有这一层，
             //  护甲只在"以英雄卡为目标"的分支里判过 → 两条路都必须判，否则表现就是"护甲卡对脸没用"。
             if (target != null && target.hero != null)
@@ -3017,6 +3015,11 @@ namespace TcgEngine.Gameplay
             //Damage player
             target.hp -= value;
             target.hp = Mathf.Clamp(target.hp, 0, target.hp_max);
+
+            //对战记录：记**净差值**（护甲/免疫/锁血/图事件改值之后仍准确；0 也记 —— "打了没掉血"一眼可见）
+            if (!is_ai_predict)
+                BattleLog.TargetPlayer(target.player_id, BattleLogKind.Damage, null, null, target,
+                    Mathf.Max(bl_hp_before - target.hp, 0));
 
             //Lifesteal（attacker 可为 null：无来源伤害经英雄路由落到这里）
             if (attacker != null && attacker.HasStatus(StatusType.LifeSteal))
@@ -3112,6 +3115,7 @@ namespace TcgEngine.Gameplay
         {
             if (target == null)
                 return;
+            int bl_hp_before = target.hp;   //对战记录：治疗净差值用
 
             //图事件「治疗时」（对玩家治疗）；可阻止/改治疗量
             if (value > 0)
@@ -3130,6 +3134,11 @@ namespace TcgEngine.Gameplay
 
             target.hp += value;
             target.hp = Mathf.Clamp(target.hp, 0, target.hp_max);
+
+            //对战记录：治疗净差值（满血时治疗=0 也记，能看出"治疗被浪费"）
+            if (!is_ai_predict)
+                BattleLog.TargetPlayer(target.player_id, BattleLogKind.Heal, null, null, target,
+                    Mathf.Max(target.hp - bl_hp_before, 0));
 
             onPlayerHealed?.Invoke(target, value);
 
@@ -3199,9 +3208,7 @@ namespace TcgEngine.Gameplay
             if (attacker == null || target == null)
                 return;
 
-            //对战记录：对卡牌的伤害（记录受害者 + 数值）
-            if (!is_ai_predict && value > 0)
-                BattleLog.Card(target.player_id, BattleLogKind.Damage, target, null, value);
+            //（对战记录的伤害在下面"Damage"段用净差值记录）
 
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Invincible
@@ -3266,6 +3273,10 @@ namespace TcgEngine.Gameplay
             int damage_max = Mathf.Min(value, target.GetHP());
             int extra = value - target.GetHP();
             target.damage += value;
+
+            //对战记录：净差值 = min(本次伤害, 目标剩余HP)（overkill 不计；0 也记 → "白打"一眼可见）
+            if (!is_ai_predict)
+                BattleLog.Card(target.player_id, BattleLogKind.Damage, target, null, Mathf.Max(damage_max, 0));
 
             //Trample
             Player tplayer = game_data.GetPlayer(target.player_id);

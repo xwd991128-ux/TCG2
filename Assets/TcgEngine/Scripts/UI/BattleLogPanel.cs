@@ -204,6 +204,27 @@ namespace TcgEngine.UI
             MakeText(close.transform, "X", "×", 24f, UITheme.TextBody, TextAlignmentOptions.Center)
                 .rectTransform.sizeDelta = new Vector2(48f, 40f);
 
+            //导出按钮（排查用：把整份记录写到 persistentDataPath/Workshop/battle_log_*.txt）
+            GameObject exp = new GameObject("Export", typeof(RectTransform));
+            exp.transform.SetParent(root.transform, false);
+            Image eb = exp.AddComponent<Image>();
+            eb.color = new Color(0.12f, 0.22f, 0.16f, 0.95f);
+            Button ebtn = exp.AddComponent<Button>();
+            ebtn.targetGraphic = eb;
+            ebtn.onClick.AddListener(() =>
+            {
+                Game gg = GameClient.Get() != null && GameClient.Get().IsReady() ? GameClient.Get().GetGameData() : null;
+                BattleLog.ExportToFile(gg, GameClient.Get().GetPlayerID());
+            });
+            RectTransform ert = exp.GetComponent<RectTransform>();
+            ert.anchorMin = new Vector2(1f, 1f);
+            ert.anchorMax = new Vector2(1f, 1f);
+            ert.pivot = new Vector2(1f, 1f);
+            ert.anchoredPosition = new Vector2(-8f, -52f);
+            ert.sizeDelta = new Vector2(104f, 36f);
+            MakeText(exp.transform, "ET", "导出", 20f, UITheme.TextBody, TextAlignmentOptions.Center)
+                .rectTransform.sizeDelta = new Vector2(104f, 36f);
+
             //分页按钮（左右切换，同影之诗）
             string[] tabs = { "战斗记录", "已使用卡牌", "被破坏随从", "对战信息" };
             for (int i = 0; i < tabs.Length; i++)

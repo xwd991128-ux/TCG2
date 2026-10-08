@@ -164,6 +164,42 @@ namespace TcgEngine.Probe
             int clone_count = clone.battle_log != null ? clone.battle_log.Count : -1;
             sb.AppendLine((before > 0 && clone_count == 0 ? "PASS" : "FAIL")
                 + "\t⑨ Game.Clone 不拷记录（AI 预测树）\t原=" + before + " 副本=" + clone_count);
+
+            //---- ⑩ 伤害记"净差值"：5 血目标吃 100 伤害 → 记 5（不是 100）----
+            Card weak = Card.Create(any, null, p1, "bl_weak");
+            p1.cards_board.Add(weak);
+            weak.hp = 5; weak.damage = 0;
+            logic.DamageCard(p0.hero, weak, 100);
+            int net_dmg = -1;
+            for (int i = game.battle_log.Count - 1; i >= 0; i--)
+                if (game.battle_log[i].kind == (byte)BattleLogKind.Damage) { net_dmg = game.battle_log[i].value; break; }
+            sb.AppendLine((net_dmg == 5 ? "PASS" : "FAIL")
+                + "\t⑩ 伤害记净差值（overkill 不计）\t5 血目标吃 100 → 记录=" + net_dmg);
+
+            //---- ⑪ 治疗记净差值：满血玩家治疗 5 → 记 0（能看出治疗被浪费）----
+            p1.hp = p1.hp_max;
+            logic.HealPlayer(p1, 5);
+            int net_heal = -1;
+            for (int i = game.battle_log.Count - 1; i >= 0; i--)
+                if (game.battle_log[i].kind == (byte)BattleLogKind.Heal) { net_heal = game.battle_log[i].value; break; }
+            sb.AppendLine((net_heal == 0 ? "PASS" : "FAIL")
+                + "\t⑪ 治疗记净差值（满血=0）\t满血治疗 5 → 记录=" + net_heal);
+
+            //---- ⑫ 导出到文件 ----
+            string path = BattleLog.ExportToFile(game, 0);
+            bool export_ok = !string.IsNullOrEmpty(path) && File.Exists(path);
+            string head = export_ok ? File.ReadAllText(path, Encoding.UTF8).Substring(0, Mathf.Min(40, File.ReadAllText(path, Encoding.UTF8).Length)) : "";
+            sb.AppendLine((export_ok && head.Contains("对战记录") ? "PASS" : "FAIL")
+                + "\t⑫ 导出对战记录到文件\t路径=" + (export_ok ? System.IO.Path.GetFileName(path) : "失败") + " 首行=\"" + head.Split('\n')[0] + "\"");
+
+            //---- ⑬ 回合历史条文案也走中文（旧实现是英文）----
+            ActionHistory ah = new ActionHistory();
+            ah.type = GameAction.PlayCard;
+            ah.card_id = any.id;
+            ah.card_uid = "bl_play";
+            string htext = BattleLog.FormatHistory(ah, game, 0);
+            sb.AppendLine((htext.Contains(any.title) && !htext.Contains("was played") ? "PASS" : "FAIL")
+                + "\t⑬ 回合历史条文案中文化\t文本=\"" + htext + "\"");
         }
     }
 }

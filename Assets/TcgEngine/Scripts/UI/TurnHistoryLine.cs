@@ -46,62 +46,18 @@ namespace TcgEngine.UI
         {
             Game gdata = GameClient.Get().GetGameData();
             Card acard = gdata.GetCard(history.card_uid);
-            Card target = gdata.GetCard(history.target_uid);
-            Player ptarget = gdata.GetPlayer(history.target_id);
             CardData icard = CardData.Get(history.card_id);
-            CardData itarget = CardData.Get(target?.card_id);
             //acard 可能已被移出所有区域（衍生物被消灭等），GetCard 返回 null
             VariantData variant = acard != null ? acard.VariantData : null;
-            AbilityData iability = AbilityData.Get(history.ability_id);
             card = acard;
 
             if (icard == null)
                 return;
 
-            if (history.type == GameAction.PlayCard)
-            {
-                string text = icard.title + " was played";
-                SetLine(icard, variant, text);
-            }
-
-            if (history.type == GameAction.Move)
-            {
-                string text = icard.title + " moved";
-                SetLine(icard, variant, text);
-            }
-
-            if (history.type == GameAction.Attack && itarget != null)
-            {
-                string text = icard.title + " attacked " + itarget.title;
-                SetLine(icard, variant, text);
-            }
-
-            if (history.type == GameAction.AttackPlayer && ptarget != null)
-            {
-                string text = icard.title + " attacked " + ptarget.username;
-                SetLine(icard, variant, text);
-            }
-
-            if (history.type == GameAction.CastAbility && iability != null)
-            {
-                if (iability.target == AbilityTarget.SelectTarget && itarget != null)
-                {
-                    string text = icard.title + " casted " + iability.GetTitle() + " on " + itarget.title;
-                    SetLine(icard, variant, text);
-                }
-                else
-                {
-                    string text = icard.title + " casted " + iability.GetTitle();
-                    SetLine(icard, variant, text);
-                }
-            }
-
-            if (history.type == GameAction.SecretTriggered)
-            {
-                string text = icard.title + " was triggered";
-                SetLine(icard, variant, text);
-            }
-
+            //★文案统一走 BattleLog.FormatHistory（中文，与「对战记录」面板同一套格式化）
+            //  旧实现这里全是英文（"X was played" / "casted ... on ..."），中文版里是明显瑕疵。
+            string text = TcgEngine.Gameplay.BattleLog.FormatHistory(history, gdata, GameClient.Get().GetPlayerID());
+            SetLine(icard, variant, text);
         }
 
         public void SetLine(CardData icard, VariantData variant, string text)

@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace TcgEngine.Gameplay
@@ -239,6 +242,63 @@ namespace TcgEngine.Gameplay
                 return null;
             Card c = g.GetCard(uid);
             return c != null ? c.card_id : null;
+        }
+
+        /// <summary>把"回合历史条"的 ActionHistory 也格式化成同一套中文（旧的 TurnHistoryLine 文案是英文）。
+        /// 实现=先映射成 BattleLogEntry 再走 Format，保证两条 UI 文案永远一致。</summary>
+        public static string FormatHistory(ActionHistory h, Game g, int my_id)
+        {
+            if (h == null)
+                return "";
+            Game save = bound;
+            bound = g;                      //Format 依赖 bound 只是为了 GetPlayer/GetCard，这里临时指向
+            BattleLogEntry e = new BattleLogEntry();
+            e.turn = 0;
+            e.actor = -1;
+            e.kind = (byte)MapKind(h.type);
+            e.card_id = h.card_id;
+            e.card_uid = h.card_uid;
+            e.target_uid = h.target_uid;
+            e.target_id = h.target_id;
+            e.ability_id = h.ability_id;
+            //ActionHistory 不带行动玩家 → 用卡的主人兜底（回合历史条本来就是按玩家分栏显示的）
+            Card c = g != null && !string.IsNullOrEmpty(h.card_uid) ? g.GetCard(h.card_uid) : null;
+            e.actor = c != null ? c.player_id : my_id;
+            string text = Format(e, g, my_id);
+            bound = save;
+            return text;
+        }
+
+        /// <summary>导出整份对战记录为文本（一行一条，带序号/回合）。排查问题时可直接发给开发者。</summary>
+        public static string ExportText(Game g, int my_id)
+        {
+            if (g == null || g.battle_log == null)
+                return "";
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("# 对战记录 " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  共 " + g.battle_log.Count + " 条");
+            foreach (BattleLogEntry e in g.battle_log)
+                sb.AppendLine(e.seq + "\t[T" + e.turn + "]\t" + Format(e, g, my_id));
+            return sb.ToString();
+        }
+
+        /// <summary>把对战记录落盘（persistentDataPath/Workshop/battle_log_时间戳.txt）。返回文件路径，失败返回 null。</summary>
+        public static string ExportToFile(Game g, int my_id)
+        {
+            try
+            {
+                string dir = Path.Combine(Application.persistentDataPath, "Workshop");
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+                string path = Path.Combine(dir, "battle_log_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".txt");
+                File.WriteAllText(path, ExportText(g, my_id), new UTF8Encoding(false));
+                Debug.Log("[对战记录] 已导出 → " + path);
+                return path;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[对战记录] 导出失败：" + e.Message);
+                return null;
+            }
         }
     }
 }
