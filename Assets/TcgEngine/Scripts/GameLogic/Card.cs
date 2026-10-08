@@ -77,6 +77,17 @@ namespace TcgEngine
         [System.NonSerialized] private VariantData vdata = null;
         [System.NonSerialized] private List<AbilityData> abilities_data = null;
 
+        /// <summary>【增益原生状态记账】`AddAttack / AddHP / Armor / AddManaCost` 这四个原生状态里
+        /// **由增益贡献的那一部分**。为什么需要它：`BuffRuntime.ReapplyNative` 每次增删增益都要重算这四个状态，
+        /// 但它们也可能来自**非增益**途径（规则图「添加状态」「添加关键词」节点 = EffectAddStatus/EffectAddKeyword
+        /// 直接 AddStatus）。旧实现无条件 RemoveStatus ⇒ 把非增益那份一起清掉且不再补回
+        /// （实测：卡上非增益 AddAttack=3，撤掉任意一个增益后整条变 0、+3 凭空消失）。
+        /// 生命周期：Clear()（复位/离场重进）归零；Clone 必须一起拷（AI 预测树要一致）。</summary>
+        public int buff_native_atk = 0;
+        public int buff_native_hp = 0;
+        public int buff_native_armor = 0;
+        public int buff_native_cost = 0;
+
         public Card(string card_id, string uid, int player_id) { this.card_id = card_id; this.uid = uid; this.player_id = player_id; }
 
         public virtual void Refresh() { exhausted = false; }
@@ -85,6 +96,7 @@ namespace TcgEngine
         public virtual void Clear()
         {
             ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
+            buff_native_atk = 0; buff_native_hp = 0; buff_native_armor = 0; buff_native_cost = 0;   //状态已清 → 记账同步归零
             buff_added_traits.Clear(); buff_removed_traits.Clear();
             buff_added_keywords.Clear(); buff_removed_keywords.Clear();
             removed_keywords.Clear();   //复位 = 回到卡面初始：持久移除的关键词在此恢复（离场重进后圣盾会回来）
@@ -929,6 +941,12 @@ namespace TcgEngine
             dest.mana_ongoing = source.mana_ongoing;
             dest.attack_ongoing = source.attack_ongoing;
             dest.hp_ongoing = source.hp_ongoing;
+
+            //增益原生状态记账：AI 预测树重算增益时靠它区分"增益贡献"与"其它来源贡献"，漏拷会让预判数值跑偏
+            dest.buff_native_atk = source.buff_native_atk;
+            dest.buff_native_hp = source.buff_native_hp;
+            dest.buff_native_armor = source.buff_native_armor;
+            dest.buff_native_cost = source.buff_native_cost;
 
             dest.equipped_uid = source.equipped_uid;
 

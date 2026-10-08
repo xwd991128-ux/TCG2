@@ -458,9 +458,15 @@ namespace TcgEngine
                 int atk = buff.GetProp(ATK_KEY);
                 int hp = buff.GetProp(HP_KEY);
                 if (atk != 0)
+                {
                     card.AddStatus(StatusType.AddAttack, atk, duration);
+                    TrackNative(card, StatusType.AddAttack, atk);   //★同样记账（与规则路径同口径）
+                }
                 if (hp != 0)
+                {
                     card.AddStatus(StatusType.AddHP, hp, duration);
+                    TrackNative(card, StatusType.AddHP, hp);
+                }
             }
 
             //② 属性修改规则
@@ -547,7 +553,28 @@ namespace TcgEngine
             if (v == 0)
                 return;
             if (st != StatusType.None)
+            {
                 card.AddStatus(st, v, duration);
+                TrackNative(card, st, v);   //★记账：这一份是"增益贡献的"，重算时只回滚它
+            }
+        }
+
+        /// <summary>记录"增益贡献了多少原生状态"（重算时只减这一部分，不动非增益来源的同名状态）</summary>
+        private static void TrackNative(Card card, StatusType st, int v)
+        {
+            if (card == null || v == 0)
+                return;
+            if (st == StatusType.AddAttack) card.buff_native_atk += v;
+            else if (st == StatusType.AddHP) card.buff_native_hp += v;
+            else if (st == StatusType.Armor) card.buff_native_armor += v;
+            else if (st == StatusType.AddManaCost) card.buff_native_cost += v;
+        }
+
+        /// <summary>减到 0 的状态条目直接删掉（避免残留 0 值条目让界面以为"身上有增益"）</summary>
+        private static void CleanZeroStatus(Card card, StatusType st)
+        {
+            if (card != null && card.HasStatus(st) && card.GetStatusValue(st) == 0)
+                card.RemoveStatus(st);
         }
 
         /// <summary>目标属性 → 原生状态（自定义参数无原生状态，返回 None 只写实例属性）</summary>
@@ -635,10 +662,35 @@ namespace TcgEngine
         {
             if (card == null)
                 return;
-            card.RemoveStatus(StatusType.AddAttack);
-            card.RemoveStatus(StatusType.AddHP);
-            card.RemoveStatus(StatusType.Armor);
-            card.RemoveStatus(StatusType.AddManaCost);
+            //★只回滚"增益自己贡献的那部分"（见 Card.buff_native_* 注释）：
+            //  旧实现无条件 RemoveStatus 会把**非增益来源**的同名状态（规则图「添加状态/添加关键词」节点
+            //  = EffectAddStatus/EffectAddKeyword 直接 AddStatus）一起清掉且不再补回。
+            //  实测（tools/probe/BuffNativeWipeProbe.cs）：卡上非增益 AddAttack=3，
+            //  施加/撤销任意一个增益后整条变 0 —— 规则图配的数值凭空消失。
+            if (card.buff_native_atk != 0)
+            {
+                card.AddStatus(StatusType.AddAttack, -card.buff_native_atk, 0);
+                card.buff_native_atk = 0;
+                CleanZeroStatus(card, StatusType.AddAttack);
+            }
+            if (card.buff_native_hp != 0)
+            {
+                card.AddStatus(StatusType.AddHP, -card.buff_native_hp, 0);
+                card.buff_native_hp = 0;
+                CleanZeroStatus(card, StatusType.AddHP);
+            }
+            if (card.buff_native_armor != 0)
+            {
+                card.AddStatus(StatusType.Armor, -card.buff_native_armor, 0);
+                card.buff_native_armor = 0;
+                CleanZeroStatus(card, StatusType.Armor);
+            }
+            if (card.buff_native_cost != 0)
+            {
+                card.AddStatus(StatusType.AddManaCost, -card.buff_native_cost, 0);
+                card.buff_native_cost = 0;
+                CleanZeroStatus(card, StatusType.AddManaCost);
+            }
             card.buff_added_traits.Clear();
             card.buff_removed_traits.Clear();
             card.buff_removed_keywords.Clear();
