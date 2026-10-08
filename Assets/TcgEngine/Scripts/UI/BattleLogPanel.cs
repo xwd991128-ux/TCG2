@@ -484,32 +484,56 @@ namespace TcgEngine.UI
                 Image hit = go.AddComponent<Image>();
                 hit.color = new Color(1f, 1f, 1f, 0f);
                 hit.raycastTarget = true;
+
+                //行首类型色标：用**色块**而不是符号字形（TMP 缺字形会渲染成方块，项目里踩过）
+                GameObject dot_go = new GameObject("Dot", typeof(RectTransform));
+                dot_go.transform.SetParent(go.transform, false);
+                Image dot = dot_go.AddComponent<Image>();
+                dot.raycastTarget = false;
+                RectTransform drt = dot.GetComponent<RectTransform>();
+                drt.anchorMin = new Vector2(0f, 0.5f);
+                drt.anchorMax = new Vector2(0f, 0.5f);
+                drt.pivot = new Vector2(0f, 0.5f);
+                drt.anchoredPosition = new Vector2(3f, 0f);
+                drt.sizeDelta = new Vector2(6f, 20f);
+
+                //卡图缩略图（「已使用卡牌 / 被破坏随从」页用；其余页保持 enabled=false 不出现）
+                GameObject th_go = new GameObject("Thumb", typeof(RectTransform));
+                th_go.transform.SetParent(go.transform, false);
+                Image thumb = th_go.AddComponent<Image>();
+                thumb.raycastTarget = false;
+                thumb.preserveAspect = true;
+                thumb.enabled = false;
+                RectTransform thrt = thumb.GetComponent<RectTransform>();
+                thrt.anchorMin = new Vector2(0f, 0.5f);
+                thrt.anchorMax = new Vector2(0f, 0.5f);
+                thrt.pivot = new Vector2(0f, 0.5f);
+                thrt.anchoredPosition = new Vector2(14f, 0f);
+                thrt.sizeDelta = new Vector2(42f, 48f);
+
+                CanvasGroup cg = go.AddComponent<CanvasGroup>();   //新条目淡入用
+                TMP_Text label = MakeText(go.transform, "T", "", 20f, UITheme.TextBody, TextAlignmentOptions.Left);
+                label.rectTransform.sizeDelta = new Vector2(0f, 30f);
+
                 BattleLogRow row = go.AddComponent<BattleLogRow>();
                 row.panel = this;
-                MakeText(go.transform, "T", "", 20f, UITheme.TextBody, TextAlignmentOptions.Left)
-                    .rectTransform.sizeDelta = new Vector2(0f, 30f);
+                row.Setup(hit, dot, thumb, label, cg);
                 rows.Add(go);
             }
             return rows[index];
         }
 
-        private void SetRow(int index, string text, Color color, float height = 30f, string card_id = null)
+        private void SetRow(int index, string text, Color color, float height = 30f, string card_id = null,
+            Sprite thumb = null, Color? dot_color = null)
         {
             GameObject go = GetRow(index);
             go.SetActive(true);
             LayoutElement le = go.GetComponent<LayoutElement>();
             le.minHeight = height;
             le.preferredHeight = height;
-            TMP_Text t = go.GetComponentInChildren<TMP_Text>();
-            t.rectTransform.sizeDelta = new Vector2(0f, height);
-            if (t.text != text)
-                t.text = text;
-            if (t.color != color)
-                t.color = color;
 
             BattleLogRow row = go.GetComponent<BattleLogRow>();
-            row.card_id = card_id;
-            row.text = text;
+            row.Apply(text, color, dot_color ?? color, height, card_id, thumb);
             if (hover_row == row)
                 art_card_id = null;   //行内容变了（行对象复用）→ 让浮层下一帧重设，别显示上一行的卡
         }
@@ -562,13 +586,9 @@ namespace TcgEngine.UI
                 for (int i = start; i < shown.Count; i++)
                 {
                     BattleLogEntry e = shown[i];
-                    Color c = UITheme.TextBody;
-                    if (e.kind == (byte)BattleLogKind.Damage) c = new Color(1f, 0.45f, 0.4f);
-                    else if (e.kind == (byte)BattleLogKind.Heal) c = new Color(0.5f, 1f, 0.6f);
-                    else if (e.kind == (byte)BattleLogKind.TurnStart) c = UITheme.TextTitle;
-                    else if (e.kind == (byte)BattleLogKind.Death) c = UITheme.TextDim;
                     bool turn_row = e.kind == (byte)BattleLogKind.TurnStart;
-                    SetRow(used++, BattleLog.Format(e, g, my_id), c, turn_row ? 34f : 30f, RowCardId(g, e));
+                    SetRow(used++, BattleLog.Format(e, g, my_id), KindTextColor(e.kind), turn_row ? 34f : 30f,
+                        RowCardId(g, e), null, KindColor(e.kind));
                 }
                 if (used == 0)
                     SetRow(used++, filter == 0 ? "（本局还没有记录）" : "（当前筛选下没有记录）", UITheme.TextDim);
@@ -601,7 +621,9 @@ namespace TcgEngine.UI
                         {
                             CardData cd = CardData.Get(kv.Key);
                             string name = cd != null && !string.IsNullOrEmpty(cd.title) ? cd.title : kv.Key;
-                            SetRow(used++, "  " + name + "  ×" + kv.Value, UITheme.TextBody, 30f, kv.Key);
+                            //56 高：左侧放卡图缩略图（一眼认出是哪张牌），右侧名字 + 次数
+                            SetRow(used++, name + "  ×" + kv.Value, UITheme.TextBody, 56f, kv.Key,
+                                cd != null ? cd.GetFullArt(null) : null, new Color(0.45f, 0.7f, 1f));
                         }
                     }
                 }
@@ -618,7 +640,9 @@ namespace TcgEngine.UI
                         CardData cd = CardData.Get(e.card_id);
                         string name = cd != null && !string.IsNullOrEmpty(cd.title) ? cd.title : e.card_id;
                         string side = e.actor == my_id ? "我方" : "对方";
-                        SetRow(used++, "  " + side + "「" + name + "」（第 " + e.turn + " 回合）", UITheme.TextDim, 30f, e.card_id);
+                        //52 高：同样带卡图缩略图（被破坏的随从一眼可认）
+                        SetRow(used++, side + "「" + name + "」（第 " + e.turn + " 回合）", UITheme.TextDim, 52f, e.card_id,
+                            cd != null ? cd.GetFullArt(null) : null, KindColor(e.kind));
                     }
                 }
                 if (used == 0)
@@ -682,6 +706,37 @@ namespace TcgEngine.UI
             return true;
         }
 
+        /// <summary>行首类型色标颜色。用**色块**区分事件类型，不用符号字形
+        /// （TMP 缺字形时符号会渲染成方块，本项目踩过这个坑）。</summary>
+        private static Color KindColor(byte kind)
+        {
+            switch ((BattleLogKind)kind)
+            {
+                case BattleLogKind.PlayCard:
+                case BattleLogKind.Summon: return new Color(0.45f, 0.7f, 1f);      //蓝：上场
+                case BattleLogKind.Attack: return new Color(1f, 0.75f, 0.35f);     //橙：攻击
+                case BattleLogKind.Damage: return new Color(1f, 0.45f, 0.4f);      //红：伤害
+                case BattleLogKind.Heal: return new Color(0.5f, 1f, 0.6f);         //绿：治疗
+                case BattleLogKind.Death: return new Color(0.72f, 0.36f, 0.36f);   //暗红：破坏
+                case BattleLogKind.Draw: return new Color(0.5f, 0.9f, 0.9f);       //青：抽牌
+                case BattleLogKind.Win: return new Color(1f, 0.85f, 0.4f);         //金：胜
+                case BattleLogKind.Lose: return new Color(0.75f, 0.5f, 0.9f);      //紫：负
+                case BattleLogKind.TurnStart:
+                case BattleLogKind.TurnEnd: return UITheme.TextTitle;              //回合分隔
+                default: return UITheme.TextDim;
+            }
+        }
+
+        /// <summary>行文本颜色（沿用原有规则：伤害红 / 治疗绿 / 回合标题 / 破坏变暗）</summary>
+        private static Color KindTextColor(byte kind)
+        {
+            if (kind == (byte)BattleLogKind.Damage) return new Color(1f, 0.45f, 0.4f);
+            if (kind == (byte)BattleLogKind.Heal) return new Color(0.5f, 1f, 0.6f);
+            if (kind == (byte)BattleLogKind.TurnStart) return UITheme.TextTitle;
+            if (kind == (byte)BattleLogKind.Death) return UITheme.TextDim;
+            return UITheme.TextBody;
+        }
+
         /// <summary>「只看关键」的口径：出牌/召唤/攻击/伤害/治疗/破坏/胜负；
         /// 滤掉回合分隔、抽牌、移动、增益/状态细节这些噪音（它们才是刷屏主因）。</summary>
         private static bool IsKeyEvent(BattleLogEntry e)
@@ -703,20 +758,79 @@ namespace TcgEngine.UI
         }
     }
 
-    /// <summary>对战记录的一行：只负责"指针进入/离开"上报 + 极淡的悬停高亮。
-    /// ★行对象由面板复用（不销毁，只 SetActive），所以 card_id/text 每次 SetRow 都会被改写。
+    /// <summary>对战记录的一行：类型色标 + 卡图缩略图 + 悬停上报/高亮 + 新内容淡入。
+    /// ★行对象由面板复用（不销毁，只 SetActive），所以每次 SetRow 都会改写本行的全部视觉。
     /// ★单独的顶层类（不是嵌套类）：Unity 更稳，且文件名不必与类名一致。</summary>
     public class BattleLogRow : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
+        /// <summary>淡入时长（秒）</summary>
+        private const float FadeTime = 0.22f;
+
         public BattleLogPanel panel;
         public string card_id;      //该行可"挂着看"的卡定义（无则 null）
         public string text;         //该行完整文案（浮层正文用；行内可能被挤成一行）
+        public Image dot;           //行首类型色标（探针要断言"伤害红/治疗绿"这类区分）
+        public Image thumb;         //卡图缩略图（无图时 enabled=false）
+        public TMP_Text label;
+        public CanvasGroup group;   //淡入用
 
         private Image hit;
+        private float fade = -1f;   //<0 = 不淡入（该行内容没变）
 
-        private void Awake()
+        public void Setup(Image hit_img, Image dot_img, Image thumb_img, TMP_Text lbl, CanvasGroup cg)
         {
-            hit = GetComponent<Image>();
+            hit = hit_img;
+            dot = dot_img;
+            thumb = thumb_img;
+            label = lbl;
+            group = cg;
+        }
+
+        /// <summary>写入本行视觉（面板 SetRow 调）。行高/缩略图/色标都随内容变，因为行对象是复用的。</summary>
+        public void Apply(string txt, Color text_color, Color dot_color, float height, string cid, Sprite art)
+        {
+            bool changed = text != txt || card_id != cid;   //只有"换了内容"才淡入：重建整页时不会全屏闪
+            text = txt;
+            card_id = cid;
+
+            if (label != null)
+            {
+                label.text = txt;
+                label.color = text_color;
+                label.rectTransform.sizeDelta = new Vector2(0f, height);
+                //缩略图占 42+间距，正文左侧留白；（TMP.margin 是位移文本的正确做法，
+                //改 rectTransform.offset 会被 VerticalLayoutGroup 覆盖）
+                label.margin = new Vector4(art != null ? 62f : 14f, 0f, 0f, 0f);
+            }
+            if (dot != null)
+            {
+                dot.color = dot_color;
+                dot.rectTransform.sizeDelta = new Vector2(6f, Mathf.Max(8f, height - 10f));
+            }
+            if (thumb != null)
+            {
+                thumb.enabled = art != null;
+                thumb.sprite = art;
+                thumb.rectTransform.sizeDelta = new Vector2(42f, Mathf.Max(12f, height - 8f));
+            }
+            if (changed)
+            {
+                fade = 0f;
+                if (group != null)
+                    group.alpha = 0f;
+            }
+        }
+
+        private void Update()
+        {
+            if (fade < 0f)
+                return;
+            fade += Time.unscaledDeltaTime;
+            float a = Mathf.Clamp01(fade / FadeTime);
+            if (group != null)
+                group.alpha = a;
+            if (a >= 1f)
+                fade = -1f;
         }
 
         public void OnPointerEnter(PointerEventData eventData)

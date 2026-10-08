@@ -283,6 +283,75 @@ namespace TcgEngine.Probe
                 Check("⑧ 非记录页隐藏筛选条并让回空间", tab_ok,
                     "筛选条=" + (fb3 != null ? (fb3.activeSelf ? "可见" : "隐藏") : "null")
                     + " 滚动区高=" + (srt3 != null ? srt3.sizeDelta.y.ToString() : "null") + "（期望 -108）");
+
+                //---- ⑨ 行首类型色标：伤害红 / 治疗绿（色块区分类型，不依赖字体字形）----
+                SF(panel, "tab", 0);
+                SF(panel, "filter", 0);
+                M(panel, "Refresh");
+                Color dmg_dot = Color.clear, heal_dot = Color.clear;
+                int dot_h = 0;
+                foreach (GameObject r in rows)
+                {
+                    if (r == null || !r.activeSelf) continue;
+                    BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                    if (rr == null || rr.label == null || rr.dot == null) continue;
+                    if (rr.label.text.Contains("受到")) { dmg_dot = rr.dot.color; dot_h = Mathf.RoundToInt(rr.dot.rectTransform.sizeDelta.y); }
+                    if (rr.label.text.Contains("恢复")) heal_dot = rr.dot.color;
+                }
+                Check("⑨ 行首色标随类型变化", Near(dmg_dot, new Color(1f, 0.45f, 0.4f)) && Near(heal_dot, new Color(0.5f, 1f, 0.6f)) && dot_h > 0,
+                    "伤害色=" + dmg_dot + " 治疗色=" + heal_dot + " 色标高=" + dot_h);
+
+                //---- ⑩ 「已使用卡牌」页：卡图缩略图 + 行高 56 + 正文让位（margin.x=62）----
+                SF(panel, "tab", 1);
+                M(panel, "Refresh");
+                int tile_total = 0, tile_ok = 0;
+                foreach (GameObject r in rows)
+                {
+                    if (r == null || !r.activeSelf) continue;
+                    BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                    if (rr == null || rr.thumb == null || rr.label == null || string.IsNullOrEmpty(rr.card_id)) continue;
+                    tile_total++;
+                    LayoutElement le = r.GetComponent<LayoutElement>();
+                    if (rr.thumb.enabled && rr.thumb.sprite != null
+                        && Mathf.RoundToInt(rr.thumb.rectTransform.sizeDelta.y) == 48
+                        && Mathf.RoundToInt(rr.label.margin.x) == 62
+                        && le != null && Mathf.RoundToInt(le.preferredHeight) == 56)
+                        tile_ok++;
+                }
+                Check("⑩ 已使用卡牌：卡图缩略图 + 正文让位", tile_total > 0 && tile_ok == tile_total,
+                    "带卡行=" + tile_total + " 合格=" + tile_ok + "（缩略图 42x48 / 行高 56 / margin.x=62）");
+
+                //---- ⑪ 记录页行不带缩略图、也不白留一块（margin.x=14）----
+                SF(panel, "tab", 0);
+                M(panel, "Refresh");
+                int plain = 0, plain_ok = 0;
+                foreach (GameObject r in rows)
+                {
+                    if (r == null || !r.activeSelf) continue;
+                    BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                    if (rr == null || rr.thumb == null || rr.label == null) continue;
+                    plain++;
+                    if (!rr.thumb.enabled && Mathf.RoundToInt(rr.label.margin.x) == 14) plain_ok++;
+                }
+                Check("⑪ 记录页行无缩略图且不留白", plain > 0 && plain_ok == plain, "行=" + plain + " 合格=" + plain_ok);
+
+                //---- ⑫ 淡入：新内容 alpha=0 → 淡入到 1；同一份数据重建**不会**重新变 0（否则整页每帧闪）----
+                SF(panel, "filter", 0);
+                SF(panel, "tab", 0);
+                M(panel, "Refresh");
+                AdvanceFades(rows);
+                int act = 0, full = 0;
+                CountAlpha(rows, 1f, out act, out full);
+                M(panel, "Refresh");                       //同一份数据重建
+                int act2 = 0, full2 = 0;
+                CountAlpha(rows, 1f, out act2, out full2);
+                SF(panel, "filter", 1);                    //换筛选 → 行内容变 → 应重新淡入
+                M(panel, "Refresh");
+                int act3 = 0, fade3 = 0;
+                CountFading(rows, out act3, out fade3);
+                Check("⑫ 新条目淡入 / 重建不闪", act > 0 && full == act && act2 > 0 && full2 == act2 && fade3 > 0,
+                    "淡入后 alpha=1 行=" + full + "/" + act + " 同数据重建仍=1 行=" + full2 + "/" + act2
+                    + " 换筛选后正在淡入的行=" + fade3);
             }
             catch (Exception e)
             {
@@ -323,6 +392,53 @@ namespace TcgEngine.Probe
                 if (t.text.Contains("── 第")) turn++;
                 if (t.text.Contains("被消灭")) death++;
                 if (t.text.Contains("「?」")) question++;
+            }
+        }
+
+        private static bool Near(Color a, Color b)
+        {
+            return Mathf.Abs(a.r - b.r) < 0.02f && Mathf.Abs(a.g - b.g) < 0.02f && Mathf.Abs(a.b - b.b) < 0.02f;
+        }
+
+        /// <summary>推进所有行的淡入（Update 里的 unscaledDeltaTime 每帧很小，多推几次才够 FadeTime）</summary>
+        private static void AdvanceFades(List<GameObject> rows)
+        {
+            if (rows == null) return;
+            foreach (GameObject r in rows)
+            {
+                if (r == null || !r.activeSelf) continue;
+                BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                if (rr == null) continue;
+                for (int i = 0; i < 40; i++)
+                    M(rr, "Update");
+            }
+        }
+
+        private static void CountAlpha(List<GameObject> rows, float target, out int active, out int reached)
+        {
+            active = 0; reached = 0;
+            if (rows == null) return;
+            foreach (GameObject r in rows)
+            {
+                if (r == null || !r.activeSelf) continue;
+                BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                if (rr == null || rr.group == null) continue;
+                active++;
+                if (rr.group.alpha >= target) reached++;
+            }
+        }
+
+        private static void CountFading(List<GameObject> rows, out int active, out int fading)
+        {
+            active = 0; fading = 0;
+            if (rows == null) return;
+            foreach (GameObject r in rows)
+            {
+                if (r == null || !r.activeSelf) continue;
+                BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                if (rr == null || rr.group == null || string.IsNullOrEmpty(rr.card_id)) continue;
+                active++;
+                if (rr.group.alpha < 1f) fading++;
             }
         }
 
