@@ -952,6 +952,38 @@ namespace TcgEngine
                         dest.custom_props.Add(new BuffProp { key = cp.key, value = cp.value });
                 }
             }
+            //★增益实例必须**深拷**（buff_id/props/duration/permanent/stack/来源卡与分组）。
+            //  漏拷的后果（与 skip_turns / mana_max_total / battle_buttons / hand_max 同一类
+            //  "漏拷导致 AI 预判与真局不一致"）：
+            //   ① 遗言/亡语跑不了 —— BuffRuntime.TriggerCarrierDeath 读的正是 card.buffs；
+            //   ② 任何一次 ReapplyNative 都会按**空的** buffs 重建，把增益派生出来的状态抹掉；
+            //   ③ SyncAuraEffects 在副本上认不出"这份光环已经存在"，于是当首次重新施加（重复广播/特效）。
+            dest.buffs = new List<CardBuff>();
+            if (source.buffs != null)
+            {
+                foreach (CardBuff b in source.buffs)
+                {
+                    if (b == null)
+                        continue;
+                    CardBuff nb = new CardBuff();
+                    nb.buff_id = b.buff_id;
+                    nb.duration = b.duration;
+                    nb.permanent = b.permanent;
+                    nb.stack = b.stack;
+                    nb.source_uid = b.source_uid;       //光环来源卡：撤源差分要靠它，丢了会重复施加
+                    nb.source_group = b.source_group;
+                    nb.props = new List<BuffProp>();
+                    if (b.props != null)
+                    {
+                        foreach (BuffProp p in b.props)
+                        {
+                            if (p != null)
+                                nb.props.Add(new BuffProp { key = p.key, value = p.value });
+                        }
+                    }
+                    dest.buffs.Add(nb);
+                }
+            }
             CardStatus.CloneList(source.status, dest.status);
             CardStatus.CloneList(source.ongoing_status, dest.ongoing_status);
             GameTool.CloneList(source.abilities, dest.abilities); 

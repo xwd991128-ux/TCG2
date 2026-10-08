@@ -708,7 +708,11 @@ namespace TcgEngine.Workshop
         }
 
         /// <summary>从 JSON 文件导入卡池并注册到游戏</summary>
-        /// <param name="grantOwnership">是否授予玩家拥有数量（玩家主动导入时 true；启动自动加载时 false，避免重复累加）</param>
+        /// <param name="grantOwnership">是否授予玩家拥有数量（幂等补齐到 <see cref="CustomOwnCount"/> 张）。
+        /// ★凡"玩家能感知"的导入路径都应传 true（启动自动加载 / .tcgpool 包导入 / 复制导入 / 编辑器菜单）
+        ///   —— 不授予时卡在构筑界面是**灰显、点不动**（EnsureCustomCardOwned 只是兜底，不该当主路径）。
+        /// ★只有探针 / 自动化脚本传 false：它们导入的是临时夹具，授予会把测试卡写进玩家存档。
+        /// ★默认值刻意保持 false（历史"避免重复累加"的顾虑已由幂等补齐解决），但新调用点请显式写 true。</param>
         public static void ImportFromFile(string path, bool grantOwnership = false)
         {
             if (!File.Exists(path))
@@ -2644,7 +2648,9 @@ namespace TcgEngine.Workshop
             string path = UnityEditor.EditorUtility.OpenFilePanel("选择卡池 JSON", CardPoolIO.SaveFolder, "json");
             if (string.IsNullOrEmpty(path))
                 return;
-            CardPoolIO.ImportFromFile(path);
+            //★显式传 true：这是"玩家主动导入"，与 .tcgpool 包导入/启动自动加载同一口径
+            //  （旧写法吃默认值 false → 导进来的卡在构筑界面灰显点不动，只能靠 EnsureCustomCardOwned 兜底）
+            CardPoolIO.ImportFromFile(path, true);
             UnityEditor.EditorUtility.DisplayDialog("卡池导入", "当前卡牌总数: " + CardData.GetAll().Count, "确定");
         }
     }
