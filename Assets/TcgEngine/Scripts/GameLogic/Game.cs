@@ -28,6 +28,11 @@ namespace TcgEngine
         public float turn_timer = 0f;
 
         public GameState state = GameState.Connecting;
+
+        /// <summary>对战记录（影之诗「战斗记录」口径）：随对局同步 ⇒ 客户端 / 观战 / 断线重连天然一致。
+        /// ★`Game.Clone` **不要拷它**：AI 每个预测节点都复制一份会爆内存/掉帧（埋点也只记真实对局）。
+        /// 写入统一走 BattleLog.Record（唯一入口，内含 is_ai_predict 过滤）。</summary>
+        public List<Gameplay.BattleLogEntry> battle_log = new List<Gameplay.BattleLogEntry>();
         public GamePhase phase = GamePhase.None;
 
         //Players

@@ -1,0 +1,10 @@
+结果	断言	说明
+PASS	① GameLogic(Game) 绑定对战记录	Current=game 可记录=True
+PASS	② 抽牌记入记录	Draw 条数 0→1
+PASS	③ 出牌走 AddHistory 镜像记入	PlayCard 条数 0→1
+PASS	④ 伤害记入（含数值）	Damage 条数 0→1 数值=4
+PASS	⑤ 击杀记入	Death 条数 0→1
+PASS	⑥ 回合分隔行可格式化	文本="── 第 3 回合 · 我方 ──"
+PASS	⑦ 中文文案含卡名	文本="「瘟疫鼠」被消灭"
+PASS	⑧ AI 推演不得记录（隔离）	CanRecord(ai)=False
+PASS	⑨ Game.Clone 不拷记录（AI 预测树）	原=7 副本=0

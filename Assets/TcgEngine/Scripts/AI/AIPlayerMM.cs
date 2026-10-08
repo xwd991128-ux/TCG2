@@ -43,11 +43,39 @@ namespace TcgEngine.AI
                 Stop();
         }
 
+        /// <summary>连续"动作执行了但局面毫无变化"的次数（= 动作被引擎拒绝/空操作）。</summary>
+        private int no_progress_streak = 0;
+
+        /// <summary>局面指纹：识别"AI 执行了动作却什么都没发生"。动作合法一定改变局面（手牌/战场/血/灵力/已行动标记
+        /// 至少变一个）；指纹不变 = 这个动作被引擎拒了，AI 再算一百次也还是同一个结果。
+        /// 实测出处：AI 连续两次 attack_player fish（第一次就被拒）+ 之后 12 次搜索局面完全不变（Nodes 恒定 102）→ 对局卡死。</summary>
+        private string StateSignature(Game g)
+        {
+            if (g == null)
+                return "null";
+            Player me = g.GetPlayer(player_id);
+            Player op = g.GetOpponentPlayer(player_id);
+            int exhausted = 0;
+            if (me != null && me.cards_board != null)
+            {
+                foreach (Card c in me.cards_board)
+                {
+                    if (c != null && c.exhausted)
+                        exhausted++;
+                }
+            }
+            return g.turn_count + "|" + g.current_player + "|" + g.state
+                + "|" + (me != null ? me.cards_hand.Count + "," + me.cards_board.Count + "," + me.mana + "," + me.hp : "-")
+                + "|" + (op != null ? op.cards_hand.Count + "," + op.cards_board.Count + "," + op.hp : "-")
+                + "|" + exhausted;
+        }
+
         private IEnumerator AiTurn()
         {
             yield return new WaitForSeconds(0.3f);
 
             Game game_data = gameplay.GetGameData();
+            string sig_before = StateSignature(game_data);
             ai_logic.RunAI(game_data);
 
             while (ai_logic.IsRunning())
@@ -62,6 +90,41 @@ namespace TcgEngine.AI
                 Debug.Log("Execute AI Action: " + best.GetText(game_data) + "\n" + ai_logic.GetNodePath());
 
                 ExecuteAction(best);
+
+                //★防卡兜底 ①：执行完局面指纹没变 ⇒ 这次动作被拒了。连续 2 次就结束回合，
+                //  保证对局一定能往前走（宁可少打一手，也不能整局卡死在 AI 回合）。
+                if (StateSignature(gameplay.GetGameData()) == sig_before)
+                {
+                    no_progress_streak++;
+                    Debug.LogWarning("[AI] 动作无任何效果（局面未变）：" + best.GetText(game_data)
+                        + "｜第 " + no_progress_streak + " 次（多半被引擎拒绝，如攻击被规则/状态挡下）");
+                    if (no_progress_streak >= 2)
+                    {
+                        Debug.LogWarning("[AI] 连续 2 次无效动作 → 强制结束回合（防对局卡死）");
+                        no_progress_streak = 0;
+                        ai_logic.ClearMemory();
+                        yield return new WaitForSeconds(0.2f);
+                        EndTurn();
+                        is_playing = false;
+                        yield break;
+                    }
+                }
+                else
+                {
+                    no_progress_streak = 0;
+                }
+            }
+            else
+            {
+                //★防卡兜底 ②：AI 一个动作都没选出来 ⇒ 直接结束回合。
+                //  否则 AIPlayerMM.Update 会每帧重开一次搜索，永远停在 AI 回合（用户实报"对面卡住"）。
+                Debug.LogWarning("[AI] 未选出任何动作 → 结束回合（防对局卡死）");
+                no_progress_streak = 0;
+                ai_logic.ClearMemory();
+                yield return new WaitForSeconds(0.2f);
+                EndTurn();
+                is_playing = false;
+                yield break;
             }
 
             ai_logic.ClearMemory();

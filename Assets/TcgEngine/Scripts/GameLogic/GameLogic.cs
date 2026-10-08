@@ -55,6 +55,9 @@ namespace TcgEngine.Gameplay
         private ResolveQueue resolve_queue;
         private bool is_ai_predict = false;
 
+        /// <summary>是否为 AI 推演实例（预测用）。供 BattleLog 等外部系统判断"这一条要不要记进对战记录"。</summary>
+        public bool IsAIPredict { get { return is_ai_predict; } }
+
         private System.Random random = new System.Random();
 
         private ListSwap<Card> card_array = new ListSwap<Card>();
@@ -196,6 +199,8 @@ namespace TcgEngine.Gameplay
             game_data = game;
             SetGameBackRef(game);
             resolve_queue = new ResolveQueue(game, false);
+            //★对战记录：绑定当前权威对局（AI 推演用的是 GameLogic(bool) 构造函数 → 不会绑上来，天然隔离）
+            Gameplay.BattleLog.Bind(game);
         }
 
         public virtual void SetData(Game game)
@@ -409,6 +414,11 @@ namespace TcgEngine.Gameplay
                 //之后由节点/效果局内改写（获取/设置/增加手牌上限）—— 不能再直接读全局配置，否则局内修改无效。
                 player.hand_max = GameplayData.Get().cards_max;
 
+                //对战记录：新对局才清空（重连/中途重建 Logic 不清，保留已有记录）
+                if (game_data.turn_count <= 0)
+                    Gameplay.BattleLog.Reset(game_data);
+                player.current_turn = game_data.turn_count;
+
                 //Draw starting cards
                 int dcards = pdeck != null ? pdeck.start_cards : GameplayData.Get().cards_start;
                 DrawCard(player, dcards);
@@ -477,6 +487,10 @@ namespace TcgEngine.Gameplay
             game_data.turn_timer = (game_data.settings != null && game_data.settings.NoTurnTimer)
                 ? GameSettings.NoTurnTimerValue                      //人机/模拟：不下发倒计时（999=GameUI 不显示）
                 : GameplayData.Get().turn_duration;
+            //★对战记录：回合分隔行（影之诗「战斗记录」按回合分组读的就是它）
+            player.current_turn = game_data.turn_count;
+            if (!is_ai_predict)
+                BattleLog.Turn(player.player_id, true);
             player.history_list.Clear();
 
             //Player poison
@@ -1827,6 +1841,10 @@ namespace TcgEngine.Gameplay
             StartAttack(attacker, null, target, skip_cost, true);
         }
 
+        /// <summary>被拒攻击的告警去重表（按攻击者卡 id）：被拒攻击此前只写 GameLog（正式构建里关闭）→ 完全静默，
+        /// 导致"AI 反复提出同一个攻击、每帧重试、对局卡死"这类问题无法定位。去重后保证每种情况至少留一条痕迹。</summary>
+        private static readonly HashSet<string> attack_reject_warned = new HashSet<string>();
+
         //统一攻击入口段：合法性/历史/战前能力与秘术（两组触发顺序与旧实现逐条一致）
         private void StartAttack(Card attacker, Card target_card, Player target_player, bool skip_cost, bool vs_player)
         {
@@ -1845,6 +1863,13 @@ namespace TcgEngine.Gameplay
                 if (!is_ai_predict && !string.IsNullOrEmpty(reject))
                     GameLog.Log("[攻击被拒] " + attacker.CardData.id + " → "
                         + (vs_player ? "玩家" + target_player.player_id : target_card.CardData.id) + "：" + reject);
+                //★上面那行只走 GameLog，而 GameLog 在正式构建里是**关闭**的 → 被拒的攻击此前在控制台完全不可见，
+                //  直接导致"AI 反复提出同一个攻击、每帧重试、对局卡死"这种问题无法一眼定位（用户实报"对面卡住"）。
+                //  这里补一条 Warning（节流），确保任何一次被拒的攻击都留得下痕迹。
+                if (!is_ai_predict && !string.IsNullOrEmpty(reject) && attack_reject_warned.Add(attacker.card_id))
+                    Debug.LogWarning("[攻击被拒] " + attacker.CardData.id + " → "
+                        + (vs_player ? "玩家" + target_player.player_id : target_card.CardData.id)
+                        + "：" + reject + "（本次攻击不产生任何效果）");
                 return;
             }
 
@@ -2051,6 +2076,8 @@ namespace TcgEngine.Gameplay
                     Card card = player.cards_deck[0];
                     player.cards_deck.RemoveAt(0);
                     player.cards_hand.Add(card);
+                    if (!is_ai_predict)
+                        BattleLog.Card(player.player_id, BattleLogKind.Draw, card, null, 1);   //对战记录：抽牌
 
                     //图事件「抽卡后」（全场监听；主体=抽到的卡）
                     {
@@ -2947,6 +2974,9 @@ namespace TcgEngine.Gameplay
 
         public virtual void DamagePlayer(Card attacker, Player target, int value, bool spell_damage = false)
         {
+            //对战记录：对玩家的伤害（P0 记请求值；护甲/免疫后的净差值精确化留到 P1）
+            if (!is_ai_predict && target != null && value > 0)
+                BattleLog.TargetPlayer(target.player_id, BattleLogKind.Damage, null, null, target, value);
             //★英雄侧减伤（护甲 / 免疫）：**直接以玩家为目标的伤害**（节点 target=玩家、法术打脸等）原先完全没有这一层，
             //  护甲只在"以英雄卡为目标"的分支里判过 → 两条路都必须判，否则表现就是"护甲卡对脸没用"。
             if (target != null && target.hero != null)
@@ -3169,6 +3199,10 @@ namespace TcgEngine.Gameplay
             if (attacker == null || target == null)
                 return;
 
+            //对战记录：对卡牌的伤害（记录受害者 + 数值）
+            if (!is_ai_predict && value > 0)
+                BattleLog.Card(target.player_id, BattleLogKind.Damage, target, null, value);
+
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Invincible
 
@@ -3282,6 +3316,10 @@ namespace TcgEngine.Gameplay
 
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Cant be killed
+
+            //对战记录：确认真的会死之后再记（上面两个 return 已挡掉"已死/免疫"）
+            if (!is_ai_predict && target.CardData != null && target.CardData.type == CardType.Character)
+                BattleLog.Card(target.player_id, BattleLogKind.Death, target);
 
             //attacker 为 null = 规则致死（EndTurn 结算 Doomed / Freezing 就是这么调的）：不计击杀数
             if (attacker != null)

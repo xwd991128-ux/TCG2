@@ -71,6 +71,10 @@ namespace TcgEngine
 
         public List<ActionHistory> history_list = new List<ActionHistory>();  //History of actions performed by the player
 
+        /// <summary>当前回合号（由 GameLogic.StartTurn 写入）：对战记录要给每条动作补"第几回合"，
+        /// 而 ActionHistory 本身不带回合号。</summary>
+        public int current_turn = 0;
+
         public Player(int id) { this.player_id = id; }
 
         public bool IsReady() { return ready && cards_all.Count > 0; }
@@ -521,6 +525,7 @@ namespace TcgEngine
             order.card_id = card.card_id;
             order.card_uid = card.uid;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, Card target)
@@ -531,6 +536,7 @@ namespace TcgEngine
             order.card_uid = card.uid;
             order.target_uid = target.uid;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, Player target)
@@ -541,6 +547,7 @@ namespace TcgEngine
             order.card_uid = card.uid;
             order.target_id = target.player_id;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, AbilityData ability)
@@ -551,6 +558,7 @@ namespace TcgEngine
             order.card_uid = card.uid;
             order.ability_id = ability.id;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, AbilityData ability, Card target)
@@ -562,6 +570,7 @@ namespace TcgEngine
             order.ability_id = ability.id;
             order.target_uid = target.uid;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, AbilityData ability, Player target)
@@ -573,6 +582,7 @@ namespace TcgEngine
             order.ability_id = ability.id;
             order.target_id = target.player_id;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
         public void AddHistory(ushort type, Card card, AbilityData ability, Slot target)
@@ -584,6 +594,7 @@ namespace TcgEngine
             order.ability_id = ability.id;
             order.slot = target;
             history_list.Add(order);
+            TcgEngine.Gameplay.BattleLog.MirrorHistory(this, order);   //★对战记录镜像（唯一动作埋点：所有 AddHistory 重载都覆盖）
         }
 
 
