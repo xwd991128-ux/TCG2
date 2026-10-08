@@ -352,6 +352,29 @@ namespace TcgEngine.Probe
                 Check("⑫ 新条目淡入 / 重建不闪", act > 0 && full == act && act2 > 0 && full2 == act2 && fade3 > 0,
                     "淡入后 alpha=1 行=" + full + "/" + act + " 同数据重建仍=1 行=" + full2 + "/" + act2
                     + " 换筛选后正在淡入的行=" + fade3);
+
+                //---- ⑬ ★行文字必须撑满整行：宽度为 0 + 自动换行 = 每个字一行（用户实报的"竖线"）----
+                SF(panel, "tab", 0);
+                SF(panel, "filter", 0);
+                M(panel, "Refresh");
+                RectTransform ct = (RectTransform)F(panel, "content");
+                if (ct != null)
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(ct);   //不重建布局的话 rect 尺寸还是旧值
+                float row_w = 0f, lbl_w = 0f, best_pref = 0f;
+                int checked_rows = 0;
+                foreach (GameObject r in rows)
+                {
+                    if (r == null || !r.activeSelf) continue;
+                    BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                    if (rr == null || rr.label == null || string.IsNullOrEmpty(rr.label.text)) continue;
+                    checked_rows++;
+                    row_w = Mathf.Max(row_w, r.GetComponent<RectTransform>().rect.width);
+                    lbl_w = Mathf.Max(lbl_w, rr.label.rectTransform.rect.width);
+                    best_pref = Mathf.Max(best_pref, rr.label.preferredWidth);   //若被折成竖线，这里只有 ~20（单字宽）
+                }
+                Check("⑬ 行文字撑满整行（不折成竖线）", checked_rows > 0 && row_w > 100f && lbl_w > row_w - 12f && best_pref > 100f,
+                    "行宽=" + row_w.ToString("0") + " 文字宽=" + lbl_w.ToString("0")
+                    + " 单行首选宽=" + best_pref.ToString("0") + "（竖线时只有 ~20） 行数=" + checked_rows);
             }
             catch (Exception e)
             {

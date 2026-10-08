@@ -513,7 +513,15 @@ namespace TcgEngine.UI
 
                 CanvasGroup cg = go.AddComponent<CanvasGroup>();   //新条目淡入用
                 TMP_Text label = MakeText(go.transform, "T", "", 20f, UITheme.TextBody, TextAlignmentOptions.Left);
-                label.rectTransform.sizeDelta = new Vector2(0f, 30f);
+                //★文字必须**撑满整行**。MakeText 建出来的 RectTransform 是「中心锚点 + 默认尺寸」，
+                //  只写 sizeDelta(0, h) 的话宽度恒为 0 —— 而 TMP 开着自动换行（enableWordWrapping），
+                //  于是**每个字各占一行**，整列文字被挤成一条竖线（用户实报的截图就是这个）。
+                //  左右留白交给 TMP.margin（见 BattleLogRow.Apply），不要靠缩 rect 宽度来留白。
+                label.rectTransform.anchorMin = new Vector2(0f, 0f);
+                label.rectTransform.anchorMax = new Vector2(1f, 1f);
+                label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                label.rectTransform.anchoredPosition = Vector2.zero;
+                label.rectTransform.sizeDelta = Vector2.zero;
 
                 BattleLogRow row = go.AddComponent<BattleLogRow>();
                 row.panel = this;
@@ -797,9 +805,8 @@ namespace TcgEngine.UI
             {
                 label.text = txt;
                 label.color = text_color;
-                label.rectTransform.sizeDelta = new Vector2(0f, height);
-                //缩略图占 42+间距，正文左侧留白；（TMP.margin 是位移文本的正确做法，
-                //改 rectTransform.offset 会被 VerticalLayoutGroup 覆盖）
+                //★不要再设 sizeDelta：rect 由**拉伸锚点**占满整行（见 GetRow 的注释）。
+                //  左右留白只走 TMP.margin —— 缩 rect 宽度会让自动换行把文字折成一条竖线。
                 label.margin = new Vector4(art != null ? 62f : 14f, 0f, 0f, 0f);
             }
             if (dot != null)
