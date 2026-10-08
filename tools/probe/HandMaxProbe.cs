@@ -10,10 +10,10 @@ namespace TcgEngine.Probe
 {
     /// <summary>
     /// 【局内手牌上限验证】仿"灵力上限"的玩家属性 Player.hand_max：
-    /// ① 开局从配置写入（=GameplayData.cards_max）；② 默认上限抽牌停在配置值；
-    /// ③ 节点 AddHandMax → 上限提高、且能多抽；④ 节点 SetHandMax → 上限改小、**不弃现有手牌**；
-    /// ⑤ 取值节点 GetHandMax → 图里读到的是当前上限；⑥ 设为 0 → 退回配置值（未初始化兜底）；
-    /// ⑦ Player.Clone 带上该字段（AI 预测树）。
+    /// ① 开局从配置写入（=GameplayData.cards_max）；② **原概念闸门**：默认上限（=配置值）抽牌停在配置值；
+    /// ③ 节点 SetHandMax → 上限改小、抽牌停在新上限；④ 节点 AddHandMax → 上限提高、能多抽；
+    /// ⑤ 上限改小**不弃现有手牌**；⑥ 取值节点 GetHandMax → 图里读到当前上限；⑦ 设为 0 → 退回配置值（兜底）；
+    /// ⑧ Player.Clone 带上该字段（AI 预测树）；⑨⑩⑪ 所有"入手"入口统一受闸门（含 201003 由"进墓地"改为留牌库）。
     /// 触发：建 tools/handmax_flag.txt → 进 Play → 写 tools/handmax_result.tsv → 自动删标记。
     /// </summary>
     public class HandMaxProbe : MonoBehaviour
@@ -161,7 +161,7 @@ namespace TcgEngine.Probe
                 + "\t④ 增加手牌上限(+3)后能多抽\t动作数=" + ran1 + " 上限=" + after_add + " 手牌=" + p0.cards_hand.Count
                 + "（期望 7）");
 
-            //---- ④ 节点 SetHandMax(3)：改小上限，且不弃现有手牌 ----
+            //---- ⑤ 节点 SetHandMax(3)：改小上限，且不弃现有手牌 ----
             int hand_before = p0.cards_hand.Count;
             int ran2 = NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "3"), caster, p1.hero, null, "ActivateEffect");
             int after_set = p0.GetHandMax();
@@ -169,7 +169,7 @@ namespace TcgEngine.Probe
                 + "\t⑤ 设置手牌上限改小不弃手牌\t动作数=" + ran2 + " 上限=" + after_set
                 + " 手牌 " + hand_before + "→" + p0.cards_hand.Count + "（期望不变）");
 
-            //---- ⑤ 取值节点 GetHandMax → 图里读到当前上限（用它当伤害值）----
+            //---- ⑥ 取值节点 GetHandMax → 图里读到当前上限（用它当伤害值）----
             GraphData gv = new GraphData { name = "探针取值图", nodes = new List<GraphNode>(), links = new List<GraphLink>() };
             GraphNode ev2 = Node(gv, "ev", GraphNodeType.Event, "ActivateEffect", "主动效果入口");
             Pin(ev2, "out", NodeValueType.Flow, true);
@@ -188,12 +188,12 @@ namespace TcgEngine.Probe
             sb.AppendLine((ran3 > 0 && dmg == after_set ? "PASS" : "FAIL")
                 + "\t⑥ 取值节点读到当前上限\t动作数=" + ran3 + " 掉血=" + dmg + "（期望=上限 " + after_set + "）");
 
-            //---- ⑥ 设为 0 → 退回配置值（未初始化兜底语义）----
+            //---- ⑦ 设为 0 → 退回配置值（未初始化兜底语义）----
             NodeDocRunner.Run(logic, HandMaxGraph("SetHandMax", "0"), caster, p1.hero, null, "ActivateEffect");
             sb.AppendLine((p0.hand_max == 0 && p0.GetHandMax() == cfg ? "PASS" : "FAIL")
                 + "\t⑦ 上限设为0退回配置值（兜底）\thand_max=" + p0.hand_max + " 生效上限=" + p0.GetHandMax());
 
-            //---- ⑦ Clone 带上 hand_max（AI 预测树：不一致会让 AI 预判跑偏）----
+            //---- ⑧ Clone 带上 hand_max（AI 预测树：不一致会让 AI 预判跑偏）----
             p0.hand_max = cfg + 7;
             Player clone = new Player(9);   //Player 无无参构造（Player(int id)）
             Player.Clone(p0, clone);
