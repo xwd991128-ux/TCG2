@@ -2440,6 +2440,14 @@ namespace TcgEngine.Gameplay
                 //★手牌也能当光环来源：手牌里的卡给自己/己方手牌持续施加增益（如"英雄每损失1点生命，此牌费用-1"）
                 //  是很常见的写法；不扫手牌的话这类光环**永远不生效**（实测踩到）。
                 CollectAuraGrantsFromList(p.cards_hand, should, grants);
+                //★牌库/墓地/奥秘区/暂存区也必须扫：入口的「生效区域」本来就支持这些区域（见 IsCardInZone），
+                //  目标侧 AddAuraTargetsByName 也早就支持了 —— 只扫前四个区域会造成**不对称**：
+                //  "作用区域=墓地"配得出效果，但"生效区域=墓地/牌库"的载体**永远采集不到 → 光环静默失效**。
+                //  这几个列表只在收敛点被扫（UpdateOngoing / 打牌 / 死亡 / 变形 / 图执行末尾），不是每帧，开销可接受。
+                CollectAuraGrantsFromList(p.cards_deck, should, grants);
+                CollectAuraGrantsFromList(p.cards_discard, should, grants);
+                CollectAuraGrantsFromList(p.cards_secret, should, grants);
+                CollectAuraGrantsFromList(p.cards_temp, should, grants);
             }
         }
 
