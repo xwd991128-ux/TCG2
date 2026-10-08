@@ -375,6 +375,59 @@ namespace TcgEngine.Probe
                 Check("⑬ 行文字撑满整行（不折成竖线）", checked_rows > 0 && row_w > 100f && lbl_w > row_w - 12f && best_pref > 100f,
                     "行宽=" + row_w.ToString("0") + " 文字宽=" + lbl_w.ToString("0")
                     + " 单行首选宽=" + best_pref.ToString("0") + "（竖线时只有 ~20） 行数=" + checked_rows);
+
+                //---- ⑭ 渲染几何：文字**实际渲染行数**、行高生效、缩略图/色标不越界不压字 ----
+                int max_lines = 0, bad_row_h = 0, bad_thumb = 0, bad_dot = 0, geo_rows = 0;
+                foreach (GameObject r in rows)
+                {
+                    if (r == null || !r.activeSelf) continue;
+                    BattleLogRow rr = r.GetComponent<BattleLogRow>();
+                    if (rr == null || rr.label == null || string.IsNullOrEmpty(rr.label.text)) continue;
+                    geo_rows++;
+                    rr.label.ForceMeshUpdate();       //"实际排了几行"必须强制生成网格后才准
+                    max_lines = Mathf.Max(max_lines, rr.label.textInfo.lineCount);
+                    RectTransform rrt = r.GetComponent<RectTransform>();
+                    LayoutElement le2 = r.GetComponent<LayoutElement>();
+                    if (le2 != null && Mathf.Abs(rrt.rect.height - le2.preferredHeight) > 1f)
+                        bad_row_h++;                  //布局组没把行高吃进去 → 行会挤在一起/留白
+                    if (rr.thumb != null && rr.thumb.enabled)
+                    {
+                        RectTransform trt = rr.thumb.rectTransform;    //左锚点：右边界 = x + 宽
+                        if (trt.anchoredPosition.x + trt.rect.width > rrt.rect.width + 0.5f
+                            || trt.rect.height > rrt.rect.height + 0.5f)
+                            bad_thumb++;
+                    }
+                    if (rr.dot != null)
+                    {
+                        RectTransform drt = rr.dot.rectTransform;
+                        if (drt.anchoredPosition.x + drt.rect.width > rr.label.margin.x + 1f
+                            || drt.rect.height > rrt.rect.height + 0.5f)
+                            bad_dot++;                //色标压到文字上 / 超出行高
+                    }
+                }
+                Check("⑭ 渲染几何：单行文字 + 行高生效 + 图标不越界",
+                    geo_rows > 0 && max_lines <= 1 && bad_row_h == 0 && bad_thumb == 0 && bad_dot == 0,
+                    "实际渲染行数最多=" + max_lines + "（每字一行时会 >10） 行高不匹配=" + bad_row_h
+                    + " 缩略图越界=" + bad_thumb + " 色标越界或压字=" + bad_dot + " 检查行数=" + geo_rows);
+
+                //---- ⑮ 悬停浮层：不遮记录面板、不出屏（挂在面板外，位置算错就是"看不见/压住面板"）----
+                GameObject art4 = (GameObject)F(panel, "art_root");
+                GameObject root4 = (GameObject)F(panel, "root");
+                RectTransform art_rt = art4 != null ? art4.GetComponent<RectTransform>() : null;
+                RectTransform root_rt4 = root4 != null ? root4.GetComponent<RectTransform>() : null;
+                RectTransform canvas_rt = GetComponentInParent<Canvas>() != null
+                    ? GetComponentInParent<Canvas>().GetComponent<RectTransform>() : null;
+                if (canvas_rt == null && art_rt != null && art_rt.parent != null)
+                    canvas_rt = art_rt.parent.GetComponent<RectTransform>();
+                float canvas_w = canvas_rt != null ? canvas_rt.rect.width : 0f;
+                bool art_fit = art_rt != null && root_rt4 != null && canvas_w > 0f
+                    && art_rt.anchoredPosition.x >= root_rt4.rect.width - 1f                  //在面板右侧（不遮面板）
+                    && art_rt.anchoredPosition.x + art_rt.sizeDelta.x <= canvas_w + 1f;       //不超出画布右边界
+                Check("⑮ 悬停浮层不遮面板、不出屏", art_fit,
+                    "浮层左=" + (art_rt != null ? art_rt.anchoredPosition.x.ToString("0") : "null")
+                    + " 宽=" + (art_rt != null ? art_rt.sizeDelta.x.ToString("0") : "null")
+                    + " 面板宽=" + (root_rt4 != null ? root_rt4.rect.width.ToString("0") : "null")
+                    + " 画布宽=" + canvas_w.ToString("0"));
             }
             catch (Exception e)
             {
