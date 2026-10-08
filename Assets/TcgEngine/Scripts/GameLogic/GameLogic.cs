@@ -3024,8 +3024,11 @@ namespace TcgEngine.Gameplay
             //Lifesteal（attacker 可为 null：无来源伤害经英雄路由落到这里）
             if (attacker != null && attacker.HasStatus(StatusType.LifeSteal))
             {
+                //★吸血是"治疗"，必须与 HealPlayer 同一口径（那里 clamp 到 hp_max）：旧写法 `hp += x` 无上限
+                //  → 满血时吸血会把 hp 顶到 hp_max 之上（血条/“已满血”判断错乱）。
                 Player aplayer = game_data.GetPlayer(attacker.player_id);
-                aplayer.hp += value;
+                if (aplayer != null)
+                    aplayer.hp = Mathf.Clamp(aplayer.hp + value, 0, aplayer.hp_max);
             }
 
             onPlayerDamaged?.Invoke(target, value);
@@ -3239,6 +3242,10 @@ namespace TcgEngine.Gameplay
                 return;
             }
 
+            //★减伤前的伤害量：伤害被图上重定向到**另一张卡**时，必须按新目标重算减伤，
+            //  不能沿用"已经从旧目标扣过护甲"的结果（否则新目标护甲被跳过或算两遍）。
+            int value_raw = value;
+
             //Immunity
             if (!spell_damage && target.HasStatus(StatusType.Immunity))
                 value = 0;
@@ -3246,8 +3253,6 @@ namespace TcgEngine.Gameplay
             //Armor
             if (!spell_damage && target.HasStatus(StatusType.Armor))
                 value = Mathf.Max(value - target.GetStatusValue(StatusType.Armor), 0);
-
-
 
             //图事件「伤害时」（全场监听；可阻止=取消本次伤害；改值=改写实际伤害量，随后按新值结算）
             if (value > 0)
@@ -3261,10 +3266,44 @@ namespace TcgEngine.Gameplay
                 dctx.value = value;
                 if (EmitGraphEvent(dctx))
                     return;         //被阻止：本次伤害不结算
+
+                bool graph_set_value = Mathf.Max(dctx.value, 0) != value;   //图是否显式改写了伤害值
                 value = Mathf.Max(dctx.value, 0);
+
                 //图上改写（208005 更改受伤卡牌 / 208006 更改伤害源）：按新目标、新来源结算（未改写则保持原值）
                 if (dctx.card != null && dctx.card != target)
+                {
                     target = dctx.card;
+
+                    //★重定向到"新目标"后，必须重走**新目标自己的**防御判定。旧写法只换 target 就继续
+                    //  `target.damage += value` → 新目标的 圣盾/法术免疫/护甲 被**整体跳过**
+                    //  （表现：把伤害甩给带圣盾的卡，结果它被打穿、圣盾还没消耗）。
+                    if (IsHeroCard(target))
+                    {
+                        //改到英雄卡上：同样要落回玩家 hp（与上面"英雄=卡牌最小路由"同一口径）
+                        Player hp_player = game_data.GetPlayer(target.player_id);
+                        if (hp_player != null)
+                            DamagePlayer(attacker, hp_player, value, spell_damage);
+                        return;
+                    }
+                    if (target.HasStatus(StatusType.Invincibility))
+                        return;     //新目标无敌
+                    if (target.HasStatus(StatusType.SpellImmunity) && attacker.CardData.type != CardType.Character)
+                        return;     //新目标法术免疫（与上方同一条件）
+                    if (target.HasStatus(StatusType.Shell) && value > 0)
+                    {
+                        //圣盾被打碎=失去：SetStatusPresence(false) 与上方完全同一口径
+                        target.SetStatusPresence(StatusType.Shell, false);
+                        return;
+                    }
+                    if (!spell_damage && target.HasStatus(StatusType.Immunity))
+                        value = 0;
+                    if (!spell_damage && target.HasStatus(StatusType.Armor))
+                    {
+                        //图显式改过值 → 以图的值再扣新目标护甲；否则回到"减伤前"的值按新目标算
+                        value = Mathf.Max((graph_set_value ? value : value_raw) - target.GetStatusValue(StatusType.Armor), 0);
+                    }
+                }
                 if (dctx.source_card != null && dctx.source_card != attacker)
                     attacker = dctx.source_card;
             }
@@ -3278,15 +3317,21 @@ namespace TcgEngine.Gameplay
             if (!is_ai_predict)
                 BattleLog.Card(target.player_id, BattleLogKind.Damage, target, null, Mathf.Max(damage_max, 0));
 
-            //Trample
+            //Trample（溢出伤害打脸）
+            //★必须走 DamagePlayer 统一入口：旧写法 `tplayer.hp -= extra` 会**绕过**英雄护甲/免疫、
+            //  不广播「伤害时/后」图事件、不写对战记录、也不做数值收敛
+            //  （实测：英雄带 5 护甲照样被溢出伤害打穿，且对战记录里凭空少一段伤害）。
             Player tplayer = game_data.GetPlayer(target.player_id);
-            if (!spell_damage && extra > 0 && attacker.player_id == game_data.current_player && attacker.HasStatus(StatusType.Trample))
-                tplayer.hp -= extra;
+            if (!spell_damage && extra > 0 && tplayer != null
+                && attacker.player_id == game_data.current_player && attacker.HasStatus(StatusType.Trample))
+                DamagePlayer(attacker, tplayer, extra);
 
-            //Lifesteal
+            //Lifesteal（吸血）
+            //★吸血=治疗，必须 clamp 到 hp_max（与 HealPlayer 同一口径）：旧写法 `hp += damage_max` 无上限
+            //  → 满血时吸血会把 hp 顶到 hp_max 之上。
             Player player = game_data.GetPlayer(attacker.player_id);
-            if (!spell_damage && attacker.HasStatus(StatusType.LifeSteal))
-                player.hp += damage_max;
+            if (!spell_damage && player != null && attacker.HasStatus(StatusType.LifeSteal))
+                player.hp = Mathf.Clamp(player.hp + damage_max, 0, player.hp_max);
 
             //Remove sleep on damage
             target.RemoveStatus(StatusType.Sleep);
