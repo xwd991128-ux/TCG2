@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TcgEngine.Client;
 using TcgEngine.Gameplay;
@@ -41,12 +42,27 @@ namespace TcgEngine.UI
         private GameObject toggle_btn;    //左侧入口按钮
         private RectTransform content;    //当前分页的内容容器
         private ScrollRect scroll;
+        private RectTransform scroll_rt;  //滚动区（筛选条出现/隐藏时，上下边界要跟着让出 40px）
         private TMP_Text title;
         private readonly List<GameObject> rows = new List<GameObject>();
         private int tab = 0;              //0=战斗记录 1=已使用卡牌 2=被破坏随从 3=对战信息
         private int last_count = -1;
         private int last_tab = -1;
         private float auto_scroll_timer;
+
+        // ---------------- 筛选（只作用于「战斗记录」页：噪音最多的那页） ----------------
+        private int filter = 0;                                  //0=全部 1=只看我方 2=只看关键
+        private GameObject filter_bar;
+        private readonly Image[] filter_btns = new Image[3];
+        private static readonly string[] FilterNames = { "全部", "只看我方", "只看关键" };
+
+        // ---------------- 悬停看卡（浮在记录面板右侧，不挡任何点击） ----------------
+        private GameObject art_root;
+        private Image art_image;
+        private TMP_Text art_name;
+        private TMP_Text art_text;
+        private BattleLogRow hover_row;      //当前指针所在行（由 BattleLogRow 回调设置）
+        private string art_card_id;          //已显示的卡（脏检查：换卡才重设 sprite/文本）
 
         public static bool Enabled = true;   //设置里可关
 
@@ -56,6 +72,7 @@ namespace TcgEngine.UI
             canvas_go = EnsureCanvas();
             BuildToggle();
             BuildPanel();
+            BuildArtPanel();
             root.SetActive(false);
         }
 
@@ -91,6 +108,8 @@ namespace TcgEngine.UI
                 if (scroll != null && tab == 0)
                     scroll.verticalNormalizedPosition = 0f;   //滚到底部（最新）
             }
+
+            UpdateHoverArt();
         }
 
         public void Toggle()
@@ -101,7 +120,84 @@ namespace TcgEngine.UI
             root.SetActive(open);
             if (toggle_btn != null)
                 toggle_btn.SetActive(!open);
+            if (!open)
+                ClearHoverArt();     //◀ 关面板时收起"悬停看卡"浮层（它挂在面板外，不关会留在屏幕上）
             last_count = -1;   //强制刷新
+        }
+
+        // ---------------- 悬停看卡（行回调 + 浮层刷新） ----------------
+
+        /// <summary>行指针进入（由 BattleLogRow 调用）</summary>
+        internal void OnRowEnter(BattleLogRow row)
+        {
+            hover_row = row;
+            art_card_id = null;      //强制下一帧重设（换行换卡）
+            UpdateHoverArt();
+        }
+
+        /// <summary>行指针离开（由 BattleLogRow 调用）</summary>
+        internal void OnRowExit(BattleLogRow row)
+        {
+            if (hover_row == row)
+                hover_row = null;
+            UpdateHoverArt();
+        }
+
+        private void ClearHoverArt()
+        {
+            hover_row = null;
+            art_card_id = null;
+            if (art_root != null && art_root.activeSelf)
+                art_root.SetActive(false);
+        }
+
+        /// <summary>把"当前悬停行"的卡显示到右侧浮层（全图 + 名称 + 该行文案 + 卡牌说明）。
+        /// 为什么不复用战斗场景的 CardPreviewUI：那个弹层被"手牌/场上卡"的焦点链独占，
+        /// 且位置不由本面板控制；记录面板自带一个浮层最省事，也保证不会被面板挡住。</summary>
+        private void UpdateHoverArt()
+        {
+            if (art_root == null)
+                return;
+            if (root == null || !root.activeSelf || hover_row == null || !hover_row.gameObject.activeInHierarchy)
+            {
+                if (art_root.activeSelf)
+                    art_root.SetActive(false);
+                return;
+            }
+
+            string cid = hover_row.card_id;
+            if (string.IsNullOrEmpty(cid))
+            {
+                if (art_root.activeSelf)
+                    art_root.SetActive(false);
+                return;      //该行没有卡可看（回合分隔行/统计行）
+            }
+
+            if (art_card_id != cid)
+            {
+                art_card_id = cid;
+                CardData cd = CardData.Get(cid);
+                Sprite art = cd != null ? cd.GetFullArt(null) : null;
+                art_image.sprite = art;
+                art_image.enabled = art != null;
+                art_name.text = cd != null && !string.IsNullOrEmpty(cd.title) ? cd.title : cid;
+
+                //正文 = 该行文案（行里可能被挤成一行）+ 卡牌说明/关键词（复用 CardPreviewUI 的取文口径）
+                string body = hover_row.text ?? "";
+                if (cd != null)
+                {
+                    string cdesc = cd.GetDesc();
+                    string kdesc = cd.GetKeywordsDescText();
+                    if (!string.IsNullOrWhiteSpace(cdesc))
+                        body += "\n\n" + cdesc;
+                    if (!string.IsNullOrWhiteSpace(kdesc))
+                        body += "\n" + kdesc;
+                }
+                art_text.text = body;
+            }
+
+            if (!art_root.activeSelf)
+                art_root.SetActive(true);
         }
 
         // ---------------- 构建 ----------------
@@ -247,15 +343,46 @@ namespace TcgEngine.UI
                     .rectTransform.sizeDelta = new Vector2(146f, 36f);
             }
 
-            //滚动区
+            //筛选条（只用于「战斗记录」页；切到别的页会隐藏 —— 不做"看得见但没用"的控件）
+            filter_bar = new GameObject("Filters", typeof(RectTransform));
+            filter_bar.transform.SetParent(root.transform, false);
+            RectTransform fbrt = filter_bar.GetComponent<RectTransform>();
+            fbrt.anchorMin = new Vector2(0f, 1f);
+            fbrt.anchorMax = new Vector2(1f, 1f);
+            fbrt.pivot = new Vector2(0.5f, 1f);
+            fbrt.anchoredPosition = new Vector2(0f, -92f);
+            fbrt.sizeDelta = new Vector2(-16f, 32f);
+            for (int i = 0; i < FilterNames.Length; i++)
+            {
+                int idx = i;
+                GameObject fb2 = new GameObject("Filter" + i, typeof(RectTransform));
+                fb2.transform.SetParent(filter_bar.transform, false);
+                Image fib = fb2.AddComponent<Image>();
+                fib.color = new Color(0.14f, 0.16f, 0.22f, 0.95f);
+                Button fbtn = fb2.AddComponent<Button>();
+                fbtn.targetGraphic = fib;
+                fbtn.onClick.AddListener(() => { filter = idx; last_count = -1; });   //强制重建
+                RectTransform frt = fb2.GetComponent<RectTransform>();
+                frt.anchorMin = new Vector2(0f, 0.5f);
+                frt.anchorMax = new Vector2(0f, 0.5f);
+                frt.pivot = new Vector2(0f, 0.5f);
+                frt.anchoredPosition = new Vector2(8f + i * 104f, 0f);
+                frt.sizeDelta = new Vector2(100f, 32f);
+                MakeText(fb2.transform, "FT", FilterNames[i], 19f, UITheme.TextBody, TextAlignmentOptions.Center)
+                    .rectTransform.sizeDelta = new Vector2(100f, 32f);
+                filter_btns[i] = fib;
+            }
+
+            //滚动区（顶部让出标题/分页/筛选条：48 + 36 + 40）
             GameObject sv = new GameObject("Scroll", typeof(RectTransform));
             sv.transform.SetParent(root.transform, false);
             RectTransform svrt = sv.GetComponent<RectTransform>();
             svrt.anchorMin = new Vector2(0f, 0f);
             svrt.anchorMax = new Vector2(1f, 1f);
             svrt.pivot = new Vector2(0.5f, 0.5f);
-            svrt.anchoredPosition = new Vector2(0f, -48f);
-            svrt.sizeDelta = new Vector2(-16f, -108f);
+            svrt.anchoredPosition = new Vector2(0f, -70f);
+            svrt.sizeDelta = new Vector2(-16f, -148f);
+            scroll_rt = svrt;
 
             scroll = sv.AddComponent<ScrollRect>();
             scroll.horizontal = false;
@@ -289,6 +416,57 @@ namespace TcgEngine.UI
             scroll.content = content;
         }
 
+        /// <summary>"悬停看卡"浮层：贴在记录面板右侧（面板 620 宽 → 浮层从 628 起）。
+        /// ★所有图形 raycastTarget=false：它只是"看"的，绝不允许吞掉鼠标事件（否则会挡住战场操作）。
+        /// ★挂在 canvas_go 而不是 root 下：关面板时由 Toggle()/ClearHoverArt() 显式收起。</summary>
+        private void BuildArtPanel()
+        {
+            Transform parent = canvas_go != null ? canvas_go.transform : transform;
+
+            art_root = new GameObject("BattleLogArt", typeof(RectTransform));
+            art_root.transform.SetParent(parent, false);
+            RectTransform rt = art_root.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2(628f, 0f);
+            rt.sizeDelta = new Vector2(300f, 470f);
+
+            Image bg = art_root.AddComponent<Image>();
+            bg.color = new Color(0.06f, 0.07f, 0.11f, 0.96f);
+            bg.raycastTarget = false;
+
+            GameObject img = new GameObject("Art", typeof(RectTransform));
+            img.transform.SetParent(art_root.transform, false);
+            art_image = img.AddComponent<Image>();
+            art_image.raycastTarget = false;
+            art_image.preserveAspect = true;
+            RectTransform irt = img.GetComponent<RectTransform>();
+            irt.anchorMin = new Vector2(0f, 1f);
+            irt.anchorMax = new Vector2(1f, 1f);
+            irt.pivot = new Vector2(0.5f, 1f);
+            irt.anchoredPosition = new Vector2(0f, -8f);
+            irt.sizeDelta = new Vector2(-16f, 300f);
+
+            art_name = MakeText(art_root.transform, "Name", "", 22f, UITheme.TextTitle, TextAlignmentOptions.Center);
+            RectTransform nrt = art_name.rectTransform;
+            nrt.anchorMin = new Vector2(0f, 1f);
+            nrt.anchorMax = new Vector2(1f, 1f);
+            nrt.pivot = new Vector2(0.5f, 1f);
+            nrt.anchoredPosition = new Vector2(0f, -316f);
+            nrt.sizeDelta = new Vector2(-16f, 32f);
+
+            art_text = MakeText(art_root.transform, "Body", "", 17f, UITheme.TextBody, TextAlignmentOptions.TopLeft);
+            RectTransform trt2 = art_text.rectTransform;
+            trt2.anchorMin = new Vector2(0f, 0f);
+            trt2.anchorMax = new Vector2(1f, 1f);
+            trt2.pivot = new Vector2(0.5f, 1f);
+            trt2.anchoredPosition = new Vector2(0f, -354f);
+            trt2.sizeDelta = new Vector2(-20f, -362f);
+
+            art_root.SetActive(false);
+        }
+
         // ---------------- 内容刷新 ----------------
 
         private GameObject GetRow(int index)
@@ -300,6 +478,14 @@ namespace TcgEngine.UI
                 LayoutElement le = go.AddComponent<LayoutElement>();
                 le.minHeight = 30f;
                 le.preferredHeight = 30f;
+                //★透明高亮底：raycastTarget 打开才能收到指针事件（行才能"悬停看卡"）。
+                //  颜色 alpha=0 也能命中（Image 默认不做 alpha 命中测试）；悬停时由 BattleLogRow 提亮。
+                //  放在 ScrollRect 子节点上不会影响拖动：拖动事件会沿父级找到 ScrollRect 的 IDragHandler。
+                Image hit = go.AddComponent<Image>();
+                hit.color = new Color(1f, 1f, 1f, 0f);
+                hit.raycastTarget = true;
+                BattleLogRow row = go.AddComponent<BattleLogRow>();
+                row.panel = this;
                 MakeText(go.transform, "T", "", 20f, UITheme.TextBody, TextAlignmentOptions.Left)
                     .rectTransform.sizeDelta = new Vector2(0f, 30f);
                 rows.Add(go);
@@ -307,7 +493,7 @@ namespace TcgEngine.UI
             return rows[index];
         }
 
-        private void SetRow(int index, string text, Color color, float height = 30f)
+        private void SetRow(int index, string text, Color color, float height = 30f, string card_id = null)
         {
             GameObject go = GetRow(index);
             go.SetActive(true);
@@ -320,35 +506,72 @@ namespace TcgEngine.UI
                 t.text = text;
             if (t.color != color)
                 t.color = color;
+
+            BattleLogRow row = go.GetComponent<BattleLogRow>();
+            row.card_id = card_id;
+            row.text = text;
+            if (hover_row == row)
+                art_card_id = null;   //行内容变了（行对象复用）→ 让浮层下一帧重设，别显示上一行的卡
         }
 
         private void Refresh()
         {
-            Game g = GameClient.Get().GetGameData();
-            int my_id = GameClient.Get().GetPlayerID();
+            //★空值保护：Update 里本来就判了 GameClient.Get() != null，这里却直接解引用 —— 同一条路径两种写法。
+            //  面板是在场景加载后自建的，若本帧 GameClient 还没 Awake（或对战结束被销毁），Refresh 会直接 NRE。
+            GameClient client = GameClient.Get();
+            Game g = client != null ? client.GetGameData() : null;
+            int my_id = client != null ? client.GetPlayerID() : 0;
             if (g == null)
                 return;
 
             title.text = tab == 0 ? "战斗记录" : tab == 1 ? "已使用的卡牌" : tab == 2 ? "被破坏的随从" : "对战信息";
+
+            //筛选条只在「战斗记录」页出现；出现时滚动区让出 40px（否则会留一条空缝）
+            if (filter_bar != null)
+                filter_bar.SetActive(tab == 0);
+            if (scroll_rt != null)
+            {
+                bool f = tab == 0;
+                scroll_rt.anchoredPosition = new Vector2(0f, f ? -70f : -48f);
+                scroll_rt.sizeDelta = new Vector2(-16f, f ? -148f : -108f);
+            }
+            for (int i = 0; i < filter_btns.Length; i++)
+            {
+                if (filter_btns[i] != null)
+                    filter_btns[i].color = i == filter
+                        ? new Color(0.22f, 0.30f, 0.42f, 0.98f)    //选中
+                        : new Color(0.14f, 0.16f, 0.22f, 0.95f);
+            }
+
             int used = 0;
 
             if (tab == 0)
             {
                 List<BattleLogEntry> log = g.battle_log;
-                int start = log != null ? Mathf.Max(0, log.Count - BattleLog.ShowRecent) : 0;
-                for (int i = start; log != null && i < log.Count; i++)
+                //筛选：**先筛再截"最近 N 条"** —— 若先截再筛，"只看我方"时被对方刷屏会把我方记录整段挤掉
+                List<BattleLogEntry> shown = new List<BattleLogEntry>();
+                if (log != null)
                 {
-                    BattleLogEntry e = log[i];
+                    foreach (BattleLogEntry e in log)
+                    {
+                        if (PassFilter(e, filter, my_id))
+                            shown.Add(e);
+                    }
+                }
+                int start = Mathf.Max(0, shown.Count - BattleLog.ShowRecent);
+                for (int i = start; i < shown.Count; i++)
+                {
+                    BattleLogEntry e = shown[i];
                     Color c = UITheme.TextBody;
                     if (e.kind == (byte)BattleLogKind.Damage) c = new Color(1f, 0.45f, 0.4f);
                     else if (e.kind == (byte)BattleLogKind.Heal) c = new Color(0.5f, 1f, 0.6f);
                     else if (e.kind == (byte)BattleLogKind.TurnStart) c = UITheme.TextTitle;
                     else if (e.kind == (byte)BattleLogKind.Death) c = UITheme.TextDim;
                     bool turn_row = e.kind == (byte)BattleLogKind.TurnStart;
-                    SetRow(used++, BattleLog.Format(e, g, my_id), c, turn_row ? 34f : 30f);
+                    SetRow(used++, BattleLog.Format(e, g, my_id), c, turn_row ? 34f : 30f, RowCardId(g, e));
                 }
                 if (used == 0)
-                    SetRow(used++, "（本局还没有记录）", UITheme.TextDim);
+                    SetRow(used++, filter == 0 ? "（本局还没有记录）" : "（当前筛选下没有记录）", UITheme.TextDim);
             }
             else if (tab == 1)
             {
@@ -378,7 +601,7 @@ namespace TcgEngine.UI
                         {
                             CardData cd = CardData.Get(kv.Key);
                             string name = cd != null && !string.IsNullOrEmpty(cd.title) ? cd.title : kv.Key;
-                            SetRow(used++, "  " + name + "  ×" + kv.Value, UITheme.TextBody);
+                            SetRow(used++, "  " + name + "  ×" + kv.Value, UITheme.TextBody, 30f, kv.Key);
                         }
                     }
                 }
@@ -395,7 +618,7 @@ namespace TcgEngine.UI
                         CardData cd = CardData.Get(e.card_id);
                         string name = cd != null && !string.IsNullOrEmpty(cd.title) ? cd.title : e.card_id;
                         string side = e.actor == my_id ? "我方" : "对方";
-                        SetRow(used++, "  " + side + "「" + name + "」（第 " + e.turn + " 回合）", UITheme.TextDim);
+                        SetRow(used++, "  " + side + "「" + name + "」（第 " + e.turn + " 回合）", UITheme.TextDim, 30f, e.card_id);
                     }
                 }
                 if (used == 0)
@@ -430,6 +653,95 @@ namespace TcgEngine.UI
 
             for (int i = used; i < rows.Count; i++)   //多余行隐藏（行对象复用，不销毁）
                 rows[i].SetActive(false);
+        }
+
+        /// <summary>该条记录能"挂着看"的卡定义 id：主体卡定义 → 主体实例 → 客体实例，都取不到返回 null。
+        /// （实例可能已离场，CardUidToId 内部对 null/取不到都安全返回 null）</summary>
+        private static string RowCardId(Game g, BattleLogEntry e)
+        {
+            if (e == null)
+                return null;
+            if (!string.IsNullOrEmpty(e.card_id))
+                return e.card_id;
+            string id = BattleLog.CardUidToId(g, e.card_uid);
+            if (string.IsNullOrEmpty(id))
+                id = BattleLog.CardUidToId(g, e.target_uid);
+            return id;
+        }
+
+        /// <summary>「战斗记录」页的筛选谓词（**唯一定义处**，Refresh 与探针都走它）。
+        /// filter：0=全部 1=只看我方 2=只看关键。</summary>
+        public static bool PassFilter(BattleLogEntry e, int filter, int my_id)
+        {
+            if (e == null)
+                return false;
+            if (filter == 1 && e.actor != my_id)
+                return false;      //只看我方
+            if (filter == 2 && !IsKeyEvent(e))
+                return false;      //只看关键
+            return true;
+        }
+
+        /// <summary>「只看关键」的口径：出牌/召唤/攻击/伤害/治疗/破坏/胜负；
+        /// 滤掉回合分隔、抽牌、移动、增益/状态细节这些噪音（它们才是刷屏主因）。</summary>
+        private static bool IsKeyEvent(BattleLogEntry e)
+        {
+            switch ((BattleLogKind)e.kind)
+            {
+                case BattleLogKind.PlayCard:
+                case BattleLogKind.Summon:
+                case BattleLogKind.Attack:
+                case BattleLogKind.Damage:
+                case BattleLogKind.Heal:
+                case BattleLogKind.Death:
+                case BattleLogKind.Win:
+                case BattleLogKind.Lose:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>对战记录的一行：只负责"指针进入/离开"上报 + 极淡的悬停高亮。
+    /// ★行对象由面板复用（不销毁，只 SetActive），所以 card_id/text 每次 SetRow 都会被改写。
+    /// ★单独的顶层类（不是嵌套类）：Unity 更稳，且文件名不必与类名一致。</summary>
+    public class BattleLogRow : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        public BattleLogPanel panel;
+        public string card_id;      //该行可"挂着看"的卡定义（无则 null）
+        public string text;         //该行完整文案（浮层正文用；行内可能被挤成一行）
+
+        private Image hit;
+
+        private void Awake()
+        {
+            hit = GetComponent<Image>();
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (hit != null)
+                hit.color = new Color(1f, 1f, 1f, 0.07f);   //有反馈，又不抢文本
+            if (panel != null)
+                panel.OnRowEnter(this);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (hit != null)
+                hit.color = new Color(1f, 1f, 1f, 0f);
+            if (panel != null)
+                panel.OnRowExit(this);
+        }
+
+        private void OnDisable()
+        {
+            //行被隐藏（换页/刷新）时，若它正是悬停行 → 通知面板收起浮层，别把浮层留在屏幕上
+            if (hit != null)
+                hit.color = new Color(1f, 1f, 1f, 0f);
+            if (panel != null)
+                panel.OnRowExit(this);
         }
     }
 }

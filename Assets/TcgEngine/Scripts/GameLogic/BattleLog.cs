@@ -226,13 +226,21 @@ namespace TcgEngine.Gameplay
             return who + " " + me;
         }
 
-        /// <summary>受害者显示名：玩家目标用玩家名，卡目标用卡名（卡可能已离场 → 回落到 uid 查表）</summary>
+        /// <summary>受害者显示名：玩家目标用玩家名，卡目标用卡名（卡可能已离场 → 回落到 uid 查表）。
+        /// ★最后兜底必须是"行动方"而不是问号：像"玩家/英雄被治疗""来源已离场的伤害"这类记录
+        ///   主体卡与目标卡都取不到时，旧写法会显示成「?」恢复 5 点生命（实测见 BattleLogUIPanelProbe
+        ///   的 ROW 导出），玩家看到的是一个纯问号。</summary>
         private static string Victim(BattleLogEntry e, Game g)
         {
             if (e.target_id >= 0)
                 return "「" + PlayerName(g, e.target_id) + "」";
             string id = !string.IsNullOrEmpty(e.card_id) ? e.card_id : CardUidToId(g, e.card_uid);
-            return "「" + CardTitle(id, "?") + "」";
+            string name = CardTitle(id, null);
+            if (string.IsNullOrEmpty(name))
+                name = CardTitle(CardUidToId(g, e.target_uid), null);   //客体卡（主体卡为空时）
+            if (string.IsNullOrEmpty(name))
+                name = PlayerName(g, e.actor);                          //兜底：行动方
+            return "「" + name + "」";
         }
 
         /// <summary>卡实例 uid → 卡定义 id（卡可能已离场，取不到就返回 null）</summary>
