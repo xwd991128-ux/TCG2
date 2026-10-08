@@ -88,6 +88,13 @@ namespace TcgEngine
         public int buff_native_armor = 0;
         public int buff_native_cost = 0;
 
+        /// <summary>【增益关键词状态记账】增益（关键词型属性修改）给这张卡挂上的**关键词绑定状态**类型。
+        /// 重算时只 Remove 这些类型 —— 旧实现按"全部关键词定义"逐个 RemoveStatus，
+        /// 会把**非增益来源**的关键词状态（规则图「添加关键词」节点 EffectAddKeyword 挂的、还带数值的，
+        /// 例如"法术伤害+3"）一起清掉，再按 card.keywords 以**值 0** 补回 ⇒ +3 被抹成 0。
+        /// 生命周期：Clear() 归零；Clone 一起拷（AI 预测树）。</summary>
+        public List<StatusType> buff_native_keywords = new List<StatusType>();
+
         public Card(string card_id, string uid, int player_id) { this.card_id = card_id; this.uid = uid; this.player_id = player_id; }
 
         public virtual void Refresh() { exhausted = false; }
@@ -97,6 +104,7 @@ namespace TcgEngine
         {
             ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
             buff_native_atk = 0; buff_native_hp = 0; buff_native_armor = 0; buff_native_cost = 0;   //状态已清 → 记账同步归零
+            buff_native_keywords.Clear();
             buff_added_traits.Clear(); buff_removed_traits.Clear();
             buff_added_keywords.Clear(); buff_removed_keywords.Clear();
             removed_keywords.Clear();   //复位 = 回到卡面初始：持久移除的关键词在此恢复（离场重进后圣盾会回来）
@@ -947,6 +955,8 @@ namespace TcgEngine
             dest.buff_native_hp = source.buff_native_hp;
             dest.buff_native_armor = source.buff_native_armor;
             dest.buff_native_cost = source.buff_native_cost;
+            dest.buff_native_keywords = source.buff_native_keywords != null
+                ? new List<StatusType>(source.buff_native_keywords) : new List<StatusType>();
 
             dest.equipped_uid = source.equipped_uid;
 

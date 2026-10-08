@@ -525,7 +525,10 @@ namespace TcgEngine
                     return;
                 KeywordData kw = KeywordData.Get(m.enum_id);
                 if (kw != null && kw.status_type != StatusType.None)
+                {
                     card.AddStatus(kw.status_type, 0, duration);
+                    TrackKeyword(card, kw.status_type);   //★记账：这个关键词状态是增益挂的，重算时只清它
+                }
                 return;
             }
 
@@ -568,6 +571,15 @@ namespace TcgEngine
             else if (st == StatusType.AddHP) card.buff_native_hp += v;
             else if (st == StatusType.Armor) card.buff_native_armor += v;
             else if (st == StatusType.AddManaCost) card.buff_native_cost += v;
+        }
+
+        /// <summary>记"这个关键词状态是增益挂的"（重算时只清这些，不动规则图/卡面自带的关键词状态）</summary>
+        private static void TrackKeyword(Card card, StatusType st)
+        {
+            if (card == null || st == StatusType.None || card.buff_native_keywords == null)
+                return;
+            if (!card.buff_native_keywords.Contains(st))
+                card.buff_native_keywords.Add(st);
         }
 
         /// <summary>减到 0 的状态条目直接删掉（避免残留 0 值条目让界面以为"身上有增益"）</summary>
@@ -696,14 +708,16 @@ namespace TcgEngine
             card.buff_removed_keywords.Clear();
             card.buff_added_keywords.Clear();
 
-            //关键词原生状态（风怒/冲锋…）先按"全部关键词定义"清一遍，稍后按最终关键词表统一重加，
-            //避免"增益附加的关键词状态"在增益消失后残留。
-            List<KeywordData> kw_all = KeywordData.GetAll();
-            for (int i = 0; i < kw_all.Count; i++)
+            //关键词原生状态：**只清增益自己挂的那几个**（card.buff_native_keywords 记账），
+            //随后按当前 buffs + card.keywords 重新补回。
+            //★旧实现按"全部关键词定义"逐个 RemoveStatus ⇒ 把**非增益来源**的关键词状态一起清掉，
+            //  再按 card.keywords 以**值 0** 补回 —— 规则图「添加关键词」节点挂的"法术伤害+3"
+            //  于是被抹成 0（与该文件上方四个数值型状态同一类问题，实测见 BuffKeywordWipeProbe）。
+            if (card.buff_native_keywords != null)
             {
-                KeywordData k = kw_all[i];
-                if (k != null && k.status_type != StatusType.None)
-                    card.RemoveStatus(k.status_type);
+                for (int i = 0; i < card.buff_native_keywords.Count; i++)
+                    card.RemoveStatus(card.buff_native_keywords[i]);
+                card.buff_native_keywords.Clear();
             }
 
             if (card.buffs != null)
