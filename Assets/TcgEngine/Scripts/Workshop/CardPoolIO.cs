@@ -768,7 +768,14 @@ namespace TcgEngine.Workshop
             {
                 CardData card = BuildCardData(cdata);
                 bool did_override;
-                if (card != null && RegisterCard(card, allow_override, out did_override))
+                //★"改完卡池重新导入"必须生效：**同一文件里自己登记过的卡**再次导入时允许覆盖旧实例。
+                //  旧行为：RegisterCard 直接拒绝同 id（只打一条 warning），而此刻 custom_data / 能力 / 全局规则
+                //  **已经被新数据替换了** ⇒ 运行时卡面与数值仍是旧的、登记表是新的（半新半旧），
+                //  用户只看到一句"新增 0 张卡"，以为改动生效了。
+                //  只对"本文件自己注册过的 id"放行，避免跨卡池同 id 互相覆盖（那是 OverrideBuiltin 开关的职责）。
+                bool from_same_file = pool_file_cards.TryGetValue(fileKey, out List<string> owned_ids)
+                    && owned_ids != null && owned_ids.Contains(cdata.id);
+                if (card != null && RegisterCard(card, allow_override || from_same_file, out did_override))
                 {
                     if (did_override)
                         overrode++;

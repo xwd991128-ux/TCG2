@@ -153,6 +153,29 @@ namespace TcgEngine.Probe
                     "登记表 art_path=" + (reg2 != null ? reg2.art_path : "null") + "（期望 probe_art_v2.png）"
                     + " 导出 art_path=" + (b2 != null ? b2.art_path : "null") + " attack=" + (b2 != null ? b2.attack.ToString() : "?") + "（期望 2）");
 
+                //---- ⑥ 改池后重新导入必须生效（同一文件的卡允许覆盖，否则"半新半旧"）----
+                CardPoolData pool2 = new CardPoolData();
+                pool2.name = POOL_NAME;
+                pool2.author = "probe";
+                pool2.timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                CardCustomData cd2 = new CardCustomData();
+                cd2.id = CARD_ID;
+                cd2.title = "探针残留卡 v2";
+                cd2.type = CardType.Character.ToString();
+                cd2.mana = 2; cd2.attack = 3; cd2.hp = 6;
+                cd2.deckbuilding = true;
+                cd2.art_path = "probe_art_v3.png";
+                pool2.cards.Add(cd2);
+                File.WriteAllText(path, JsonUtility.ToJson(pool2, true), new UTF8Encoding(false));
+                CardPoolIO.ImportFromFile(path, false);
+                CardData again = CardData.Get(CARD_ID);
+                Check("⑥ 改池重新导入生效（不再半新半旧）",
+                    again != null && again.hp == 6 && again.attack == 3 && again.title == "探针残留卡 v2",
+                    "重导入后 标题=" + (again != null ? again.title : "null")
+                    + " hp=" + (again != null ? again.hp.ToString() : "?")
+                    + " attack=" + (again != null ? again.attack.ToString() : "?")
+                    + "（期望 v2/6/3；旧行为会停在编辑后的 4/2，却只提示\"新增 0 张卡\"）");
+
                 //---- ④ 删池：文件 / 卡定义 / 原始数据登记表 全清 ----
                 int globals_before = GlobalCount();
                 bool deleted = CardPoolIO.DeletePoolFile(path);
