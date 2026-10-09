@@ -2977,10 +2977,8 @@ namespace TcgEngine.Workshop
                     {
                         if (tcard == null)
                             continue;
-                        if (logic.GameData.IsOnBoard(tcard))
-                            logic.KillCard(caster, tcard);
-                        else
-                            logic.DiscardCard(tcard);
+                        //★统一"消灭"入口：装备卡也算在场（旧写法只判 IsOnBoard ⇒ 装备卡被消灭不发死亡事件）
+                        logic.DestroyCard(caster, tcard);
                     }
                     break;
                 }
@@ -4622,12 +4620,12 @@ namespace TcgEngine.Workshop
                     Card equip = logic.GameData.GetCard(player.hero.equipped_uid);
                     player.hero.equipped_uid = null;
                     if (equip != null)
-                        logic.DiscardCard(equip);
+                        logic.DestroyCard(caster, equip);     //★装备卡被摧毁也要走死亡结算（图事件/击杀数）
                     for (int i = player.cards_equip.Count - 1; i >= 0; i--)
                     {
                         Card e = player.cards_equip[i];
                         if (e != null && e != equip)
-                            logic.DiscardCard(e);
+                            logic.DestroyCard(caster, e);
                     }
                     GameLog.Log("[NodeDoc] 201007 摧毁道具 玩家 p" + player.player_id);
                     break;

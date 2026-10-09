@@ -10,10 +10,9 @@ namespace TcgEngine
     {
         public override void DoEffect(GameLogic logic, AbilityData ability, Card caster, Card target)
         {
-            if (logic.GameData.IsOnBoard(target))
-                logic.KillCard(caster, target);
-            else
-                logic.DiscardCard(target);
+            //★统一入口：装备区的卡也算"在场"（KillCard 的守卫就是 IsOnBoard||IsEquipped）。
+            //  旧写法只判 IsOnBoard ⇒ 消灭装备卡时死亡图事件/击杀数全丢（见 EquipDestroyProbe）。
+            logic.DestroyCard(caster, target);
         }
 
     }

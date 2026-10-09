@@ -3413,6 +3413,22 @@ namespace TcgEngine.Gameplay
                 TriggerCardAbilityType(AbilityTrigger.OnKill, attacker, target);
         }
 
+        /// <summary>统一的「消灭 / 摧毁一张卡」入口（**所有消灭类调用点都走这里**，不要再各自写 IsOnBoard 二选一）。
+        /// 在战场或装备区 → 走 KillCard（完整死亡结算：死亡图事件 / OnKill / kill_count / 对战记录 Death）；
+        /// 其它区域（手牌 / 牌库 / 墓地…）→ 只是弃置，不能当死亡处理。
+        /// 判据与 KillCard 的守卫**同口径**（IsOnBoard || IsEquipped）—— 旧代码只判 IsOnBoard，
+        /// 于是"消灭装备卡"掉进 DiscardCard 分支：死亡图事件被发成「弃牌时/后」、击杀数不记
+        /// （实测 EquipDestroyProbe ① ② FAIL）。</summary>
+        public virtual void DestroyCard(Card source, Card target)
+        {
+            if (target == null)
+                return;
+            if (game_data.IsOnBoard(target) || game_data.IsEquipped(target))
+                KillCard(source, target);
+            else
+                DiscardCard(target);
+        }
+
         //Send card into discard（reason 区分 死亡/弃置，用于图事件 弃牌时/后、死亡时/后）
         public enum CardDiscardReason { Discard = 0, Death = 1 }
 

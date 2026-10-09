@@ -1,0 +1,5 @@
+结果	断言	说明
+PASS	① 装备卡被消灭 → 发「死亡时/后」	死亡事件=2（期望 2） 弃牌事件=0（期望 0）｜事件=OnBeforeDeath,OnAfterDeath
+PASS	② 装备卡被消灭 → 计入击杀数	kill_count 0 → 1（期望 +1）
+PASS	③ 装备卡已离开装备区并进墓地	仍在装备区=False（期望 False） 在墓地=True（期望 True）
+PASS	④ 对照：手牌里的卡被消灭 → 弃置（不误发死亡）	死亡事件=0（期望 0） 弃牌事件=2（期望 2） 在墓地=True｜事件=OnBeforeDiscard,OnAfterDiscard
