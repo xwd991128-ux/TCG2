@@ -676,6 +676,15 @@ namespace TcgEngine
 
             CardStatus.CloneList(source.status, dest.status);
             CardStatus.CloneList(source.ongoing_status, dest.ongoing_status);
+
+            //★自定义种族/属性（**玩家级**数值存在这里，最容易漏）：
+            //  规则图 201013/201014「设置/增加疲劳层数」写 player.SetTrait/AddTrait、201015「受到疲劳伤害」读
+            //  player.GetTraitValue(FATIGUE_TRAIT)（见 NodeDocRunner）。而 AI 每步决策用的正是
+            //  AILogic.RunAI → Game.CloneNew(data) 的**副本**：漏拷 ⇒ 副本里疲劳层数 = 0
+            //  →「受到疲劳伤害」算 0、加层从 0 起算，预判的生死线/斩杀线跑偏。
+            //  与 skip_turns / mana_max_total / battle_buttons / hand_max 完全是同一类漏拷（同一后果）。
+            CardTrait.CloneList(source.traits, dest.traits);
+            CardTrait.CloneList(source.ongoing_traits, dest.ongoing_traits);
         }
     }
 

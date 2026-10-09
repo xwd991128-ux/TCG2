@@ -1,0 +1,6 @@
+结果	断言	说明
+PASS	① 反射全字段比对：未知不一致 = 0	检查字段 400 个；未知不一致 0 个；已知差异 11 项（Game.battle_log（刻意不拷：AI 每个预测节点都克隆会爆内存/掉帧（Game.cs 字段注释已声明））、Game.last_Added_To_Deck（只写不读：全工程仅 AddCardDeck 赋值，无读方；将来若有规则读它，本探针会立刻报出来）、Game.attack_rule_error_logged（诊断开关（[NonSerialized] private：规则求值报错只报一次），预测副本不同步无影响）、Player.username（身份信息，AI 预测不需要（Player.Clone 内已注释））、Player.avatar（身份信息，同上）、Player.cardback（纯展示（卡背），同上）、Player.deck（纯展示（卡组名），同上）、Player.connected（网络状态，预测无关）、Player.ready（网络状态，预测无关）、Player.current_turn（只写不读：全工程仅 StartTurn/开局赋值，无读方（对战记录实际用 Game.turn_count））、Card.data（缓存（按 card_id 惰性查表）））
+PASS	② 疲劳层数(Player.traits)随克隆保留	原件 fatigue=3 克隆 fatigue=3（期望 3） 克隆 ongoing=2（期望 2）
+PASS	③ 已攻击/已用能力/增益/被动分组 等关键表一致	cards_attacked=1 ability_played=1 buffs=1 source_uid=cl_z1 passive_groups=1 removed_keywords=1 buff_native_atk=137（原件 137）
+PASS	④ 克隆与原局完全解耦（改克隆不影响原件）	原件 fatigue=3（期望 3） 卡 damage=137（期望 137） 战场=1（期望 1） 玩家状态=1（期望 1）
+PASS	⑤ battle_log 刻意不拷（非漏拷）	原件 1 条 / 克隆 0 条（期望 1 / 0）
