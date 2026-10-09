@@ -1,0 +1,7 @@
+结果	断言	说明
+PASS	① 战斗击杀发的是「死亡时/后」	死亡事件=2（期望 2） 弃牌事件=0（期望 0）｜本次事件=OnBeforeDamage,OnAfterDamage,OnBeforeDeath,OnAfterDeath
+PASS	② 战斗击杀计入 kill_count	kill_count 0 → 1（期望 +1）
+PASS	③ 一次击杀 = 一次死亡事件链（不重复）	OnBeforeDeath=1（期望 1） OnAfterDeath=1（期望 1）
+PASS	④ 死者已离场并进墓地	在战场=False（期望 False） 在墓地=True（期望 True）
+PASS	⑤ 对照：致死击杀仍正确（发死亡事件 + 计击杀）	死亡事件=2 弃牌事件=0 kill_count=2（期望 2）｜事件=OnBeforeDamage,OnAfterDamage,OnBeforeDeath,OnAfterDeath
+PASS	⑥ 对照：无来源致死（毒/燃烧口径）发死亡事件、不计击杀	死亡事件=2 弃牌事件=0 kill_count 不变=True｜事件=OnAfterDamage,OnBeforeDeath,OnAfterDeath

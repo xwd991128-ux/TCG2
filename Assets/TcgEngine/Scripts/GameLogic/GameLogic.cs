@@ -3365,7 +3365,12 @@ namespace TcgEngine.Gameplay
                 KillCard(attacker, target);
 
             //Kill card if no hp
-            if (target.CardData.type  != CardType.Character  && target.GetHP() <= 0)
+            //★角色也必须走 KillCard（统一击杀入口）：旧写法把 Character 排除在外 ⇒ 战斗击杀由
+            //  UpdateOngoingKills 用 DiscardCard(默认 reason=Discard) 收掉 →
+            //  死亡图事件被发成「弃牌时/后」、kill_count / OnKill / 对战记录的 Death 全都不产生
+            //  （同一个"死亡"两套行为；而 AI 正是用 kill_count 估值的，所以它不认战斗击杀）。
+            //  对照：致死(Deathtouch)与无来源致死(2 参伤害)两条路径本来就立刻 KillCard/Death 结算。
+            if (target.GetHP() <= 0)
                 KillCard(attacker, target);
         }
 
@@ -4134,7 +4139,10 @@ namespace TcgEngine.Gameplay
                     {
                         Card card = player.cards_board[i];
                         if (card.GetHP() <= 0)
-                            DiscardCard(card);
+                            DiscardCard(card, CardDiscardReason.Death);   //★这里是"0 血结算"= 死亡，不是弃置
+                            //（旧写法用默认 reason=Discard ⇒ 死亡图事件被发成「弃牌时/后」。
+                            //  这条是血量被其它来源改到 0 时的兜底，例如增益移除后掉血。
+                            //  战斗/效果伤害现在由 DamageCard 直接 KillCard 收掉，不会再走到这里。）
                     }
                 }
                 //修改 可以防御力为0
