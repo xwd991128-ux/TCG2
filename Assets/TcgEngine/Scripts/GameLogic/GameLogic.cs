@@ -3236,6 +3236,13 @@ namespace TcgEngine.Gameplay
                 return;
             }
 
+            //★已经 0 血的卡不再继续吃伤害：它的死亡已经在结算队列里（KillCard/UpdateOngoingKills），
+            //  再打它只会浪费伤害，还会**重复发一遍「死亡时/后」事件**（实测：一次图执行里
+            //  "对全体造成 X" 后面再跟一段伤害/连锁时，同一具"尸体"会被反复命中与判死）。
+            //  必须放在英雄路由**之后**：英雄卡的 HP 记在玩家身上（Card.GetHP 不适用），不能在这里被误判成已死。
+            if (target.GetHP() <= 0)
+                return;
+
             if (target.HasStatus(StatusType.SpellImmunity) && attacker.CardData.type != CardType.Character)
                 return; //Spell immunity
 
@@ -3421,6 +3428,13 @@ namespace TcgEngine.Gameplay
 
             if (game_data.IsInDiscard(card))
                 return; //Already discarded
+
+            //★幂等闸（补）：带 Disappear 状态离场的卡**不进墓地** ⇒ 上面那道 IsInDiscard 拦不住第二次调用，
+            //  于是会重复 UnequipAll / 移区 / 再发一遍「弃牌时·后」事件、并重复进待清理队列
+            //  （实测：第二次仍发 2 条事件）。已在待清理队列里 = 本帧已经离场过，直接返回。
+            //  cards_to_clear 每次 UpdateOngoing 末尾都会清空，所以这条闸只覆盖"同一帧内的重复调用"。
+            if (cards_to_clear.Contains(card))
+                return;
 
             CardData icard = card.CardData;
             Player player = game_data.GetPlayer(card.player_id);

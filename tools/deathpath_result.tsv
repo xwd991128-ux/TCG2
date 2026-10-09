@@ -5,3 +5,5 @@ PASS	③ 一次击杀 = 一次死亡事件链（不重复）	OnBeforeDeath=1（�
 PASS	④ 死者已离场并进墓地	在战场=False（期望 False） 在墓地=True（期望 True）
 PASS	⑤ 对照：致死击杀仍正确（发死亡事件 + 计击杀）	死亡事件=2 弃牌事件=0 kill_count=2（期望 2）｜事件=OnBeforeDamage,OnAfterDamage,OnBeforeDeath,OnAfterDeath
 PASS	⑥ 对照：无来源致死（毒/燃烧口径）发死亡事件、不计击杀	死亡事件=2 弃牌事件=0 kill_count 不变=True｜事件=OnAfterDamage,OnBeforeDeath,OnAfterDeath
+PASS	⑦ 0 血卡不再继续吃伤害（不浪费伤害、不重复发死亡事件）	伤害累加=0（期望 0） 死亡事件=0（期望 0）｜事件=
+PASS	⑧ Disappear 卡重复 DiscardCard 被幂等挡住	第二次产生的事件数=0（期望 0） 在墓地=False（Disappear 不进墓地，期望 False）｜事件=

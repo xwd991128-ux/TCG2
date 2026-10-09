@@ -160,6 +160,32 @@ namespace TcgEngine.Probe
                 death3 == 2 && discard3 == 0 && p0.kill_count == kills3 && !g.IsOnBoard(def3) && g.IsInDiscard(def3),
                 "死亡事件=" + death3 + " 弃牌事件=" + discard3 + " kill_count 不变=" + (p0.kill_count == kills3)
                 + "｜事件=" + names3);
+
+            //---- ⑦ 0 血（已判死、但本帧还没走到结算）的卡不再继续吃伤害 ----
+            Card atk4 = NewCard(chars[0], p0, "dp_atk4");
+            Card def4 = NewCard(chars[1], p1, "dp_def4");
+            def4.hp = 0; def4.damage = 0;                 //模拟"HP 被别的来源降到 0，但还没轮到结算"
+            int log4 = logic.GetEventLog().Count;
+            logic.DamageCard(atk4, def4, 3);
+            int dmg4 = def4.damage;
+            int death4, discard4, bd4, ad4;
+            string names4;
+            CountEvents(logic, log4, out death4, out discard4, out bd4, out ad4, out names4);
+            Check("⑦ 0 血卡不再继续吃伤害（不浪费伤害、不重复发死亡事件）", dmg4 == 0 && death4 == 0,
+                "伤害累加=" + dmg4 + "（期望 0） 死亡事件=" + death4 + "（期望 0）｜事件=" + names4);
+
+            //---- ⑧ DiscardCard 幂等：带 Disappear 的卡不进墓地 ⇒ IsInDiscard 闸门失效，必须另有挡 ----
+            Card dis = NewCard(chars[2], p1, "dp_dis");
+            dis.AddStatus(StatusType.Disappear, 1, 0);
+            logic.DiscardCard(dis);                        //第一次：正常离场
+            int log5 = logic.GetEventLog().Count;
+            logic.DiscardCard(dis);                        //第二次：应被幂等挡住（否则重复清理 + 重复发事件）
+            int death5, discard5, bd5, ad5;
+            string names5;
+            CountEvents(logic, log5, out death5, out discard5, out bd5, out ad5, out names5);
+            Check("⑧ Disappear 卡重复 DiscardCard 被幂等挡住", death5 + discard5 == 0,
+                "第二次产生的事件数=" + (death5 + discard5) + "（期望 0） 在墓地=" + g.IsInDiscard(dis)
+                + "（Disappear 不进墓地，期望 False）｜事件=" + names5);
         }
     }
 }
