@@ -57,6 +57,7 @@ namespace TcgEngine.DevTools
         private bool _logged_start_ok;
         private bool _ai_vs_ai_original;       //跑自动对战之前 GameplayData.ai_vs_ai 的原值
         private bool _ai_vs_ai_saved;          //是否已记录原值（未记录就不还原，避免误写）
+        private int _menu_retries;             //★等待 Menu 场景就绪的重试次数（见 StartNextBattle 的"场景无关启动"）
 
         // ---------------- 启动入口 ----------------
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -162,7 +163,40 @@ namespace TcgEngine.DevTools
 
                 Debug.Log("[AutoBattle] 第 " + _battle_index + "/" + _cfg.battles + " 局：player=" + pd.id
                     + " ai=" + ad.id + " scene=" + GameClient.game_settings.scene + " ai_vs_ai=true");
-                MainMenu.Get().StartGame(GameType.Solo, GameMode.Casual);
+
+                //★场景无关启动：回归器可能是在**任意场景**进 Play 的（编辑器当前场景不一定停在 Menu）。
+                //  而 MainMenu.Get() 只返回 Menu 场景里的单例 → 旧写法 `MainMenu.Get().StartGame(...)`
+                //  在非 Menu 场景直接 NullReferenceException，整轮 ABORT_START_EXCEPTION
+                //  （实报：autobattle 一直是坏的 —— 它本该拦住的回归全都看不见）。
+                //  处理：当前没有 MainMenu 就先加载 Menu 场景，再隔 1 秒重试本方法；重试上限 15 次。
+                MainMenu menu = MainMenu.Get();
+                if (menu == null)
+                {
+                    _menu_retries++;
+                    _battle_index--;   //★本次不算一局：重试会重新进入本方法并 ++，不倒退的话"等 Menu"会把局数吃掉（实报：第一局被记成 battle.2）
+                    if (_menu_retries == 1)
+                    {
+                        _report.AppendLine("boot_scene=" + SceneManager.GetActiveScene().name + " → 先加载 Menu 场景再开局");
+                        Debug.Log("[AutoBattle] 当前场景没有 MainMenu 实例，先加载 Menu 场景再开局");
+                        SceneManager.LoadScene("Menu");
+                    }
+                    if (_menu_retries > 15)
+                    {
+                        Finish("ABORT_NO_MAINMENU", "等了约 15 秒仍没有 MainMenu 实例（当前场景="
+                            + SceneManager.GetActiveScene().name + "）—— 无法走正常开局流程（它负责 Disconnect + 切场景）");
+                        return;
+                    }
+                    Invoke(nameof(StartNextBattle), 1f);
+                    return;
+                }
+
+                _menu_retries = 0;
+                //★必须用"带 uid"的重载：MainMenu.StartGame(type, mode) 内部会 `GameTool.GenerateRandomID()`
+                //  重新生成 uid，把上面刚设好的 "autobattle_" 前缀冲掉 —— 而 GameServer.StartGame 的 ai_vs_ai
+                //  判定**要求** uid 以 "autobattle_" 开头（防 ScriptableObject 开关跨会话残留）。
+                //  前缀一丢 ⇒ 玩家 0 不会被 AIPlayer 托管 ⇒ 对局静止在第 1 回合直到超时
+                //  （实报：180 秒 0 条 "AI: Time"、turns=1、outcome=TIMEOUT）。
+                menu.StartGame(GameType.Solo, GameClient.game_settings.game_uid);
                 _in_battle = true;
             }
             catch (Exception e)
