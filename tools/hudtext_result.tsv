@@ -1,0 +1,149 @@
+kind	path	text	world	active	root
+ROOT	GameUI		x[0,0] y[0,0]	True	
+UIText	GameUI/GameCanvas/TimerArea/TurnCount	Turn 1	x[6.5,7.5] y[-3,-2.4]	True	GameUI
+UIText	GameUI/GameCanvas/TimerArea/Time/value	999	x[7,7.5] y[-3.3,-2.9]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/Username	Player	x[-7,-4.3] y[-4.5,-4.1]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/HP	30	x[-7.1,-6.5] y[-5,-4.4]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/HPMax	/30	x[-6.4,-5.8] y[-5,-4.5]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/ChatArea/ChatInput/Placeholder	Write	x[-2.9,3] y[-4.9,-4.5]	False	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/ChatArea/ChatInput/Text	==	x[-2.9,2.9] y[-4.9,-4.5]	False	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/ChatArea/Button/Text	SEND	x[3,3.7] y[-4.9,-4.5]	False	GameUI
+UIText	GameUI/GameCanvas/PlayerUI1/ChatBubble/Text1	Hello!	x[-6.9,-3.9] y[-3.4,-2.1]	False	GameUI
+TMP	GameUI/GameCanvas/PlayerUI1/ManaText	2 / 2 / 12	x[-6.7,-3] y[-5,-4.6]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI2/Username	AI	x[4.3,6.9] y[4.6,4.9]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI2/HP	29	x[5.9,6.5] y[4.1,4.7]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI2/HPMax	/30	x[6.5,7] y[4.1,4.6]	True	GameUI
+UIText	GameUI/GameCanvas/PlayerUI2/ChatBubbleOther/Text1	Hello!	x[3.8,7.1] y[2,3.5]	False	GameUI
+TMP	GameUI/GameCanvas/PlayerUI2/ManaText	2 / 2 / 12	x[2.6,6.3] y[4.1,4.6]	True	GameUI
+UIText	GameUI/GameCanvas/NextTurn/Text	END\nTURN	x[6.4,7.7] y[-4.6,-3.4]	True	GameUI
+UIText	GameUI/GameCanvas/HeroUI/HeroButton/ Mana/Mana	2	x[6.2,6.4] y[-4.8,-4.5]	False	GameUI
+UIText	GameUI/GameCanvas/HeroUI_2/HeroButton/ Mana/Mana	2	x[6.8,7] y[3.5,3.7]	False	GameUI
+UIText	GameUI/GameCanvas/WarningText/Text	Warning Text	x[-1.9,1.9] y[-4.8,-4]	True	GameUI
+UIText	GameUI/GameCanvas/BattleButtonContainer/BattleButtonTemplate/Text	按钮	x[6.3,7.7] y[-0.2,0.2]	False	GameUI
+TMP	GameUI/GameCanvas/BattleButtonBar/BarToggle/Text	按钮 →	x[-7.7,-7.1] y[-0.6,-0.1]	True	GameUI
+UIText	GameUI/PanelCanvas/SelectTarget/Box/Title	Title	x[-2.1,2] y[-4.3,-3.7]	False	GameUI
+UIText	GameUI/PanelCanvas/SelectTarget/Box/Text	Select a target	x[-2.1,2] y[-4.7,-4]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/Cost	99	x[-7.7,-6.9] y[3.8,4.4]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/Attack	99	x[-7.7,-7] y[0,0.6]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/HP	99	x[-5.2,-4.5] y[0,0.6]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/CardTitle	TITLE	x[-7.1,-5] y[4,4.3]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/CardText	Card Effects	x[-7.5,-4.7] y[0.5,1.7]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/CardUI/CardTraits	Card Traits	x[-6.4,-5] y[3.7,4]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/CardRow/Desc	Description	x[-7.4,-4.7] y[-2.9,-0.1]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status/Title	Status Title	x[-4.2,-2.4] y[4.1,4.4]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status/Text	Status Title	x[-4.2,-2.4] y[3.3,4.1]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (1)/Title	Status Title	x[-4.2,-2.4] y[2.7,3.1]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (1)/Text	Status Title	x[-4.2,-2.4] y[2,2.8]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (2)/Title	Status Title	x[-4.2,-2.4] y[1.4,1.8]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (2)/Text	Status Title	x[-4.2,-2.4] y[0.7,1.5]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (3)/Title	Status Title	x[-4.2,-2.4] y[0.1,0.4]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (3)/Text	Status Title	x[-4.2,-2.4] y[-0.7,0.1]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (4)/Title	Status Title	x[-4.2,-2.4] y[-1.3,-0.9]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (4)/Text	Status Title	x[-4.2,-2.4] y[-2,-1.2]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (5)/Title	Status Title	x[-4.2,-2.4] y[-2.6,-2.2]	False	GameUI
+UIText	GameUI/PanelCanvas/CardPreview/Panel/StatusList/Status (5)/Text	Status Title	x[-4.2,-2.4] y[-3.3,-2.5]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Title	SELECT A CHOICE	x[-1.7,1.6] y[0,0.4]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice1/Text	Ability 1	x[-1.2,1.2] y[-1.1,-0.2]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice1/Subtitle	Description	x[-1.2,1.2] y[-1.4,-0.6]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice2/Text	Ability 1	x[-1.2,1.2] y[-2,-1.2]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice2/Subtitle	Description	x[-1.2,1.2] y[-2.4,-1.5]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice3/Text	Ability 1	x[-1.2,1.2] y[-3,-2.2]	False	GameUI
+UIText	GameUI/PanelCanvas/ChoiceSelector/Choice3/Subtitle	Description	x[-1.2,1.2] y[-3.3,-2.5]	False	GameUI
+UIText	GameUI/PanelCanvas/CostSelector/Title	SELECT CARD COST	x[-1.7,1.6] y[0.8,1.3]	False	GameUI
+UIText	GameUI/PanelCanvas/CostSelector/Selector/value	0	x[-0.5,0.5] y[-0.3,0.6]	False	GameUI
+UIText	GameUI/PanelCanvas/CostSelector/SelectOk/Text	SELECT	x[-0.8,0.8] y[-1.5,-1]	False	GameUI
+UIText	GameUI/PanelCanvas/CardSelector/Title	Select a card	x[-3,3] y[3.8,4.7]	False	GameUI
+UIText	GameUI/PanelCanvas/CardSelector/Subtitle	Description	x[-5.8,5.8] y[3,3.9]	False	GameUI
+UIText	GameUI/PanelCanvas/CardSelector/SelectOk/Text	SELECT	x[-1.2,1.2] y[-4.2,-3.4]	False	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/Title	开局替换	x[-3,3] y[3.8,4.7]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/Subtitle	选替换的卡牌	x[-5.8,5.8] y[3,3.9]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/Cost	6	x[-5.6,-5.1] y[1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/Attack	5	x[-5.6,-5.1] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/HP	7	x[-4,-3.6] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/CardTitle	神圣狮鹫	x[-5.2,-3.9] y[1.1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/CardText	<b>飞行</b>，<b>践踏</b>。\n(3):该生物获得+1/+2。	x[-5.4,-3.7] y[-1.1,-0.4]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan/CardUI/CardTraits	==	x[-4.8,-3.9] y[0.9,1.1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/Cost	2	x[-3.3,-2.8] y[1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/Attack	2	x[-3.3,-2.9] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/HP	1	x[-1.7,-1.3] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/CardTitle	火鸟	x[-2.9,-1.6] y[1.1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/CardText	<b>死亡:</b> 召唤火鸟蛋。	x[-3.1,-1.4] y[-1.1,-0.4]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_1/CardUI/CardTraits	==	x[-2.5,-1.6] y[0.9,1.1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/Cost	4	x[-1,-0.5] y[1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/Attack	4	x[-1,-0.6] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/HP	4	x[0.6,1] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/CardTitle	火狐狸	x[-0.6,0.7] y[1.1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/CardText	<b>(4):</b> 将一张法术牌返回手牌。	x[-0.9,0.9] y[-1.1,-0.4]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_2/CardUI/CardTraits	==	x[-0.2,0.7] y[0.9,1.1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/Cost	2	x[1.3,1.8] y[1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/Attack	2	x[1.3,1.7] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/HP	1	x[2.9,3.3] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/CardTitle	火鸟	x[1.7,3] y[1.1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/CardText	<b>死亡:</b> 召唤火鸟蛋。	x[1.4,3.1] y[-1.1,-0.4]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_3/CardUI/CardTraits	==	x[2.1,3] y[0.9,1.1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/Cost	2	x[3.6,4] y[1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/Attack	0	x[3.6,4] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/HP	0	x[5.1,5.6] y[-1.4,-1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/CardTitle	灼热石块	x[4,5.3] y[1.1,1.3]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/CardText	造成1点伤害。抽一张牌。	x[3.7,5.4] y[-1.1,-0.4]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/CardMulligan_4/CardUI/CardTraits	==	x[4.4,5.3] y[0.9,1.1]	True	GameUI
+UIText	GameUI/PanelCanvas/MulliganSelector/SelectOk/Text	OK	x[-1.2,1.2] y[-4.2,-3.4]	True	GameUI
+UIText	GameUI/TopCanvas/LoadScreen/Msg	==	x[-7.1,4.3] y[-5,-4]	False	GameUI
+UIText	GameUI/TopCanvas/InternetLost/Title	Connecting to server...	x[-7,-0.6] y[-4.9,-4.1]	False	GameUI
+UIText	GameUI/TopCanvas/InternetLost/Quit/Text	QUIT	x[5.5,7.8] y[-4.7,-4]	False	GameUI
+UIText	GameUI/TopCanvas/MenuPanel/MenuExo	MENU	x[-2.5,3.9] y[2.4,3.6]	False	GameUI
+UIText	GameUI/TopCanvas/MenuPanel/Menu	MENU	x[-3.3,3.1] y[1.1,2.3]	False	GameUI
+UIText	GameUI/TopCanvas/MenuPanel/Resume/Text	RESUME	x[-1.1,1] y[-0.4,0.3]	False	GameUI
+UIText	GameUI/TopCanvas/MenuPanel/Resign/Text	Quit	x[-1.1,1] y[-1.3,-0.6]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/Victory	VICTORY	x[-5.4,5] y[1.6,4]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/Player	Marc	x[-6.8,0] y[0.8,2.7]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/Player (1)	Player	x[0.1,6.9] y[0.8,2.7]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/GainCoins	==	x[-6.6,-0.2] y[-3.7,-2.5]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/GainXP	==	x[-6.6,-0.2] y[-4,-2.9]	False	GameUI
+UIText	GameUI/TopCanvas/EndGamePanel/Quit/Text	CONTINUE	x[5.4,8.1] y[-4.4,-3.5]	False	GameUI
+UIText	GameUI/TopCanvas/BlackPanel/Text	CHARGEMENT	x[-2.6,2.8] y[-0.8,0.9]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogToggle/Icon	记\n录	x[-7.9,-7.4] y[-0.4,0.4]	True	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Title	对战记录	x[-7.5,-3.3] y[4.6,4.9]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Close/X	×	x[-3.3,-2.9] y[4.6,4.9]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Export/ET	导出	x[-3.8,-2.9] y[4.3,4.6]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Tab0/T	战斗记录	x[-7.9,-6.7] y[4.3,4.6]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Tab1/T	已使用卡牌	x[-6.7,-5.5] y[4.3,4.6]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Tab2/T	被破坏随从	x[-5.4,-4.2] y[4.3,4.6]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Tab3/T	对战信息	x[-4.2,-3] y[4.3,4.6]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Filters/Filter0/FT	全部	x[-7.9,-7] y[4,4.2]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Filters/Filter1/FT	只看我方	x[-7,-6.2] y[4,4.2]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogRoot/Filters/Filter2/FT	只看关键	x[-6.1,-5.3] y[4,4.2]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogArt/Name	==	x[-2.7,-0.3] y[-0.9,-0.7]	False	GameUI
+TMP	GameUI/TopCanvas/BattleLogArt/Body	==	x[-2.7,-0.4] y[-1.9,-1]	False	GameUI
+TMP	GameUI/TopCanvas/DevConsole/Header	调试控制台 · 反引号收起 · help 看指令表 · ↑↓ 历史 · Tab 补全	x[-7.9,7.9] y[-1.8,-1.6]	False	GameUI
+TMP	GameUI/TopCanvas/DevConsole/InputRow/Prompt	>	x[-7.9,-7.8] y[-5,-4.7]	False	GameUI
+TMP	GameUI/TopCanvas/DevConsole/InputRow/InputArea/Input/Text Area/Text	 ​	x[-7.7,7.9] y[-4.9,-4.8]	False	GameUI
+TMP	GameUI/TopCanvas/DevConsole/LogArea/Viewport/Content	<color=#c9d4e6>战斗控制台就绪：输入 help 看指令表（人机/模拟对局可用，联机禁用）</color>	x[-7.9,7.9] y[-1.8,-1.8]	False	GameUI
+ROOT	HandsArea		x[-8,8] y[-5,5]	True	
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Cost	6	x[-3.3,-2.9] y[-4.1,-3.5]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Attack	5	x[-2.6,-2.2] y[-6.9,-6.3]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/HP	7	x[-0.9,-0.5] y[-6.5,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardTitle	神圣狮鹫	x[-2.6,-1.1] y[-4.3,-3.4]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardText	<b>飞行</b>，<b>践踏</b>。\n(3):该生物获得+1/+2。	x[-2.6,-0.8] y[-6.3,-4.9]	False	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Cost	2	x[-2.5,-2] y[-3.8,-3.3]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Attack	2	x[-2,-1.6] y[-6.6,-6.1]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/HP	1	x[-0.3,0.2] y[-6.4,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardTitle	火鸟	x[-1.8,-0.3] y[-4.1,-3.3]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardText	<b>死亡:</b> 召唤火鸟蛋。	x[-2,-0.1] y[-6.1,-4.8]	False	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Cost	4	x[-1.6,-1.1] y[-3.6,-3.1]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Attack	4	x[-1.4,-0.9] y[-6.4,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/HP	4	x[0.3,0.8] y[-6.4,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardTitle	火狐狸	x[-1,0.6] y[-3.9,-3.3]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardText	<b>(4):</b> 将一张法术牌返回手牌。	x[-1.4,0.7] y[-5.9,-4.8]	False	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Cost	2	x[-0.8,-0.2] y[-3.5,-3]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Attack	2	x[-0.8,-0.3] y[-6.3,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/HP	1	x[0.9,1.5] y[-6.4,-6]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardTitle	火鸟	x[-0.2,1.5] y[-3.9,-3.4]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardText	<b>死亡:</b> 召唤火鸟蛋。	x[-0.7,1.4] y[-5.8,-4.8]	False	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Cost	2	x[0.1,0.6] y[-3.5,-3.1]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/Attack	0	x[-0.2,0.3] y[-6.3,-5.9]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/HP	0	x[1.5,2.1] y[-6.5,-6.1]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardTitle	灼热石块	x[0.6,2.3] y[-3.9,-3.6]	True	HandsArea
+UIText	HandsArea/PlayerHand/HandArea/HandCard(Clone)/CardText	造成1点伤害。抽一张牌。	x[-0.1,2.1] y[-5.8,-5]	False	HandsArea
+TMP	HandsArea/PlayerHand/HandLimitLabel	手牌 5/10	x[5.4,7.8] y[-4.9,-4.5]	True	HandsArea
+ROOT	BattleLogPanel		x[0,0] y[0,0]	True	
