@@ -35,11 +35,53 @@ namespace TcgEngine.UI
             instance = this;
 
             TabButton.onClickAny += OnClickTab;
+
+            ApplyPanelTitle();        //★左上角标题：场景里是英文占位 "CARD" ⇒ 统一改成「卡牌介绍」（所有卡共用这个弹窗）
+            ApplyDescOverflowFix();   //★描述文字溢出边框：强制按框宽换行 + 超高截断
         }
 
         private void OnDestroy()
         {
             TabButton.onClickAny -= OnClickTab;
+        }
+
+        /// <summary>左上角标题文字。工程场景里那个对象叫 Box/Text、内容是英文占位 "CARD"，
+        /// 而且它**没有被任何序列化字段引用** ⇒ 这里按名字找（好处：不用改场景/prefab，
+        /// 也就不存在"动到场景"的风险）。</summary>
+        private void ApplyPanelTitle()
+        {
+            Transform t = transform.Find("Box/Text");
+            if (t == null)
+                return;
+            Text txt = t.GetComponent<Text>();
+            if (txt != null)
+            {
+                txt.text = "卡牌介绍";
+                return;
+            }
+            TextMeshProUGUI tmp = t.GetComponent<TextMeshProUGUI>();
+            if (tmp != null)
+                tmp.text = "卡牌介绍";
+        }
+
+        /// <summary>描述文字溢出边框：工程这里用的是旧版 Text，默认不换行 ⇒ 长描述会直接画到框外。
+        /// 统一成"按框宽换行 + 超出高度截断"，任何卡的长描述都不会再越界。</summary>
+        private void ApplyDescOverflowFix()
+        {
+            if (desc == null)
+                return;
+            desc.horizontalOverflow = HorizontalWrapMode.Wrap;
+            desc.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        /// <summary>★关弹窗时把"为相关卡牌条临时加高的宿主"还原。
+        /// 为什么必须还原：本工程关掉了 Play 的"重载域/重载场景"（AutoBattleRunner 注释里也记了这点），
+        /// 运行期对场景对象的改动会**留在编辑器场景上** ⇒ 下次进 Play 弹窗就是错的（实测：Box 从 729.25
+        /// 被留在 902.58，中心锚点的标题因此下漂 86.7 ⇒ 用户看到的"左上角 CARD 偏移"）。</summary>
+        public override void Hide(bool instant = false)
+        {
+            base.Hide(instant);
+            RestorePanelHeight();
         }
 
         protected override void Update()
