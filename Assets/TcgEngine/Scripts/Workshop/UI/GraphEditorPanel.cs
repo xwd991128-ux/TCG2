@@ -6444,17 +6444,34 @@ namespace TcgEngine.UI
                 c.skills = new List<string>();
             List<string> titles = new List<string>();
             List<string> ids = new List<string>();
-            //★候选 = **全部已注册卡**里 type=Skill 的（内置技能卡 + 各池技能卡）。
-            //  原来用 GetCustomCards()（只有池卡）⇒ 想挂内置技能卡时选不到（与"相关卡牌"同一处坑）。
-            List<CardData> all_cards = CardData.GetAll();
-            if (all_cards != null)
+            //★口径与「相关卡牌」统一：候选 = **当前编辑的这个卡池里**的卡（这里再筛 type=Skill）。
+            //  原来用 GetCustomCards()（所有本地池）⇒ 基础卡池里的技能卡选不到。
+            if (pool != null && pool.cards != null)
             {
-                foreach (CardData cd in all_cards)
+                foreach (CardCustomData cd in pool.cards)
                 {
-                    if (cd == null || cd.type != CardType.Skill || string.IsNullOrEmpty(cd.id))
+                    if (cd == null || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
                         continue;
+                    CardData live = CardData.Get(cd.id);
+                    if (live == null || live.type != CardType.Skill)
+                        continue;       //只要技能卡
                     titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
                     ids.Add(cd.id);
+                }
+            }
+            if (ids.Count == 0)
+            {
+                //兜底：拿不到池 → 退回"所有本地池里的技能卡"
+                List<CardData> pool_cards = CardPoolIO.GetCustomCards();
+                if (pool_cards != null)
+                {
+                    foreach (CardData cd in pool_cards)
+                    {
+                        if (cd == null || cd.type != CardType.Skill || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
+                            continue;
+                        titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
+                        ids.Add(cd.id);
+                    }
                 }
             }
             foreach (string cur in c.skills)   //已选但不在候选里的（如已删除的卡）也列出来，可取消勾选
@@ -6496,18 +6513,34 @@ namespace TcgEngine.UI
                 c.related_card_ids = new List<string>();
             List<string> titles = new List<string>();
             List<string> ids = new List<string>();
-            //★候选 = **全部已注册卡**（内置卡 + 各卡池的卡），不是只列"卡池卡"：
-            //  基础卡池/内置卡上编辑时，`GetCustomCards()` 里一张内置卡都没有 ⇒ 候选几乎是空的
-            //  （用户实报"基础卡池里面不能选择相关卡牌"）。跨池/跨内置引用本来就是合理的。
-            List<CardData> all_cards = CardData.GetAll();
-            if (all_cards != null)
+            //★候选 = **当前正在编辑的这个卡池里的卡**（用户口径：相关卡牌只能关联自己卡池的卡）。
+            //  `pool` 就是本卡所属卡池的引用（Open(pool, card, savePath) 传进来的那份，保存时整体写盘）。
+            //  为什么不能用 GetCustomCards()（= 所有本地池的卡）：基础卡池里的卡不在 custom_ids 里
+            //  ⇒ 在基础卡池上编辑时候选是空的（用户实报"基础卡池里面不能选择相关卡牌"）。
+            //  也不能用 CardData.GetAll()（= 内置卡 + 所有池）：跨池引用会让"导出这张卡"带上别的池的依赖。
+            if (pool != null && pool.cards != null)
             {
-                foreach (CardData cd in all_cards)
+                foreach (CardCustomData cd in pool.cards)
                 {
                     if (cd == null || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
                         continue;       //不把本体列进来（自引用无意义）
                     titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
                     ids.Add(cd.id);
+                }
+            }
+            if (ids.Count == 0)
+            {
+                //兜底：拿不到池（理论上不会发生）→ 退回"所有本地池的卡"，仍然不含内置卡、不跨池引用
+                List<CardData> pool_cards = CardPoolIO.GetCustomCards();
+                if (pool_cards != null)
+                {
+                    foreach (CardData cd in pool_cards)
+                    {
+                        if (cd == null || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
+                            continue;
+                        titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
+                        ids.Add(cd.id);
+                    }
                 }
             }
             foreach (string cur in c.related_card_ids)   //已选但不在候选里的（如已删除的卡）也列出来，可取消勾选
