@@ -53,7 +53,33 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+            RepairFormArea();      //★布局自愈：生成工具把 FormArea 写成负高度 ⇒ 右侧表单全排到画面外
             EnsureValueRow();      //★「数值」行：运行时建（不改场景），见方法注释
+        }
+
+        /// <summary>★布局自愈（不改场景，只在运行时纠正）：
+        /// 生成工具 `KeywordPanelBuilder` 把 FormArea 写成 anchors=(0,0)-(1,0) + sizeDelta=(-390,-130)
+        /// ⇒ 算出来的**高度是 -130**（负数）⇒ 它下面所有控件（标题/说明/原生机制/规则区/「数值」行）
+        /// 全被排到画面外，打开页面就是"右边一片空、只有一个『+ 添加规则』飘着"。
+        /// 这里按工具本意改成上下拉伸：左 348（让开左侧列表）/ 右 42 / 下 40 / 上 90。</summary>
+        private void RepairFormArea()
+        {
+            RectTransform area = null;
+            foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
+            {
+                if (rt.name == "FormArea")
+                {
+                    area = rt;
+                    break;
+                }
+            }
+            if (area == null)
+                return;
+            area.anchorMin = new Vector2(0f, 0f);
+            area.anchorMax = new Vector2(1f, 1f);
+            area.pivot = new Vector2(0f, 0f);
+            area.offsetMin = new Vector2(348f, 40f);
+            area.offsetMax = new Vector2(-42f, -90f);
         }
 
         protected override void Start()
@@ -252,7 +278,7 @@ namespace TcgEngine.UI
             label.anchorMin = new Vector2(0.58f, 1f);
             label.anchorMax = new Vector2(0.58f, 1f);
             label.pivot = new Vector2(0f, 1f);
-            label.anchoredPosition = new Vector2(-44f, -132f);
+            label.anchoredPosition = new Vector2(-30f, -132f);
             label.sizeDelta = new Vector2(60f, 26f);
             Text lt = label.GetComponentInChildren<Text>(true);
             if (lt != null)

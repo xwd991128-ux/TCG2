@@ -190,11 +190,13 @@ namespace TcgEngine.EditorTools
         private static void BuildFormArea(Transform parent, KeywordPanel panel)
         {
             RectTransform area = CreateRect("FormArea", parent);
+            //★上下都要拉伸（anchorMax.y = 1）：以前写成 (1,0) + sizeDelta.y = -130 ⇒ 高度算出来是 -130，
+            //  下面所有控件全被排到画面外（"右侧一片空"）。这里用 offset 表达"左 348 / 右 42 / 下 40 / 上 90"。
             area.anchorMin = new Vector2(0, 0);
-            area.anchorMax = new Vector2(1, 0);
+            area.anchorMax = new Vector2(1, 1);
             area.pivot = new Vector2(0, 0);
-            area.anchoredPosition = new Vector2(348, 40);
-            area.sizeDelta = new Vector2(-390, -130);
+            area.offsetMin = new Vector2(348, 40);
+            area.offsetMax = new Vector2(-42, -90);
 
             //标题行
             Text title_label = CreateText("TitleLabel", area, "标题", _font, 18, new Color(0.8f, 0.8f, 0.85f, 1f), TextAnchor.MiddleLeft);
