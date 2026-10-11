@@ -27,6 +27,10 @@ namespace TcgEngine.UI
         private CardData card;
         private VariantData variant;
 
+        //★"返回上一张"的历史：点相关卡牌跳过去时把当前这张压栈；非空时才显示「◀ 返回」按钮
+        private readonly List<KeyValuePair<CardData, VariantData>> nav_history = new List<KeyValuePair<CardData, VariantData>>();
+        private GameObject back_btn_go;
+
         private static CardZoomPanel instance;
 
         protected override void Awake()
@@ -38,6 +42,7 @@ namespace TcgEngine.UI
 
             ApplyPanelTitle();        //★左上角标题：场景里是英文占位 "CARD" ⇒ 统一改成「卡牌介绍」（所有卡共用这个弹窗）
             ApplyDescOverflowFix();   //★描述文字溢出边框：强制按框宽换行 + 超高截断
+            EnsureBackButton();       //★「◀ 返回」按钮（点相关卡牌进去后能回到原卡）
         }
 
         private void OnDestroy()
@@ -72,6 +77,63 @@ namespace TcgEngine.UI
                 return;
             desc.horizontalOverflow = HorizontalWrapMode.Wrap;
             desc.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        // ==================== ★「◀ 返回」：点相关卡牌进去后回到原卡 ====================
+        // 需求（用户）：点相关卡牌后怎么回到原来那张卡？之前是直接替换、没有回头路 ⇒ 加一个返回栈 + 返回按钮。
+        // 按钮运行时创建（不碰场景/prefab）；位置与「卡牌介绍」同一行、放在它右边。
+        // 锚点用 (0, 0.5)（与标题同款"垂直居中"锚）⇒ 加高弹窗时会被 CompensateCenterChildren 一起补回原位，不会漂。
+
+        private void EnsureBackButton()
+        {
+            if (back_btn_go != null)
+                return;
+            Transform host = transform.Find("Box");
+            if (host == null)
+                return;
+
+            back_btn_go = new GameObject("BackButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            back_btn_go.transform.SetParent(host, false);
+            RectTransform rt = back_btn_go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(132f, 46f);
+            rt.anchoredPosition = new Vector2(390f, 319f);      //与标题同一行、放它右边
+
+            Image img = back_btn_go.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.10f);
+            Button b = back_btn_go.GetComponent<Button>();
+            b.targetGraphic = img;
+            b.onClick.AddListener(OnClickBack);
+
+            GameObject t = new GameObject("T", typeof(RectTransform));
+            t.transform.SetParent(rt, false);
+            TextMeshProUGUI txt = t.AddComponent<TextMeshProUGUI>();
+            txt.text = "◀ 返回";
+            txt.fontSize = 22f;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+            UIFonts.ApplyFont(txt);
+            RectTransform trt = txt.rectTransform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            back_btn_go.SetActive(false);
+        }
+
+        /// <summary>回到上一张（栈顶）</summary>
+        private void OnClickBack()
+        {
+            if (nav_history.Count == 0)
+                return;
+            int last = nav_history.Count - 1;
+            KeyValuePair<CardData, VariantData> prev = nav_history[last];
+            nav_history.RemoveAt(last);
+            ShowCardInternal(prev.Key, prev.Value);
         }
 
         /// <summary>★关弹窗时把"为相关卡牌条临时加高的宿主"还原。
@@ -124,7 +186,18 @@ namespace TcgEngine.UI
                 trade_quantity.interactable = on;
         }
 
+        /// <summary>外部入口（卡牌浏览 / 卡组里点开一张卡）：先清空"返回上一张"的历史再展示。</summary>
         public void ShowCard(CardData card, VariantData variant)
+        {
+            nav_history.Clear();
+            ShowCardInternal(card, variant);
+        }
+
+        /// <summary>真正的展示逻辑。返回栈由调用方维护：
+        ///   · 列表里点开一张卡 → 清空（见 ShowCard）
+        ///   · 点「相关卡牌」跳过去 → 先把当前这张压栈（见 RefreshRelatedCards 里的点击回调）
+        ///   · RefreshCard（数值刷新）→ 不动历史</summary>
+        private void ShowCardInternal(CardData card, VariantData variant)
         {
             this.card = card;
             this.variant = variant;
@@ -159,12 +232,16 @@ namespace TcgEngine.UI
             //★相关卡牌：与本卡一起展示（卡牌属性里配的 related_card_ids；没配则整条隐藏）
             RefreshRelatedCards(card, variant);
 
+            //★有"上一张"可回才显示「◀ 返回」（从列表直接点开时不显示）
+            if (back_btn_go != null)
+                back_btn_go.SetActive(nav_history.Count > 0);
+
             Show();
         }
 
         public void RefreshCard()
         {
-            ShowCard(card, variant);
+            ShowCardInternal(card, variant);   //数值刷新：不打乱"返回上一张"的历史
         }
 
         // ==================== ★相关卡牌（卡牌浏览里与本体一起展示、可点进去看） ====================
@@ -240,7 +317,13 @@ namespace TcgEngine.UI
                     b.onClick.RemoveAllListeners();
                     CardData target = cd;
                     VariantData tv = v != null ? v : VariantData.GetDefault();
-                    b.onClick.AddListener(() => ShowCard(target, tv));   //同一弹层里跳过去看那张卡
+                    b.onClick.AddListener(() =>
+                    {
+                        //★跳过去看这张相关卡牌之前，先把"当前这张"压栈 ⇒ 左上角会出现「◀ 返回」点回来
+                        if (this.card != null)
+                            nav_history.Add(new KeyValuePair<CardData, VariantData>(this.card, this.variant));
+                        ShowCardInternal(target, tv);
+                    });
                 }
             }
         }

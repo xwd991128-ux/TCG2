@@ -1,0 +1,7 @@
+A 原卡	wolf_alpha	狼王
+B 相关卡	wolf_baby	幼狼
+C 打开原卡后	显示中=wolf_alpha	返回按钮存在=True	按钮显示=False
+D 点相关卡牌后	显示中=wolf_baby	返回按钮显示=True	（期望：显示中=wolf_baby、按钮已出现）
+E 点返回后	显示中=wolf_alpha	返回按钮显示=False	（期望：显示中=wolf_alpha、按钮已收起）
+== 判定 ==
+F 逐项	回到原卡PASS / 按钮收起PASS
