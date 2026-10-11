@@ -1,0 +1,4 @@
+结果	断言	说明
+PASS	① 链首效果抛异常：不向外抛 + 留告警 + 后续效果照常执行	向外抛异常=False victim HP=17（期望 17 ⇒ 后面的 EffectDamage 执行了） 有[效果]告警=True（1 条，首条：[效果] ThrowingEffect 执行异常（已隔离，不影响对局后续）：（探针）模拟旧式 Effect 目标为 null 直接解引用|Warning）
+PASS	② 真实旧效果 + null 目标：不许把链打断	向外抛异常=False（0 条告警）
+PASS	③ 对照：正常链生效且无失败告警	victim HP=17（期望 17） 无[效果]告警=True（0 条告警）

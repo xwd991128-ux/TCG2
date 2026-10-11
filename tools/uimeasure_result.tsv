@@ -1,0 +1,27 @@
+Screen	1218 x 847	(Play 窗口/Game view 实际像素)
+ActiveScene	Game
+Canvas 总数	6
+Canvas	Scene/Board/BoardDeck/Canvas	mode=WorldSpace order=10 active=False scaleFactor=1 pixelRect=1218x847
+		ConstantPixelSize ref=800x600 match=0 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=80x150 实际像素=2x1
+Canvas	HandsArea	mode=ScreenSpaceCamera order=18 active=True scaleFactor=0.7048611 pixelRect=1218x761.25
+		ScaleWithScreenSize ref=1920x1080 match=1 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=1728x1080 实际像素=10x16
+Canvas	Scene/Board/BoardDeck (1)/Canvas	mode=WorldSpace order=10 active=False scaleFactor=1 pixelRect=1218x847
+		ConstantPixelSize ref=800x600 match=0 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=80x150 实际像素=2x1
+Canvas	GameUI/TopCanvas	mode=ScreenSpaceCamera order=3 active=True scaleFactor=0.634375 pixelRect=1218x761.25
+		ScaleWithScreenSize ref=1920x1080 match=0 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=1920x1200 实际像素=10x16
+Canvas	GameUI/PanelCanvas	mode=ScreenSpaceCamera order=2 active=True scaleFactor=0.634375 pixelRect=1218x761.25
+		ScaleWithScreenSize ref=1920x1080 match=0 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=1920x1200 实际像素=10x16
+Canvas	GameUI/GameCanvas	mode=ScreenSpaceCamera order=1 active=True scaleFactor=0.634375 pixelRect=1218x761.25
+		ScaleWithScreenSize ref=1920x1080 match=0 screenMatch=MatchWidthOrHeight scaleFactor=1
+		sizeDelta=1920x1200 实际像素=10x16
+目标	BattleLogCanvas	(场景里找不到/未激活)
+目标	BattleLogRoot	(场景里找不到/未激活)
+目标	GameUI/TopCanvas/BattleLogToggle	sizeDelta=64x84 anchorMin=(0.00, 0.50) anchorMax=(0.00, 0.50) pivot=(0.00, 0.50) pos=(8.00, 0.00)	实际像素=1x1	左下角屏幕坐标=-8,0
+目标	BattleLogPanel	(无 RectTransform)
+目标	UICanvas	(场景里找不到/未激活)
+目标	UICanvasTop	(场景里找不到/未激活)

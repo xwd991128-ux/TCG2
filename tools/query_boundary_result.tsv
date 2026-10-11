@@ -1,0 +1,8 @@
+结果	断言	说明
+PASS	① 区域列表含 null 时 Player.Get*Card 不崩	5 个查询全部安全返回 null
+PASS	② 对照：Game 版 Get*Card 本来就安全	（Game 版安全）
+PASS	③ SummonCardHand(定义=null)：不崩 + 返回 null + 告警 + 不灌 null	抛异常=False 返回=null 有告警=True 手牌里有 null=False（2 条，首条：[Card] Create 收到空 CardData（该卡 id 未注册/资源丢失）→ 返回 null，调用方需判空|Error）
+PASS	④ AddCardDeck(定义=null)：不崩 + 返回 null + 告警 + 不灌 null	抛异常=False 返回=null 有告警=True 牌库里有 null=False（2 条，首条：[Card] Create 收到空 CardData（该卡 id 未注册/资源丢失）→ 返回 null，调用方需判空|Error）
+PASS	⑤ EffectCreate(定义=null)：不崩 + 留告警	抛异常=False 有[创建]告警=True（2 条，首条：[Card] Create 收到空 CardData（该卡 id 未注册/资源丢失）→ 返回 null，调用方需判空|Error）
+PASS	⑥ 单人局随机查询不崩	抛异常=False 随机卡=null（空战场）
+PASS	⑦ 对照：正常查询语义不变	Player.GetHandCard 命中=True Game.GetHandCard 命中=True IsInHand=True 不存在 uid 返回 null=True

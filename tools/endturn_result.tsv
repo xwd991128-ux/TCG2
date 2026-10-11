@@ -1,0 +1,5 @@
+结果	断言	说明
+PASS	① 非主阶段 EndTurn 有明确告警（不再静默）	告警=True（期望 True） 相位未变=True（期望 True）｜捕获告警 1 条
+PASS	② 对照：统一入口 RequestEndTurn 返回 false 且告警	返回=False（期望 False） 告警=True（期望 True）
+PASS	③ 额外回合不再多计一个回合数	正常换人后=6（期望 6） 额外回合后=6（期望仍 6；修复前会变 7 ⇒ 一个真实轮次 +2） 当前玩家=1
+PASS	④ 对照：正常换人回到先手 → turn_count +1	turn_count 5 → 6（期望 6） 当前玩家=1（期望 1）

@@ -1,0 +1,7 @@
+结果	断言	说明
+PASS	① 回合开始的毒伤致死 → 当场判胜负	hp=0 state=GameEnded hasEnded=True（期望 True）
+PASS	② 玩家毒伤走统一伤害入口（发伤害图事件）	OnAfterDamage 0 → 1（期望增加） hp=0
+PASS	③ 装备区卡每回合复位 exhausted	装备卡 exhausted=False（期望 False，即已复位）
+PASS	⑤ 对照：战场卡复位不受影响	战场卡 exhausted=False（期望 False）
+PASS	④ 全体被跳过时不误扣当前玩家 skip	返回下家=0（期望 0=保持当前玩家） 当前玩家剩余 skip=1（期望 1，不许被自己消耗掉） 对方剩余 skip=0
+PASS	⑥ 新对局开盘清掉上一局残留（起手抽牌的新记录保留）	开盘前 1 条 → 开盘后 5 条（新记录来自起手抽牌） 上一局那条还在=False（期望 False）
