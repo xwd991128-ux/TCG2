@@ -165,6 +165,11 @@ namespace TcgEngine.UI
 
         private void RefreshList()
         {
+            //★场景里已经把左侧列表（ListArea）删掉了 ⇒ list_content / row_template 现在是空引用。
+            //  这里必须早退，否则每次打开页面/新建关键词都会 NRE（列表内容已经没人看了）。
+            if (list_content == null || row_template == null)
+                return;
+
             List<KeywordData> keywords = KeywordData.GetAll();
             EnsureRows(row_buttons, keywords.Count, row_template, list_content);
 
