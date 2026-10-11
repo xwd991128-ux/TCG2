@@ -27,8 +27,18 @@ namespace TcgEngine
 
         private void DrawCardOfType(GameLogic logic, Player player, CardType type)
         {
-            if (player.cards_deck.Count == 0)
+            //★失败必须留痕（与同文件"满手牌"告警同一口径）：旧实现这两种失败都是**静默 return**，
+            //  玩家侧表现是"检索抽牌技能没反应"，日志里一句都没有（实测 EffectFailPathProbe ② ③）。
+            if (player == null)
+            {
+                Debug.LogWarning("[抽牌] 抽指定类型失败：目标玩家为空");
                 return;
+            }
+            if (player.cards_deck.Count == 0)
+            {
+                Debug.LogWarning("[抽牌] 抽指定类型失败：p" + player.player_id + " 牌库为空");
+                return;
+            }
 
             for (int i = 0; i < player.cards_deck.Count; i++)
             {
@@ -50,6 +60,9 @@ namespace TcgEngine
                     return;
                 }
             }
+
+            Debug.LogWarning("[抽牌] 抽指定类型失败：p" + player.player_id + " 牌库里没有 " + type
+                + " 类型的卡（牌库共 " + player.cards_deck.Count + " 张）");
         }
     }
 }

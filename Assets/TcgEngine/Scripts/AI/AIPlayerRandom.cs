@@ -376,7 +376,9 @@ namespace TcgEngine.AI
         {
             if (CanPlay())
             {
-                gameplay.EndTurn();
+                //★走统一入口 RequestEndTurn：它经由 resolve_queue 延后执行，保证当前效果结算链跑完再切回合、
+                //  且不会在 resolve 回调里重入回合流程；直接 EndTurn() 是立即执行，有重入风险（作者注释已声明）。
+                gameplay.RequestEndTurn();
             }
         }
     }

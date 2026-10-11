@@ -243,24 +243,111 @@ namespace TcgEngine
             return targets.Contains(target); //Card is still in array after filtering
         }
 
+        // ================= 效果执行的安全边界 =================
+        // 单个 Effect 出错（典型：旧式 Effect 在"目标为 null"时直接解引用抛 NRE）**绝不能中断整条能力链**
+        // —— 与图事件（EmitGraphEvent 的异常隔离）、规则图（NodeDoc"坏图不影响对局"）同一哲学。
+        // 为什么修在这一层而不是逐个 Effect 加守卫：审计查出 20+ 个旧 Effect 有同样问题，
+        // 挨个补既改不完、也挡不住以后新写的 Effect（实测 EffectChainIsolationProbe ① ②：
+        // 旧实现下链首一个 NRE ⇒ 异常外溢 + 后面所有效果都不执行）。
+        private static void WarnEffectError(EffectData effect, System.Exception e)
+        {
+            Debug.LogWarning("[效果] " + (effect != null ? effect.GetType().Name : "(null)")
+                + " 执行异常（已隔离，不影响对局后续）：" + e.Message);
+        }
+
+        private static void SafeDo(EffectData ef, GameLogic lg, AbilityData ab, Card ca)
+        {
+            if (ef == null) return;
+            try { ef.DoEffect(lg, ab, ca); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDo(EffectData ef, GameLogic lg, AbilityData ab, Card ca, Card ta)
+        {
+            if (ef == null) return;
+            try { ef.DoEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDo(EffectData ef, GameLogic lg, AbilityData ab, Card ca, Player ta)
+        {
+            if (ef == null) return;
+            try { ef.DoEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDo(EffectData ef, GameLogic lg, AbilityData ab, Card ca, Slot ta)
+        {
+            if (ef == null) return;
+            try { ef.DoEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDo(EffectData ef, GameLogic lg, AbilityData ab, Card ca, CardData ta)
+        {
+            if (ef == null) return;
+            try { ef.DoEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDoOngoing(EffectData ef, GameLogic lg, AbilityData ab, Card ca, Card ta)
+        {
+            if (ef == null) return;
+            try { ef.DoOngoingEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        private static void SafeDoOngoing(EffectData ef, GameLogic lg, AbilityData ab, Card ca, Player ta)
+        {
+            if (ef == null) return;
+            try { ef.DoOngoingEffect(lg, ab, ca, ta); } catch (System.Exception e) { WarnEffectError(ef, e); }
+        }
+
+        /// <summary>状态数组落盘：原实现直接 `target.AddStatus`，目标为 null 时会 NRE 把整条链打断
+        /// （实测异常栈直接落在本文件原来的那一行）</summary>
+        private static void AddStatusSafe(Card target, StatusData[] list, int value, int duration)
+        {
+            if (list == null || list.Length == 0)
+                return;
+            if (target == null)
+            {
+                Debug.LogWarning("[效果] 附加状态失败：目标卡为空（共 " + list.Length + " 条状态）");
+                return;
+            }
+            foreach (StatusData stat in list)
+                target.AddStatus(stat, value, duration);
+        }
+
+        private static void AddOngoingStatusSafe(Card target, StatusData[] list, int value)
+        {
+            if (list == null || list.Length == 0)
+                return;
+            if (target == null)
+            {
+                Debug.LogWarning("[效果] 附加持续状态失败：目标卡为空（共 " + list.Length + " 条状态）");
+                return;
+            }
+            foreach (StatusData stat in list)
+                target.AddOngoingStatus(stat, value);
+        }
+
         public void DoEffects(GameLogic logic, Card caster)
         {
             foreach(EffectData effect in effects)
-                effect?.DoEffect(logic, this, caster);
+                SafeDo(effect, logic, this, caster);
         }
 
         public void DoEffects(GameLogic logic, Card caster, Card target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoEffect(logic, this, caster, target);
-            foreach(StatusData stat in status)
-                target.AddStatus(stat, value, duration);
+                SafeDo(effect, logic, this, caster, target);
+            AddStatusSafe(target, status, value, duration);
         }
 
         public void DoEffects(GameLogic logic, Card caster, Player target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoEffect(logic, this, caster, target);
+                SafeDo(effect, logic, this, caster, target);
+            if (target == null)
+            {
+                if (status != null && status.Length > 0)
+                    Debug.LogWarning("[效果] 附加状态失败：目标玩家为空（共 " + status.Length + " 条状态）");
+                return;
+            }
             foreach (StatusData stat in status)
                 target.AddStatus(stat, value, duration);
         }
@@ -268,27 +355,32 @@ namespace TcgEngine
         public void DoEffects(GameLogic logic, Card caster, Slot target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoEffect(logic, this, caster, target);
+                SafeDo(effect, logic, this, caster, target);
         }
 
         public void DoEffects(GameLogic logic, Card caster, CardData target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoEffect(logic, this, caster, target);
+                SafeDo(effect, logic, this, caster, target);
         }
 
         public void DoOngoingEffects(GameLogic logic, Card caster, Card target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoOngoingEffect(logic, this, caster, target);
-            foreach (StatusData stat in status)
-                target.AddOngoingStatus(stat, value);
+                SafeDoOngoing(effect, logic, this, caster, target);
+            AddOngoingStatusSafe(target, status, value);
         }
 
         public void DoOngoingEffects(GameLogic logic, Card caster, Player target)
         {
             foreach (EffectData effect in effects)
-                effect?.DoOngoingEffect(logic, this, caster, target);
+                SafeDoOngoing(effect, logic, this, caster, target);
+            if (target == null)
+            {
+                if (status != null && status.Length > 0)
+                    Debug.LogWarning("[效果] 附加持续状态失败：目标玩家为空（共 " + status.Length + " 条状态）");
+                return;
+            }
             foreach (StatusData stat in status)
                 target.AddOngoingStatus(stat, value);
         }

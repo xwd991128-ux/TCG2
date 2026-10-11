@@ -34,6 +34,14 @@ namespace TcgEngine
             }
 
             Card card = Card.Create(target, caster.VariantData, player);
+            //★Card.Create 在卡牌定义为空时返回 null（见 Card.cs）：旧实现紧接着 `card.uid` 会 NRE，
+            //  若那行侥幸通过，null 还会被灌进区域列表 → 该玩家后续抽牌/AI/UI 全线崩
+            //  （实测 QueryBoundaryProbe ⑤）。
+            if (card == null)
+            {
+                Debug.LogWarning("[创建] 创建卡失败：卡牌定义为空（来源=" + (caster != null ? caster.card_id : "无") + "）");
+                return;
+            }
             logic.GameData.last_summoned = card.uid;
 
             if (create_pile == PileType.Deck)
