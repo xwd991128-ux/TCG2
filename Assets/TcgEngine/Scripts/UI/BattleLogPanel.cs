@@ -23,9 +23,39 @@ namespace TcgEngine.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
+            //★场景切换自愈：每次加载场景都重新判定一次"该不该存在"。
+            //  为什么必须有：本面板是**运行时自建**的，而工程在 Play 模式下关了 Reload Scene ⇒
+            //  运行时建的对象会留在编辑器里、并叠到之后加载的场景上显示
+            //  （用户实报："刚进主菜单，左边就有一列记录面板；关掉了还显示错误"——
+            //   它的画布 sortingOrder=300 会盖在菜单之上，实例还会跨 Play 会话残留）。
+            //  旧实现只在 Boot 里判一次场景名，且**离开 Game 场景时从不销毁** ⇒ 残留可见。
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoadedStatic;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoadedStatic;
+            SyncToActiveScene();
+        }
+
+        private static void OnSceneLoadedStatic(UnityEngine.SceneManagement.Scene sc,
+            UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            SyncToActiveScene();
+        }
+
+        /// <summary>按当前活动场景同步：Game 场景 → 保证存在；其它场景 → 连带自建画布一起销毁。</summary>
+        private static void SyncToActiveScene()
+        {
             UnityEngine.SceneManagement.Scene sc = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (sc.name != "Game")
-                return;   //只在战斗场景自建；菜单场景不建
+            {
+                BattleLogPanel old = Get();
+                if (old != null)
+                    Destroy(old.gameObject);
+                _instance = null;   //★关域重载时 _instance 会跨 Play 会话残留，必须显式清
+                GameObject stray = GameObject.Find("BattleLogPanel");   //兜底：按名字找一遍
+                if (stray != null)
+                    Destroy(stray);
+                return;
+            }
+
             if (Get() != null)
                 return;
             GameObject go = new GameObject("BattleLogPanel");
@@ -73,6 +103,12 @@ namespace TcgEngine.UI
             BuildToggle();
             BuildPanel();
             BuildArtPanel();
+            //★复用工程画布后要与 HUD 抢层级：把自己排到同画布最后（= 画在最上层），
+            //  否则可能被后建的 HUD 元素压住（记录面板必须盖在战斗 HUD 之上）。
+            if (root != null)
+                root.transform.SetAsLastSibling();
+            if (art_root != null)
+                art_root.transform.SetAsLastSibling();
             root.SetActive(false);
         }
 
@@ -84,6 +120,18 @@ namespace TcgEngine.UI
 
         private void Update()
         {
+            //★每帧自愈（最可靠的那道闸）：只要当前不是战斗场景 Game，就**连自建画布一起销毁**。
+            //  为什么只靠 Boot 里判一次场景名不够：工程在 Play 模式下关了 Reload Scene，
+            //  `AfterSceneLoad` 触发时机与"实际加载了哪些场景/谁是活动场景"可能不一致 ⇒
+            //  实测在只有 Menu 场景、活动场景也是 Menu 的情况下，面板照样被建出来并盖在菜单上
+            //  （用户实报："刚进主菜单左边就有一列记录面板，关掉了还显示错误"——它的画布
+            //   sortingOrder=300 会盖住菜单）。新建对象在本帧 Update 就会被这里销毁，来不及渲染。
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Game")
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             if (Input.GetKeyDown(KeyCode.Tab))
                 Toggle();
 
@@ -247,6 +295,16 @@ namespace TcgEngine.UI
             Canvas c = GetComponentInParent<Canvas>();
             if (c != null)
                 return c.gameObject;
+
+            //★优先**复用工程自己的 UI 画布**（实测：UICanvas / UICanvasTop 是
+            //  ScreenSpaceCamera + ScaleWithScreenSize(ref 1920x1080, match=**高**)，scaleFactor≈0.705）。
+            //  旧写法自建 ScreenSpaceOverlay 画布 + match 默认按**宽**（scaleFactor≈0.634，实测 Screen=1218x847）
+            //  ⇒ 面板与游戏 HUD **既不同坐标系、也不同缩放**：表现为面板被缩成小半张、贴在最上面、文字糊
+            //  （用户实报"上面出现了半截的战斗记录"）。复用后与 HUD 完全同缩放/同视口。
+            Canvas reuse = FindProjectUiCanvas();
+            if (reuse != null)
+                return reuse.gameObject;
+
             GameObject go = new GameObject("BattleLogCanvas", typeof(RectTransform));
             go.transform.SetParent(transform, false);
             Canvas canvas = go.AddComponent<Canvas>();
@@ -255,8 +313,51 @@ namespace TcgEngine.UI
             CanvasScaler scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            //★兜底也要与工程口径一致：按**高度**匹配（默认是 0=按宽，会导致小窗口下整块缩水）
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 1f;
             go.AddComponent<GraphicRaycaster>();
             return go;
+        }
+
+        /// <summary>找工程自己的 UI 画布（= 战斗 HUD 那套）：
+        /// ① 优先 `GameUI/` 下的 GameCanvas / PanelCanvas / TopCanvas（实测：ScreenSpaceCamera + ScaleWithScreenSize
+        ///    ref 1920x1080，match 按宽 ⇒ scaleFactor 0.634）→ 取 sortingOrder 最大的（= TopCanvas，画在最上层）；
+        /// ② 其次名字为 UICanvasTop / UICanvas 的；
+        /// ③ 最后退化为"任意带 CanvasScaler 的屏幕空间画布里 sortingOrder 最大的"。
+        /// 只认带 CanvasScaler 的（正规 UI 画布）；WorldSpace（如 HoverBox）一律不要。找不到才自建（见 EnsureCanvas 兜底）。</summary>
+        private static Canvas FindProjectUiCanvas()
+        {
+            Canvas[] all = UnityEngine.Object.FindObjectsOfType<Canvas>(true);
+            Canvas hud_best = null, named_top = null, named_main = null, by_order = null;
+            for (int i = 0; i < all.Length; i++)
+            {
+                Canvas cc = all[i];
+                if (cc == null || !cc.isActiveAndEnabled)
+                    continue;
+                if (cc.renderMode != RenderMode.ScreenSpaceCamera && cc.renderMode != RenderMode.ScreenSpaceOverlay)
+                    continue;   //WorldSpace 的（如 HoverBox / BoardDeck）不要
+                if (cc.GetComponent<CanvasScaler>() == null)
+                    continue;
+
+                //① 战斗 HUD：名字命中 GameCanvas / PanelCanvas / TopCanvas（通常在 GameUI 下）
+                if (cc.name == "GameCanvas" || cc.name == "PanelCanvas" || cc.name == "TopCanvas")
+                {
+                    if (hud_best == null || cc.sortingOrder > hud_best.sortingOrder)
+                        hud_best = cc;
+                }
+                if (cc.name == "UICanvasTop") named_top = cc;
+                else if (cc.name == "UICanvas") named_main = cc;
+                if (by_order == null || cc.sortingOrder > by_order.sortingOrder)
+                    by_order = cc;
+            }
+            if (hud_best != null)
+                return hud_best;         //② 与游戏 HUD 同画布（同缩放/同视口）
+            if (named_top != null)
+                return named_top;
+            if (named_main != null)
+                return named_main;
+            return by_order;
         }
 
         private void BuildPanel()
@@ -723,6 +824,7 @@ namespace TcgEngine.UI
                 case BattleLogKind.PlayCard:
                 case BattleLogKind.Summon: return new Color(0.45f, 0.7f, 1f);      //蓝：上场
                 case BattleLogKind.Attack: return new Color(1f, 0.75f, 0.35f);     //橙：攻击
+                case BattleLogKind.AttackRejected: return new Color(0.62f, 0.6f, 0.66f); //灰：攻击未生效（区别于"打出去了"）
                 case BattleLogKind.Damage: return new Color(1f, 0.45f, 0.4f);      //红：伤害
                 case BattleLogKind.Heal: return new Color(0.5f, 1f, 0.6f);         //绿：治疗
                 case BattleLogKind.Death: return new Color(0.72f, 0.36f, 0.36f);   //暗红：破坏
