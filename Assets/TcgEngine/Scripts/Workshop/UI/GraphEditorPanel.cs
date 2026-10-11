@@ -6444,10 +6444,12 @@ namespace TcgEngine.UI
                 c.skills = new List<string>();
             List<string> titles = new List<string>();
             List<string> ids = new List<string>();
-            List<CardData> pool_cards = CardPoolIO.GetCustomCards();
-            if (pool_cards != null)
+            //★候选 = **全部已注册卡**里 type=Skill 的（内置技能卡 + 各池技能卡）。
+            //  原来用 GetCustomCards()（只有池卡）⇒ 想挂内置技能卡时选不到（与"相关卡牌"同一处坑）。
+            List<CardData> all_cards = CardData.GetAll();
+            if (all_cards != null)
             {
-                foreach (CardData cd in pool_cards)
+                foreach (CardData cd in all_cards)
                 {
                     if (cd == null || cd.type != CardType.Skill || string.IsNullOrEmpty(cd.id))
                         continue;
