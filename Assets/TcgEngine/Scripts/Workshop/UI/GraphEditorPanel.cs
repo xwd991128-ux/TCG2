@@ -60,6 +60,7 @@ namespace TcgEngine.UI
         private TMP_Text txt_trait_select;      // 种族多选按钮文本（显示已选摘要）
         private TMP_Text txt_keyword_select;    // 关键词多选按钮文本
         private TMP_Text txt_skill_select;      // 英雄技能卡多选按钮文本（type=Hero 时可配；开战挂到英雄技能位）
+        private TMP_Text txt_related_select;    // ★相关卡牌多选按钮文本（任何卡可配；卡牌浏览里与本体一起展示、可点进去看）
         private TMP_Text txt_type_select;       // 类型选择按钮文本（TMP，替代旧下拉）
         private TMP_Text txt_team_select;       // 阵营选择按钮文本
         private TMP_Text txt_rarity_select;     // 稀有度选择按钮文本
@@ -5880,6 +5881,25 @@ namespace TcgEngine.UI
                 txt_skill_select = CreateCardSelectButton(sk_field, "SkillCardSelect", OnClickSkillCardSelect);
             }
 
+            //2.6) ★相关卡牌：复制种族行插入（与"技能卡"完全同构的多选）；候选=卡池里**所有**卡（不限类型）。
+            //     用途：衍生物/生成物/配套卡/同系列卡的交叉引用；卡牌浏览里点开本体时一起展示、可直接点进去看。
+            //     纯展示配置，不参与对局规则。先清同名残留防重复（场景保存过运行时对象时会重复建）。
+            Transform stale_rel = content.Find("PropRowRelatedCards");
+            if (stale_rel != null)
+                Destroy(stale_rel.gameObject);
+            RectTransform rel_row = Instantiate(row.gameObject, content).GetComponent<RectTransform>();
+            rel_row.name = "PropRowRelatedCards";
+            rel_row.SetSiblingIndex(row.GetSiblingIndex() + 3);
+            rel_row.gameObject.SetActive(true);
+            SetLabelText(rel_row.Find("PropLabel"), "相关卡牌");
+            RectTransform rel_field = rel_row.Find("Field") as RectTransform;
+            if (rel_field != null)
+            {
+                for (int i = rel_field.childCount - 1; i >= 0; i--)   //清掉复制来的旧控件
+                    Destroy(rel_field.GetChild(i).gameObject);
+                txt_related_select = CreateCardSelectButton(rel_field, "RelatedCardSelect", OnClickRelatedCardSelect);
+            }
+
             //3) 音效行试听「▶」与短字段凑行已在生成工具中直接生成，此处不再运行时重排
 
             card_extra_built = true;
@@ -5944,6 +5964,10 @@ namespace TcgEngine.UI
                 txt_skill_select.text = (c != null && c.type == "Hero")
                     ? MultiSummary(c.skills, SkillCardTitle, "（选择技能卡）")
                     : "（仅英雄卡可配）";
+            if (txt_related_select != null)
+                txt_related_select.text = c != null
+                    ? MultiSummary(c.related_card_ids, RelatedCardTitle, "（选择相关卡牌）")
+                    : "";
             if (txt_type_select != null)
                 txt_type_select.text = c != null ? TypeNameOf(c.type) : "";
             if (txt_team_select != null)
@@ -6454,6 +6478,56 @@ namespace TcgEngine.UI
         }
 
         private static string SkillCardTitle(string id)
+        {
+            CardData d = !string.IsNullOrEmpty(id) ? CardData.Get(id) : null;
+            return d != null && !string.IsNullOrEmpty(d.title) ? d.title : id;
+        }
+
+        /// <summary>★相关卡牌多选：候选 = 卡池里**所有**卡（不限类型，排除本体自己）。
+        /// 与"技能卡"同构；纯展示配置（卡牌浏览里展示 + 可点进去看），不参与对局规则。</summary>
+        private void OnClickRelatedCardSelect()
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            if (c.related_card_ids == null)
+                c.related_card_ids = new List<string>();
+            List<string> titles = new List<string>();
+            List<string> ids = new List<string>();
+            List<CardData> pool_cards = CardPoolIO.GetCustomCards();
+            if (pool_cards != null)
+            {
+                foreach (CardData cd in pool_cards)
+                {
+                    if (cd == null || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
+                        continue;       //不把本体列进来（自引用无意义）
+                    titles.Add(string.IsNullOrEmpty(cd.title) ? cd.id : cd.title);
+                    ids.Add(cd.id);
+                }
+            }
+            foreach (string cur in c.related_card_ids)   //已选但不在候选里的（如已删除的卡）也列出来，可取消勾选
+            {
+                if (!string.IsNullOrEmpty(cur) && !ids.Contains(cur))
+                {
+                    titles.Add(cur);
+                    ids.Add(cur);
+                }
+            }
+            OpenMultiSelectPopup("相关卡牌", c.related_card_ids, titles.ToArray(), ids.ToArray(), ApplyRelatedCardSelection);
+        }
+
+        private void ApplyRelatedCardSelection(List<string> list)
+        {
+            CardCustomData c = card;
+            if (c == null)
+                return;
+            c.related_card_ids = new List<string>(list);
+            CardPoolIO.UpdateCardData(c);   //运行期定义立即更新（卡牌浏览读的是运行期 CardData）
+            RefreshCardExtraFields();
+            SetStatus("已设置相关卡牌 " + (list != null ? list.Count : 0) + " 张（卡牌浏览里会与本体一起展示）");
+        }
+
+        private static string RelatedCardTitle(string id)
         {
             CardData d = !string.IsNullOrEmpty(id) ? CardData.Get(id) : null;
             return d != null && !string.IsNullOrEmpty(d.title) ? d.title : id;

@@ -1,0 +1,5 @@
+PASS	① 前置：拿到被测卡 bear	id=bear
+PASS	② 导出：CardData → CardCustomData 带上相关卡牌	条数=2 wolf_stalker,tree_angry
+PASS	③ JSON 往返：卡池文件里保留相关卡牌	json含字段=True 回读条数=2 wolf_stalker,tree_angry
+PASS	④ 导入/保存：运行期 CardData 拿到相关卡牌	条数=2 wolf_stalker,tree_angry
+INFO	已恢复 bear 的相关卡牌为原值（0 条）

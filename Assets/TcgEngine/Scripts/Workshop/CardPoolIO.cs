@@ -541,6 +541,8 @@ namespace TcgEngine.Workshop
                 }
             }
             data.skills = card.skills != null ? new List<string>(card.skills) : new List<string>();   //英雄技能卡引用（导出保留）
+            //相关卡牌（导出保留）：手写字段，漏了就会"导出再导入 = 配置丢失"（与美术/音效/自定义参数同一类坑）
+            data.related_card_ids = card.related_card_ids != null ? new List<string>(card.related_card_ids) : new List<string>();
 
             //★把「图能力」的图回写到卡级效果列表（data.effects）——**这是导出方向的关键缺口**：
             //  导入侧 CompileOneGraphAbilities 只认 CardEffectData.graph（能力级的 AbilityCustomData.effects
@@ -914,6 +916,8 @@ namespace TcgEngine.Workshop
             card.keywords = ResolveKeywords(data.keywords);
             //★英雄技能卡引用（type=Hero 时）：id 列表原样带入运行期定义（开战时挂载到英雄卡实例）
             card.skills = data.skills != null ? new List<string>(data.skills) : new List<string>();
+            //★相关卡牌：id 列表原样带入运行期（卡牌浏览里展示用；缺失/无效 id 在展示处忽略）
+            card.related_card_ids = data.related_card_ids != null ? new List<string>(data.related_card_ids) : new List<string>();
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;
@@ -1164,6 +1168,7 @@ namespace TcgEngine.Workshop
             ApplyTraits(card, data);   //种族支持多选（traits 列表），并兼容旧单字段 trait
             card.keywords = ResolveKeywords(data.keywords);
             card.skills = data.skills != null ? new List<string>(data.skills) : new List<string>();   //英雄技能卡引用
+            card.related_card_ids = data.related_card_ids != null ? new List<string>(data.related_card_ids) : new List<string>();   //相关卡牌
             card.mana = data.mana;
             card.attack = data.attack;
             card.hp = data.hp;

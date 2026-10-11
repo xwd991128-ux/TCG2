@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -113,12 +114,188 @@ namespace TcgEngine.UI
             else
                 this.desc.text = adesc;
 
+            //★相关卡牌：与本卡一起展示（卡牌属性里配的 related_card_ids；没配则整条隐藏）
+            RefreshRelatedCards(card, variant);
+
             Show();
         }
 
         public void RefreshCard()
         {
             ShowCard(card, variant);
+        }
+
+        // ==================== ★相关卡牌（卡牌浏览里与本体一起展示、可点进去看） ====================
+        // 数据来源：卡牌属性「相关卡牌」= CardData.related_card_ids（卡池 JSON 字段 related_card_ids）。
+        // 纯展示：不影响任何对局规则与数值。
+
+        private RectTransform related_root;
+        private readonly List<GameObject> related_slots = new List<GameObject>();
+        private const int RelatedMaxShow = 6;
+        private const float RelatedSlotW = 86f;
+        private const float RelatedSlotH = 104f;
+        private const float RelatedStripH = 132f;
+
+        /// <summary>按当前卡的相关卡牌刷新这条；无配置/无有效卡 → 整条隐藏。</summary>
+        private void RefreshRelatedCards(CardData c, VariantData v)
+        {
+            List<CardData> list = new List<CardData>();
+            if (c != null && c.related_card_ids != null)
+            {
+                foreach (string id in c.related_card_ids)
+                {
+                    if (string.IsNullOrEmpty(id))
+                        continue;
+                    CardData cd = CardData.Get(id);
+                    if (cd == null)
+                        continue;               //无效 id（已删除/未注册）静默忽略
+                    list.Add(cd);
+                    if (list.Count >= RelatedMaxShow)
+                        break;
+                }
+            }
+
+            if (list.Count == 0)
+            {
+                if (related_root != null && related_root.gameObject.activeSelf)
+                    related_root.gameObject.SetActive(false);
+                return;
+            }
+
+            EnsureRelatedRoot();
+            if (related_root == null)
+                return;
+            PlaceRelatedRootBelowDesc();
+            related_root.gameObject.SetActive(true);
+
+            for (int i = 0; i < related_slots.Count; i++)
+                related_slots[i].SetActive(i < list.Count);
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                CardData cd = list[i];
+                GameObject slot = related_slots[i];
+                Image img = slot.GetComponent<Image>();
+                Sprite sp = cd.GetFullArt(v);
+                if (sp == null)
+                    sp = cd.GetFullArt(null);
+                img.sprite = sp;
+                img.enabled = sp != null;
+                TMP_Text t = slot.GetComponentInChildren<TMP_Text>(true);
+                if (t != null)
+                    t.text = string.IsNullOrEmpty(cd.title) ? cd.id : cd.title;
+                Button b = slot.GetComponent<Button>();
+                if (b != null)
+                {
+                    b.onClick.RemoveAllListeners();
+                    CardData target = cd;
+                    VariantData tv = v != null ? v : VariantData.GetDefault();
+                    b.onClick.AddListener(() => ShowCard(target, tv));   //同一弹层里跳过去看那张卡
+                }
+            }
+        }
+
+        /// <summary>建一次：标题 + 最多 6 个卡位（每个 = 卡图 + 卡名，可点）。</summary>
+        private void EnsureRelatedRoot()
+        {
+            if (related_root != null)
+                return;
+            Transform host = desc != null ? desc.transform.parent : transform;
+            if (host == null)
+                return;
+
+            GameObject root_go = new GameObject("RelatedCards", typeof(RectTransform), typeof(Image));
+            related_root = root_go.GetComponent<RectTransform>();
+            related_root.SetParent(host, false);
+            related_root.anchorMin = new Vector2(0f, 0f);
+            related_root.anchorMax = new Vector2(0f, 0f);
+            related_root.pivot = new Vector2(0f, 1f);
+            related_root.sizeDelta = new Vector2(RelatedSlotW * RelatedMaxShow + 24f, RelatedStripH);
+            Image bg = root_go.GetComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.25f);
+            bg.raycastTarget = false;
+
+            //标题
+            GameObject t_go = new GameObject("Title", typeof(RectTransform));
+            t_go.transform.SetParent(related_root, false);
+            TextMeshProUGUI title = t_go.AddComponent<TextMeshProUGUI>();
+            title.text = "相关卡牌";
+            title.fontSize = 14f;
+            title.color = new Color(1f, 1f, 1f, 0.75f);
+            title.alignment = TextAlignmentOptions.TopLeft;
+            title.raycastTarget = false;
+            UIFonts.ApplyFont(title);                 //★运行时 TMP 文本必须走工程字体管线
+            RectTransform trt = title.rectTransform;
+            trt.anchorMin = new Vector2(0f, 1f);
+            trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(0f, 1f);
+            trt.anchoredPosition = new Vector2(8f, -4f);
+            trt.sizeDelta = new Vector2(-16f, 20f);
+
+            //卡位
+            for (int i = 0; i < RelatedMaxShow; i++)
+            {
+                GameObject slot = new GameObject("Slot" + i, typeof(RectTransform), typeof(Image), typeof(Button));
+                slot.transform.SetParent(related_root, false);
+                RectTransform srt = slot.GetComponent<RectTransform>();
+                srt.anchorMin = new Vector2(0f, 0f);
+                srt.anchorMax = new Vector2(0f, 0f);
+                srt.pivot = new Vector2(0f, 0f);
+                srt.anchoredPosition = new Vector2(12f + i * RelatedSlotW, 12f);
+                srt.sizeDelta = new Vector2(RelatedSlotW - 6f, RelatedSlotH - 20f);
+                Image si = slot.GetComponent<Image>();
+                si.color = Color.white;
+                Button sb = slot.GetComponent<Button>();
+                sb.targetGraphic = si;
+
+                //卡名（放卡位下方，跟着卡位走）
+                GameObject n_go = new GameObject("Name", typeof(RectTransform));
+                n_go.transform.SetParent(slot.transform, false);
+                TextMeshProUGUI name = n_go.AddComponent<TextMeshProUGUI>();
+                name.fontSize = 12f;
+                name.color = new Color(1f, 1f, 1f, 0.9f);
+                name.alignment = TextAlignmentOptions.Bottom;
+                name.enableWordWrapping = false;
+                name.overflowMode = TextOverflowModes.Ellipsis;
+                name.raycastTarget = false;
+                UIFonts.ApplyFont(name);
+                RectTransform nrt = name.rectTransform;
+                nrt.anchorMin = new Vector2(0f, 0f);
+                nrt.anchorMax = new Vector2(1f, 0f);
+                nrt.pivot = new Vector2(0.5f, 1f);
+                nrt.anchoredPosition = new Vector2(0f, -2f);
+                nrt.sizeDelta = new Vector2(-4f, 16f);
+
+                slot.SetActive(false);
+                related_slots.Add(slot);
+            }
+            related_root.gameObject.SetActive(false);
+        }
+
+        /// <summary>把这条贴到卡牌描述的正下方（用 desc 的实际矩形换算，避免猜布局）。
+        /// 支持 ScreenSpaceOverlay / ScreenSpaceCamera 两种画布。</summary>
+        private void PlaceRelatedRootBelowDesc()
+        {
+            if (related_root == null || desc == null || desc.rectTransform == null)
+                return;
+            RectTransform host = related_root.parent as RectTransform;
+            if (host == null)
+                return;
+
+            Canvas canvas = related_root.GetComponentInParent<Canvas>();
+            Camera cam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                ? canvas.worldCamera : null;
+
+            Vector3[] dc = new Vector3[4];
+            desc.rectTransform.GetWorldCorners(dc);        //0=左下 1=左上 2=右上 3=右下
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(cam, dc[0]);
+            Vector2 local;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(host, screen, cam, out local))
+            {
+                //localPoint 是"相对 host 轴心"的坐标 → 换算成"相对 anchor(左下角)"：减去 rect.min
+                Vector2 bottom_left_relative = local - host.rect.min;
+                related_root.anchoredPosition = bottom_left_relative + new Vector2(0f, -6f);
+            }
         }
 
         private async void BuyCardTest()

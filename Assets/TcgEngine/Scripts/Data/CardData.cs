@@ -62,6 +62,11 @@ namespace TcgEngine
         public List<string> skills = new List<string>();   //★英雄技能卡（type=Hero 时：技能卡的卡牌 id；
                                                           //  开战时把技能卡上的起动式能力挂到英雄卡实例上）
 
+        [Header("Related Cards")]
+        [Tooltip("相关卡牌（卡牌 id 列表）：在卡牌浏览里点开这张卡时，一起展示出来、可直接点进去看（影之诗/炉石口径）。\n" +
+                 "用途：把 衍生物 / 生成物 / 配套卡 / 同一系列的卡 关联到本体。**只做展示，不影响对局规则**。")]
+        public List<string> related_card_ids = new List<string>();
+
         [Header("Attack Rules")]
         [Tooltip("攻击目标规则图（0~1 张，空 = 原有行为）：图里放「攻击限制」/「被攻击限制」入口，\n" +
                  "入口的 cond 口为真 = 允许这次攻击。条件用现有节点拼（类型/关键词/攻击力/生命/比较/逻辑运算）。")]
