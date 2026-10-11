@@ -6494,10 +6494,13 @@ namespace TcgEngine.UI
                 c.related_card_ids = new List<string>();
             List<string> titles = new List<string>();
             List<string> ids = new List<string>();
-            List<CardData> pool_cards = CardPoolIO.GetCustomCards();
-            if (pool_cards != null)
+            //★候选 = **全部已注册卡**（内置卡 + 各卡池的卡），不是只列"卡池卡"：
+            //  基础卡池/内置卡上编辑时，`GetCustomCards()` 里一张内置卡都没有 ⇒ 候选几乎是空的
+            //  （用户实报"基础卡池里面不能选择相关卡牌"）。跨池/跨内置引用本来就是合理的。
+            List<CardData> all_cards = CardData.GetAll();
+            if (all_cards != null)
             {
-                foreach (CardData cd in pool_cards)
+                foreach (CardData cd in all_cards)
                 {
                     if (cd == null || string.IsNullOrEmpty(cd.id) || cd.id == c.id)
                         continue;       //不把本体列进来（自引用无意义）
