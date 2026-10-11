@@ -208,7 +208,12 @@ namespace TcgEngine.UI
         {
             if (related_root != null)
                 return;
-            Transform host = desc != null ? desc.transform.parent : transform;
+            //★挂到**弹窗根**上（不是 desc 的父级）：这样"左下角"就是弹窗的左下角。
+            //  挂在 desc 的父级上曾经出过事：那个容器如果不是整块内容区（只是右栏/某个局部盒子），
+            //  按它算出来的位置会把这条摆到弹窗外面、被 Mask 裁掉 ⇒ 整条消失（用户实报）。
+            RectTransform host = FindPanelRect();
+            if (host == null)
+                host = transform as RectTransform;
             if (host == null)
                 return;
 
@@ -303,25 +308,49 @@ namespace TcgEngine.UI
             Camera cam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
                 ? canvas.worldCamera : null;
 
-            //① 现有控件占到的下边缘（相对宿主底边）= 可用空间的顶
-            float top = MeasureOccupiedBottom(host, cam);
-            if (top - RelatedGap < RelatedStripH)
-                GrowPanel(RelatedStripH - (top - RelatedGap));   //底部不够高 → 把弹窗向下加高
-            if (panel_extra > 0f)
-                top = MeasureOccupiedBottom(host, cam);           //加高后重新量（顶边没动，控件在屏幕上的位置不变）
+            //① 先给它腾地方：把面板**向下加高**（顶边不动）⇒ 面板底部多出一条只给它的空白带。
+            //  最多试 3 遍：内容若是"垂直居中"锚点，面板加高会把内容也往下带（每遍净增约一半）⇒ 一遍不够，要迭代收敛。
+            for (int pass = 0; pass < 3; pass++)
+            {
+                float band = MeasureBand(host, cam);
+                if (band >= RelatedStripH + RelatedPad)
+                    break;
+                if (!GrowPanel(RelatedStripH + RelatedPad - band))
+                    break;                    //加不了（尺寸被布局组件驱动 / 已到上限）
+            }
 
-            //② 宽度自适应：装得下几个就显示几个（宿主再窄也至少留 1 个，条宽最后由下面夹进内宽）
+            //② 宽度自适应：按宿主内宽收敛。宿主 rect 还没算出来（宽 <= 0，例如弹窗尚未激活）时按"最多 6 个"来，
+            //  绝不能算成 0 个（那会让这条整条消失）。
             float avail_w = host.rect.width - RelatedPad * 2f;
-            int fit = Mathf.FloorToInt((avail_w - 12f) / RelatedSlotW);
-            if (fit < 1)
-                fit = 1;
-            int shown = Mathf.Clamp(Mathf.Min(want, fit), 0, RelatedMaxShow);
+            int fit = avail_w > RelatedSlotW
+                ? Mathf.FloorToInt((avail_w - 12f) / RelatedSlotW)
+                : RelatedMaxShow;
+            fit = Mathf.Clamp(fit, 1, RelatedMaxShow);
+            int shown = Mathf.Clamp(Mathf.Min(want, fit), 1, RelatedMaxShow);
 
-            //③ 落位：贴宿主左下角，上沿 = 现有控件的下方
             float need_w = 12f + shown * RelatedSlotW + RelatedPad;
-            related_root.sizeDelta = new Vector2(Mathf.Max(need_w, RelatedSlotW + 12f), RelatedStripH);
-            related_root.anchoredPosition = new Vector2(RelatedPad, top - RelatedGap);
+            related_root.sizeDelta = new Vector2(
+                Mathf.Min(need_w, Mathf.Max(avail_w, RelatedSlotW + 12f)), RelatedStripH);
+
+            //③ 位置：**钉死在宿主左下角**（anchor/pivot 都在左下，偏移 = 内边距）。
+            //  为什么不再"量现有控件的下边缘再往下摆"：那个算法要求 desc 的父级正好是整块内容区，
+            //  一旦量到的值偏小或为负（父级只是局部容器 / 弹窗尚未激活 / 卡图在别的层），这条就被摆到面板**外面**、
+            //  被 Mask 裁掉 ⇒ 表现就是"整条不见了"（用户实报"现在直接不显示了"）。钉左下角后，无论布局怎么变都一定在面板内。
+            related_root.anchorMin = new Vector2(0f, 0f);
+            related_root.anchorMax = new Vector2(0f, 0f);
+            related_root.pivot = new Vector2(0f, 0f);
+            related_root.anchoredPosition = new Vector2(RelatedPad, RelatedPad);
             return shown;
+        }
+
+        /// <summary>宿主底部当前空出多少高度（= 现有控件最低点的下方还剩多少）。
+        /// 量到的值不可信（负数 / 超过宿主高度 ⇒ 父级不是整块内容区）时返回 0 = 当作"没有空白带"。</summary>
+        private float MeasureBand(RectTransform host, Camera cam)
+        {
+            float band = MeasureOccupiedBottom(host, cam) - RelatedGap;
+            if (band < 0f || band > host.rect.height)
+                return 0f;
+            return band;
         }
 
         /// <summary>现有控件（卡图 / 描述 / 买卖区）里最低的下边缘，返回"相对宿主底边的偏移"；
@@ -352,33 +381,35 @@ namespace TcgEngine.UI
             return Mathf.Min(cur, local.y - host.rect.min.y);     //换算成"相对宿主底边"
         }
 
-        /// <summary>把弹窗向下加高 deficit（**顶边不动**）。尺寸被布局组件驱动时直接放弃加高。</summary>
-        private void GrowPanel(float deficit)
+        /// <summary>把面板向下加高到"底部至少留出 want_extra 的空白"（**顶边不动**），返回是否真的改了尺寸。
+        /// 只加不减（要变回原高统一走 RestorePanelHeight）；尺寸被布局组件驱动时直接放弃。</summary>
+        private bool GrowPanel(float want_extra)
         {
-            if (deficit <= 0f)
-                return;
+            if (want_extra <= 0f)
+                return false;
             if (panel_rect == null)
             {
                 panel_rect = FindPanelRect();
                 if (panel_rect == null)
-                    return;
+                    return false;
                 if (panel_rect.GetComponent<LayoutGroup>() != null || panel_rect.GetComponent<ContentSizeFitter>() != null)
                 {
                     panel_rect = null;      //尺寸被别人管着：改了也会被覆盖，索性不改
-                    return;
+                    return false;
                 }
                 base_panel_h = panel_rect.sizeDelta.y;
                 base_panel_pos_y = panel_rect.anchoredPosition.y;
             }
 
-            float target = Mathf.Clamp(panel_extra + deficit, 0f, RelatedStripH + 16f);
-            if (Mathf.Approximately(target, panel_extra))
-                return;
+            float target = Mathf.Clamp(want_extra, 0f, RelatedStripH + RelatedPad * 2f + 8f);
+            if (target <= panel_extra + 0.5f)
+                return false;               //已经是这么大（或更大）：不缩回去，避免"加高 ↔ 缩回"来回抖
             panel_extra = target;
             panel_rect.sizeDelta = new Vector2(panel_rect.sizeDelta.x, base_panel_h + panel_extra);
             //pivot 不在中轴上时改高度会同时带动上下两边 → 补回偏移，让**顶边留在原位**
             panel_rect.anchoredPosition = new Vector2(panel_rect.anchoredPosition.x,
                 base_panel_pos_y - (1f - panel_rect.pivot.y) * panel_extra);
+            return true;
         }
 
         /// <summary>还原弹窗原高（这张卡没有相关卡牌时）</summary>
