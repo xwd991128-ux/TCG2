@@ -27,6 +27,11 @@ namespace TcgEngine.UI
         /// 运行时创建（不改场景），插在"原生机制"那一行右边的空白处；0 = 不带数值。</summary>
         [System.NonSerialized] public InputField input_value;
 
+        //★列表收起/展开（从卡牌编辑器点「编辑」进来时已经选好关键词 ⇒ 不再占着地方显示列表）
+        private RectTransform list_area;          //ListArea（面板根左列）
+        private RectTransform form_area;          //FormArea（右侧表单区，缓存）
+        private GameObject list_toggle_go;        //工具栏里的「列表」开关（运行时创建）
+
         private TMPro.TMP_Text status_select_text;   // 状态弹出单选按钮的文本（运行时创建）
         private int status_index;                    // 当前选中的 STATUS_VALUES 下标
 
@@ -55,6 +60,7 @@ namespace TcgEngine.UI
             instance = this;
             RepairFormArea();      //★布局自愈：生成工具把 FormArea 写成负高度 ⇒ 右侧表单全排到画面外
             EnsureValueRow();      //★「数值」行：运行时建（不改场景），见方法注释
+            EnsureListToggle();    //★工具栏「列表」开关：收起左侧列表、让表单铺满
         }
 
         /// <summary>★布局自愈（不改场景，只在运行时纠正）：
@@ -64,15 +70,7 @@ namespace TcgEngine.UI
         /// 这里按工具本意改成上下拉伸：左 348（让开左侧列表）/ 右 42 / 下 40 / 上 90。</summary>
         private void RepairFormArea()
         {
-            RectTransform area = null;
-            foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
-            {
-                if (rt.name == "FormArea")
-                {
-                    area = rt;
-                    break;
-                }
-            }
+            RectTransform area = FindFormArea();
             if (area == null)
                 return;
             area.anchorMin = new Vector2(0f, 0f);
@@ -80,6 +78,94 @@ namespace TcgEngine.UI
             area.pivot = new Vector2(0f, 0f);
             area.offsetMin = new Vector2(348f, 40f);
             area.offsetMax = new Vector2(-42f, -90f);
+        }
+
+        private RectTransform FindFormArea()
+        {
+            if (form_area != null)
+                return form_area;
+            foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
+            {
+                if (rt.name == "FormArea")
+                {
+                    form_area = rt;
+                    break;
+                }
+            }
+            return form_area;
+        }
+
+        // ---------------- ★顶部「列表」开关：收起左列、表单铺满 ----------------
+
+        /// <summary>工具栏「列表」开关（运行时建在"新建"左边，不改场景）。</summary>
+        private void EnsureListToggle()
+        {
+            if (list_toggle_go != null || btn_new == null)
+                return;
+            RectTransform bar = btn_new.transform.parent as RectTransform;
+            if (bar == null)
+                return;
+
+            list_toggle_go = new GameObject("ListToggleBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+            list_toggle_go.transform.SetParent(bar, false);
+            RectTransform rt = list_toggle_go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(100f, 44f);
+            rt.anchoredPosition = new Vector2(-326f, 0f);     //"新建"在 -220，这里放它左边
+
+            Image img = list_toggle_go.GetComponent<Image>();
+            img.color = new Color(0.35f, 0.35f, 0.42f, 1f);
+            Button b = list_toggle_go.GetComponent<Button>();
+            b.targetGraphic = img;
+            b.onClick.AddListener(() => SetListVisible(!(list_area != null && list_area.gameObject.activeSelf)));
+
+            GameObject t = new GameObject("T", typeof(RectTransform));
+            t.transform.SetParent(rt, false);
+            TextMeshProUGUI txt = t.AddComponent<TextMeshProUGUI>();
+            txt.text = "列表";
+            txt.fontSize = 20f;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+            UIFonts.ApplyFont(txt);
+            RectTransform trt = txt.rectTransform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>收起 / 展开左侧关键词列表；收起时表单铺满整行。
+        /// 需求（用户）：从卡牌编辑器点「编辑」进来时关键词已经选好了，进去就别再显示列表。</summary>
+        public void SetListVisible(bool on)
+        {
+            if (list_area == null)
+            {
+                foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
+                {
+                    if (rt.name == "ListArea")
+                    {
+                        list_area = rt;
+                        break;
+                    }
+                }
+            }
+            if (list_area != null)
+                list_area.gameObject.SetActive(on);
+
+            RectTransform area = FindFormArea();
+            if (area != null)
+                area.offsetMin = new Vector2(on ? 348f : 40f, 40f);   //列表列宽 320 + 间距 ⇒ 收起时铺满
+
+            EnsureListToggle();
+            if (list_toggle_go != null)
+            {
+                Text t = list_toggle_go.GetComponentInChildren<Text>();
+                if (t != null)
+                    t.text = on ? "收起列表" : "列表";
+            }
         }
 
         protected override void Start()
@@ -359,6 +445,9 @@ namespace TcgEngine.UI
             Show();
             if (string.IsNullOrEmpty(keyword_id))
                 return;
+            //★已指定关键词（从卡牌编辑器的「编辑」进来）⇒ 收起左侧列表、表单铺满
+            //（用户口径：进去不要再看列表了）
+            SetListVisible(false);
             RefreshList();
             int index = KeywordData.GetAll().IndexOf(KeywordData.Get(keyword_id));
             if (index >= 0)
