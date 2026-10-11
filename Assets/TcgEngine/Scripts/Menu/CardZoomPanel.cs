@@ -110,7 +110,7 @@ namespace TcgEngine.UI
             GameObject t = new GameObject("T", typeof(RectTransform));
             t.transform.SetParent(rt, false);
             TextMeshProUGUI txt = t.AddComponent<TextMeshProUGUI>();
-            txt.text = "◀ 返回";
+            txt.text = "< 返回";   //★用 ASCII 的 '<'：全角符号/箭头在本工程字体里可能缺字形（会显示成方块）
             txt.fontSize = 22f;
             txt.alignment = TextAlignmentOptions.Center;
             txt.color = Color.white;
