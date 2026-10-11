@@ -408,6 +408,11 @@ namespace TcgEngine
                 for (int i = 0; i < Workshop.CardPoolIO.GlobalAttackGraphs.Count; i++)
                 {
                     Workshop.GraphData gg = Workshop.CardPoolIO.GlobalAttackGraphs[i];
+                    //★作用范围口（入口上的「整局生效」）：**不接线 ⇒ 这张图不当整局规则**（回到"只属于本卡自己"）；
+                    //  接线为真才整局生效，接线为假=仅本卡。每次判定现算，不做静态登记（登记只按"接线"）。
+                    if (!Workshop.NodeDocRunner.IsScopePortWiredTrue(ctx, gg, "OnAttack",
+                            attacker, defend_card, target_player))
+                        continue;
                     if (!Workshop.NodeDocRunner.IsEntryPortMet(ctx, gg, "OnAttack", "limit",
                             attacker, defend_card, target_player))
                     {
@@ -418,6 +423,10 @@ namespace TcgEngine
                 for (int i = 0; i < Workshop.CardPoolIO.GlobalDefendGraphs.Count; i++)
                 {
                     Workshop.GraphData gg = Workshop.CardPoolIO.GlobalDefendGraphs[i];
+                    //同上：作用范围口不接线 ⇒ 不当全局规则
+                    if (!Workshop.NodeDocRunner.IsScopePortWiredTrue(ctx, gg, "OnBeforeDefend",
+                            defend_card, attacker, atk_player))
+                        continue;
                     if (!Workshop.NodeDocRunner.IsEntryPortMet(ctx, gg, "OnBeforeDefend", "limit",
                             defend_card, attacker, atk_player))
                     {
@@ -687,21 +696,35 @@ namespace TcgEngine
             return null;
         }
         
+        //★随机查询：旧实现硬编码 {0,1}（玩家数 != 2 时口径就不对；单人局 GetPlayer(1) 返回 null
+        //  还会被下游直接解引用 ⇒ NRE）。改成"在所有玩家上均匀随机"，并给下游补 null 守卫
+        //  （实测 QueryBoundaryProbe ⑥）。
         public virtual Player GetRandomPlayer(System.Random rand)
         {
-            Player player = GetPlayer(rand.NextDouble() < 0.5 ? 1 : 0);
-            return player;
+            if (players == null || players.Length == 0)
+                return null;
+            return GetPlayer(rand.Next(0, players.Length));
         }
 
         public virtual Card GetRandomBoardCard(System.Random rand)
         {
             Player player = GetRandomPlayer(rand);
+            if (player == null)
+            {
+                Debug.LogWarning("[查询] 取随机战场卡失败：没有可用玩家");
+                return null;
+            }
             return player.GetRandomCard(player.cards_board, rand);
         }
 
         public virtual Slot GetRandomSlot(System.Random rand)
         {
             Player player = GetRandomPlayer(rand);
+            if (player == null)
+            {
+                Debug.LogWarning("[查询] 取随机槽位失败：没有可用玩家");
+                return Slot.None;
+            }
             return player.GetRandomSlot(rand);
         }
 

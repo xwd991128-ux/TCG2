@@ -563,6 +563,15 @@ namespace TcgEngine
                 {
                     status = new CardStatus(type, value, duration);
                     this.status.Add(status);
+
+                    //对战记录：**获得状态**。只在"新建"这一刻记（旧状态加值不记）→ 否则每次重算/加值都会刷屏。
+                    //  ① AI 推演的克隆局不入账（见 BattleLog.IsAuthoritative）；
+                    //  ② **关键词自带的状态不记**（圣盾/风怒/冲锋…这些由关键词承载的原生状态，每张随从入场都会挂一次，
+                    //     记下来只把「战斗记录」刷成噪音；真正值得看的是"被效果挂上的状态"：护甲/禁锢/封印/中毒…）。
+                    if (KeywordData.KeywordIdForStatus(type) == null
+                        && TcgEngine.Gameplay.BattleLog.IsAuthoritative(this))
+                        TcgEngine.Gameplay.BattleLog.Card(player_id,
+                            TcgEngine.Gameplay.BattleLogKind.StatusAdd, this);
                 }
                 else
                 {

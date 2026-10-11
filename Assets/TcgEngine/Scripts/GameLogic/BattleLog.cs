@@ -27,6 +27,7 @@ namespace TcgEngine.Gameplay
         Secret = 16,
         Win = 17,
         Lose = 18,
+        AttackRejected = 19,   //攻击被规则拒绝（把"点了没反应"变成记录里可见的一行，原因见 note）
     }
 
     /// <summary>一条对战记录。**只存 id/uid/数值**，中文文案在客户端拼（同步体积小）。
@@ -45,6 +46,7 @@ namespace TcgEngine.Gameplay
         public string ability_id;
         public int value;           // 伤害/治疗/增减值（0 也要记：能看出"打了没掉血"这种异常）
         public int value2;
+        public string note;         // 附加文本（目前仅 AttackRejected 用来带"拒绝原因"）
     }
 
     /// <summary>
@@ -93,6 +95,18 @@ namespace TcgEngine.Gameplay
         public static bool CanRecord(GameLogic logic)
         {
             return logic != null && !logic.IsAIPredict && bound != null;
+        }
+
+        /// <summary>这张卡是不是**权威对局里**的那张（= 这次变更发生在真实对局，而不是 AI 推演的克隆局）。
+        /// 为什么这样判：AI 每步决策都是 `Game.CloneNew(data)` 出来的**克隆局**，克隆里的卡实例与权威局里那张
+        /// **不是同一个对象**（uid 相同但是不同实例）→ 用"引用相等"就能把推演产生的事件挡在记录之外。
+        /// 静态工具类（如 BuffRuntime）拿不到 GameLogic.is_ai_predict，就靠这个判据。</summary>
+        public static bool IsAuthoritative(Card card)
+        {
+            Game g = bound;
+            if (g == null || card == null || string.IsNullOrEmpty(card.uid))
+                return false;
+            return object.ReferenceEquals(g.GetCard(card.uid), card);
         }
 
         /// <summary>记一条（内部统一走这里）</summary>
@@ -210,6 +224,8 @@ namespace TcgEngine.Gameplay
                 case BattleLogKind.Summon: return who + " 召唤「" + me + "」";
                 case BattleLogKind.Move: return who + " 移动「" + me + "」";
                 case BattleLogKind.Attack: return who + "「" + me + "」攻击" + tgt;
+                case BattleLogKind.AttackRejected: return who + "「" + me + "」攻击未生效："
+                    + (string.IsNullOrEmpty(e.note) ? "被规则拒绝" : e.note);
                 case BattleLogKind.Damage: return Victim(e, g) + " 受到 " + e.value + " 点伤害";
                 case BattleLogKind.Heal: return Victim(e, g) + " 恢复 " + e.value + " 点生命";
                 case BattleLogKind.BuffAdd: return who + "「" + me + "」获得增益";

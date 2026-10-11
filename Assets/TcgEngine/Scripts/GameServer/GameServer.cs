@@ -591,6 +591,26 @@ namespace TcgEngine.Server
             Player player = game_data.GetPlayer(player_id);
             if (player != null && game_data.state == GameState.Connecting)
             {
+                //★空卡组兜底（2026-10-10 实修）：没经过主菜单设置卡组就进对局——最典型的是**直接在 Game 场景按 Play**——
+                //  此时 settings.deck 是空的 ⇒ 建出 0 张牌的玩家 ⇒ Player.IsReady()（要求 cards_all 非空）永远为 false
+                //  ⇒ 对局**静默卡在 Connecting**：实测 p1(ai=True, ready=True, connected=True, 卡组=0)、Console 无任何报错，
+                //    表现就是用户说的"进入对战界面卡住了"。
+                //  兜底策略：AI → GameplayData.ai_decks 随机一套；人类 → GameplayData.test_deck。都没有才报错。
+                if (deck == null || deck.cards == null || deck.cards.Length == 0)
+                {
+                    DeckData fb = player.is_ai ? GameplayData.Get().GetRandomAIDeck() : GameplayData.Get().test_deck;
+                    if (fb != null)
+                    {
+                        Debug.LogWarning("[开局] " + player.username + " 的卡组为空（未经过主菜单设置卡组）→ 已回退预置卡组「"
+                            + fb.title + "」，本局继续。想用指定卡组请从主菜单开始对局。");
+                        SafeSetPlayerDeck(player, fb);
+                        SendPlayerReady(player);
+                        return;
+                    }
+                    Debug.LogError("[开局] " + player.username + " 的卡组为空，且没有可回退的预置卡组（GameplayData.test_deck / ai_decks）→ 本局无法开始");
+                    return;
+                }
+
                 UserData user = Authenticator.Get().UserData; //Offline game, get local user
 
                 if(Authenticator.Get().IsApi())

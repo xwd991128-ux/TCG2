@@ -371,6 +371,11 @@ namespace TcgEngine.Gameplay
             //新对局：清空上一次对局遗留的延后触发队列（起动后 的 延迟/等待）
             ResetPendingTriggers();
 
+            //★"是否新对局"必须在**任何字段被改写之前**取：旧代码把 turn_count 置 1 之后才判 `<= 0`
+            //  ⇒ 恒为 false（死条件），于是复用同一 Game 开新局时上一局的战斗记录会残留
+            //  （实测 TurnFlowProbe ⑥：开盘前 1 条 → 开盘后 11 条）。
+            bool is_new_game = game_data.turn_count <= 0;
+
             //图事件通知「对战开始时」
             EmitNotify("OnBeforeGameStart", null, null);
 
@@ -414,8 +419,8 @@ namespace TcgEngine.Gameplay
                 //之后由节点/效果局内改写（获取/设置/增加手牌上限）—— 不能再直接读全局配置，否则局内修改无效。
                 player.hand_max = GameplayData.Get().cards_max;
 
-                //对战记录：新对局才清空（重连/中途重建 Logic 不清，保留已有记录）
-                if (game_data.turn_count <= 0)
+                //对战记录：新对局才清空（重连/中途重建 Logic 不清，保留已有记录）—— 判据在方法开头就已取好
+                if (is_new_game)
                     Gameplay.BattleLog.Reset(game_data);
                 player.current_turn = game_data.turn_count;
 
@@ -494,11 +499,33 @@ namespace TcgEngine.Gameplay
             player.history_list.Clear();
 
             //Player poison
+            //★走统一伤害入口（不是裸 `hp -=`）：这样才有 图事件「伤害时/后」、hp 收敛(0..hp_max)、
+            //  以及对战记录里的伤害条目。spell_damage=true = "状态伤害不吃护甲/免疫"（与旧行为一致）。
             if (player.HasStatus(StatusType.Poisoned))
-                player.hp -= player.GetStatusValue(StatusType.Poisoned);
+            {
+                DamagePlayer(null, player, player.GetStatusValue(StatusType.Poisoned), true);
+
+                //★回合开始的毒伤可能**当场把玩家打死**，必须立刻补一次胜负判定：
+                //  旧实现有两个洞：①毒伤裸改 hp（不收敛 —— 实测 hp 会掉到 -2）；②胜负判定在
+                //  StartNextTurn 里发生在 StartTurn **之前** ⇒ 被毒死的玩家 hasEnded 仍为 false，
+                //  还能照常出牌/攻击/结束回合，甚至反杀（实测 TurnFlowProbe ①）。
+                CheckForWinner();
+                if (game_data.state == GameState.GameEnded)
+                    return;   //已分胜负：不再推进本回合的其余结算
+            }
 
             if (player.hero != null)
                 player.hero.Refresh();
+
+            //★装备区也要复位：横置(exhausted)只在每回合这里复位，而装备卡既不在 hero 也不在 cards_board
+            //  ⇒ 旧实现从不清它 → 装备卡用过一次带横置的技能后，之后每个回合都被 CanPayAbility 判为"横置中"，
+            //  表现是"技能点了没反应"且永不自愈（静默失败，实测 TurnFlowProbe ③）。
+            for (int i = player.cards_equip.Count - 1; i >= 0; i--)
+            {
+                Card eqcard = player.cards_equip[i];
+                if (eqcard != null && !eqcard.HasStatus(StatusType.Sleep))
+                    eqcard.Refresh();
+            }
 
             //Refresh Cards and Status Effects
             for (int i = player.cards_board.Count - 1; i >= 0; i--)
@@ -604,7 +631,10 @@ namespace TcgEngine.Gameplay
             if (!extra_turn)
                 game_data.current_player = NextPlayerId(game_data.current_player);
 
-            if (game_data.current_player == game_data.first_player)
+            //★额外回合不计"新回合"：额外回合里 current_player 原地不动、恰好等于 first_player，
+            //  旧写法会**再**把一个回合数加上去（一个真实轮次里 +2）⇒ 任何读"回合数"的卡都会错位。
+            //  实测 EndTurnGateProbe ③：先正常回到先手(+1)，紧接着的额外回合不应再 +1。
+            if (!extra_turn && game_data.current_player == game_data.first_player)
                 game_data.turn_count++;
 
             CheckForWinner();
@@ -625,7 +655,11 @@ namespace TcgEngine.Gameplay
                     continue;
                 if (p.skip_turns > 0)
                 {
-                    p.skip_turns--;
+                    //★不许扣"当前玩家自己"的层数：循环绕回 from_id 时若也扣，就把当前玩家的
+                    //  「失去下一回合」预算凭空消耗掉（实测 TurnFlowProbe ④：双方各 1 层 → 当前玩家那层
+                    //  被扣成 0，之后该被跳的回合不再被跳）。from_id 自己这层留到它真被跳过的那次再扣。
+                    if (id != from_id)
+                        p.skip_turns--;
                     Debug.Log("[回合] 跳过玩家 p" + id + " 的回合（剩余跳过 " + p.skip_turns + " 个）");
                     continue;
                 }
@@ -697,7 +731,12 @@ namespace TcgEngine.Gameplay
             if (game_data.state == GameState.GameEnded)
                 return;
             if (game_data.phase != GamePhase.Main)
+            {
+                //★不再静默：统一入口 RequestEndTurn 在同一判定上是**带告警**的，这里静默返回会让
+                //  "结束回合没反应"完全无迹可寻（AI 卡在非主阶段时同样无痕）。实测 EndTurnGateProbe ①。
+                Debug.LogWarning("[回合] EndTurn 被忽略：当前阶段为 " + game_data.phase + "（仅主阶段可结束回合）");
                 return;
+            }
 
             game_data.selector = SelectorType.None;
             game_data.phase = GamePhase.EndTurn;
@@ -782,6 +821,19 @@ namespace TcgEngine.Gameplay
             if (game_data.state != GameState.GameEnded)
             {
                 Player winner_player = game_data.GetPlayer(winner);
+
+                //对战记录：胜负各记一条（赢家记 Win、其余记 Lose）——面板「战斗记录」最后一眼能看到结果
+                if (!is_ai_predict)
+                {
+                    for (int i = 0; i < game_data.players.Length; i++)
+                    {
+                        Player pl = game_data.players[i];
+                        if (pl == null)
+                            continue;
+                        BattleLog.Card(pl.player_id,
+                            pl.player_id == winner ? BattleLogKind.Win : BattleLogKind.Lose, null);
+                    }
+                }
 
                 //图事件通知「游戏结束时」
                 EmitNotify("OnBeforeGameEnd", null, winner_player);
@@ -1683,6 +1735,11 @@ namespace TcgEngine.Gameplay
             //从当前所在牌堆摘除（RemoveCardFromAllGroups 覆盖 手牌/牌库/墓地/装备/奥秘/暂存/战场）
             player.RemoveCardFromAllGroups(card);
 
+            //对战记录：**召唤**（"使用"记的是 PlayCard；这里覆盖"从任意牌堆直接置入战场"的召唤路径，
+            //  例如「卡牌置入战场(210002)」、衍生物入场等 —— 旧写法的记录里这些卡会凭空出现在场上）
+            if (!is_ai_predict)
+                BattleLog.Card(card.player_id, BattleLogKind.Summon, card);
+
             //Add to board
             player.cards_board.Add(card);
             card.slot = slot;
@@ -1860,6 +1917,28 @@ namespace TcgEngine.Gameplay
                 : game_data.CanAttackTarget(attacker, target_card, skip_cost, out reject);
             if (!can_attack)
             {
+                //★对战记录也留一行：玩家在 UI 预检就被拒时，记录里此前**一片空白** ⇒
+                //  表现就是"我点了攻击，没反应，记录里也查不到"（用户实报"没明白为什么不让我打"）。
+                //  文案直接带 Game.CanAttackTarget 给出的原因（卡牌规则图的「拒绝提示」也在此）。
+                if (!is_ai_predict && !string.IsNullOrEmpty(reject))
+                {
+                    TcgEngine.Gameplay.BattleLogEntry blr = TcgEngine.Gameplay.BattleLog.New(
+                        attacker.player_id, TcgEngine.Gameplay.BattleLogKind.AttackRejected);
+                    blr.card_id = attacker.card_id;
+                    blr.card_uid = attacker.uid;
+                    if (vs_player)
+                    {
+                        blr.target_id = target_player.player_id;
+                        blr.note = reject + "（目标：玩家" + target_player.player_id + "）";
+                    }
+                    else
+                    {
+                        blr.target_uid = target_card != null ? target_card.uid : null;
+                        blr.note = reject + "（目标：" + (target_card != null ? target_card.CardData.id : "?") + "）";
+                    }
+                    TcgEngine.Gameplay.BattleLog.Record(blr);
+                }
+
                 if (!is_ai_predict && !string.IsNullOrEmpty(reject))
                     GameLog.Log("[攻击被拒] " + attacker.CardData.id + " → "
                         + (vs_player ? "玩家" + target_player.player_id : target_card.CardData.id) + "：" + reject);
@@ -2206,6 +2285,13 @@ namespace TcgEngine.Gameplay
         public virtual Card SummonCardHand(Player player, CardData card, VariantData variant)
         {
             Card acard = Card.Create(card, variant, player);
+            //★Card.Create 可能返回 null（卡牌定义为空）→ 旧实现先 `cards_hand.Add(null)` 再 `acard.uid`：
+            //  先 NRE，就算不崩也会把 null 灌进手牌，之后该玩家的抽牌/AI/UI 全线崩（实测 QueryBoundaryProbe ③）
+            if (acard == null)
+            {
+                Debug.LogWarning("[召唤] 入手失败：卡牌定义为空");
+                return null;
+            }
             player.cards_hand.Add(acard);
             game_data.last_summoned = acard.uid;
             return acard;
@@ -2216,6 +2302,11 @@ namespace TcgEngine.Gameplay
         public virtual Card AddCardDeck(Player player, CardData card, VariantData variant)
         {
             Card acard = Card.Create(card, variant, player);
+            if (acard == null)   //★同上：不许把 null 灌进牌库
+            {
+                Debug.LogWarning("[牌库] 加入牌库失败：卡牌定义为空");
+                return null;
+            }
             player.cards_deck.Add(acard);
             game_data.last_Added_To_Deck = acard.uid;
             return acard;
@@ -2982,6 +3073,14 @@ namespace TcgEngine.Gameplay
 
         public virtual void DamagePlayer(Card attacker, Player target, int value, bool spell_damage = false)
         {
+            //★目标为空的守卫 + 告警：旧实现只在 bl_hp_before 上判了 null，却在 `target.hp -= value` 处直接解引用
+            //  ⇒ 任何把 null 玩家传进来的效果（典型：目标解析为空）都会抛 NullReferenceException **中断整条结算链**；
+            //  而"打随从"的 DamageCard 是静默 return —— 同类效果两种行为（实测 EffectFailPathProbe ①）。
+            if (target == null)
+            {
+                Debug.LogWarning("[效果] 造成伤害失败：目标玩家为空（来源=" + (attacker != null ? attacker.card_id : "无") + "）");
+                return;
+            }
             int bl_hp_before = target != null ? target.hp : 0;   //对战记录：记录净差值用
             //★英雄侧减伤（护甲 / 免疫）：**直接以玩家为目标的伤害**（节点 target=玩家、法术打脸等）原先完全没有这一层，
             //  护甲只在"以英雄卡为目标"的分支里判过 → 两条路都必须判，否则表现就是"护甲卡对脸没用"。
@@ -3393,9 +3492,9 @@ namespace TcgEngine.Gameplay
             if (target.HasStatus(StatusType.Invincibility))
                 return; //Cant be killed
 
-            //对战记录：确认真的会死之后再记（上面两个 return 已挡掉"已死/免疫"）
-            if (!is_ai_predict && target.CardData != null && target.CardData.type == CardType.Character)
-                BattleLog.Card(target.player_id, BattleLogKind.Death, target);
+            //对战记录的死亡埋点**不在这里**：已下移到 DiscardCard(reason=Death) ——
+            //  那是"死亡"的唯一收口（KillCard 只是入口之一，还有无来源致死/UpdateOngoingKills/
+            //  Doomed·Freezing 等直接调 DiscardCard(..., Death) 的路径）。放在收口处才不会漏记。
 
             //attacker 为 null = 规则致死（EndTurn 结算 Doomed / Freezing 就是这么调的）：不计击杀数
             if (attacker != null)
@@ -3477,6 +3576,23 @@ namespace TcgEngine.Gameplay
             if(!card.HasStatus(StatusType.Disappear))
                 player.cards_discard.Add(card);
             game_data.last_destroyed = card.uid;
+
+            //★对战记录：**死亡/弃置的唯一埋点**（原来只埋在 KillCard ⇒ 漏记，用户实报"被破坏的随从永远空"）。
+            //  为什么必须在这里：DiscardCard(reason) 是"卡离场进墓地"的唯一收口，
+            //  KillCard 只是入口之一；无来源致死（DamageCard 2 参重载，毒/燃烧）、
+            //  UpdateOngoingKills、Doomed/Freezing 等都是**直接调 DiscardCard(..., Death)**，
+            //  旧写法这些路径一条记录都不产生（面板「被破坏的随从」空、对战信息"随从被破坏"永为 0）。
+            //  位置经过选择：① 在图的「死亡时」(OnBeforeDeath) 之后 —— 图取消这次死亡（上面已 return）不会误记；
+            //  ② 在两张幂等闸之后（IsInDiscard / cards_to_clear）—— 同一张卡只记一次；
+            //  ③ Disappear 不进墓地的卡同样照记（它确实死了，只是不进墓地）。
+            if (!is_ai_predict && icard != null)
+            {
+                if (is_death && was_on_board && icard.type == CardType.Character)
+                    BattleLog.Card(card.player_id, BattleLogKind.Death, card);
+                else if (!is_death && !was_on_board)
+                    //非死亡且原本不在场上 = 真正的"弃置"（手牌超上限烧牌、主动弃牌、牌库弃置）
+                    BattleLog.Card(card.player_id, BattleLogKind.Discard, card);
+            }
 
             //Remove from bearer
             Card bearer = player.GetBearerCard(card);

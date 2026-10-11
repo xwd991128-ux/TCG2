@@ -156,11 +156,16 @@ namespace TcgEngine
             return card_list.Contains(card);
         }
 
+        //★与 Game.GetHandCard/GetBoardCard/… **同口径**：必须判元素非 null。
+        //  为什么：`Card.Create` 在卡牌定义为空时会返回 null（写侧刚补了守卫，但历史数据/将来漏点
+        //  仍可能把 null 灌进区域列表），旧实现直接 `card.uid` ⇒ 一个 null 元素就让**该玩家**的
+        //  抽牌/AI 决策/UI 刷新全部 NRE，而同类查询 `Game.GetXxxCard` 是安全的 ⇒ 一地崩、一地正常
+        //  （实测 QueryBoundaryProbe ①②）。
         public Card GetHandCard(string uid)
         {
             foreach (Card card in cards_hand)
             {
-                if (card.uid == uid)
+                if (card != null && card.uid == uid)
                     return card;
             }
             return null;
@@ -170,7 +175,7 @@ namespace TcgEngine
         {
             foreach (Card card in cards_board)
             {
-                if (card.uid == uid)
+                if (card != null && card.uid == uid)
                     return card;
             }
             return null;
@@ -180,7 +185,7 @@ namespace TcgEngine
         {
             foreach (Card card in cards_equip)
             {
-                if (card.uid == uid)
+                if (card != null && card.uid == uid)
                     return card;
             }
             return null;
@@ -190,7 +195,7 @@ namespace TcgEngine
         {
             foreach (Card card in cards_deck)
             {
-                if (card.uid == uid)
+                if (card != null && card.uid == uid)
                     return card;
             }
             return null;
@@ -200,7 +205,7 @@ namespace TcgEngine
         {
             foreach (Card card in cards_discard)
             {
-                if (card.uid == uid)
+                if (card != null && card.uid == uid)
                     return card;
             }
             return null;

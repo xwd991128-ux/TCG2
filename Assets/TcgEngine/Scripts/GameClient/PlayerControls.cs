@@ -141,6 +141,10 @@ namespace TcgEngine.Client
         /// 为什么需要：旧写法直接发出去、服务端按规则静默拒绝 → 用户只看到"点了完全没反应"，
         /// 分不清是召唤失调、嘲讽、还是卡牌规则图（攻击限制/被攻击限制/全局规则）拦的。
         /// 提示文案就是 Game.CanAttackTarget 给出的 reason（含入口节点的「拒绝提示」）。</summary>
+        //被拒攻击的"已写过控制台"去重表（按卡 id）：同一步操作会每帧预检，不去重会刷屏
+        private static readonly System.Collections.Generic.HashSet<string> attack_warn_logged
+            = new System.Collections.Generic.HashSet<string>();
+
         private static void WarnIfAttackIllegal(Card card, Player tplayer, Card tcard)
         {
             if (card == null)
@@ -153,7 +157,19 @@ namespace TcgEngine.Client
                 ? gdata.CanAttackTarget(card, tplayer, false, out why)
                 : gdata.CanAttackTarget(card, tcard, false, out why);
             if (!ok && !string.IsNullOrEmpty(why))
+            {
                 WarningText.ShowText(why);
+
+                //★同一条原因也写进控制台（按卡去重）：UI 文案只给玩家看一眼，
+                //  而"为什么没打出去"必须能事后查 —— 尤其当 reason 来自卡牌规则图的
+                //  「攻击限制」口（文案由该口自己的「拒绝提示」字段决定，默认就是"该卡不能攻击此目标"）时，
+                //  光看文案分不清两种情况：①规则本来就该拦（卡就是不许打脸）
+                //  ②规则求值出错被当成"条件为假"而拒绝（那才是 bug）。
+                if (attack_warn_logged.Add(card.card_id))
+                    Debug.LogWarning("[攻击提示] " + card.CardData.id + " → "
+                        + (tplayer != null ? "玩家" + tplayer.player_id : (tcard != null ? tcard.CardData.id : "?"))
+                        + "：" + why);
+            }
         }
 
         public void UnselectAll()

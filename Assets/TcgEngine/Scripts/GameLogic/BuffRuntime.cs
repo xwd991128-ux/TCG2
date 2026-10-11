@@ -62,6 +62,10 @@ namespace TcgEngine
                 else
                     existing.permanent = true;
                 ReapplyNative(card);
+                //对战记录：**获得增益**（同名叠加也算一次"获得"）。
+                //  CanRecord(logic) 自带判据：AI 推演（克隆局）不记、只记权威对局。
+                if (BattleLog.CanRecord(logic))
+                    BattleLog.Card(card.player_id, BattleLogKind.BuffAdd, card);
                 //图事件「添加增益后」（不可阻止；数据=卡牌/增益实例）
                 NodeDocRunner.EmitAddBuffAfter(logic, card, define, existing);
                 return existing;
@@ -74,6 +78,9 @@ namespace TcgEngine
             }
             CardBuff buff = new CardBuff(define.id, props, duration);
             card.buffs.Add(buff);
+            //对战记录：**获得增益**（新建实例路径）。CanRecord(logic)：AI 推演不入账。
+            if (BattleLog.CanRecord(logic))
+                BattleLog.Card(card.player_id, BattleLogKind.BuffAdd, card);
             ApplyNative(card, buff);
             //图事件「添加增益后」（不可阻止；数据=卡牌/增益实例）
             NodeDocRunner.EmitAddBuffAfter(logic, card, define, buff);
