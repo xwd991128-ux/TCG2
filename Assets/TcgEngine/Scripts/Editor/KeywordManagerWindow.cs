@@ -109,6 +109,9 @@ namespace TcgEngine.EditorTools
             EditorGUILayout.LabelField("说明（悬浮预览/tooltip）");
             kw.desc = EditorGUILayout.TextArea(kw.desc ?? "", GUILayout.MinHeight(48));
             kw.status_type = (StatusType)EditorGUILayout.EnumPopup("原生机制状态", kw.status_type);
+            kw.value = Mathf.Max(0, EditorGUILayout.IntField("自带数值（0=不带）", kw.value));
+            EditorGUILayout.HelpBox("自带数值：拥有该关键词的卡自动获得对应状态数值。\n" +
+                "例：护甲=2 → +2 护甲；法术伤害=1 → 法术伤害+1。0 = 只表示\"有\"这个关键词。", MessageType.None);
             EditorGUILayout.Space(6);
 
             EditorGUILayout.LabelField($"自定义规则图（{kw.rules.Count} 条）", EditorStyles.boldLabel);

@@ -1,0 +1,8 @@
+A 关键词资产	armor=True  spell_damage=True
+B 首次 SetCard 后	2	（期望 2）
+C 再 SetCard 一次	2	（期望仍 2 = 卡面重建不叠加）
+D Reapply 重算后	2	（期望仍 2 = 增益增删不叠加）
+E 扣账后	0	（期望 0）
+F 法术伤害=1	1	（期望 1）
+== 判定 ==
+G 结论	PASS：关键词自带数值生效且不叠加

@@ -23,6 +23,10 @@ namespace TcgEngine.UI
         public InputField input_desc;
         public Dropdown dropdown_status;     // 原生机制状态（旧下拉；运行时停用并换成弹出单选按钮）
 
+        /// <summary>「数值」输入框：关键词**自带数值**（护甲=2 / 法术伤害=1 这种）。
+        /// 运行时创建（不改场景），插在"原生机制"那一行右边的空白处；0 = 不带数值。</summary>
+        [System.NonSerialized] public InputField input_value;
+
         private TMPro.TMP_Text status_select_text;   // 状态弹出单选按钮的文本（运行时创建）
         private int status_index;                    // 当前选中的 STATUS_VALUES 下标
 
@@ -49,6 +53,7 @@ namespace TcgEngine.UI
         {
             base.Awake();
             instance = this;
+            EnsureValueRow();      //★「数值」行：运行时建（不改场景），见方法注释
         }
 
         protected override void Start()
@@ -110,7 +115,8 @@ namespace TcgEngine.UI
                 if (txt != null)
                 {
                     string tag = keywords[i].HasMechanic ? "" : "（纯展示）";
-                    txt.text = $"{keywords[i].title}  [{keywords[i].id}]{tag}";
+                    int kv = keywords[i].GetNativeValue();
+                    txt.text = $"{keywords[i].title}  [{keywords[i].id}]{(kv > 0 ? "  +" + kv : "")}{tag}";
                 }
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => SelectKeyword(index));
@@ -136,6 +142,11 @@ namespace TcgEngine.UI
         {
             if (input_title != null) input_title.text = kw != null ? kw.title : "";
             if (input_desc != null) input_desc.text = kw != null ? kw.desc : "";
+            if (input_value != null)
+            {
+                input_value.SetTextWithoutNotify(kw != null ? kw.GetNativeValue().ToString() : "0");
+                input_value.interactable = kw != null;
+            }
             int status_value = kw != null ? (int)kw.status_type : (int)StatusType.None;
             int status_idx = STATUS_VALUES.IndexOf(status_value);
             status_index = status_idx < 0 ? 0 : status_idx;
@@ -209,6 +220,66 @@ namespace TcgEngine.UI
             Hide();
         }
 
+        // ---------------- ★「数值」行（关键词自带数值） ----------------
+
+        /// <summary>运行时创建「数值」行（**不改场景**）：
+        ///   位置 = "原生机制"那一行**右边**的空白（状态字段只占 55% 宽度，右半边本来就是空的）；
+        ///   做法 = 复制「标题」行的标签 + 输入框再改名/改位置 ⇒ 字体、配色、占位符风格与整页一致
+        ///          （比手搓 uGUI 更不容易出现"字体没改/发糊/方块"）。
+        /// 语义 = 关键词自带的数值：护甲=2 → 拥有该关键词的卡自动 +2 护甲；法术伤害=1 → 法术伤害 +1；0 = 不带数值。</summary>
+        private void EnsureValueRow()
+        {
+            if (input_value != null)
+                return;
+
+            RectTransform area = null;
+            RectTransform label_src = null;
+            RectTransform field_src = null;
+            foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
+            {
+                if (rt.name == "FormArea") area = rt;
+                else if (rt.name == "TitleLabel") label_src = rt;
+                else if (rt.name == "TitleField") field_src = rt;
+                if (area != null && label_src != null && field_src != null)
+                    break;
+            }
+            if (area == null || label_src == null || field_src == null)
+                return;                       //页面不是本工具生成的：不折腾
+
+            //① 标签
+            RectTransform label = Instantiate(label_src, area);
+            label.name = "ValueLabel";
+            label.anchorMin = new Vector2(0.58f, 1f);
+            label.anchorMax = new Vector2(0.58f, 1f);
+            label.pivot = new Vector2(0f, 1f);
+            label.anchoredPosition = new Vector2(-44f, -132f);
+            label.sizeDelta = new Vector2(60f, 26f);
+            Text lt = label.GetComponentInChildren<Text>(true);
+            if (lt != null)
+                lt.text = "数值";
+
+            //② 输入框（与"原生机制"同一行、放它右边）
+            RectTransform field = Instantiate(field_src, area);
+            field.name = "ValueField";
+            field.anchorMin = new Vector2(0.62f, 1f);
+            field.anchorMax = new Vector2(1f, 1f);
+            field.pivot = new Vector2(0f, 1f);
+            field.anchoredPosition = new Vector2(0f, -128f);
+            field.sizeDelta = new Vector2(-8f, 34f);
+
+            input_value = field.GetComponentInChildren<InputField>(true);
+            if (input_value == null)
+            {
+                Destroy(field.gameObject);    //没拿到输入框就清掉克隆体，别留空壳
+                return;
+            }
+            input_value.text = "0";
+            if (input_value.placeholder is Text ph)
+                ph.text = "0=不带数值";
+            else if (input_value.placeholder is TMPro.TMP_Text pht)
+                pht.text = "0=不带数值";
+        }
+
         // ---------------- 新建/保存 ----------------
 
         private void OnClickNew()
@@ -241,6 +312,12 @@ namespace TcgEngine.UI
             }
             if (input_title != null) kw.title = input_title.text;
             if (input_desc != null) kw.desc = input_desc.text;
+            if (input_value != null)
+            {
+                int v = 0;
+                int.TryParse(input_value.text, out v);
+                kw.value = Mathf.Max(0, v);      //0 = 不带数值；负数按 0
+            }
             kw.status_type = (StatusType)STATUS_VALUES[Mathf.Clamp(status_index, 0, STATUS_VALUES.Count - 1)];
             Workshop.KeywordAssetIO.SaveAsset(kw);
             RefreshList();

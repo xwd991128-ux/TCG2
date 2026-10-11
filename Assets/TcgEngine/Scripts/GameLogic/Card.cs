@@ -95,6 +95,15 @@ namespace TcgEngine
         /// 生命周期：Clear() 归零；Clone 一起拷（AI 预测树）。</summary>
         public List<StatusType> buff_native_keywords = new List<StatusType>();
 
+        /// <summary>【关键词自带数值记账】本卡由"关键词自带数值"写进各状态的总量（与 keyword_native_value 一一对应）。
+        /// 为什么要记账：状态值是**累加**的（AddStatus 是 +=），而 SetKeywords / 增益重算会被反复调用 ⇒
+        /// 不记下"上次由关键词写了多少"，重算一次就会多加一次（护甲越滚越大）。
+        /// 有了它，重算时先扣掉上次写的、再按当前关键词写回 ⇒ 既不叠加，也不会误伤别的来源
+        /// （规则图「增加护甲/添加关键词」、增益等通过 AddStatus 写进去的值不在本表里）。
+        /// 生命周期：Clear() 归零；Clone 一起拷。</summary>
+        public List<StatusType> keyword_native_status = new List<StatusType>();
+        public List<int> keyword_native_value = new List<int>();
+
         public Card(string card_id, string uid, int player_id) { this.card_id = card_id; this.uid = uid; this.player_id = player_id; }
 
         public virtual void Refresh() { exhausted = false; }
@@ -105,6 +114,8 @@ namespace TcgEngine
             ClearOngoing(); Refresh(); damage = 0; status.Clear(); buffs.Clear();
             buff_native_atk = 0; buff_native_hp = 0; buff_native_armor = 0; buff_native_cost = 0;   //状态已清 → 记账同步归零
             buff_native_keywords.Clear();
+            keyword_native_status.Clear();      //status 已被清空 ⇒ 关键词自带数值的记账同步归零
+            keyword_native_value.Clear();
             buff_added_traits.Clear(); buff_removed_traits.Clear();
             buff_added_keywords.Clear(); buff_removed_keywords.Clear();
             removed_keywords.Clear();   //复位 = 回到卡面初始：持久移除的关键词在此恢复（离场重进后圣盾会回来）
@@ -179,6 +190,7 @@ namespace TcgEngine
         public void SetKeywords(CardData icard)
         {
             keywords.Clear();
+            ResetKeywordNative();      //★先扣掉上次由关键词写进去的数值（SetKeywords 可能被反复调用，不扣会叠加）
             if (icard.keywords == null)
                 return;
             foreach (KeywordData keyword in icard.keywords)
@@ -190,9 +202,61 @@ namespace TcgEngine
                 //  否则任何一次 SetCard/重建都会把"已经失去的圣盾"加回来。
                 if (removed_keywords.Contains(keyword.id))
                     continue;
-                //原生机制关键词（风怒/冲锋/圣盾…）：直接转成永久状态，复用 GameLogic 原有机制判定
-                if (keyword.status_type != StatusType.None)
-                    AddStatus(keyword.status_type, 0, 0);
+                //原生机制关键词（风怒/冲锋/圣盾…）：转成永久状态，复用 GameLogic 原有机制判定；
+                //★ 关键词自带数值（如「护甲」配 2）也在这里落地 —— 原来固定写 0 ⇒ 只能表示"有"，不能表示数值
+                ApplyKeywordNative(keyword);
+            }
+        }
+
+        /// <summary>把一个关键词"自带的数值"写进它绑定的状态里（**幂等**：重复调用不会叠加）。
+        /// 值 0 ⇒ 只保证"有"这个状态（与旧行为一致，风怒/圣盾这类无数值关键词照旧）。</summary>
+        public void ApplyKeywordNative(KeywordData kw)
+        {
+            if (kw == null || kw.status_type == StatusType.None)
+                return;
+            if (removed_keywords.Contains(kw.id))
+                return;                                     //已被持久移除：不补状态（与 SetKeywords 同口径）
+
+            int val = kw.GetNativeValue();
+            int idx = keyword_native_status.IndexOf(kw.status_type);
+            int already = idx >= 0 ? keyword_native_value[idx] : 0;
+            if (val != already)
+            {
+                AddStatus(kw.status_type, val - already, 0); //只补差额 ⇒ 重复调用等于做一次
+                if (idx >= 0)
+                    keyword_native_value[idx] = val;
+                else
+                {
+                    keyword_native_status.Add(kw.status_type);
+                    keyword_native_value.Add(val);
+                }
+            }
+            if (val == 0 && !HasStatus(kw.status_type))
+                AddStatus(kw.status_type, 0, 0);             //值 0：仍然只表示"有"
+        }
+
+        /// <summary>扣掉本卡由"关键词自带数值"写进去的全部数值（每次按当前关键词写回之前调用）。</summary>
+        public void ResetKeywordNative()
+        {
+            for (int i = 0; i < keyword_native_status.Count && i < keyword_native_value.Count; i++)
+            {
+                if (keyword_native_value[i] != 0)
+                    AddStatus(keyword_native_status[i], -keyword_native_value[i], 0);
+            }
+            keyword_native_status.Clear();
+            keyword_native_value.Clear();
+        }
+
+        /// <summary>丢掉某个状态的"关键词自带数值"记账（该状态被整体移除时用，避免下次重算多扣一次）。</summary>
+        public void ForgetKeywordNative(StatusType type)
+        {
+            for (int i = keyword_native_status.Count - 1; i >= 0; i--)
+            {
+                if (keyword_native_status[i] == type)
+                {
+                    keyword_native_status.RemoveAt(i);
+                    keyword_native_value.RemoveAt(i);
+                }
             }
         }
 
@@ -232,7 +296,10 @@ namespace TcgEngine
 
             KeywordData kw = KeywordData.Get(id);
             if (kw != null && kw.status_type != StatusType.None)
-                RemoveStatus(kw.status_type);       //立即生效（不只等下次重算）
+            {
+                RemoveStatus(kw.status_type);        //立即生效（不只等下次重算）
+                ForgetKeywordNative(kw.status_type); //记账同步清掉，否则下次重算会把它多扣一次
+            }
             return added;
         }
 
@@ -251,8 +318,8 @@ namespace TcgEngine
                 return true;                        //仍被增益抑制 → 不补状态
 
             KeywordData kw = KeywordData.Get(id);
-            if (kw != null && kw.status_type != StatusType.None && !HasStatus(kw.status_type))
-                AddStatus(kw.status_type, 0, 0);
+            if (kw != null && kw.status_type != StatusType.None)
+                ApplyKeywordNative(kw);             //★补回时带上"关键词自带数值"（原来只补"存在"这一个布尔）
             return true;
         }
 

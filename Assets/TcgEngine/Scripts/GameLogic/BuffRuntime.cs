@@ -733,7 +733,10 @@ namespace TcgEngine
                     ApplyNative(card, card.buffs[i]);
             }
 
-            //卡自身带的基础关键词状态（上面被一并清掉）→ 补回（被增益移除的除外）
+            //卡自身带的基础关键词状态 → 补回（被增益移除的除外）
+            //★先扣掉"上次由关键词自带数值写进去的量"：ApplyKeywordNative 是"差额写入"，
+            //  不先扣的话每次增益增减都会再加一次（护甲/法术伤害越滚越大）。
+            card.ResetKeywordNative();
             for (int i = 0; i < card.keywords.Count; i++)
             {
                 string kid = card.keywords[i];
@@ -746,7 +749,7 @@ namespace TcgEngine
                     continue;
                 KeywordData k = KeywordData.Get(kid);
                 if (k != null && k.status_type != StatusType.None)
-                    card.AddStatus(k.status_type, 0, 0);
+                    card.ApplyKeywordNative(k);     //★带"关键词自带数值"（原来固定写 0）
             }
         }
 

@@ -27,6 +27,17 @@ namespace TcgEngine
         [Header("原生机制")]
         public StatusType status_type = StatusType.None;    //None=不挂原生状态
 
+        [Header("自带数值（可选）")]
+        [Tooltip("这个关键词自带的数值。0 = 不带数值（纯存在 / 纯展示词条）。\n" +
+            "配了「原生机制」状态时，拥有该关键词的卡会把这个数值直接写进对应状态：\n" +
+            "  护甲=2   → 拥有它的卡立刻 +2 护甲（DamageCard/DamagePlayer 天然减伤）\n" +
+            "  法术伤害=1 → 拥有它的卡的法术伤害 +1（EffectDamage / 取法术伤害节点自动读到）\n" +
+            "效果：卡牌只需要挂关键词，不必再逐张配数值。")]
+        public int value;
+
+        /// <summary>关键词自带的数值（负数按 0 处理）。带数值 + 绑了 status_type 时，拥有它的卡自动获得该状态数值。</summary>
+        public int GetNativeValue() { return value > 0 ? value : 0; }
+
         [Header("自定义机制（规则图）")]
         public List<KeywordRule> rules = new List<KeywordRule>();
 
