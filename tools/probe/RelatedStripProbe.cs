@@ -10,17 +10,16 @@ using TcgEngine.UI;
 namespace TcgEngine.Probe
 {
     /// <summary>【验证：卡牌弹窗里「相关卡牌」条的实际排版】
-    /// 要回答的问题（用户在真实界面里报过三次）：
-    ///   ① 这条到底显示了没有？（曾经被摆到面板外面 ⇒ 整条消失）
-    ///   ② 有没有压住买卖区（BUY/SELL/COST）？
-    ///   ③ 有没有超出面板被裁？
-    /// 做法：拿到真实面板（CardZoomPanel.Get）→ 找一张配了 related_card_ids 的卡 → ShowCard →
-    ///   几帧后量"这条 / 卡图 / 描述 / 买卖区 / 面板"的世界矩形，算包含与相交。
-    /// 触发：建 tools/related_strip_flag.txt → 进 Play（Menu 场景）→ 写 tools/related_strip_result.tsv → 自动删标记。
+    /// 上一轮教训：FindObjectOfType 拿到的第一份 CardZoomPanel 可能是"另一个实例"（挂点全屏、字段没绑），
+    /// 拿它当面板量出来的结论是错的 ⇒ 本轮改成：
+    ///   ① 枚举**所有** CardZoomPanel 实例（含未激活），逐个打印挂点/字段绑定/尺寸，挑出"看得见的那份"（trade_area 有绑定的）；
+    ///   ② 打印 desc 的**祖先链**（每级的 anchors / sizeDelta / rect），好定位"真正的弹窗盒子"是哪一级；
+    ///   ③ ShowCard 后量「相关卡牌条 / 卡图 / 描述 / 买卖区」，算包含关系与相交面积。
+    /// 触发：建 tools/related_strip_flag.txt → 进 Play → 写 tools/related_strip_result.tsv。
     /// </summary>
     public class RelatedStripProbe : MonoBehaviour
     {
-        private static string Root { get { return Path.GetFullPath(Path.Combine(Application.dataPath, "..")); } }
+        private static string Root { get { return System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..")); } }
         private static string OutPath { get { return Path.Combine(Root, "tools/related_strip_result.tsv"); } }
         private static string FlagPath { get { return Path.Combine(Root, "tools/related_strip_flag.txt"); } }
 
@@ -47,39 +46,40 @@ namespace TcgEngine.Probe
                 return;
             }
             frames++;
-
             try
             {
                 if (phase == 0)
                 {
                     if (frames < 120)
                         return;
-                    //★用 includeInactive=true 找：菜单里这份弹窗一开始往往是**未激活**的，
-                    //  那样 Awake 没跑、CardZoomPanel.Get() 就是 null（会误报"没有面板"）。
-                    panel = UnityEngine.Object.FindObjectOfType<CardZoomPanel>(true);
-                    if (panel == null)
-                        panel = CardZoomPanel.Get();
+                    CardZoomPanel[] all = UnityEngine.Object.FindObjectsOfType<CardZoomPanel>(true);
+                    sb.AppendLine("A 场景里的 CardZoomPanel 实例数\t" + all.Length);
+                    for (int i = 0; i < all.Length; i++)
+                        sb.AppendLine("A" + i + " 实例\t" + Dump(all[i]));
+
+                    panel = PickPanel(all);
                     if (panel == null)
                     {
-                        if (frames > 900) { Finish("场景里找不到 CardZoomPanel 实例（Get() 与 FindObjectOfType 都是 null）"); }
+                        if (frames > 900) Finish("找不到可用的 CardZoomPanel");
                         return;
                     }
+                    sb.AppendLine("A★ 选用\t" + Dump(panel));
+
                     target = FindCardWithRelated();
                     if (target == null)
                     {
-                        if (frames > 900) { Finish("没有任何卡配了相关卡牌（related_card_ids 全空）"); }
+                        if (frames > 900) Finish("没有任何卡配了相关卡牌（related_card_ids 全空）");
                         return;
                     }
-                    sb.AppendLine("A 面板实例\t有\t" + panel.name);
                     sb.AppendLine("B 测试用卡\t" + target.id + "\t" + target.title + "\trelated=" + target.related_card_ids.Count);
+
                     panel.ShowCard(target, VariantData.GetDefault());
-                    sb.AppendLine("C ShowCard 已调用\tShowCard 后 activeInHierarchy=" + panel.gameObject.activeInHierarchy);
                     if (!panel.gameObject.activeInHierarchy)
                     {
-                        //菜单里这份弹窗通常是未激活的：为"量真实布局"强行打开（会记录在结果里，不影响结论）
                         panel.gameObject.SetActive(true);
                         sb.AppendLine("C2 弹窗原本未激活\t已强制 SetActive(true) 只为量布局");
                     }
+                    sb.AppendLine("C ShowCard 已调用\tactiveInHierarchy=" + panel.gameObject.activeInHierarchy);
                     phase = 1;
                     frames = 0;
                     return;
@@ -87,7 +87,7 @@ namespace TcgEngine.Probe
 
                 if (phase == 1)
                 {
-                    if (frames < 40)          //弹窗 Show 有动画，等它稳定
+                    if (frames < 45)
                         return;
                     Measure();
                     Finish(null);
@@ -99,66 +99,128 @@ namespace TcgEngine.Probe
             }
         }
 
+        private static CardZoomPanel PickPanel(CardZoomPanel[] all)
+        {
+            if (all == null || all.Length == 0)
+                return CardZoomPanel.Get();
+            //优先"绑定最全"的那份（买卖区有绑定的 = 界面上真正在用、带 BUY/SELL 的那份）
+            foreach (CardZoomPanel p in all)
+            {
+                if (p != null && GetFieldStatic(p, "trade_area") != null && GetFieldStatic(p, "desc") != null)
+                    return p;
+            }
+            foreach (CardZoomPanel p in all)
+                if (p != null && GetFieldStatic(p, "desc") != null)
+                    return p;
+            return all[0];
+        }
+
+        private static object GetFieldStatic(object obj, string name)
+        {
+            FieldInfo f = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            return f != null ? f.GetValue(obj) : null;
+        }
+
+        private static bool GetFieldStaticBool(object obj, string name)
+        {
+            object v = GetFieldStatic(obj, name);
+            return v is bool && (bool)v;
+        }
+
+        private static float GetFieldStaticFloat(object obj, string name)
+        {
+            object v = GetFieldStatic(obj, name);
+            return v is float ? (float)v : 0f;
+        }
+
+        private static string Dump(CardZoomPanel p)
+        {
+            if (p == null)
+                return "(null)";
+            RectTransform rt = p.transform as RectTransform;
+            object card = GetFieldStatic(p, "card_ui");
+            object desc = GetFieldStatic(p, "desc");
+            object trade = GetFieldStatic(p, "trade_area");
+            return "path=" + PathOf(p.transform)
+                + "\tactiveSelf=" + p.gameObject.activeSelf
+                + "\tactiveInHierarchy=" + p.gameObject.activeInHierarchy
+                + "\tcard_ui=" + (card != null) + "\tdesc=" + (desc != null) + "\ttrade_area=" + (trade != null)
+                + "\t" + (rt != null ? ("anchors=" + rt.anchorMin + "/" + rt.anchorMax + " sizeDelta=" + rt.sizeDelta + " rect=" + rt.rect.size) : "no-rt");
+        }
+
+        private static string PathOf(Transform t)
+        {
+            string s = t.name;
+            Transform p = t.parent;
+            int guard = 0;
+            while (p != null && guard++ < 8)
+            {
+                s = p.name + "/" + s;
+                p = p.parent;
+            }
+            return s;
+        }
+
         private CardData FindCardWithRelated()
         {
             foreach (CardData c in CardData.GetAll())
-            {
                 if (c != null && c.related_card_ids != null && c.related_card_ids.Count > 0)
                     return c;
-            }
             return null;
         }
 
         private static RectTransform GetRT(object o)
         {
             Component comp = o as Component;
-            return comp != null ? comp.transform as RectTransform : null;
-        }
-
-        private object GetField(string name)
-        {
-            FieldInfo f = typeof(CardZoomPanel).GetField(name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            return f != null ? f.GetValue(panel) : null;
+            if (comp != null)
+                return comp.transform as RectTransform;
+            GameObject go = o as GameObject;      //★trade_area 是 GameObject（不是 Component），上一轮就是这里漏了 ⇒ "无此控件"
+            return go != null ? go.transform as RectTransform : null;
         }
 
         private void Measure()
         {
             RectTransform panel_rt = panel.transform as RectTransform;
-            RectTransform card_rt = GetRT(GetField("card_ui"));
-            RectTransform desc_rt = GetRT(GetField("desc"));
-            RectTransform trade_rt = GetRT(GetField("trade_area"));
-            RectTransform strip_rt = GetField("related_root") as RectTransform;
+            RectTransform card_rt = GetRT(GetFieldStatic(panel, "card_ui"));
+            RectTransform desc_rt = GetRT(GetFieldStatic(panel, "desc"));
+            RectTransform trade_rt = GetRT(GetFieldStatic(panel, "trade_area"));
+            RectTransform strip_rt = GetFieldStatic(panel, "related_root") as RectTransform;
 
-            sb.AppendLine("D 面板\tsizeDelta=" + (panel_rt != null ? panel_rt.sizeDelta.ToString() : "?")
-                + "\tanchoredPos=" + (panel_rt != null ? panel_rt.anchoredPosition.ToString() : "?")
-                + "\tpivot=" + (panel_rt != null ? panel_rt.pivot.ToString() : "?"));
-            float extra = -1f;
-            FieldInfo fe = typeof(CardZoomPanel).GetField("panel_extra", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (fe != null) extra = (float)fe.GetValue(panel);
-            sb.AppendLine("E 面板加高量 panel_extra\t" + extra.ToString("0.#"));
+            //desc 的祖先链：定位"真正的弹窗盒子"
+            sb.AppendLine("== desc 祖先链（从 desc 往上）==");
+            Transform cur = desc_rt;
+            int guard = 0;
+            while (cur != null && guard++ < 8)
+            {
+                RectTransform r = cur as RectTransform;
+                sb.AppendLine("chain" + guard + "\t" + cur.name
+                    + (r != null ? ("\tanchors=" + r.anchorMin + "/" + r.anchorMax + "\tsizeDelta=" + r.sizeDelta + "\trect=" + r.rect.size + "\tworld=" + Fmt(WorldRect(r))) : ""));
+                cur = cur.parent;
+            }
 
+            sb.AppendLine("== 条 ==");
             if (strip_rt == null)
             {
-                sb.AppendLine("F 相关卡牌条\trelated_root = null（从未创建）");
+                sb.AppendLine("F related_root = null（从未创建）");
                 return;
             }
-            sb.AppendLine("F 相关卡牌条 active\t" + strip_rt.gameObject.activeSelf
+            sb.AppendLine("F active=" + strip_rt.gameObject.activeSelf
+                + "\tparent=" + (strip_rt.parent != null ? PathOf(strip_rt.parent) : "?")
                 + "\tanchors=" + strip_rt.anchorMin + "/" + strip_rt.anchorMax
                 + "\tpivot=" + strip_rt.pivot
                 + "\tanchoredPos=" + strip_rt.anchoredPosition
                 + "\tsizeDelta=" + strip_rt.sizeDelta);
 
             Rect s = WorldRect(strip_rt);
-            Rect p = WorldRect(panel_rt);
             sb.AppendLine("G 世界矩形(条)\t" + Fmt(s));
-            sb.AppendLine("H 世界矩形(面板)\t" + Fmt(p));
-            sb.AppendLine("I 条在面板内(完全)\t" + (p.xMin <= s.xMin && p.xMax >= s.xMax && p.yMin <= s.yMin && p.yMax >= s.yMax));
-            sb.AppendLine("J 条与面板相交面积比\t" + (Area(s) > 0f ? (Intersect(s, p) / Area(s)).ToString("0.00") : "0"));
-
             ReportOverlap("K 与卡图(卡面)", s, card_rt);
             ReportOverlap("L 与描述框", s, desc_rt);
             ReportOverlap("M 与买卖区", s, trade_rt);
+
+            //条的父级（我钉的宿主）在哪儿、有多大
+            RectTransform host = strip_rt.parent as RectTransform;
+            sb.AppendLine("H 宿主\t" + (host != null ? (PathOf(host) + "\trect=" + host.rect.size + "\tworld=" + Fmt(WorldRect(host))) : "?"));
+            sb.AppendLine("I 条完全在宿主内\t" + (host != null && Contains(WorldRect(host), s)));
 
             int active = 0;
             for (int i = 0; i < strip_rt.childCount; i++)
@@ -168,6 +230,22 @@ namespace TcgEngine.Probe
                     active++;
             }
             sb.AppendLine("N 显示的卡位数\t" + active);
+
+            //条有没有被屏幕边缘切掉（上一轮踩的坑：宿主向下长，条被屏幕底切了一半）
+            Canvas cv = panel.GetComponentInParent<Canvas>();
+            if (cv != null)
+            {
+                Rect cvW = WorldRect(cv.transform as RectTransform);
+                sb.AppendLine("P 屏幕世界矩形\t" + Fmt(cvW));
+                sb.AppendLine("Q 条完全在屏幕内\t" + Contains(cvW, s));
+            }
+            sb.AppendLine("R 加高方向\t" + (GetFieldStaticBool(panel, "grow_up") ? "向上长(底边不动)" : "向下长(顶边不动)"));
+            sb.AppendLine("S 两侧剩余(宿主单位)\tbelow=" + GetFieldStaticFloat(panel, "room_below_u").ToString("0.#")
+                + "  above=" + GetFieldStaticFloat(panel, "room_above_u").ToString("0.#"));
+            float extra = 0f;
+            FieldInfo fe = typeof(CardZoomPanel).GetField("host_extra", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (fe != null) extra = (float)fe.GetValue(panel);
+            sb.AppendLine("O host_extra(宿主加高量)\t" + extra.ToString("0.#"));
         }
 
         private void ReportOverlap(string tag, Rect a, RectTransform other)
@@ -179,8 +257,13 @@ namespace TcgEngine.Probe
             }
             Rect b = WorldRect(other);
             float inter = Intersect(a, b);
-            sb.AppendLine(tag + "\t" + Fmt(b) + "\t相交面积=" + inter.ToString("0") +
-                "\t占本条=" + (Area(a) > 0f ? (inter / Area(a)).ToString("0.00") : "0"));
+            sb.AppendLine(tag + "\t" + Fmt(b) + "\t相交面积=" + inter.ToString("0")
+                + "\t占本条=" + (Area(a) > 0f ? (inter / Area(a)).ToString("0.00") : "0"));
+        }
+
+        private static bool Contains(Rect outer, Rect inner)
+        {
+            return outer.xMin <= inner.xMin && outer.xMax >= inner.xMax && outer.yMin <= inner.yMin && outer.yMax >= inner.yMax;
         }
 
         private static Rect WorldRect(RectTransform rt)
@@ -194,8 +277,8 @@ namespace TcgEngine.Probe
 
         private static string Fmt(Rect r)
         {
-            return "x[" + r.xMin.ToString("0") + "," + r.xMax.ToString("0") + "] y["
-                + r.yMin.ToString("0") + "," + r.yMax.ToString("0") + "] w=" + r.width.ToString("0") + " h=" + r.height.ToString("0");
+            return "x[" + r.xMin.ToString("0.#") + "," + r.xMax.ToString("0.#") + "] y["
+                + r.yMin.ToString("0.#") + "," + r.yMax.ToString("0.#") + "] w=" + r.width.ToString("0.#") + " h=" + r.height.ToString("0.#");
         }
 
         private static float Area(Rect r) { return Mathf.Max(0f, r.width) * Mathf.Max(0f, r.height); }
@@ -213,16 +296,8 @@ namespace TcgEngine.Probe
             if (!string.IsNullOrEmpty(note))
                 sb.AppendLine("Z 结束原因\t" + note);
             try { File.WriteAllText(OutPath, sb.ToString(), new UTF8Encoding(false)); } catch { }
-            //★只有"真的量到了面板"才删标记：否则（例如这次 Play 起的场景里没有这个弹窗）
-            //  保留标记，让下次 Play 自动重试，不用人来记着重新放标记。
-            if (panel != null)
-            {
-                try { File.Delete(FlagPath); } catch { }
-            }
-            else
-            {
-                sb.AppendLine("Z2 保留标记\t下次 Play 自动重试（本次没找到弹窗实例）");
-            }
+            if (panel != null) { try { File.Delete(FlagPath); } catch { } }
+            else sb.AppendLine("Z2 保留标记\t下次 Play 自动重试（本次没找到弹窗实例）");
             Debug.Log("[相关卡牌条] 验证完成 → " + OutPath);
         }
     }

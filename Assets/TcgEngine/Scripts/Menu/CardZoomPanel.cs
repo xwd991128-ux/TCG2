@@ -208,12 +208,12 @@ namespace TcgEngine.UI
         {
             if (related_root != null)
                 return;
-            //★挂到**弹窗根**上（不是 desc 的父级）：这样"左下角"就是弹窗的左下角。
-            //  挂在 desc 的父级上曾经出过事：那个容器如果不是整块内容区（只是右栏/某个局部盒子），
-            //  按它算出来的位置会把这条摆到弹窗外面、被 Mask 裁掉 ⇒ 整条消失（用户实报）。
-            RectTransform host = FindPanelRect();
-            if (host == null)
-                host = transform as RectTransform;
+            //★宿主 = **卡图 / 描述 / 买卖区 的最低共同祖先**（探针实测 = CardZoomPanel/Box，那个 1248×729 的弹窗内盒）。
+            //  两条用真机数据换来的教训：
+            //   · 挂"面板根 CardZoomPanel"→ 它是**全屏拉伸**的 1728×1080 ⇒ 条会被钉到**屏幕左下角** ✗；
+            //   · 挂"desc 的父级"在别的层级下也可能不是整块内盒 ⇒ 曾被摆到面板外、被裁掉，整条消失 ✗。
+            //  LCA 一定是"看得见的那个盒子"，而且它有固定尺寸 ⇒ 加高它才有意义（拉伸的全屏根加高等于没加）。
+            RectTransform host = FindStripHost();
             if (host == null)
                 return;
 
@@ -292,10 +292,13 @@ namespace TcgEngine.UI
         //   ① 位置 = **卡图 / 描述 / 买卖区 三者最低点的下方**（弹窗底部的空白带）⇒ 不压任何控件；
         //   ② 宽度 = 宿主实际内宽，装不下几个就只列前几个（标题标 "3/5"）⇒ 不再被裁；
         //   ③ 底部空白不够高 → 把弹窗**向下加高**（顶边不动）；加不动（有 LayoutGroup / ContentSizeFitter）就保持原样。
-        private RectTransform panel_rect;
-        private float base_panel_h = -1f;
-        private float base_panel_pos_y;
-        private float panel_extra;
+        private RectTransform host_rect;        //这条的宿主（弹窗内盒）：加高它，给这条腾出底部空白带
+        private float base_host_h;
+        private float base_host_pos_y;
+        private float host_extra;
+        private bool grow_up;                   //加高方向：底下不够放这条 ⇒ 改"底边不动、向上长"
+        private float room_below_u;             //宿主底边到屏幕底的距离（宿主单位）
+        private float room_above_u;             //宿主顶边到屏幕顶的距离（宿主单位）
 
         /// <summary>排版这条，返回**实际显示几个**（受宿主内宽限制，可能少于 want）。</summary>
         private int LayoutRelatedStrip(int want)
@@ -310,13 +313,13 @@ namespace TcgEngine.UI
 
             //① 先给它腾地方：把面板**向下加高**（顶边不动）⇒ 面板底部多出一条只给它的空白带。
             //  最多试 3 遍：内容若是"垂直居中"锚点，面板加高会把内容也往下带（每遍净增约一半）⇒ 一遍不够，要迭代收敛。
-            for (int pass = 0; pass < 3; pass++)
+            for (int pass = 0; pass < 4; pass++)
             {
                 float band = MeasureBand(host, cam);
                 if (band >= RelatedStripH + RelatedPad)
                     break;
-                if (!GrowPanel(RelatedStripH + RelatedPad - band))
-                    break;                    //加不了（尺寸被布局组件驱动 / 已到上限）
+                if (!GrowPanel(host, RelatedStripH + RelatedPad - band))
+                    break;                    //加不了（尺寸被布局组件驱动 / 拉伸容器 / 已到上限）
             }
 
             //② 宽度自适应：按宿主内宽收敛。宿主 rect 还没算出来（宽 <= 0，例如弹窗尚未激活）时按"最多 6 个"来，
@@ -381,64 +384,114 @@ namespace TcgEngine.UI
             return Mathf.Min(cur, local.y - host.rect.min.y);     //换算成"相对宿主底边"
         }
 
-        /// <summary>把面板向下加高到"底部至少留出 want_extra 的空白"（**顶边不动**），返回是否真的改了尺寸。
-        /// 只加不减（要变回原高统一走 RestorePanelHeight）；尺寸被布局组件驱动时直接放弃。</summary>
-        private bool GrowPanel(float want_extra)
+        /// <summary>把宿主（弹窗内盒）向下加高 want_extra，让底部至少留出这么多空白（**顶边不动**）。
+        /// 只加不减（要变回原高统一走 RestorePanelHeight）；以下情况直接放弃加高：
+        ///   全屏拉伸的容器（anchorMin != anchorMax，改 sizeDelta 会把布局搞坏）、尺寸被 LayoutGroup / ContentSizeFitter 驱动。</summary>
+        private bool GrowPanel(RectTransform host, float want_extra)
         {
-            if (want_extra <= 0f)
+            if (host == null || want_extra <= 0f)
                 return false;
-            if (panel_rect == null)
+            if (host_rect != null && host_rect != host)
+                return false;               //换了宿主：先 Restore 再重来，避免把上一个盒子的高度留下
+            if (host_rect == null)
             {
-                panel_rect = FindPanelRect();
-                if (panel_rect == null)
-                    return false;
-                if (panel_rect.GetComponent<LayoutGroup>() != null || panel_rect.GetComponent<ContentSizeFitter>() != null)
-                {
-                    panel_rect = null;      //尺寸被别人管着：改了也会被覆盖，索性不改
-                    return false;
-                }
-                base_panel_h = panel_rect.sizeDelta.y;
-                base_panel_pos_y = panel_rect.anchoredPosition.y;
+                if (host.anchorMin != host.anchorMax)
+                    return false;           //拉伸容器
+                if (host.GetComponent<LayoutGroup>() != null || host.GetComponent<ContentSizeFitter>() != null)
+                    return false;           //尺寸被别人管着
+                host_rect = host;
+                base_host_h = host.sizeDelta.y;
+                base_host_pos_y = host.anchoredPosition.y;
+                PickGrowDirection(host);
             }
 
-            float target = Mathf.Clamp(want_extra, 0f, RelatedStripH + RelatedPad * 2f + 8f);
-            if (target <= panel_extra + 0.5f)
-                return false;               //已经是这么大（或更大）：不缩回去，避免"加高 ↔ 缩回"来回抖
-            panel_extra = target;
-            panel_rect.sizeDelta = new Vector2(panel_rect.sizeDelta.x, base_panel_h + panel_extra);
-            //pivot 不在中轴上时改高度会同时带动上下两边 → 补回偏移，让**顶边留在原位**
-            panel_rect.anchoredPosition = new Vector2(panel_rect.anchoredPosition.x,
-                base_panel_pos_y - (1f - panel_rect.pivot.y) * panel_extra);
+            //★累加式（每次把"当前还差的量"加到已加的量上）：宿主里是"居中锚点"的子控件时，
+            //  盒子加高 e 只会让底部空白净增约 e/2（子控件跟着走一半）⇒ 一次算不准，靠外面那个循环迭代收敛。
+            float cap = Mathf.Min(RelatedStripH * 2f + 40f,
+                Mathf.Max(0f, (grow_up ? room_above_u : room_below_u) - 2f));   //别把盒子长出屏幕
+            float target = Mathf.Clamp(host_extra + want_extra, 0f, cap);
+            if (target <= host_extra + 0.5f)
+                return false;
+            host_extra = target;
+            host.sizeDelta = new Vector2(host.sizeDelta.x, base_host_h + host_extra);
+            //改高度会带动上下两边 → 补回偏移：向下长时**顶边**不动，向上长时**底边**不动
+            host.anchoredPosition = new Vector2(host.anchoredPosition.x,
+                base_host_pos_y + (grow_up ? host.pivot.y : -(1f - host.pivot.y)) * host_extra);
             return true;
         }
 
-        /// <summary>还原弹窗原高（这张卡没有相关卡牌时）</summary>
+        /// <summary>还原宿主原高（这张卡没有相关卡牌 / 切到没有相关卡牌的卡时）</summary>
         private void RestorePanelHeight()
         {
-            if (panel_rect == null || panel_extra <= 0f)
+            if (host_rect == null || host_extra <= 0f)
                 return;
-            panel_extra = 0f;
-            panel_rect.sizeDelta = new Vector2(panel_rect.sizeDelta.x, base_panel_h);
-            panel_rect.anchoredPosition = new Vector2(panel_rect.anchoredPosition.x, base_panel_pos_y);
+            host_extra = 0f;
+            host_rect.sizeDelta = new Vector2(host_rect.sizeDelta.x, base_host_h);
+            host_rect.anchoredPosition = new Vector2(host_rect.anchoredPosition.x, base_host_pos_y);
         }
 
-        /// <summary>要加高的那个矩形：优先本组件；本组件不在面板根上时，往上找第一个"同时装得下描述与买卖区"的父级。</summary>
-        private RectTransform FindPanelRect()
+        /// <summary>加高方向：宿主下方剩的空间够放这条 ⇒ 向下长（顶边不动）；不够 ⇒ 向上长（底边不动）。
+        /// 为什么必须判断：探针实测"向下长"会把 Box 底边推到世界 y=-5.7，而屏幕底是 -5 ⇒ 这条下半截被屏幕边缘切掉。
+        /// 顺手把两侧剩余空间记下来，当作加高上限（别把盒子长出屏幕）。</summary>
+        private void PickGrowDirection(RectTransform host)
         {
-            RectTransform self = transform as RectTransform;
-            RectTransform anchor = desc != null ? desc.rectTransform : null;
-            if (self == null || anchor == null || anchor == self || anchor.IsChildOf(self))
-                return self;
+            grow_up = false;
+            room_below_u = RelatedStripH * 2f;
+            room_above_u = RelatedStripH * 2f;
 
-            RectTransform other = trade_area != null ? trade_area.transform as RectTransform : null;
-            RectTransform p = anchor.parent as RectTransform;
-            while (p != null)
+            Canvas cv = host.GetComponentInParent<Canvas>();
+            if (cv == null)
+                return;
+            Rect hostW = WorldRectOf(host);
+            Rect cvW = WorldRectOf(cv.transform as RectTransform);
+            float per_unit = (host.rect.height > 0.01f && hostW.height > 0.01f)
+                ? hostW.height / host.rect.height : 1f;       //1 个宿主单位 = 多少世界单位
+            if (per_unit <= 0.0001f)
+                per_unit = 1f;
+
+            room_below_u = (hostW.yMin - cvW.yMin) / per_unit;
+            room_above_u = (cvW.yMax - hostW.yMax) / per_unit;
+            float need = RelatedStripH + RelatedPad;
+            grow_up = room_below_u < need && room_above_u > room_below_u;
+        }
+
+        private static Rect WorldRectOf(RectTransform rt)
+        {
+            if (rt == null)
+                return new Rect();
+            Vector3[] c = new Vector3[4];
+            rt.GetWorldCorners(c);
+            return new Rect(c[0].x, c[0].y, c[2].x - c[0].x, c[2].y - c[0].y);
+        }
+
+        /// <summary>这条的宿主：卡图 / 描述 / 买卖区 的**最低共同祖先**（= 看得见的弹窗内盒）。
+        /// 探针实测：本工程 = CardZoomPanel/Box（1248×729，非拉伸）；面板根是全屏拉伸(1728×1080)，不能当宿主。</summary>
+        private RectTransform FindStripHost()
+        {
+            RectTransform lca = null;
+            lca = Lca(lca, card_ui != null ? card_ui.transform as RectTransform : null);
+            lca = Lca(lca, desc != null ? desc.rectTransform : null);
+            lca = Lca(lca, trade_area != null ? trade_area.transform as RectTransform : null);
+            if (lca != null)
+                return lca;
+            if (desc != null && desc.transform.parent != null)
+                return desc.transform.parent as RectTransform;
+            return transform as RectTransform;
+        }
+
+        private static RectTransform Lca(RectTransform x, RectTransform y)
+        {
+            if (x == null) return y;
+            if (y == null) return x;
+            HashSet<Transform> chain = new HashSet<Transform>();
+            for (Transform t = x; t != null; t = t.parent)
+                chain.Add(t);
+            for (Transform t = y; t != null; t = t.parent)
             {
-                if (other == null || other == p || other.IsChildOf(p))
-                    return p;
-                p = p.parent as RectTransform;
+                if (chain.Contains(t))
+                    return t as RectTransform;
             }
-            return self;
+            return x;
         }
 
         private async void BuyCardTest()
