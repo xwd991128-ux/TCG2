@@ -341,6 +341,8 @@ namespace TcgEngine.UI
         private bool grow_up;                   //加高方向：底下不够放这条 ⇒ 改"底边不动、向上长"
         private float room_below_u;             //宿主底边到屏幕底的距离（宿主单位）
         private float room_above_u;             //宿主顶边到屏幕顶的距离（宿主单位）
+        //"锚在中心"的子控件（标题/卡图/描述/买卖区）加高前的 anchoredPosition：加高时补回、还原时写回
+        private readonly Dictionary<RectTransform, Vector2> child_base_pos = new Dictionary<RectTransform, Vector2>();
 
         /// <summary>排版这条，返回**实际显示几个**（受宿主内宽限制，可能少于 want）。</summary>
         private int LayoutRelatedStrip(int want)
@@ -454,15 +456,18 @@ namespace TcgEngine.UI
             float target = Mathf.Clamp(host_extra + want_extra, 0f, cap);
             if (target <= host_extra + 0.5f)
                 return false;
+            float delta = target - host_extra;
             host_extra = target;
             host.sizeDelta = new Vector2(host.sizeDelta.x, base_host_h + host_extra);
             //改高度会带动上下两边 → 补回偏移：向下长时**顶边**不动，向上长时**底边**不动
             host.anchoredPosition = new Vector2(host.anchoredPosition.x,
                 base_host_pos_y + (grow_up ? host.pivot.y : -(1f - host.pivot.y)) * host_extra);
+            //★再把"锚在中心"的子控件反向补回（它们会随中心移动）⇒ 视觉上它们原地不动，只有盒子底边多出一条空白
+            CompensateCenterChildren(host, delta);
             return true;
         }
 
-        /// <summary>还原宿主原高（这张卡没有相关卡牌 / 切到没有相关卡牌的卡时）</summary>
+        /// <summary>还原宿主原高（这张卡没有相关卡牌 / 关弹窗时）—— 连同下面那些被补偿过的子控件一起还原</summary>
         private void RestorePanelHeight()
         {
             if (host_rect == null || host_extra <= 0f)
@@ -470,6 +475,38 @@ namespace TcgEngine.UI
             host_extra = 0f;
             host_rect.sizeDelta = new Vector2(host_rect.sizeDelta.x, base_host_h);
             host_rect.anchoredPosition = new Vector2(host_rect.anchoredPosition.x, base_host_pos_y);
+            foreach (KeyValuePair<RectTransform, Vector2> kv in child_base_pos)
+            {
+                if (kv.Key != null)
+                    kv.Key.anchoredPosition = kv.Value;
+            }
+            child_base_pos.Clear();
+        }
+
+        /// <summary>★把"垂直锚在中心"的子控件（标题 / 卡图 / 描述 / 买卖区…）反向补回原位。
+        /// 为什么必须补：盒子加高 e，它的**中心**就会移动 e/2（向下长↓）⇒ 锚在中心的子控件跟着漂，
+        /// 表现就是"这张卡打开时左上角标题偏移了"（用户实测：无相关卡牌的卡正常、有相关卡牌的卡标题下漂 ✗）。
+        /// 补偿后这些子控件在屏幕上**一动不动**，只有盒子底边多出一条只给"相关卡牌"用的空白。
+        /// 原值记进 child_base_pos，RestorePanelHeight 会精确写回（否则这份补偿也会残留到编辑器场景里）。</summary>
+        private void CompensateCenterChildren(RectTransform host, float delta)
+        {
+            if (host == null || Mathf.Approximately(delta, 0f))
+                return;
+            float shift = (grow_up ? -0.5f : 0.5f) * delta;   //中心下移 delta/2（向下长）⇒ 子控件 +delta/2 抵消
+            for (int i = 0; i < host.childCount; i++)
+            {
+                RectTransform c = host.GetChild(i) as RectTransform;
+                if (c == null || c == related_root)
+                    continue;                                  //这条自己不算
+                if (!Mathf.Approximately(c.anchorMin.y, c.anchorMax.y) || !Mathf.Approximately(c.anchorMin.y, 0.5f))
+                    continue;                                  //只处理"垂直锚在中心"的（其余不随高度移动）
+                if (c.GetComponent<LayoutGroup>() != null)
+                    continue;                                  //被布局组件管的别动
+                if (!child_base_pos.ContainsKey(c))
+                    child_base_pos[c] = c.anchoredPosition;
+                Vector2 v = c.anchoredPosition;
+                c.anchoredPosition = new Vector2(v.x, v.y + shift);
+            }
         }
 
         /// <summary>加高方向：宿主下方剩的空间够放这条 ⇒ 向下长（顶边不动）；不够 ⇒ 向上长（底边不动）。
