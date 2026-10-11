@@ -130,11 +130,14 @@ namespace TcgEngine.UI
         // 纯展示：不影响任何对局规则与数值。
 
         private RectTransform related_root;
+        private TextMeshProUGUI related_title;      //条标题（宽度不够时显示 "3/5" 这样的提示）
         private readonly List<GameObject> related_slots = new List<GameObject>();
         private const int RelatedMaxShow = 6;
         private const float RelatedSlotW = 86f;
         private const float RelatedSlotH = 104f;
         private const float RelatedStripH = 132f;
+        private const float RelatedGap = 6f;        //与上方控件之间留的缝
+        private const float RelatedPad = 12f;       //条自身左右内边距
 
         /// <summary>按当前卡的相关卡牌刷新这条；无配置/无有效卡 → 整条隐藏。</summary>
         private void RefreshRelatedCards(CardData c, VariantData v)
@@ -159,19 +162,24 @@ namespace TcgEngine.UI
             {
                 if (related_root != null && related_root.gameObject.activeSelf)
                     related_root.gameObject.SetActive(false);
+                RestorePanelHeight();   //★没配相关卡牌的卡：把弹窗还原成原高（否则看过一张有相关卡的卡后，所有弹窗都被留在加高状态）
                 return;
             }
 
             EnsureRelatedRoot();
             if (related_root == null)
                 return;
-            PlaceRelatedRootBelowDesc();
+            int shown = LayoutRelatedStrip(list.Count);   //★排版在"填图"之前：它决定这条放哪、能放下几个
             related_root.gameObject.SetActive(true);
+            if (related_title != null)
+                related_title.text = shown < list.Count
+                    ? ("相关卡牌（" + shown + "/" + list.Count + "）")   //内区宽度不够 → 只列前几个，并标出来
+                    : "相关卡牌";
 
             for (int i = 0; i < related_slots.Count; i++)
-                related_slots[i].SetActive(i < list.Count);
+                related_slots[i].SetActive(i < shown);
 
-            for (int i = 0; i < list.Count; i++)
+            for (int i = 0; i < shown; i++)
             {
                 CardData cd = list[i];
                 GameObject slot = related_slots[i];
@@ -220,6 +228,7 @@ namespace TcgEngine.UI
             t_go.transform.SetParent(related_root, false);
             TextMeshProUGUI title = t_go.AddComponent<TextMeshProUGUI>();
             title.text = "相关卡牌";
+            related_title = title;
             title.fontSize = 14f;
             title.color = new Color(1f, 1f, 1f, 0.75f);
             title.alignment = TextAlignmentOptions.TopLeft;
@@ -272,30 +281,133 @@ namespace TcgEngine.UI
             related_root.gameObject.SetActive(false);
         }
 
-        /// <summary>把这条贴到卡牌描述的正下方（用 desc 的实际矩形换算，避免猜布局）。
-        /// 支持 ScreenSpaceOverlay / ScreenSpaceCamera 两种画布。</summary>
-        private void PlaceRelatedRootBelowDesc()
+        // ==================== ★这条放哪（用户口径 A：放弹窗底部 + 宽度自适应，不压任何控件、不被裁） ====================
+        // 旧做法是"贴在描述框 desc 的正下方"⇒ 正好压在买卖区（BUY/SELL/COST）上；宽度还写死
+        //  6×86+24=540，比弹窗内区更宽 ⇒ 右侧直接被裁。现在：
+        //   ① 位置 = **卡图 / 描述 / 买卖区 三者最低点的下方**（弹窗底部的空白带）⇒ 不压任何控件；
+        //   ② 宽度 = 宿主实际内宽，装不下几个就只列前几个（标题标 "3/5"）⇒ 不再被裁；
+        //   ③ 底部空白不够高 → 把弹窗**向下加高**（顶边不动）；加不动（有 LayoutGroup / ContentSizeFitter）就保持原样。
+        private RectTransform panel_rect;
+        private float base_panel_h = -1f;
+        private float base_panel_pos_y;
+        private float panel_extra;
+
+        /// <summary>排版这条，返回**实际显示几个**（受宿主内宽限制，可能少于 want）。</summary>
+        private int LayoutRelatedStrip(int want)
         {
-            if (related_root == null || desc == null || desc.rectTransform == null)
-                return;
             RectTransform host = related_root.parent as RectTransform;
             if (host == null)
-                return;
+                return 0;
 
             Canvas canvas = related_root.GetComponentInParent<Canvas>();
             Camera cam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
                 ? canvas.worldCamera : null;
 
-            Vector3[] dc = new Vector3[4];
-            desc.rectTransform.GetWorldCorners(dc);        //0=左下 1=左上 2=右上 3=右下
-            Vector2 screen = RectTransformUtility.WorldToScreenPoint(cam, dc[0]);
+            //① 现有控件占到的下边缘（相对宿主底边）= 可用空间的顶
+            float top = MeasureOccupiedBottom(host, cam);
+            if (top - RelatedGap < RelatedStripH)
+                GrowPanel(RelatedStripH - (top - RelatedGap));   //底部不够高 → 把弹窗向下加高
+            if (panel_extra > 0f)
+                top = MeasureOccupiedBottom(host, cam);           //加高后重新量（顶边没动，控件在屏幕上的位置不变）
+
+            //② 宽度自适应：装得下几个就显示几个（宿主再窄也至少留 1 个，条宽最后由下面夹进内宽）
+            float avail_w = host.rect.width - RelatedPad * 2f;
+            int fit = Mathf.FloorToInt((avail_w - 12f) / RelatedSlotW);
+            if (fit < 1)
+                fit = 1;
+            int shown = Mathf.Clamp(Mathf.Min(want, fit), 0, RelatedMaxShow);
+
+            //③ 落位：贴宿主左下角，上沿 = 现有控件的下方
+            float need_w = 12f + shown * RelatedSlotW + RelatedPad;
+            related_root.sizeDelta = new Vector2(Mathf.Max(need_w, RelatedSlotW + 12f), RelatedStripH);
+            related_root.anchoredPosition = new Vector2(RelatedPad, top - RelatedGap);
+            return shown;
+        }
+
+        /// <summary>现有控件（卡图 / 描述 / 买卖区）里最低的下边缘，返回"相对宿主底边的偏移"；
+        /// 一个都量不到 → 返回宿主高度（= 整块都能用）。</summary>
+        private float MeasureOccupiedBottom(RectTransform host, Camera cam)
+        {
+            float lowest = host.rect.height;
+            bool any = false;
+            lowest = TakeLowest(lowest, ref any, card_ui != null ? card_ui.transform as RectTransform : null, host, cam);
+            lowest = TakeLowest(lowest, ref any, desc != null ? desc.rectTransform : null, host, cam);
+            lowest = TakeLowest(lowest, ref any, trade_area != null ? trade_area.transform as RectTransform : null, host, cam);
+            return any ? Mathf.Max(lowest, 0f) : host.rect.height;
+        }
+
+        private float TakeLowest(float cur, ref bool any, RectTransform child, RectTransform host, Camera cam)
+        {
+            //★只看"自身是否被隐藏"（activeSelf）：ShowCard 是先刷新这条、后 Show()，
+            //  那一刻弹窗整体还没激活，用 activeInHierarchy 会全都量不到 ⇒ 这条会被摆到弹窗顶上。
+            if (child == null || !child.gameObject.activeSelf)
+                return cur;
+            Vector3[] c = new Vector3[4];
+            child.GetWorldCorners(c);                            //0=左下 1=左上 2=右上 3=右下
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(cam, c[0]);
             Vector2 local;
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(host, screen, cam, out local))
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(host, screen, cam, out local))
+                return cur;
+            any = true;
+            return Mathf.Min(cur, local.y - host.rect.min.y);     //换算成"相对宿主底边"
+        }
+
+        /// <summary>把弹窗向下加高 deficit（**顶边不动**）。尺寸被布局组件驱动时直接放弃加高。</summary>
+        private void GrowPanel(float deficit)
+        {
+            if (deficit <= 0f)
+                return;
+            if (panel_rect == null)
             {
-                //localPoint 是"相对 host 轴心"的坐标 → 换算成"相对 anchor(左下角)"：减去 rect.min
-                Vector2 bottom_left_relative = local - host.rect.min;
-                related_root.anchoredPosition = bottom_left_relative + new Vector2(0f, -6f);
+                panel_rect = FindPanelRect();
+                if (panel_rect == null)
+                    return;
+                if (panel_rect.GetComponent<LayoutGroup>() != null || panel_rect.GetComponent<ContentSizeFitter>() != null)
+                {
+                    panel_rect = null;      //尺寸被别人管着：改了也会被覆盖，索性不改
+                    return;
+                }
+                base_panel_h = panel_rect.sizeDelta.y;
+                base_panel_pos_y = panel_rect.anchoredPosition.y;
             }
+
+            float target = Mathf.Clamp(panel_extra + deficit, 0f, RelatedStripH + 16f);
+            if (Mathf.Approximately(target, panel_extra))
+                return;
+            panel_extra = target;
+            panel_rect.sizeDelta = new Vector2(panel_rect.sizeDelta.x, base_panel_h + panel_extra);
+            //pivot 不在中轴上时改高度会同时带动上下两边 → 补回偏移，让**顶边留在原位**
+            panel_rect.anchoredPosition = new Vector2(panel_rect.anchoredPosition.x,
+                base_panel_pos_y - (1f - panel_rect.pivot.y) * panel_extra);
+        }
+
+        /// <summary>还原弹窗原高（这张卡没有相关卡牌时）</summary>
+        private void RestorePanelHeight()
+        {
+            if (panel_rect == null || panel_extra <= 0f)
+                return;
+            panel_extra = 0f;
+            panel_rect.sizeDelta = new Vector2(panel_rect.sizeDelta.x, base_panel_h);
+            panel_rect.anchoredPosition = new Vector2(panel_rect.anchoredPosition.x, base_panel_pos_y);
+        }
+
+        /// <summary>要加高的那个矩形：优先本组件；本组件不在面板根上时，往上找第一个"同时装得下描述与买卖区"的父级。</summary>
+        private RectTransform FindPanelRect()
+        {
+            RectTransform self = transform as RectTransform;
+            RectTransform anchor = desc != null ? desc.rectTransform : null;
+            if (self == null || anchor == null || anchor == self || anchor.IsChildOf(self))
+                return self;
+
+            RectTransform other = trade_area != null ? trade_area.transform as RectTransform : null;
+            RectTransform p = anchor.parent as RectTransform;
+            while (p != null)
+            {
+                if (other == null || other == p || other.IsChildOf(p))
+                    return p;
+                p = p.parent as RectTransform;
+            }
+            return self;
         }
 
         private async void BuyCardTest()
