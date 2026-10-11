@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using TcgEngine;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
