@@ -140,6 +140,9 @@ namespace TcgEngine.UI
                 Text txt = btn.GetComponentInChildren<Text>();
                 if (txt != null)
                 {
+                    //★左对齐：行内容比列表列还宽，原来是居中对齐 ⇒ 两头的字被挤出列外裁掉，
+                    //  只剩中间的 [id]（用户实报"左边是什么鬼"）。左对齐后至少能看见完整标题。
+                    txt.alignment = TextAnchor.MiddleLeft;
                     string tag = keywords[i].HasMechanic ? "" : "（纯展示）";
                     int kv = keywords[i].GetNativeValue();
                     txt.text = $"{keywords[i].title}  [{keywords[i].id}]{(kv > 0 ? "  +" + kv : "")}{tag}";
