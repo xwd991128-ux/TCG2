@@ -360,6 +360,31 @@ namespace TcgEngine.Workshop
             return true;
         }
 
+        /// <summary>求值入口的「整局生效」口（端口名 scope，Boolean 输入口）。
+        /// ★与 <see cref="IsEntryPortMet"/> 的**极性相反**：那个是"不接线=放行(true)"，这个是"**不接线=false**"
+        ///   （= 这条图不当作整局规则，只属于本卡自己）。
+        /// 用户口径（2026-10-10）：作用范围从"下拉字段"改成"口" —— 不接线就不限制任何目标，
+        ///   想整局生效必须显式接线；旧的下拉字段（含缺字段默认"全部卡牌"）运行时**不再读取**。
+        /// 多个同名入口时：任一条接线且为真 = 整局生效（与 limit 的"全真才放行"不同，这里取"任一为真"）。</summary>
+        public static bool IsScopePortWiredTrue(GameLogic logic, GraphData graph, string entry_action,
+            Card caster, Card target_card, Player target_player)
+        {
+            if (graph == null || graph.nodes == null || string.IsNullOrEmpty(entry_action))
+                return false;
+            for (int i = 0; i < graph.nodes.Count; i++)
+            {
+                GraphNode n = graph.nodes[i];
+                if (n == null || n.type != GraphNodeType.Event || n.action != entry_action)
+                    continue;
+                GraphPin pin = graph.GetPinByName(n.id, "scope");
+                if (pin == null || graph.GetIncomingLink(n.id, pin.id) == null)
+                    continue;   //没接线 → 不整局（回到"只属于本卡"）
+                if (IsEventConditionMet(logic, graph, n, caster, target_card, target_player, "scope"))
+                    return true;
+            }
+            return false;
+        }
+
         /// 事件入口「条件(cond)」输入口的筛选求值：无连线=放行；连线的布尔源为假=该入口本次不触发。
         /// 专用求值：卡牌相等/卡牌归属/玩家归属（需事件上下文，读 cur_event/caster 判定"己方/敌方"）；
         /// 其余布尔源（常量/102032 卡牌类型判断等）走通用条件链。</summary>

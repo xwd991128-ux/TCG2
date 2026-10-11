@@ -457,6 +457,28 @@ namespace TcgEngine.UI
                 all_presets_cache.AddRange(BuildProjectCardPresets());
                 //★玩家自定义节点（分类「自定义」/事件）：动作/函数各 1 个；事件=「XX时」「XX后」两个入口
                 all_presets_cache.AddRange(BuildCustomNodePresets());
+
+                //★节点库收尾（用户要求，2026-10-10）：
+                //  ① 同名去重：同一个名字在库里只留**靠后加入的那一份**。加库顺序 = NodeDoc(zmcs) 全量 → 手写入口预设，
+                //     所以「被攻击时」这种"NodeDoc 与手写入口同名"的情况，库里只留手写那份（它带【被攻击限制】口），
+                //     不再出现一屏两个同名入口（用户实报"重复了"）。
+                //  ② 明确屏蔽 NodeDoc 的「造成伤害」(202001)：它与项目内「造成伤害或法伤」重复、且未接入执行（库里一直灰显），
+                //     用户要求从列表中移除；旧图里已画好的该节点不受影响（执行按 action 走，与预设数据无关）。
+                //  只改**库列表的可见性**（p.hidden），不删数据、不改行为。
+                HashSet<string> lib_seen_title = new HashSet<string>();
+                for (int pi = all_presets_cache.Count - 1; pi >= 0; pi--)
+                {
+                    NodePreset pp = all_presets_cache[pi];
+                    if (pp == null)
+                        continue;
+                    if (pp.title == "造成伤害")
+                    {
+                        pp.hidden = true;
+                        continue;
+                    }
+                    if (!lib_seen_title.Add(pp.title))
+                        pp.hidden = true;   //名字重复 → 保留靠后的（手写预设），隐藏靠前的（NodeDoc）
+                }
             }
             return all_presets_cache;
         }
@@ -1220,8 +1242,12 @@ namespace TcgEngine.UI
             //     · 攻击时 / 被攻击时：它们的"限制口"历史口径是**整局**（缺字段=整局）→ 显示必须是「全部卡牌」
             //     · 其它事件入口：缺字段=**仅本卡**（保护内置迁移图）→ 显示「仅本卡」
             //  ⚠全局运行时图里「卡牌」口 = 本次事件主体，**无法**引用"规则所属的那张卡"；只想管本卡 → 选「仅本卡」。
-            string scope_def = (action == "OnAttack" || action == "OnBeforeDefend") ? "全部卡牌" : "仅本卡";
-            p.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, scope_def));
+            //★作用范围从"下拉字段"改成"口"（2026-10-10 用户口径）：入口上加一个 Boolean 输入口「整局生效」。
+            //  **不接线 = 不整局**（这条图只属于本卡自己；攻击限制口也随之不生效）；
+            //  想当整局规则（任何卡的任何一次攻击/被攻击都要满足）必须**显式接线**。
+            //  旧的下拉字段（含"缺字段默认全部卡牌"）已废弃：运行时不再读取它 ——
+            //  那正是"卡池里躺着就全场生效"这个坑的来源。
+            p.pins.Add(new PinDef("scope", "整局生效", NodeValueType.Boolean, false));
             p.fields.Add(EnumField("tags", "标签列表", new string[] { "无", "战吼", "亡语" }, "无"));
             p.fields.Add(new FieldDef("zones", "生效区域", FieldEditType.MultiOptions,
                 new string[] { "任意", "战场", "手牌", "牌库", "墓地", "装备区", "奥秘区", "英雄" },
@@ -1465,8 +1491,8 @@ namespace TcgEngine.UI
             evn.supported = true;
             evn.fields.Add(new FieldDef("event_name", "监听事件", FieldEditType.Dropdown,
                 new string[] { "回合结束", "回合开始", "打出牌", "攻击时", "死亡时", "抽到时" }, "回合结束"));
-            //★作用范围：与其它事件入口一致（缺字段=仅本卡，保护内置迁移图；新拖入由创建处写「全部卡牌」）
-            evn.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, "仅本卡"));
+            //★作用范围改成口（2026-10-10）：不接线=不整局（只属于本卡自己），接线才整局生效
+            evn.pins.Add(new PinDef("scope", "整局生效", NodeValueType.Boolean, false));
             evn.pins.Add(new PinDef("out", "动作", NodeValueType.Flow, true));
             //对齐醉梦传说：入口不再平铺自身/目标/玩家数据口，事件数据走「当前事件→获取变量」
             presets.Add(evn);
@@ -1498,8 +1524,8 @@ namespace TcgEngine.UI
                 np.pins.Add(new PinDef("target", "目标", NodeValueType.Object, true));
                 np.fields.Add(new FieldDef("tags", "效果标签", FieldEditType.Dropdown, new string[] { "无", "战吼", "亡语" }, "无"));
                 np.fields.Add(IntField("priority", "优先级", "0"));
-                //★作用范围：同其它事件入口（缺字段=仅本卡；新拖入由创建处写「全部卡牌」）
-                np.fields.Add(EnumField("scope", "作用范围", new string[] { "全部卡牌", "仅本卡" }, "仅本卡"));
+                //★作用范围改成口（2026-10-10）：不接线=不整局，接线才整局生效
+                np.pins.Add(new PinDef("scope", "整局生效", NodeValueType.Boolean, false));
                 presets.Add(np);
             }
 
@@ -2654,16 +2680,8 @@ namespace TcgEngine.UI
                 if (!HasField(node, fd.name))
                     node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
             }
-            //★新拖入的事件类入口：作用范围显式写「全部卡牌」（发动主体不受限，用户口径）。
-            //  预设默认值必须是「仅本卡」以便旧节点显示与行为一致 → 新节点的全局默认在这里补。
-            if (node.type == GraphNodeType.Event
-                && node.action != "ActivateEffect" && node.action != "ActivateAbility"
-                && node.action != "PassiveEffect" && node.action != "AuraEffect")
-            {
-                for (int i = 0; i < node.fields.Count; i++)
-                    if (node.fields[i] != null && node.fields[i].name == "scope")
-                        node.fields[i].value = "全部卡牌";
-            }
+            //（已废弃）作用范围不再写成字段：整局生改由入口上的 Boolean 口「整局生效」控制，
+            //  默认**不接线 = 不整局**（用户口径 2026-10-10：不连值就不限制任何目标）。
             graph.nodes.Add(node);
             CreateNodeUI(node);
             RecordRecent(preset.action);
@@ -8935,16 +8953,7 @@ namespace TcgEngine.UI
                 if (!HasField(node, fd.name))
                     node.fields.Add(new FieldCustomData { name = fd.name, value = fd.def ?? "" });
             }
-            //★新拖入的事件类入口：作用范围显式写「全部卡牌」（发动主体不受限）；旧节点因为没有该字段，
-            //  引擎仍按「仅本卡」处理（与预设默认值一致，显示与行为一致）。
-            if (node.type == GraphNodeType.Event
-                && node.action != "ActivateEffect" && node.action != "ActivateAbility"
-                && node.action != "PassiveEffect" && node.action != "AuraEffect")
-            {
-                for (int i = 0; i < node.fields.Count; i++)
-                    if (node.fields[i] != null && node.fields[i].name == "scope")
-                        node.fields[i].value = "全部卡牌";
-            }
+            //（已废弃）作用范围不再写成字段：整局生效改由入口上的 Boolean 口「整局生效」控制，默认不接线=不整局。
 
             PushUndo();   //结构操作：记录撤销点
             graph.nodes.Add(node);

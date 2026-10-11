@@ -1014,11 +1014,24 @@ namespace TcgEngine.Workshop
             return MapGraphTrigger(action);
         }
 
-        /// <summary>入口是否"作用范围=全部卡牌"。**缺字段=仅本卡**（旧数据/内置迁移图），
-        /// 只有编辑器里显式选了"全部卡牌"（新拖入的默认值）才算全局。</summary>
-        public static bool IsGlobalScopeEntry(GraphNode n)
+        /// <summary>入口是否"整局生效"：★2026-10-10 改成**看 scope 口有没有接线**（用户口径：
+        /// 作用范围做成口，不接线 = 不整局/不限制任何目标，想整局必须显式接线）。
+        /// 旧数据里的「作用范围」下拉字段**不再读取**：
+        ///   · 缺字段 = 仅本卡（与老口径一致）；
+        ///   · 显式写了"全部卡牌"的旧节点也一律按"仅本卡"处理 —— "缺字段/默认=整局"正是"卡池里躺着就全场生效"那个坑。
+        /// 值的真假在判定时求值（见 NodeDocRunner.IsScopePortWiredTrue 与 Game.CanAttackTargetByRules 的全局段）。</summary>
+        public static bool IsGlobalScopeEntry(GraphData g, GraphNode n)
         {
-            return n != null && GraphRuntime.GetFieldString(n, "scope", "仅本卡") == "全部卡牌";
+            return IsScopePortWired(g, n);
+        }
+
+        /// <summary>scope 口（显示名「整局生效」）是否**接线**。静态可判（导入/编译期用），值本身在判定时求值。</summary>
+        public static bool IsScopePortWired(GraphData g, GraphNode n)
+        {
+            if (g == null || n == null || string.IsNullOrEmpty(n.id))
+                return false;
+            GraphPin pin = g.GetPinByName(n.id, "scope");
+            return pin != null && g.GetIncomingLink(n.id, pin.id) != null;
         }
 
         /// <summary>登记一条"全局事件入口"（按触发器归组；同图同入口去重）</summary>
@@ -1074,16 +1087,18 @@ namespace TcgEngine.Workshop
 
                         //★作用范围=全部卡牌 的事件入口 → 登记为"全局入口图"（任何卡满足条件都算；
                         //  主动/起动式/被动/光环 这些是卡自身语义，不参与全局登记）。
-                        if (IsGlobalScopeEntry(n)
+                        if (IsGlobalScopeEntry(g, n)
                             && n.action != "ActivateEffect" && n.action != "ActivateAbility"
                             && n.action != "PassiveEffect" && n.action != "AuraEffect")
                             RegisterGlobalEntryGraph(n, g);
 
                         if (n.action != "OnAttack" && n.action != "OnBeforeDefend")
                             continue;
-                        //限制口：**缺作用范围=整局**（历史行为/用户口径），但显式写了「仅本卡」→ 只对这张卡生效
-                        //（卡自身那条路径由 CardData.attack_graph 负责）
-                        if (GraphRuntime.GetFieldString(n, "scope", "全部卡牌") == "仅本卡")
+                        //★作用范围改成"口"（2026-10-10 用户口径）：scope 口**不接线 = 不整局**
+                        //  （这条图只属于本卡自己，由 CardData.attack_graph 那条路负责）；
+                        //  只有**显式接线**才登记为整局规则，接线后的真假在判定时求值（Game.CanAttackTargetByRules 全局段）。
+                        //  旧的下拉字段（含"缺字段=整局"、显式"全部卡牌"）运行时不再读取 —— 那正是"卡池里躺着就全场生效"的坑。
+                        if (!IsScopePortWired(g, n))
                             continue;
                         GraphPin pin = g.GetPinByName(n.id, "limit");
                         if (pin == null || g.GetIncomingLink(n.id, pin.id) == null)
@@ -1255,7 +1270,7 @@ namespace TcgEngine.Workshop
 
                 //★作用范围=全部卡牌 的入口：走"全局入口"通道（任何卡触发都跑），
                 //  不再编译成本卡自己的能力 —— 否则同一张卡触发时会跑两遍。
-                if (IsGlobalScopeEntry(ev)
+                if (IsGlobalScopeEntry(graph, ev)
                     && ev.action != "ActivateEffect" && ev.action != "ActivateAbility"
                     && ev.action != "PassiveEffect" && ev.action != "AuraEffect")
                     continue;
